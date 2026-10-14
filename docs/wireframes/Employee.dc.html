@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Ажилтны хуудас</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="min-height: 1180px; background: #f4f4f2; font-family: 'IBM Plex Sans', sans-serif; color: #1c1c1a; font-size: 14px">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 0 24px; height: 56px; background: #1c1c1a; color: #f4f4f2">
+<strong style="font-size: 16px">Info HR</strong>
+<nav style="display: flex; gap: 20px; flex-wrap: wrap">
+<a href="Main.dc.html" style="color: #ffffff; font-weight: 600; text-decoration: none; border-bottom: 2px solid #f4f4f2; padding: 16px 0">Ажилтан</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Чөлөө</a>
+<a href="Orders.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тушаал</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тохиргоо</a>
+</nav>
+</header>
+<main style="max-width: 1200px; margin: 0 auto; padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #55554f">
+<a href="Main.dc.html">Ажилтан</a><span>/</span><span>Ажилтан 4</span>
+<span style="margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap">
+<a href="EventModal.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid #1d4ed8; color: #1d4ed8; background: #ffffff; border-radius: 6px; text-decoration: none; font-weight: 600">Үйл явдал бүртгэх</a>
+<a href="LeaveModal.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; color: #1c1c1a; background: #ffffff; border-radius: 6px; text-decoration: none">Чөлөө бүртгэх</a>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">Тодорхойлолт</button>
+</span>
+</div>
+<section style="background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 24px; display: flex; flex-wrap: wrap; gap: 24px">
+<div style="width: 112px; height: 112px; border-radius: 8px; background: #dcdcd6; display: flex; align-items: center; justify-content: center; color: #55554f; font-size: 12px">[Зураг]</div>
+<div style="flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 13px; color: #55554f">[Овог] · [Эцэг/эхийн нэр]</div>
+<h1 style="margin: 0; font-size: 26px; font-weight: 600">Ажилтан 4</h1>
+<div style="font-size: 15px">Програмист · Хөгжүүлэлт</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 24px; margin-top: 8px; font-size: 13px">
+<div><span style="color: #55554f">Төлөв</span><br><span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; background: #e3efe4; color: #1f5a2a">Идэвхтэй</span></div>
+<div><span style="color: #55554f">Ажилд орсон</span><br>2021-06-01</div>
+<div><span style="color: #55554f">Туршилт дуусах</span><br>—</div>
+<div><span style="color: #55554f">Ажлын утас</span><br>[Утас]</div>
+<div><span style="color: #55554f">Имэйл</span><br>[имэйл]</div>
+<div><span style="color: #55554f">Удирдлага</span><br>Ажилтан 1</div>
+</div>
+</div>
+<div style="flex: 1 1 220px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-content: start">
+<a href="LeaveModal.dc.html" style="display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid #dcdcd6; border-radius: 6px; text-decoration: none; color: #1c1c1a"><strong style="font-size: 18px">7.5</strong><span style="font-size: 12px; color: #55554f">Чөлөө үлдэгдэл</span></a>
+<a href="Orders.dc.html" style="display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid #dcdcd6; border-radius: 6px; text-decoration: none; color: #1c1c1a"><strong style="font-size: 18px">4</strong><span style="font-size: 12px; color: #55554f">Тушаал</span></a>
+<a href="#docs" style="display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid #dcdcd6; border-radius: 6px; text-decoration: none; color: #1c1c1a"><strong style="font-size: 18px">6</strong><span style="font-size: 12px; color: #55554f">Баримт</span></a>
+<a href="#log" style="display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid #dcdcd6; border-radius: 6px; text-decoration: none; color: #1c1c1a"><strong style="font-size: 18px">5</strong><span style="font-size: 12px; color: #55554f">Үйл явдал</span></a>
+</div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<section style="flex: 999 1 560px; min-width: 0; background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px">
+<div role="tablist" aria-label="Ажилтны мэдээлэл" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #dcdcd6; padding: 0 12px">
+<button type="button" role="tab" aria-selected="true" style="min-height: 44px; padding: 0 12px; border: 0; border-bottom: 2px solid #1d4ed8; background: none; font: inherit; font-weight: 600">Ажил</button>
+<button type="button" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 12px; border: 0; background: none; font: inherit; color: #55554f">Хувийн</button>
+<button type="button" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 12px; border: 0; background: none; font: inherit; color: #55554f">Цалин, даатгал *</button>
+</div>
+<div style="padding: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px">
+<sc-for list="{{work}}" as="f" hint-placeholder-count="10">
+<div style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid #ececE8; padding-bottom: 8px">
+<span style="font-size: 12px; color: #55554f">{{f.k}}</span>
+<span>{{f.v}}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; padding: 0 20px 20px; font-size: 12px; color: #55554f">Албан тушаал, хэлтэс, цалин, төлөв зэргийг шууд засахгүй — «Үйл явдал бүртгэх»-ээр (огноо + шалтгаан + тушаал). * — зөвхөн эрхтэй хэрэглэгчид харагдана. Хувийн таб: регистр, гэр бүл, хаяг, боловсрол. Баримтууд — дээрх «Баримт» товчоор.</p>
+</section>
+<aside id="log" style="flex: 1 1 320px; background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">Түүх</h2>
+<button type="button" style="margin-left: auto; min-height: 36px; padding: 0 12px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit; font-size: 13px">+ Тэмдэглэл</button>
+</div>
+<sc-for list="{{log}}" as="l" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid #ececE8">
+<span style="font-size: 12px; color: #55554f">{{l.meta}}</span>
+<span style="font-weight: 500">{{l.title}}</span>
+<span style="font-size: 13px">{{l.detail}}</span>
+</div>
+</sc-for>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+work: [
+{ k: 'Албан тушаал', v: 'Програмист' },
+{ k: 'Хэлтэс', v: 'Хөгжүүлэлт' },
+{ k: 'Ажилтны төрөл', v: 'Үндсэн, бүтэн цаг' },
+{ k: 'Ажлын хуваарь', v: 'Да–Ба 09:00–18:00' },
+{ k: 'Гэрээний дугаар', v: '[Дугаар]' },
+{ k: 'Гэрээ', v: '2021-06-01 → хугацаагүй' },
+{ k: 'Шууд удирдлага', v: 'Ажилтан 1' },
+{ k: 'Ажилласан жил (нийт)', v: '7 жил' }
+],
+log: [
+{ meta: '2026-09-01 · HR · Тушаал 2026/014', title: 'Албан тушаал дэвшсэн', detail: 'Дадлагажигч → Програмист (хүчинтэй 2026-09-01)' },
+{ meta: '2026-07-10 · Захирал', title: 'Ээлжийн амралт батлагдсан', detail: '2026-07-15 → 2026-07-21, 5 өдөр' },
+{ meta: '2026-03-02 · HR', title: 'Залруулга', detail: 'Утас: [хуучин] → [шинэ] · Шалтгаан: алдаа' },
+{ meta: '2025-12-20 · HR', title: 'Тэмдэглэл', detail: 'Дипломын хуулбар ирүүлсэн' },
+{ meta: '2021-06-01 · HR · Тушаал 2021/032', title: 'Ажилд авсан', detail: 'Туршилтын хугацаа 3 сар' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

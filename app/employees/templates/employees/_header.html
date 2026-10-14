@@ -1,0 +1,29 @@
+{% load hr %}
+<div class="flex items-center gap-5 rounded-xl border border-slate-200 bg-white p-6">
+  <div class="flex flex-col items-center gap-1">
+    {% if employee.photo %}<img src="{{ employee.photo.url }}" alt="" class="h-20 w-20 rounded-full object-cover">
+    {% else %}<div class="flex h-20 w-20 items-center justify-center rounded-full bg-violet-100 text-2xl text-violet-700">{{ employee.given_name|first }}</div>{% endif %}
+    {% if form %}<label class="cursor-pointer text-xs text-violet-700 hover:underline">Зураг солих
+      <input type="file" name="photo" accept="image/*" form="emp-form" class="sr-only" onchange="document.getElementById('photo-chosen').textContent=this.files.length?'Шинэ зураг сонгосон: '+this.files[0].name:''"></label>
+    <span id="photo-chosen" class="max-w-32 truncate text-xs text-slate-500"></span>
+    {% if employee.photo %}<label class="flex items-center gap-1 text-xs text-slate-500"><input type="checkbox" name="photo-clear" form="emp-form" class="h-3 w-3 accent-violet-600">Зураг устгах</label>{% endif %}
+    {% for e in form.photo.errors %}<p class="text-xs text-red-600">{{ e }}</p>{% endfor %}{% endif %}
+  </div>
+  <div class="flex-1">
+    {% if form %}
+    <h1 class="flex gap-2 text-2xl font-semibold">{% field form.family_name "[field-sizing:content] min-w-16" %}{% field form.given_name "[field-sizing:content] min-w-16" %}</h1>
+    {% else %}<h1 class="text-2xl font-semibold">{{ employee.full_name }}</h1>{% endif %}
+    <p class="text-slate-600">{{ row.job.position|default:"" }}{% if row.job %} · {{ row.job.department }}{% endif %}</p>
+    {% if form %}
+    <div class="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-slate-500">
+      <span>{{ employee.code }} ·</span><span class="w-36">{% field form.work_phone %}</span><span>·</span><span class="w-56">{% field form.email %}</span><span>· Ажилд орсон {{ employee.first_hire_date|date:"Y-m-d" }}</span>
+    </div>
+    {% else %}
+    <p class="mt-1 text-sm text-slate-500">{{ employee.code }} · {{ employee.work_phone }}{% if employee.email %} · {{ employee.email }}{% endif %} · Ажилд орсон {{ employee.first_hire_date|date:"Y-m-d" }}</p>
+    {% endif %}
+    <p id="activity-latest" class="mt-1 text-xs text-slate-400">{% include "employees/_activity_latest.html" %}</p>
+  </div>
+  <div class="flex flex-col items-end gap-3 self-start">
+    {% include "employees/_state.html" with state=row.state job=row.job %}
+  </div>
+</div>

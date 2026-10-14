@@ -1,0 +1,115 @@
+# Mongolian JavaScript translations missing from Django's own admin catalog
+# (two-box picker, calendar). Edit here, then run: python scripts/compile_messages.py
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: mn\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Choose %s by selecting them and then select the \"Choose\" arrow button."
+msgstr "%s-ээс сонгоод \"Сонгох\" сум дээр дарна уу."
+
+msgid "Remove %s by selecting them and then select the \"Remove\" arrow button."
+msgstr "Хасах %s-ээ сонгоод \"Хасах\" сум дээр дарна уу."
+
+msgid "Choose all %s"
+msgstr "Бүх %s сонгох"
+
+msgid "Choose selected %s"
+msgstr "Сонгосон %s нэмэх"
+
+msgid "Remove selected %s"
+msgstr "Сонгосон %s хасах"
+
+msgid "Remove all %s"
+msgstr "Бүх %s хасах"
+
+msgid "Type into this box to filter down the list of selected %s."
+msgstr "Сонгосон %s жагсаалтыг шүүхийн тулд энд бичнэ үү."
+
+msgid "(click to clear)"
+msgstr "(дарж арилгах)"
+
+msgid "You have unsaved changes on individual editable fields. If you run an action, your unsaved changes will be lost."
+msgstr "Хадгалаагүй өөрчлөлт байна. Үйлдэл ажиллуулбал эдгээр өөрчлөлт алга болно."
+
+msgid "You have selected an action, but you haven’t saved your changes to individual fields yet. Please click OK to save. You’ll need to re-run the action."
+msgstr "Та үйлдэл сонгосон ч өөрчлөлтөө хадгалаагүй байна. Хадгалахын тулд OK дарна уу. Дараа нь үйлдлээ дахин ажиллуулна."
+
+msgid "You have selected an action, and you haven’t made any changes on individual fields. You’re probably looking for the Go button rather than the Save button."
+msgstr "Та үйлдэл сонгосон бөгөөд өөрчлөлт хийгээгүй байна. Хадгалах биш, Ажиллуулах товчийг дарна уу."
+
+msgid "Jan"
+msgstr "1-р сар"
+
+msgid "Feb"
+msgstr "2-р сар"
+
+msgid "Mar"
+msgstr "3-р сар"
+
+msgid "Apr"
+msgstr "4-р сар"
+
+msgid "Jun"
+msgstr "6-р сар"
+
+msgid "Jul"
+msgstr "7-р сар"
+
+msgid "Aug"
+msgstr "8-р сар"
+
+msgid "Sep"
+msgstr "9-р сар"
+
+msgid "Oct"
+msgstr "10-р сар"
+
+msgid "Nov"
+msgstr "11-р сар"
+
+msgid "Dec"
+msgstr "12-р сар"
+
+msgid "Sunday"
+msgstr "Ням"
+
+msgid "Monday"
+msgstr "Даваа"
+
+msgid "Tuesday"
+msgstr "Мягмар"
+
+msgid "Wednesday"
+msgstr "Лхагва"
+
+msgid "Thursday"
+msgstr "Пүрэв"
+
+msgid "Friday"
+msgstr "Баасан"
+
+msgid "Saturday"
+msgstr "Бямба"
+
+msgid "Sun"
+msgstr "Ня"
+
+msgid "Mon"
+msgstr "Да"
+
+msgid "Tue"
+msgstr "Мя"
+
+msgid "Wed"
+msgstr "Лх"
+
+msgid "Thur"
+msgstr "Пү"
+
+msgid "Fri"
+msgstr "Ба"
+
+msgid "Sat"
+msgstr "Бя"

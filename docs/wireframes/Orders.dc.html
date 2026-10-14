@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Тушаалын бүртгэл</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="min-height: 800px; background: #f4f4f2; font-family: 'IBM Plex Sans', sans-serif; color: #1c1c1a; font-size: 14px">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 0 24px; height: 56px; background: #1c1c1a; color: #f4f4f2">
+<strong style="font-size: 16px">Info HR</strong>
+<nav style="display: flex; gap: 20px; flex-wrap: wrap">
+<a href="Main.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Ажилтан</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Чөлөө</a>
+<a href="#" style="color: #ffffff; font-weight: 600; text-decoration: none; border-bottom: 2px solid #f4f4f2; padding: 16px 0">Тушаал</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тохиргоо</a>
+</nav>
+</header>
+<main style="max-width: 1200px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600">Тушаалын бүртгэл</h1>
+<span style="margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">Excel</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">PDF хэвлэх</button>
+<button type="button" style="min-height: 44px; padding: 0 18px; background: #1d4ed8; color: #ffffff; border: 0; border-radius: 6px; font: inherit; font-weight: 600">+ Тушаал</button>
+</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; border-radius: 22px; background: #ffffff; font: inherit">Он: 2026 ▾</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; border-radius: 22px; background: #ffffff; font: inherit">Төрөл ▾</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; border-radius: 22px; background: #ffffff; font: inherit">Төлөв ▾</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; border-radius: 22px; background: #ffffff; font: inherit">Ажилтан ▾</button>
+</div>
+<div style="overflow-x: auto; background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px">
+<table style="width: 100%; min-width: 820px; border-collapse: collapse">
+<thead>
+<tr style="text-align: left; color: #55554f; font-size: 12px; border-bottom: 1px solid #dcdcd6">
+<th style="padding: 12px 16px; font-weight: 500">Дугаар</th>
+<th style="padding: 12px 16px; font-weight: 500">Огноо</th>
+<th style="padding: 12px 16px; font-weight: 500">Төрөл</th>
+<th style="padding: 12px 16px; font-weight: 500">Ажилтан</th>
+<th style="padding: 12px 16px; font-weight: 500">Хүчинтэй</th>
+<th style="padding: 12px 16px; font-weight: 500">Төлөв</th>
+<th style="padding: 12px 16px; font-weight: 500">Файл</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+<tr style="border-bottom: 1px solid #ececE8">
+<td style="padding: 12px 16px; font-weight: 500">{{r.no}}</td>
+<td style="padding: 12px 16px">{{r.date}}</td>
+<td style="padding: 12px 16px">{{r.type}}</td>
+<td style="padding: 12px 16px"><a href="Employee.dc.html">{{r.emp}}</a></td>
+<td style="padding: 12px 16px">{{r.eff}}</td>
+<td style="padding: 12px 16px"><span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; background: {{r.bg}}; color: {{r.fg}}">{{r.st}}</span></td>
+<td style="padding: 12px 16px; color: #55554f">{{r.file}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; color: #55554f; font-size: 12px">Дугаар нь гаргах үед олгогдоно (ноорог дугааргүй). Гаргасан тушаалыг засахгүй — цуцлаад шинээр гаргана; хоёулаа бүртгэлд үлдэнэ.</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() {
+var S = {
+signed: { st: 'Гарын үсэгтэй', bg: '#e3efe4', fg: '#1f5a2a' },
+issued: { st: 'Гаргасан', bg: '#dde7fb', fg: '#1e3a8a' },
+draft: { st: 'Ноорог', bg: '#ececE8', fg: '#3d3d39' },
+cancel: { st: 'Цуцалсан', bg: '#f8e1e1', fg: '#8a1c1c' }
+};
+var d = [
+['—', '2026-10-13', 'Ээлжийн амралт', 'Ажилтан 4', '2026-11-09', 'draft', '—'],
+['2026/016', '2026-10-01', 'Цалин өөрчлөх', 'Ажилтан 5', '2026-10-01', 'issued', 'PDF'],
+['2026/015', '2026-09-28', 'Ажилд авах', 'Ажилтан 8', '2026-10-01', 'signed', 'PDF · Скан'],
+['2026/014', '2026-08-25', 'Албан тушаал дэвшүүлэх', 'Ажилтан 4', '2026-09-01', 'signed', 'PDF · Скан'],
+['2026/013', '2026-08-20', 'Албан тушаал дэвшүүлэх', 'Ажилтан 4', '2026-09-01', 'cancel', 'PDF'],
+['2026/012', '2026-07-10', 'Ээлжийн амралт', 'Ажилтан 4', '2026-07-15', 'signed', 'PDF · Скан'],
+['2026/011', '2026-06-30', 'Ажлаас чөлөөлөх', 'Ажилтан 9', '2026-07-15', 'signed', 'PDF · Скан']
+];
+return { rows: d.map(function (r) { var s = S[r[5]]; return { no: r[0], date: r[1], type: r[2], emp: r[3], eff: r[4], st: s.st, bg: s.bg, fg: s.fg, file: r[6] }; }) };
+}
+}
+</script>
+</body>
+</html>

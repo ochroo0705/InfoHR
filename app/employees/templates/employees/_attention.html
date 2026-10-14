@@ -1,0 +1,8 @@
+{% if attention %}
+<div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+  <h2 class="font-semibold mb-1">Анхаарах ({{ attention|length }})</h2>
+  <ul class="space-y-0.5">
+    {% for a in attention %}<li><a href="{% url 'employees:detail' a.employee.pk %}" class="font-medium underline">{{ a.employee.full_name }}</a> — {{ a.text }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}

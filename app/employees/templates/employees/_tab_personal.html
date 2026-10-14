@@ -1,0 +1,27 @@
+{% load hr %}
+<dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
+  <div><dt class="text-slate-500">Регистрийн дугаар</dt><dd>{% if form %}{% field form.register_no %}{% else %}{{ employee.register_no }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Төрсөн огноо</dt><dd>{% if form %}{% field form.birth_date %}{% else %}{{ employee.birth_date|date:"Y-m-d" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хүйс</dt><dd>{% if form %}{% field form.gender %}{% else %}{{ employee.get_gender_display }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Ургийн овог</dt><dd>{% if form %}{% field form.clan_name %}{% else %}{{ employee.clan_name|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Иргэншил</dt><dd>{% if form %}<span class="flex items-center gap-3">{% field form.citizenship %}<label class="flex shrink-0 items-center gap-1">{% field form.is_foreigner %}гадаад</label></span>{% else %}{{ employee.citizenship }}{% if employee.is_foreigner %} (гадаад){% endif %}{% endif %}</dd></div>
+  {% if form %}<div><dt class="text-slate-500">Гадаад паспортын дугаар</dt><dd>{% field form.passport_no %}</dd></div>{% endif %}
+  <div><dt class="text-slate-500">Гэрлэлтийн байдал</dt><dd>{% if form %}{% field form.marital_status %}{% else %}{{ employee.get_marital_status_display|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хувийн утас</dt><dd>{% if form %}{% field form.private_phone %}{% else %}{{ employee.private_phone|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хаяг</dt><dd>{% if form %}{% field form.address %}{% else %}{{ employee.address|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Яаралтай үед</dt><dd>{% if form %}<span class="flex gap-2">{% field form.emergency_name %}{% field form.emergency_phone "w-32" %}</span>{% else %}{{ employee.emergency_name|default:"—" }} {{ employee.emergency_phone }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Өмнөх ажилласан</dt><dd>{% if form %}<span class="flex items-baseline gap-1">{% field form.prior_service_years "w-14" %}жил {% field form.prior_service_months "w-14" %}сар</span>{% else %}{{ employee.prior_service_years }} жил {{ employee.prior_service_months }} сар{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Цусны бүлэг</dt><dd>{% if form %}{% field form.blood_type %}{% else %}{{ employee.get_blood_type_display|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Нийгмийн гарал</dt><dd>{% if form %}{% field form.social_origin %}{% else %}{{ employee.social_origin|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Цэргийн алба</dt><dd>{% if form %}{% field form.military_service %}{% else %}{{ employee.get_military_service_display|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Орон байрны нөхцөл</dt><dd>{% if form %}{% field form.housing_condition %}{% else %}{{ employee.housing_condition|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Амьжиргааны түвшин</dt><dd>{% if form %}{% field form.living_standard %}{% else %}{{ employee.living_standard|default:"—" }}{% endif %}</dd></div>
+</dl>
+<h3 class="mt-8 mb-2 font-medium">Гэр бүл {% if can_manage %}<button hx-get="{% url 'employees:family' employee.pk %}" hx-target="#modal" class="ml-2 text-sm font-normal text-violet-700 hover:underline">Засах</button>{% endif %}</h3>
+<ul class="text-sm">{% for m in employee.family.all %}<li>{{ m.name }} — {{ m.relation }}{% if m.birth_year %}, {{ m.birth_year }}{% endif %}</li>{% empty %}<li class="text-slate-500">—</li>{% endfor %}</ul>
+<h3 class="mt-6 mb-2 font-medium">Боловсрол {% if can_manage %}<button hx-get="{% url 'employees:education' employee.pk %}" hx-target="#modal" class="ml-2 text-sm font-normal text-violet-700 hover:underline">Засах</button>{% endif %}</h3>
+<ul class="text-sm">{% for e in employee.education.all %}<li>{{ e.school }}{% if e.degree %}, {{ e.degree }}{% endif %}{% if e.field %}, {{ e.field }}{% endif %}{% if e.graduation_year %} ({{ e.graduation_year }}){% endif %}</li>{% empty %}<li class="text-slate-500">—</li>{% endfor %}</ul>
+<h3 class="mt-6 mb-2 font-medium">Авьяас {% if can_manage %}<button hx-get="{% url 'employees:talents' employee.pk %}" hx-target="#modal" class="ml-2 text-sm font-normal text-violet-700 hover:underline">Засах</button>{% endif %}</h3>
+<ul class="text-sm">{% for t in employee.talents.all %}<li>{{ t.name }}{% if t.trained_year %}, {{ t.trained_year }}{% endif %}{% if t.description %}, {{ t.description }}{% endif %}</li>{% empty %}<li class="text-slate-500">—</li>{% endfor %}</ul>
+<h3 class="mt-6 mb-2 font-medium">Олгосон бэлэг {% if can_manage %}<button hx-get="{% url 'employees:gifts' employee.pk %}" hx-target="#modal" class="ml-2 text-sm font-normal text-violet-700 hover:underline">Засах</button>{% endif %}</h3>
+<ul class="text-sm">{% for g in employee.gifts.all %}<li>{{ g.given_date|date:"Y-m-d" }} — {{ g.gift_type }}{% if g.child_count is not None %}, {{ g.child_count }} хүүхэд{% endif %}{% if g.amount is not None %}, {{ g.amount|floatformat:0 }} ₮{% endif %}{% if g.note %}, {{ g.note }}{% endif %}</li>{% empty %}<li class="text-slate-500">—</li>{% endfor %}</ul>

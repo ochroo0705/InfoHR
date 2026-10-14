@@ -1,0 +1,27 @@
+# Secrets and local config
+.env
+# Old ERP database and copies: never commit
+db/
+*.fdb
+*.FDB
+# Python
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+# Django
+app/staticfiles/
+app/media/
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+
+# Build-workflow scratch (ledgers, snapshots)
+.superpowers/
+tools/
+
+# Markdown docs are kept local only, out of git (user decision 2026-10-14)
+*.md

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Чөлөө</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="min-height: 1100px; background: #f4f4f2; font-family: 'IBM Plex Sans', sans-serif; color: #1c1c1a; font-size: 14px">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 0 24px; height: 56px; background: #1c1c1a; color: #f4f4f2">
+<strong style="font-size: 16px">Info HR</strong>
+<nav style="display: flex; gap: 20px; flex-wrap: wrap">
+<a href="Main.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Ажилтан</a>
+<a href="#" style="color: #ffffff; font-weight: 600; text-decoration: none; border-bottom: 2px solid #f4f4f2; padding: 16px 0">Чөлөө</a>
+<a href="Orders.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тушаал</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тохиргоо</a>
+</nav>
+</header>
+<main style="max-width: 1200px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600">Чөлөө</h1>
+<span style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px">
+<a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; color: #1c1c1a; text-decoration: none">Ээлжийн амралтын хуваарь</a>
+<a href="LeaveModal.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: #1d4ed8; color: #ffffff; border-radius: 6px; text-decoration: none; font-weight: 600">+ Чөлөө бүртгэх</a>
+</span>
+</div>
+
+<section aria-labelledby="pend" style="background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px">
+<h2 id="pend" style="margin: 0; padding: 14px 16px; font-size: 15px; font-weight: 600; border-bottom: 1px solid #dcdcd6">Батлах хүлээгдэж буй (2)</h2>
+<sc-for list="{{pending}}" as="p" hint-placeholder-count="2">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 12px 16px; border-bottom: 1px solid #ececE8">
+<div style="flex: 1 1 200px"><a href="Employee.dc.html" style="font-weight: 500">{{p.name}}</a><br><span style="font-size: 13px; color: #55554f">{{p.type}}</span></div>
+<div style="flex: 1 1 200px">{{p.dates}}<br><span style="font-size: 13px; color: #55554f">{{p.days}} · үлдэгдэл дараа нь {{p.after}}</span></div>
+<div style="flex: 1 1 160px; font-size: 13px; color: {{p.warnColor}}">{{p.warn}}</div>
+<span style="display: flex; gap: 8px">
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">Татгалзах</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 0; background: #1d4ed8; color: #ffffff; border-radius: 6px; font: inherit; font-weight: 600">Батлах</button>
+</span>
+</div>
+</sc-for>
+</section>
+
+<section aria-labelledby="cal" style="background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<button type="button" aria-label="Өмнөх сар" style="width: 44px; height: 44px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">‹</button>
+<h2 id="cal" style="margin: 0; font-size: 15px; font-weight: 600">2026 оны 11 сар</h2>
+<button type="button" aria-label="Дараах сар" style="width: 44px; height: 44px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">›</button>
+<span style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #55554f">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 14px; height: 14px; background: #1d4ed8; border-radius: 3px"></span>Батлагдсан</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 14px; height: 14px; background: #ffffff; border: 2px dashed #1d4ed8; border-radius: 3px; box-sizing: border-box"></span>Хүлээгдэж буй</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 14px; height: 14px; background: #d4d4ce; border-radius: 3px"></span>Амралтын / баярын өдөр</span>
+</span>
+</div>
+<div style="overflow-x: auto">
+<div style="min-width: 1080px; display: flex; flex-direction: column; gap: 2px; font-size: 11px">
+<div style="display: grid; grid-template-columns: 140px repeat(30, minmax(0, 1fr)); gap: 2px; color: #55554f">
+<span></span>
+<sc-for list="{{days}}" as="d" hint-placeholder-count="30"><span style="text-align: center; padding: 4px 0; background: {{d.bg}}">{{d.n}}</span></sc-for>
+</div>
+<sc-for list="{{people}}" as="r" hint-placeholder-count="7">
+<div style="display: grid; grid-template-columns: 140px repeat(30, minmax(0, 1fr)); gap: 2px; align-items: stretch">
+<span style="font-size: 13px; padding: 6px 0">{{r.name}}</span>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="30"><span style="height: 28px; box-sizing: border-box; background: {{c.bg}}; border: {{c.bd}}; border-radius: 3px"></span></sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="hist" style="background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h2 id="hist" style="margin: 0; font-size: 15px; font-weight: 600">Бүх чөлөө</h2>
+<span style="font-size: 13px; color: #55554f">Төрөл, төлөв, ажилтан, хугацаагаар шүүх жагсаалт · Excel татах</span>
+<a href="#" style="margin-left: auto">Нээх →</a>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1100}}'>
+class Component extends DCLogic {
+renderVals() {
+var off = { 1: 1, 7: 1, 8: 1, 14: 1, 15: 1, 21: 1, 22: 1, 28: 1, 29: 1, 26: 1 };
+var days = [];
+for (var i = 1; i <= 30; i++) days.push({ n: i, bg: off[i] ? '#d4d4ce' : 'transparent' });
+var plan = [
+['Ажилтан 1', [], []],
+['Ажилтан 2', [[16, 20]], []],
+['Ажилтан 3', [], [[2, 6]]],
+['Ажилтан 4', [], [[9, 13]]],
+['Ажилтан 5', [[23, 27]], []],
+['Ажилтан 6', [[3, 4]], []],
+['Ажилтан 7', [], []]
+];
+function inR(d, rs) { for (var k = 0; k < rs.length; k++) { if (d >= rs[k][0] && d <= rs[k][1]) return true; } return false; }
+var people = plan.map(function (p) {
+var cells = [];
+for (var d = 1; d <= 30; d++) {
+var appr = inR(d, p[1]), pend = inR(d, p[2]);
+cells.push({
+bg: appr ? '#1d4ed8' : (off[d] ? '#d4d4ce' : '#f4f4f2'),
+bd: pend ? '2px dashed #1d4ed8' : '0'
+});
+}
+return { name: p[0], cells: cells };
+});
+return {
+days: days,
+people: people,
+pending: [
+{ name: 'Ажилтан 4', type: 'Ээлжийн амралт', dates: '11-09 → 11-13', days: '5 ажлын өдөр', after: '2.5', warn: '10 хоногоос дээш үргэлжилсэн амралт аваагүй', warnColor: '#8a4a0b' },
+{ name: 'Ажилтан 3', type: 'Цалингүй чөлөө', dates: '11-02 → 11-06', days: '5 ажлын өдөр', after: '—', warn: 'Давхцал байхгүй', warnColor: '#55554f' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

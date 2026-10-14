@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Тушаал</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Serif:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="min-height: 1100px; background: #f4f4f2; font-family: 'IBM Plex Sans', sans-serif; color: #1c1c1a; font-size: 14px">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 0 24px; height: 56px; background: #1c1c1a; color: #f4f4f2">
+<strong style="font-size: 16px">Info HR</strong>
+<nav style="display: flex; gap: 20px; flex-wrap: wrap">
+<a href="Main.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Ажилтан</a>
+<a href="LeaveList.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Чөлөө</a>
+<a href="Orders.dc.html" style="color: #ffffff; font-weight: 600; text-decoration: none; border-bottom: 2px solid #f4f4f2; padding: 16px 0">Тушаал</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тохиргоо</a>
+</nav>
+</header>
+<main style="max-width: 1200px; margin: 0 auto; padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #55554f">
+<a href="Orders.dc.html">Тушаал</a><span>/</span><span>Ноорог — Шилжүүлэх, Ажилтан 4</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 12px 16px">
+<ol aria-label="Төлөв" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; font-size: 13px">
+<li style="padding: 6px 12px; border-radius: 14px; background: #1c1c1a; color: #ffffff; font-weight: 600">Ноорог</li>
+<li style="padding: 6px 12px; border-radius: 14px; background: #ececE8; color: #55554f">Гаргасан</li>
+<li style="padding: 6px 12px; border-radius: 14px; background: #ececE8; color: #55554f">Гарын үсэгтэй</li>
+</ol>
+<span style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">Устгах (ноорог)</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">PDF урьдчилж харах</button>
+<button type="button" style="min-height: 44px; padding: 0 18px; border: 0; background: #1d4ed8; color: #ffffff; border-radius: 6px; font: inherit; font-weight: 600">Гаргах (дугаар олгох)</button>
+</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+<section aria-label="Тушаалын мэдээлэл" style="flex: 1 1 340px; background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div><span style="font-size: 12px; color: #55554f">Дугаар</span><br><span style="color: #55554f">Гаргах үед олгоно</span></div>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Огноо</span><input type="date" value="2026-10-20" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<div><span style="font-size: 12px; color: #55554f">Төрөл</span><br>Шилжүүлэх</div>
+<div><span style="font-size: 12px; color: #55554f">Хүчинтэй</span><br>2026-11-01</div>
+<div><span style="font-size: 12px; color: #55554f">Ажилтан</span><br><a href="Employee.dc.html">Ажилтан 4</a></div>
+<div><span style="font-size: 12px; color: #55554f">Үйл явдал</span><br>Хөгжүүлэлт → [Шинэ хэлтэс]</div>
+</div>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Хуулийн үндэслэл</span><input type="text" value="[Хөдөлмөрийн тухай хуулийн __ дугаар зүйлийн __]" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Тушаах хэсэг (загвараас)</span><textarea rows="6" style="padding: 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; resize: vertical">1. [Ажилтан 4]-ийг 2026 оны 11 дүгээр сарын 01-ний өдрөөс эхлэн [Шинэ хэлтэс]-т шилжүүлсүгэй.
+2. Тушаалын биелэлтэд хяналт тавьж ажиллахыг [Хүний нөөц]-д үүрэг болгосугай.</textarea></label>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; font-size: 13px">
+<div><span style="color: #55554f">Гарын үсэг зурах</span><br>[Захирлын нэр], Захирал</div>
+<div><span style="color: #55554f">Загвар</span><br>Шилжүүлэх v2 · <a href="#">солих</a></div>
+</div>
+<div style="border: 1px dashed #8a8a85; border-radius: 6px; padding: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #55554f">
+<span>Гарын үсэгтэй скан (PDF, JPG)</span>
+<button type="button" disabled style="margin-left: auto; min-height: 40px; padding: 0 12px; border: 1px solid #dcdcd6; background: #f4f4f2; color: #8a8a85; border-radius: 6px; font: inherit">Гаргасны дараа оруулна</button>
+</div>
+<p style="margin: 0; font-size: 12px; color: #55554f">Гаргасан тушаалыг засахгүй. Өөрчлөх бол «Цуцлах» (шалтгаантай) → шинэ тушаал.</p>
+</section>
+<section aria-label="Урьдчилж харах" style="flex: 999 1 560px; min-width: 0; background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 24px; display: flex; justify-content: center">
+<div style="width: 100%; max-width: 560px; aspect-ratio: 1 / 1.414; border: 1px solid #dcdcd6; padding: 48px 44px; box-sizing: border-box; font-family: 'IBM Plex Serif', serif; font-size: 13px; display: flex; flex-direction: column; gap: 14px">
+<div style="text-align: center; font-weight: 600">[КОМПАНИЙН НЭР]-ИЙН ЗАХИРЛЫН ТУШААЛ</div>
+<div style="display: flex; justify-content: space-between"><span>2026 оны __ сарын __</span><span>Дугаар ____</span><span>Улаанбаатар</span></div>
+<div style="text-align: center; font-weight: 600">Ажилтан шилжүүлэх тухай</div>
+<p style="margin: 0">[Хуулийн үндэслэл]-ийг үндэслэн ТУШААХ нь:</p>
+<p style="margin: 0">1. [Ажилтан 4]-ийг 2026 оны 11 дүгээр сарын 01-ний өдрөөс эхлэн [Шинэ хэлтэс]-т шилжүүлсүгэй.</p>
+<p style="margin: 0">2. Тушаалын биелэлтэд хяналт тавьж ажиллахыг [Хүний нөөц]-д үүрэг болгосугай.</p>
+<div style="margin-top: auto; display: flex; justify-content: space-between"><span>ЗАХИРАЛ</span><span>[Нэр]</span></div>
+<div style="text-align: center; color: #8a8a85; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px">НООРОГ</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1100}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

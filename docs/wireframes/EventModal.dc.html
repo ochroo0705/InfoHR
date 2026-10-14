@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Үйл явдал бүртгэх</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="width: 1280px; height: 900px; background: #8a8a85; font-family: 'IBM Plex Sans', sans-serif; color: #1c1c1a; font-size: 14px; display: flex; align-items: center; justify-content: center">
+<div role="dialog" aria-modal="true" aria-labelledby="evtitle" style="width: 640px; background: #ffffff; border-radius: 10px; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid #dcdcd6">
+<h2 id="evtitle" style="margin: 0; font-size: 18px; font-weight: 600">Үйл явдал бүртгэх — Ажилтан 4</h2>
+<a href="Employee.dc.html" aria-label="Хаах" style="margin-left: auto; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; color: #1c1c1a"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 3l12 12M15 3L3 15" stroke="currentColor" stroke-width="2" fill="none"/></svg></a>
+</div>
+<div style="padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+<legend style="font-size: 12px; color: #55554f; padding: 0 0 6px">Төрөл</legend>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{types}}" as="t" hint-placeholder-count="6">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="min-height: 40px; padding: 0 12px; border-radius: 20px; border: 1px solid {{t.bd}}; background: {{t.bg}}; color: {{t.fg}}; font: inherit; font-size: 13px">{{t.label}}</button>
+</sc-for>
+</div>
+</fieldset>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Хүчинтэй огноо *</span><input type="date" value="2026-11-01" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Шалтгаан *</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>{{reason}}</option></select></label>
+</div>
+
+<sc-if value="{{isChange}}" hint-placeholder-val="{{ true }}">
+<div style="border: 1px solid #dcdcd6; border-radius: 6px">
+<div style="display: grid; grid-template-columns: 140px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 8px 12px; font-size: 12px; color: #55554f; border-bottom: 1px solid #dcdcd6"><span>Талбар</span><span>Одоо</span><span>Шинэ</span></div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="2">
+<div style="display: grid; grid-template-columns: 140px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 8px 12px; align-items: center">
+<span>{{r.k}}</span><span style="color: #55554f">{{r.old}}</span>
+<select style="min-height: 40px; padding: 0 8px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>{{r.nw}}</option></select>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isTerm}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Сүүлийн ажлын өдөр *</span><input type="date" value="2026-10-31" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Хуулийн үндэслэл</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>[ХТХ зүйл, заалт]</option></select></label>
+</div>
+<div style="background: #f4f4f2; border-radius: 6px; padding: 12px 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: 13px">
+<div><span style="color: #55554f">Ашиглаагүй ээлжийн амралт</span><br><strong style="font-size: 16px">7.5 өдөр</strong></div>
+<div><span style="color: #55554f">Хүлээгдэж буй чөлөө</span><br><strong style="font-size: 16px">0</strong></div>
+<div><span style="color: #55554f">Хариуцсан хөрөнгө</span><br><strong style="font-size: 16px">[N]</strong></div>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; min-height: 44px"><input type="checkbox" style="width: 18px; height: 18px"> Дахин ажилд авахгүй гэж тэмдэглэх</label>
+</sc-if>
+
+<label style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #55554f">Тайлбар</span>
+<textarea rows="2" style="padding: 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; resize: vertical"></textarea>
+</label>
+<sc-if value="{{needsOrder}}" hint-placeholder-val="{{ true }}">
+<label style="display: flex; align-items: center; gap: 8px; min-height: 44px"><input type="checkbox" checked style="width: 18px; height: 18px"> Тушаалын ноорог үүсгэх ({{orderType}})</label>
+<p style="margin: 0; font-size: 13px; color: #1e3a8a; background: #dde7fb; padding: 8px 12px; border-radius: 6px">Өөрчлөлт тушаал гарсны дараа хүчинтэй огноондоо хэрэгжинэ.</p>
+</sc-if>
+<sc-if value="{{isFix}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; color: #8a4a0b; background: #fdecd8; padding: 8px 12px; border-radius: 6px">Залруулга: буруу оруулсан утгыг засна. Тушаал үүсгэхгүй, түүхэнд «Залруулга» гэж тусгайлан харагдана.</p>
+</sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid #dcdcd6">
+<a href="Employee.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid #b8b8b2; border-radius: 6px; color: #1c1c1a; text-decoration: none">Болих</a>
+<a href="OrderDetail.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; background: #1d4ed8; color: #ffffff; border-radius: 6px; text-decoration: none; font-weight: 600">Хадгалах</a>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) { super(props); this.state = { t: 'transfer' }; }
+renderVals() {
+var self = this;
+var cur = this.state.t;
+var defs = [
+{ id: 'transfer', label: 'Шилжүүлэх', reason: 'Байгууллагын шийдвэр', order: 'Шилжүүлэх', rows: [{ k: 'Хэлтэс', old: 'Хөгжүүлэлт', nw: 'Сонгох…' }] },
+{ id: 'promo', label: 'Дэвшүүлэх / бууруулах', reason: 'Ажлын үр дүн', order: 'Албан тушаал', rows: [{ k: 'Албан тушаал', old: 'Програмист', nw: 'Ахлах програмист' }, { k: 'Үндсэн цалин', old: '[Одоо]', nw: '[Шинэ]' }] },
+{ id: 'salary', label: 'Цалин өөрчлөх', reason: 'Жилийн үнэлгээ', order: 'Цалин өөрчлөх', rows: [{ k: 'Үндсэн цалин', old: '[Одоо]', nw: '[Шинэ]' }] },
+{ id: 'contract', label: 'Гэрээ сунгах', reason: 'Хугацаа дуусах', order: 'Гэрээ', rows: [{ k: 'Гэрээ дуусах', old: '2026-12-31', nw: '2027-12-31' }] },
+{ id: 'longleave', label: 'Урт хугацааны чөлөө', reason: 'Хүүхэд асрах', order: 'Чөлөө олгох', rows: [{ k: 'Төлөв', old: 'Идэвхтэй', nw: 'Чөлөөтэй' }] },
+{ id: 'term', label: 'Ажлаас чөлөөлөх', reason: 'Өөрийн хүсэлтээр', order: 'Чөлөөлөх', rows: [] },
+{ id: 'fix', label: 'Залруулга', reason: 'Буруу оруулсан', order: '', rows: [{ k: 'Талбар', old: '[Буруу утга]', nw: '[Зөв утга]' }] }
+];
+var d = defs.filter(function (x) { return x.id === cur; })[0];
+return {
+types: defs.map(function (x) {
+var on = x.id === cur;
+return { label: x.label, on: on ? 'true' : 'false', bd: on ? '#1d4ed8' : '#b8b8b2', bg: on ? '#1d4ed8' : '#ffffff', fg: on ? '#ffffff' : '#1c1c1a', pick: function () { self.setState({ t: x.id }); } };
+}),
+reason: d.reason,
+rows: d.rows,
+isChange: cur !== 'term',
+isTerm: cur === 'term',
+isFix: cur === 'fix',
+needsOrder: cur !== 'fix',
+orderType: d.order
+};
+}
+}
+</script>
+</body>
+</html>

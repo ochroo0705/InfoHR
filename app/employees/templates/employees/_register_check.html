@@ -1,0 +1,1 @@
+{% if match %}<span class="text-xs text-red-600">Энэ регистрийн дугаартай ажилтан аль хэдийн бүртгэлтэй: <a class="underline" href="{% url 'employees:detail' match.pk %}">{{ match.code }} {{ match.full_name }}</a></span>{% endif %}

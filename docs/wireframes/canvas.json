@@ -1,0 +1,99 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Employee.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "title": "2. Ажилтны хуудас",
+      "w": 1280,
+      "x": 1360,
+      "y": 0
+    },
+    "LeaveModal.dc.html": {
+      "h": 800,
+      "title": "3. Чөлөөний хүсэлт (modal)",
+      "w": 1280,
+      "x": 0,
+      "y": 1300
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 800,
+      "title": "1. Ажилтны жагсаалт",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "NewEmployee.dc.html": {
+      "expand": "fill",
+      "h": 1560,
+      "title": "5. Ажилтан нэмэх (нэг хуудас)",
+      "w": 1280,
+      "x": 0,
+      "y": 2377
+    },
+    "Orders.dc.html": {
+      "expand": "fill",
+      "h": 800,
+      "title": "4. Тушаалын бүртгэл",
+      "w": 1280,
+      "x": 1360,
+      "y": 1300
+    },
+    "EventModal.dc.html": {
+      "h": 900,
+      "title": "6. Үйл явдал бүртгэх (modal)",
+      "w": 1280,
+      "x": 1360,
+      "y": 2377,
+      "is_interactive": true
+    },
+    "OrderDetail.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "7. Тушаал (дэлгэрэнгүй)",
+      "w": 1280,
+      "x": 0,
+      "y": 4057
+    },
+    "LeaveList.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "8. Чөлөө: хүлээгдэж буй + календарь",
+      "w": 1280,
+      "x": 1360,
+      "y": 4057
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-13T16:40:00+08:00",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t1": {
+      "kind": "title1",
+      "maxW": 2640,
+      "text": "Info HR — Phase 1 wireframes (low detail)",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Employee.dc.html",
+    "LeaveModal.dc.html",
+    "Orders.dc.html",
+    "NewEmployee.dc.html",
+    "EventModal.dc.html",
+    "OrderDetail.dc.html",
+    "LeaveList.dc.html"
+  ],
+  "pages": [],
+  "title": "Info HR Phase 1 Wireframes"
+}

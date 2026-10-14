@@ -1,0 +1,20 @@
+{% if view == "grid" %}
+{% if groups %}{% for name, group_rows in groups %}
+<section class="mb-6">
+  <h2 class="mb-2 text-sm font-semibold text-slate-600">{{ name }} ({{ group_rows|length }})</h2>
+  {% with rows=group_rows %}{% include "employees/_cards.html" %}{% endwith %}
+</section>
+{% endfor %}{% else %}{% include "employees/_cards.html" %}{% endif %}
+{% else %}
+<div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-slate-500"><tr>
+      <th class="px-4 py-2">Код</th><th class="px-4 py-2">Овог нэр</th><th class="px-4 py-2">Албан тушаал</th>
+      <th class="px-4 py-2">Хэлтэс</th><th class="px-4 py-2">Утас</th><th class="px-4 py-2">Төлөв</th></tr></thead>
+    <tbody>{% if groups %}{% for name, group_rows in groups %}
+      <tr><td colspan="6" class="bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600">{{ name }} ({{ group_rows|length }})</td></tr>
+      {% with rows=group_rows %}{% include "employees/_rows.html" %}{% endwith %}
+    {% endfor %}{% else %}{% include "employees/_rows.html" %}{% endif %}</tbody>
+  </table>
+</div>
+{% endif %}

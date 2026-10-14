@@ -1,0 +1,60 @@
+{% extends "base.html" %}{% load hr %}
+{% block title %}{{ employee.full_name }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between"><a href="{% url 'employees:list' %}" class="text-sm text-slate-500 hover:text-violet-700">← Ажилтнууд</a><button type="button" onclick="openDrawer()" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Бүртгэл (<span id="activity-count">{{ activity_count }}</span>)</button></div>
+{% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab"></form>
+{% if form.non_field_errors or si_form.non_field_errors %}<p class="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }} {{ si_form.non_field_errors|join:" " }}</p>{% endif %}{% endif %}
+<div id="header" class="mt-2">{% include "employees/_header.html" %}</div>
+<div class="mt-6 rounded-xl border border-slate-200 bg-white">
+  <nav class="flex gap-1 border-b border-slate-200 px-4 text-sm">
+    <a href="#work" class="tab px-3 py-3 border-b-2 border-violet-600 font-medium" onclick="showTab('work')">Ажил</a>
+    {% if can_view_personal %}<a href="#personal" class="tab px-3 py-3" onclick="showTab('personal')">Хувийн</a>{% endif %}
+    {% if can_view_salary %}<a href="#salary" class="tab px-3 py-3" onclick="showTab('salary')">Цалин, даатгал</a>{% endif %}
+  </nav>
+  <section id="tab-work" class="p-6">{% include "employees/_tab_work.html" %}</section>
+  {% if can_view_personal %}<section id="tab-personal" class="p-6 hidden">{% include "employees/_tab_personal.html" %}</section>{% endif %}
+  {% if can_view_salary %}<section id="tab-salary" class="p-6 hidden">{% include "employees/_tab_salary.html" %}</section>{% endif %}
+</div>
+<div id="activity-backdrop" class="fixed inset-0 top-14 z-30 hidden bg-black/30 lg:hidden" onclick="closeDrawer()"></div>
+<aside id="activity-drawer" class="fixed top-14 bottom-0 right-0 z-30 flex w-full translate-x-full flex-col overflow-y-auto border-l border-slate-200 bg-white px-6 pb-6 transition-transform duration-200 lg:w-(--drawer-w)" aria-label="Үйл ажиллагааны бүртгэл" aria-hidden="true">
+  <div class="sticky top-0 z-20 -mx-6 flex h-[72px] shrink-0 items-center gap-2 bg-white px-6{% if not can_manage %} mb-4 border-b border-slate-100{% endif %}">
+    <h2 class="mr-auto font-medium">Үйл ажиллагааны бүртгэл</h2>
+    <button type="button" onclick="closeDrawer()" aria-label="Хаах" class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div id="activity">{% include "employees/_activity.html" %}</div>
+</aside>
+<style>:root{--drawer-w:420px}#page{transition:padding-right .2s}@media (min-width:1024px){body.drawer-open #page{padding-right:var(--drawer-w)}}</style>
+{% if form or si_form %}<div id="save-bar" class="{% if form.is_bound or si_form.is_bound %}flex{% else %}hidden{% endif %} sticky bottom-0 z-40 mt-6 items-center justify-end gap-2 rounded-xl border-2 border-violet-500 bg-violet-50 p-3 shadow-[0_-8px_24px_rgba(15,23,42,0.18)]">
+  <span class="mr-auto flex items-center gap-2 text-sm font-medium text-violet-900"><span class="h-2 w-2 rounded-full bg-violet-600"></span>Хадгалаагүй өөрчлөлт байна</span>
+  <button type="button" id="save-cancel" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50">Болих</button>
+  <button type="submit" form="emp-form" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
+</div>{% endif %}
+<script>
+(function(){var d=document.getElementById('activity-drawer'),b=document.getElementById('activity-backdrop');
+function wide(){return window.matchMedia('(min-width:1024px)').matches}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+function isOpen(){return !d.classList.contains('translate-x-full')}
+// Wide screens: an in-page panel that pushes the content left and stays open across pages.
+// Narrow screens: the same panel covers the page, with a backdrop.
+function render(open){d.classList.toggle('translate-x-full',!open);d.setAttribute('aria-hidden',open?'false':'true');
+document.body.classList.toggle('drawer-open',open);b.classList.toggle('hidden',!open||wide());}
+window.openDrawer=function(){if(wide())store('hr.activityOpen','1');render(true)};
+window.closeDrawer=function(){store('hr.activityOpen','0');render(false)};
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen()&&!document.querySelector('#modal > *'))closeDrawer()});
+window.addEventListener('resize',function(){render(isOpen())});
+if(wide()&&store('hr.activityOpen')==='1')render(true);
+})();
+function showTab(name){document.querySelectorAll('[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
+document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('border-b-2', a.hash==='#'+name));}
+if(location.hash&&document.getElementById('tab-'+location.hash.slice(1))){showTab(location.hash.slice(1))}else{showTab('{{ tab|default:"work"|escapejs }}')}
+{% if form or si_form %}(function(){var f=document.getElementById('emp-form');
+var bar=document.getElementById('save-bar'),dirty={% if form.is_bound or si_form.is_bound %}true{% else %}false{% endif %};
+function mark(e){if(e.target.form===f){dirty=true;bar.classList.remove('hidden');bar.classList.add('flex');}}
+document.addEventListener('input',mark);document.addEventListener('change',mark);
+f.addEventListener('submit',function(){dirty=false;document.getElementById('emp-tab').value=location.hash.slice(1);});
+document.getElementById('save-cancel').addEventListener('click',function(){dirty=false;var url='{% url 'employees:detail' employee.pk %}';
+if(location.pathname===url){location.reload();}else{location.assign(url+location.hash);}});
+window.addEventListener('beforeunload',function(e){if(dirty){e.preventDefault();e.returnValue='';}});
+})();{% endif %}
+</script>
+{% endblock %}

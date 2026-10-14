@@ -1,0 +1,175 @@
+# Mongolian translations: Info HR labels + django-unfold (which ships no Mongolian).
+# Django's own admin/auth text is already translated by Django itself.
+# Edit here, then run: python scripts/compile_messages.py
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: mn\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# --- Info HR labels (settings.UNFOLD) ---
+msgid "Back office"
+msgstr "Удирдлагын хэсэг"
+
+msgid "Access"
+msgstr "Хандалт"
+
+msgid "Users"
+msgstr "Хэрэглэгчид"
+
+msgid "Roles"
+msgstr "Эрхийн бүлгүүд"
+
+msgid "Switches"
+msgstr "Үйл ажиллагааны эрх"
+
+# --- django-unfold ---
+msgid "Add row"
+msgstr "Мөр нэмэх"
+
+msgid "All applications"
+msgstr "Бүх хэсэг"
+
+msgid "Apply Filters"
+msgstr "Шүүлтүүр хэрэглэх"
+
+msgid "Choose file to upload"
+msgstr "Байршуулах файл сонгох"
+
+msgid "Click to download"
+msgstr "Татахын тулд дарна уу"
+
+msgid "Dark"
+msgstr "Харанхуй"
+
+msgid "Date"
+msgstr "Огноо"
+
+msgid "Date from"
+msgstr "Эхлэх огноо"
+
+msgid "Date to"
+msgstr "Дуусах огноо"
+
+msgid "Expand row"
+msgstr "Мөрийг дэлгэх"
+
+msgid "False"
+msgstr "Үгүй"
+
+msgid "Filters"
+msgstr "Шүүлтүүр"
+
+msgid "Forgotten your password or username?"
+msgstr "Нууц үг эсвэл нэвтрэх нэрээ мартсан уу?"
+
+msgid "From"
+msgstr "Эхлэх"
+
+msgid "General"
+msgstr "Ерөнхий"
+
+msgid "Go back"
+msgstr "Буцах"
+
+msgid "Image preview"
+msgstr "Зургийн урьдчилсан харагдац"
+
+msgid "Light"
+msgstr "Цайвар"
+
+msgid "Loading more results..."
+msgstr "Цааш ачаалж байна..."
+
+msgid "More actions"
+msgstr "Бусад үйлдэл"
+
+msgid "Next"
+msgstr "Дараах"
+
+msgid "No data"
+msgstr "Мэдээлэл алга"
+
+msgid "No recent searches"
+msgstr "Сүүлийн хайлт алга"
+
+msgid "No results found"
+msgstr "Илэрц олдсонгүй"
+
+msgid "No results matching your query"
+msgstr "Таны хайлтад тохирох илэрц алга"
+
+msgid "Please enter your old password, for security’s sake, and then enter your new password twice so we can verify you typed it in correctly."
+msgstr "Аюулгүй байдлын үүднээс хуучин нууц үгээ оруулаад, шинэ нууц үгээ зөв бичсэн эсэхийг шалгахын тулд хоёр удаа оруулна уу."
+
+msgid "Previous"
+msgstr "Өмнөх"
+
+msgid "Recent searches"
+msgstr "Сүүлийн хайлтууд"
+
+msgid "Record picture"
+msgstr "Бичлэгийн зураг"
+
+msgid "Reset filters"
+msgstr "Шүүлтүүр арилгах"
+
+msgid "Return to site"
+msgstr "Сайт руу буцах"
+
+msgid "Run"
+msgstr "Ажиллуулах"
+
+msgid "Search apps and models..."
+msgstr "Хэсэг, жагсаалтаас хайх..."
+
+msgid "Select action"
+msgstr "Үйлдэл сонгох"
+
+msgid "Select action to run"
+msgstr "Ажиллуулах үйлдлээ сонгоно уу"
+
+msgid "Select all rows"
+msgstr "Бүх мөрийг сонгох"
+
+msgid "Select currency"
+msgstr "Валют сонгох"
+
+msgid "Select record"
+msgstr "Бичлэг сонгох"
+
+msgid "Select value"
+msgstr "Утга сонгох"
+
+msgid "System"
+msgstr "Систем"
+
+msgid "This object doesn’t have a change history. It probably wasn’t added via this admin site."
+msgstr "Энэ бичлэгт өөрчлөлтийн түүх алга. Магадгүй энэ удирдлагын хэсгээр нэмэгдээгүй байх."
+
+msgid "This page yielded into no results. Create a new item or reset your filters."
+msgstr "Илэрц алга. Шинээр нэмэх эсвэл шүүлтүүрээ арилгана уу."
+
+msgid "To"
+msgstr "Хүртэл"
+
+msgid "True"
+msgstr "Тийм"
+
+msgid "Type to search"
+msgstr "Хайх үгээ бичнэ үү"
+
+msgid "Value"
+msgstr "Утга"
+
+msgid "Welcome"
+msgstr "Тавтай морил"
+
+msgid "Welcome back to"
+msgstr "Тавтай морил,"
+
+msgid "You have been successfully logged out from the administration"
+msgstr "Та удирдлагын хэсгээс амжилттай гарлаа"
+
+msgid "After you’ve created a user, you’ll be able to edit more user options."
+msgstr "Хэрэглэгч үүсгэсний дараа бусад тохиргоог засах боломжтой болно."

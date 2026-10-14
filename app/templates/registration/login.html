@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Нэвтрэх{% endblock %}
+{% block content %}
+<div class="mx-auto mt-16 max-w-sm rounded-xl bg-white p-8 shadow-sm border border-slate-200">
+  <h1 class="text-xl font-semibold mb-6">Info HR — Нэвтрэх</h1>
+  <form method="post" class="space-y-4">{% csrf_token %}
+    {% if form.errors %}<p class="text-sm text-red-600">Нэвтрэх нэр эсвэл нууц үг буруу байна.</p>{% endif %}
+    <label class="block text-sm">Нэвтрэх нэр
+      <input name="username" autofocus required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"></label>
+    <label class="block text-sm">Нууц үг
+      <input type="password" name="password" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"></label>
+    <button class="w-full rounded-lg bg-violet-600 py-2 text-white hover:bg-violet-700">Нэвтрэх</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% for row in rows %}
+<tr class="border-t border-slate-100 hover:bg-violet-50 cursor-pointer" onclick="location.href='{% url 'employees:detail' row.employee.pk %}'">
+  <td class="px-4 py-2 font-mono">{{ row.employee.code }}</td>
+  <td class="px-4 py-2">{{ row.employee.full_name }}</td>
+  <td class="px-4 py-2">{{ row.job.position|default:"—" }}</td>
+  <td class="px-4 py-2">{{ row.job.department|default:"—" }}</td>
+  <td class="px-4 py-2">{{ row.employee.work_phone }}</td>
+  <td class="px-4 py-2">{% include "employees/_state.html" with state=row.state job=row.job %}</td>
+</tr>
+{% empty %}
+<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">Ажилтан олдсонгүй</td></tr>
+{% endfor %}

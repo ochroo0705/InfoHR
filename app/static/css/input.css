@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@source "../../templates";
+@source "../../employees/templates";
+@source "../../accounts/templates";
+@source "../../employees/templatetags";

@@ -1,0 +1,18 @@
+{% load hr %}
+<div class="flex items-baseline gap-4"><p class="text-sm text-slate-500">Одоогийн үндсэн цалин</p>
+  <p class="text-2xl font-semibold">{{ salary.base_salary|mnt }}</p>
+  {% if can_manage_salary and not salaries %}<button hx-get="{% url 'employees:set_salary' employee.pk %}" hx-target="#modal" class="text-violet-700 hover:underline text-sm">Цалин тогтоох</button>{% endif %}</div>
+<table class="mt-4 w-full text-sm"><thead class="text-left text-slate-500"><tr><th class="py-1">Хугацаа</th><th>Цалин</th><th>Төрөл</th><th></th></tr></thead>
+<tbody>{% for s in salaries %}<tr class="border-t border-slate-100"><td class="py-2">{{ s.period.lower|date:"Y-m-d" }} – {{ s.period.upper|date:"Y-m-d"|default:"одоо" }}</td>
+  <td>{{ s.base_salary|mnt }}</td><td>{{ s.get_change_type_display }}</td>
+  <td class="text-right">{% if can_manage_salary %}<button hx-get="{% url 'employees:correct_salary' employee.pk s.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td></tr>{% endfor %}</tbody></table>
+<h3 class="mt-8 mb-2 font-medium">Банк, даатгал</h3>
+<dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
+  <div><dt class="text-slate-500">Банк</dt><dd>{% if si_form %}{% field si_form.bank %}{% else %}{{ details.bank|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Дансны дугаар</dt><dd>{% if si_form %}{% field si_form.account_no %}{% else %}{{ details.account_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">НДД</dt><dd>{% if si_form %}{% field si_form.social_insurance_no %}{% else %}{{ details.social_insurance_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">ЭМДД</dt><dd>{% if si_form %}{% field si_form.health_insurance_no %}{% else %}{{ details.health_insurance_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Даатгуулагчийн төрөл</dt><dd>{% if si_form %}{% field si_form.insured_category %}{% else %}{{ details.insured_category|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">ТТД</dt><dd>{% if si_form %}{% field si_form.taxpayer_no %}{% else %}{{ details.taxpayer_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хөгжлийн бэрхшээл</dt><dd>{% if si_form %}{% field si_form.has_disability %}{% else %}{% if not details %}—{% elif details.has_disability %}Тийм{% else %}Үгүй{% endif %}{% endif %}</dd></div>
+</dl>

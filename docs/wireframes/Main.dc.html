@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Ажилтны жагсаалт</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="min-height: 800px; background: #f4f4f2; font-family: 'IBM Plex Sans', sans-serif; color: #1c1c1a; font-size: 14px">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 0 24px; height: 56px; background: #1c1c1a; color: #f4f4f2">
+<strong style="font-size: 16px">Info HR</strong>
+<nav style="display: flex; gap: 20px; flex-wrap: wrap">
+<a href="#" style="color: #ffffff; font-weight: 600; text-decoration: none; border-bottom: 2px solid #f4f4f2; padding: 16px 0">Ажилтан</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Чөлөө</a>
+<a href="Orders.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тушаал</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тохиргоо</a>
+</nav>
+<span style="margin-left: auto; color: #c9c9c4">[Хэрэглэгч] · HR</span>
+</header>
+<main style="max-width: 1200px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600">Ажилтан</h1>
+<a href="NewEmployee.dc.html" style="margin-left: auto; display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: #1d4ed8; color: #ffffff; border-radius: 6px; text-decoration: none; font-weight: 600">+ Ажилтан нэмэх</a>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #55554f">Хайх</span>
+<input type="search" placeholder="Нэр, регистр, утас…" style="min-height: 44px; padding: 0 12px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff">
+</label>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; border-radius: 22px; background: #ffffff; font: inherit; align-self: flex-end">Төлөв: Идэвхтэй ▾</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; border-radius: 22px; background: #ffffff; font: inherit; align-self: flex-end">Хэлтэс ▾</button>
+<button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid #b8b8b2; border-radius: 22px; background: #ffffff; font: inherit; align-self: flex-end">Excel татах</button>
+</div>
+<div style="overflow-x: auto; background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse">
+<thead>
+<tr style="text-align: left; color: #55554f; font-size: 12px; border-bottom: 1px solid #dcdcd6">
+<th style="padding: 12px 16px; font-weight: 500">Нэр</th>
+<th style="padding: 12px 16px; font-weight: 500">Албан тушаал</th>
+<th style="padding: 12px 16px; font-weight: 500">Хэлтэс</th>
+<th style="padding: 12px 16px; font-weight: 500">Утас</th>
+<th style="padding: 12px 16px; font-weight: 500">Ажилд орсон</th>
+<th style="padding: 12px 16px; font-weight: 500">Чөлөө үлдэгдэл</th>
+<th style="padding: 12px 16px; font-weight: 500">Төлөв</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<tr style="border-bottom: 1px solid #ececE8">
+<td style="padding: 12px 16px"><a href="Employee.dc.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #1c1c1a"><span style="width: 32px; height: 32px; border-radius: 16px; background: #dcdcd6; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #55554f">{{r.ini}}</span><span style="font-weight: 500">{{r.name}}</span></a></td>
+<td style="padding: 12px 16px">{{r.pos}}</td>
+<td style="padding: 12px 16px">{{r.dep}}</td>
+<td style="padding: 12px 16px">[Утас]</td>
+<td style="padding: 12px 16px">{{r.hired}}</td>
+<td style="padding: 12px 16px">{{r.bal}}</td>
+<td style="padding: 12px 16px"><span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; background: {{r.bg}}; color: {{r.fg}}">{{r.status}}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; color: #55554f; font-size: 12px">Нийт 10 · Мөрөн дээр дарахад ажилтны хуудас нээгдэнэ</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() {
+var act = { status: 'Идэвхтэй', bg: '#e3efe4', fg: '#1f5a2a' };
+var lv = { status: 'Чөлөөтэй', bg: '#fdecd8', fg: '#8a4a0b' };
+var base = [
+['Ажилтан 1','Захирал','Удирдлага','2018-03-01','12 өдөр',act],
+['Ажилтан 2','Хүний нөөц','Удирдлага','2020-09-15','9 өдөр',act],
+['Ажилтан 3','Нягтлан бодогч','Санхүү','2019-01-10','15 өдөр',lv],
+['Ажилтан 4','Програмист','Хөгжүүлэлт','2021-06-01','7.5 өдөр',act],
+['Ажилтан 5','Програмист','Хөгжүүлэлт','2023-02-20','15 өдөр',act],
+['Ажилтан 6','Борлуулалт','Борлуулалт','2022-11-07','3 өдөр',act],
+['Ажилтан 7','Үйлчлэгч','Удирдлага','2024-04-01','15 өдөр',act]
+];
+return { rows: base.map(function (b, i) { return { ini: 'А' + (i + 1), name: b[0], pos: b[1], dep: b[2], hired: b[3], bal: b[4], status: b[5].status, bg: b[5].bg, fg: b[5].fg }; }) };
+}
+}
+</script>
+</body>
+</html>

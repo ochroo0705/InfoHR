@@ -1,0 +1,23 @@
+{% if setup is not None %}
+<div id="setup" class="mb-6">
+<details{% if not setup_complete %} open{% endif %}>
+{% if setup_complete %}
+  <summary class="cursor-pointer text-sm text-emerald-700">Бүрдүүлэлт дууссан ✓ <span class="text-xs text-slate-500 underline">дэлгэрэнгүй</span></summary>
+{% endif %}
+  <div class="rounded border border-slate-200 p-4">
+    <h3 class="mb-2 font-medium">Бүрдүүлэлт <span class="text-sm text-slate-500">{{ setup_done }}/{{ setup|length }}</span></h3>
+    <ul class="space-y-1 text-sm">{% for item in setup %}
+      <li>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" {% if item.done %}checked{% endif %}
+            {% if item.auto %}disabled{% else %}hx-post="{% url 'employees:setup_toggle' employee.pk item.key %}" hx-target="#setup" hx-swap="outerHTML"{% endif %}>
+          <span>{{ item.label }}</span>
+          {% if item.auto %}<span class="text-xs text-slate-400">автоматаар</span>
+          {% elif item.done %}<span class="text-xs text-slate-400">{{ item.done_by|default:"—" }}, {{ item.done_at|date:"Y-m-d H:i" }}</span>{% endif %}
+        </label>
+      </li>{% endfor %}
+    </ul>
+  </div>
+</details>
+</div>
+{% endif %}

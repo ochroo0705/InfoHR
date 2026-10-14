@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Ажилтан нэмэх</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="min-height: 1560px; background: #f4f4f2; font-family: 'IBM Plex Sans', sans-serif; color: #1c1c1a; font-size: 14px">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 0 24px; height: 56px; background: #1c1c1a; color: #f4f4f2">
+<strong style="font-size: 16px">Info HR</strong>
+<nav style="display: flex; gap: 20px; flex-wrap: wrap">
+<a href="Main.dc.html" style="color: #ffffff; font-weight: 600; text-decoration: none; border-bottom: 2px solid #f4f4f2; padding: 16px 0">Ажилтан</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Чөлөө</a>
+<a href="Orders.dc.html" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тушаал</a>
+<a href="#" style="color: #c9c9c4; text-decoration: none; padding: 16px 0">Тохиргоо</a>
+</nav>
+</header>
+<main style="max-width: 880px; margin: 0 auto; padding: 24px 24px 40px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #55554f">
+<a href="Main.dc.html">Ажилтан</a><span>/</span><span>Шинэ ажилтан</span>
+</div>
+<h1 style="margin: 0; font-size: 22px; font-weight: 600">Ажилтан нэмэх</h1>
+<p style="margin: 0; font-size: 13px; color: #55554f">* — заавал бөглөх. Бусад мэдээллийг (хаяг, гэр бүл, боловсрол, даатгалын дугаар) дараа нь ажилтны хуудаснаас нөхөж болно.</p>
+
+<section aria-labelledby="s1" style="background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<h2 id="s1" style="margin: 0; font-size: 16px; font-weight: 600">1. Хувийн мэдээлэл</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 24px">
+<button type="button" style="width: 112px; height: 112px; border-radius: 8px; border: 1px dashed #8a8a85; background: #ffffff; color: #55554f; font: inherit; font-size: 12px">Зураг<br>оруулах</button>
+<div style="flex: 999 1 480px; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px">
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Ургийн овог</span><input type="text" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Эцэг/эхийн нэр *</span><input type="text" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Нэр *</span><input type="text" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Регистрийн дугаар *</span><input type="text" placeholder="АА00000000" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"><span style="font-size: 12px; color: #55554f">Төрсөн огноо, хүйсийг санал болгоно · давхардлыг шалгана</span></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Төрсөн огноо</span><input type="date" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px"><legend style="font-size: 12px; color: #55554f; padding: 0">Хүйс</legend><span style="display: flex; gap: 16px; min-height: 44px; align-items: center"><label><input type="radio" name="g"> Эрэгтэй</label><label><input type="radio" name="g"> Эмэгтэй</label></span></fieldset>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Утас *</span><input type="tel" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Имэйл</span><input type="email" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s2" style="background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<h2 id="s2" style="margin: 0; font-size: 16px; font-weight: 600">2. Ажил, гэрээ</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px">
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Албан тушаал *</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>Сонгох…</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Хэлтэс</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>Сонгох…</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Ажилтны төрөл *</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>Үндсэн, бүтэн цаг</option><option>Хагас цаг</option><option>Гэрээт</option><option>Дадлагажигч</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Шууд удирдлага</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>Сонгох…</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Ажилд орох огноо *</span><input type="date" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Туршилтын хугацаа</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>Байхгүй</option><option>1 сар</option><option>3 сар</option><option>6 сар</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Гэрээний төрөл *</span><select style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit; background: #ffffff"><option>Хугацаагүй</option><option>Хугацаатай</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Гэрээ дуусах (хугацаатай бол)</span><input type="date" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Өмнө ажилласан жил</span><input type="number" min="0" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"><span style="font-size: 12px; color: #55554f">Ээлжийн амралтын нэмэгдэл хоногт ашиглана</span></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #55554f">Үндсэн цалин * (эрхтэй бол)</span><input type="text" placeholder="₮" style="min-height: 44px; padding: 0 10px; border: 1px solid #b8b8b2; border-radius: 6px; font: inherit"></label>
+</div>
+</section>
+
+<section aria-labelledby="s3" style="background: #ffffff; border: 1px solid #dcdcd6; border-radius: 8px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<h2 id="s3" style="margin: 0; font-size: 16px; font-weight: 600">3. Үүсгэх баримт</h2>
+<label style="display: flex; align-items: center; gap: 8px; min-height: 44px"><input type="checkbox" checked style="width: 18px; height: 18px"> Ажилд авах тушаалын ноорог</label>
+<label style="display: flex; align-items: center; gap: 8px; min-height: 44px"><input type="checkbox" checked style="width: 18px; height: 18px"> Хөдөлмөрийн гэрээ (PDF)</label>
+<label style="display: flex; align-items: center; gap: 8px; min-height: 44px"><input type="checkbox" style="width: 18px; height: 18px"> Системд нэвтрэх эрх үүсгэх (Ажилтан эрх)</label>
+</section>
+
+<section aria-labelledby="s4" style="background: #ffffff; border: 2px solid #1d4ed8; border-radius: 8px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<h2 id="s4" style="margin: 0; font-size: 15px; font-weight: 600">Хураангуй</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 24px; font-size: 13px">
+<div><span style="color: #55554f">Нэр</span><br>[Эцэг/эхийн нэр] [Нэр]</div>
+<div><span style="color: #55554f">Албан тушаал</span><br>[Албан тушаал]</div>
+<div><span style="color: #55554f">Ажилд орох</span><br>[Огноо] · туршилт [N] сар</div>
+<div><span style="color: #55554f">Гэрээ</span><br>[Төрөл]</div>
+<div><span style="color: #55554f">Ээлжийн амралт (эхний жил)</span><br>[N] өдөр</div>
+<div><span style="color: #55554f">Дутуу талбар</span><br>0</div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #1e3a8a; background: #dde7fb; padding: 8px 12px; border-radius: 6px">Ажилтан «Ноорог» төлөвтэй үүснэ. Ажилд авах тушаал гарсны дараа «Идэвхтэй» болно.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; color: #1c1c1a">Болих</a>
+<button type="button" style="margin-left: auto; min-height: 44px; padding: 0 16px; border: 1px solid #b8b8b2; background: #ffffff; border-radius: 6px; font: inherit">Ноорог хадгалах</button>
+<a href="Employee.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: #1d4ed8; color: #ffffff; border-radius: 6px; text-decoration: none; font-weight: 600">Ажилтан үүсгэх</a>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1560}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

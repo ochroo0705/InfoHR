@@ -1,0 +1,31 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <h2 class="mb-4 text-lg font-semibold">{{ title }}</h2>
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML">{% csrf_token %}
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ formset.non_form_errors|join:" " }}</p>{% endif %}
+      <table class="w-full text-sm"><thead class="text-left text-xs text-slate-500"><tr>{% for field in formset.empty_form.visible_fields %}<th class="p-1 font-normal">{% if field.name == "DELETE" %}Устгах{% else %}{{ field.label }}{% endif %}</th>{% endfor %}</tr></thead>{% for form in formset %}<tr class="border-t border-slate-100">
+        {% for field in form.visible_fields %}<td class="p-1">{{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</td>{% endfor %}
+        {% for field in form.hidden_fields %}{{ field }}{% endfor %}</tr>{% endfor %}</table>
+      <template class="empty-row"><tr class="border-t border-slate-100">{% for field in formset.empty_form.visible_fields %}<td class="p-1">{{ field }}</td>{% endfor %}{% for field in formset.empty_form.hidden_fields %}{{ field }}{% endfor %}</tr></template>
+      <button type="button" class="mt-2 text-sm text-violet-700 hover:underline" onclick="addRow(this)">+ Мөр нэмэх</button>
+      <script>
+      function addRow(button){
+        const form=button.closest("form"), total=form.querySelector("[name$=TOTAL_FORMS]");
+        const fields=row=>[...row.querySelectorAll("input:not([type=hidden]):not([type=checkbox]),select,textarea")];
+        const empty=[...form.querySelectorAll("table tbody tr")].find(row=>fields(row).every(f=>!f.value.trim()));
+        if(empty){fields(empty)[0].focus();return}  // one blank row at a time
+        const n=+total.value;
+        form.querySelector("table tbody").insertAdjacentHTML("beforeend",form.querySelector("template.empty-row").innerHTML.replaceAll("__prefix__",n));
+        total.value=n+1;
+        fields(form.querySelector("table tbody tr:last-child"))[0].focus();
+      }
+      </script>
+      <p class="mt-2 text-xs text-slate-500">Мөр устгахын тулд «Устгах» нүдийг чагтлаад хадгална. Хоосон мөр хадгалагдахгүй.</p>
+      <div class="flex justify-end gap-2 pt-4">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Хадгалах</button>
+      </div>
+    </form>
+  </div>
+</div>

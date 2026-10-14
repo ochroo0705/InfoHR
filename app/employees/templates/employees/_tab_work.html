@@ -1,0 +1,31 @@
+{% load hr %}
+{% include "employees/_setup.html" %}
+<dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
+  <div><dt class="text-slate-500">Албан тушаал</dt><dd>{{ row.job.position|default:"—" }}</dd></div>
+  <div><dt class="text-slate-500">Хэлтэс</dt><dd>{{ row.job.department|default:"—" }}</dd></div>
+  <div><dt class="text-slate-500">Шууд удирдлага</dt><dd>{{ row.job.manager.full_name|default:"—" }}</dd></div>
+  <div><dt class="text-slate-500">Ажилтны төрөл</dt><dd>{{ row.job.get_employee_type_display|default:"—" }}</dd></div>
+  <div><dt class="text-slate-500">Гэрээ</dt><dd>{{ row.job.get_contract_type_display|default:"—" }} {{ row.job.contract_no }}</dd></div>
+  <div><dt class="text-slate-500">Гэрээний хугацаа</dt><dd>{{ row.job.contract_start|date:"Y-m-d"|default:"—" }} – {{ row.job.contract_end|date:"Y-m-d"|default:"" }}</dd></div>
+  <div><dt class="text-slate-500">Ажлын нөхцөл</dt><dd>{% if form %}{% field form.work_conditions %}{% else %}{{ employee.get_work_conditions_display }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Цагийн хуваарь</dt><dd>{% if form %}{% field form.work_schedule %}{% else %}{{ employee.work_schedule|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Туршилт дуусах</dt><dd>{% if form %}{% field form.probation_end %}{% else %}{{ employee.probation_end|date:"Y-m-d"|default:"—" }}{% endif %}</dd></div>
+  {% if form %}<div><dt class="text-slate-500">Анх ажилд орсон огноо</dt><dd>{% field form.first_hire_date %}</dd></div>{% endif %}
+</dl>
+<h3 class="mt-8 mb-2 font-medium">Бусад мэдээлэл</h3>
+<dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
+  <div><dt class="text-slate-500">Автомашин эзэмшил</dt><dd>{% if form %}{% field form.car_ownership %}{% else %}{{ employee.car_ownership|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хувцасны хэмжээ</dt><dd>{% if form %}{% field form.clothing_size %}{% else %}{{ employee.clothing_size|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Гутлын хэмжээ</dt><dd>{% if form %}{% field form.shoe_size %}{% else %}{{ employee.shoe_size|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Сонгуульт ажил</dt><dd>{% if form %}{% field form.elected_position %}{% else %}{{ employee.elected_position|default:"—" }}{% endif %}</dd></div>
+</dl>
+<h3 class="mt-8 mb-2 font-medium">Ажлын түүх</h3>
+<table class="w-full text-sm">
+  <thead class="text-left text-slate-500"><tr><th class="py-1">Хугацаа</th><th>Албан тушаал</th><th>Хэлтэс</th><th>Төлөв</th><th>Төрөл</th><th></th></tr></thead>
+  <tbody>{% for job in jobs %}
+    <tr class="border-t border-slate-100">
+      <td class="py-2">{{ job.period.lower|date:"Y-m-d" }} – {{ job.period.upper|date:"Y-m-d"|default:"одоо" }}</td>
+      <td>{{ job.position }}</td><td>{{ job.department }}</td><td>{{ job.get_status_display }}</td><td>{{ job.get_change_type_display }}</td>
+      <td class="text-right">{% if can_manage %}<button hx-get="{% url 'employees:correct_job' employee.pk job.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+</table>

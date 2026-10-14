@@ -1,0 +1,410 @@
+ALTER PROCEDURE CALC_SALNEW (COLCODE CHAR(4) CHARACTER SET UTF8,
+CUSTID INTEGER,
+DATE1 TIMESTAMP,
+DATE2 TIMESTAMP)
+RETURNS (SUM1 NUMERIC(15, 2))
+AS 
+begin
+  if (colcode='B01') then
+    select sum(B01) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B02') then
+    select sum(B02) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B03') then
+    select sum(B03) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B04') then
+    select sum(B04) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B05') then
+    select sum(B05) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B06') then
+    select sum(B06) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B07') then
+    select sum(B07) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B08') then
+    select sum(B08) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B09') then
+    select sum(B09) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B10') then
+    select sum(B10) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B11') then
+    select sum(B11) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B12') then
+    select sum(B12) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B13') then
+    select sum(B13) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B14') then
+    select sum(B14) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B15') then
+    select sum(B15) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B16') then
+    select sum(B16) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B17') then
+    select sum(B17) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B18') then
+    select sum(B18) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B19') then
+    select sum(B19) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B20') then
+    select sum(B20) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B21') then
+    select sum(B21) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B22') then
+    select sum(B22) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B23') then
+    select sum(B23) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B24') then
+    select sum(B24) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B25') then
+    select sum(B25) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B26') then
+    select sum(B26) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B27') then
+    select sum(B27) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B28') then
+    select sum(B28) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B29') then
+    select sum(B29) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B30') then
+    select sum(B30) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B31') then
+    select sum(B31) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B32') then
+    select sum(B32) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B33') then
+    select sum(B33) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B34') then
+    select sum(B34) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B35') then
+    select sum(B35) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B36') then
+    select sum(B36) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B37') then
+    select sum(B37) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B38') then
+    select sum(B38) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B39') then
+    select sum(B39) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B40') then
+    select sum(B40) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B41') then
+    select sum(B41) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B42') then
+    select sum(B42) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B43') then
+    select sum(B43) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B44') then
+    select sum(B44) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B45') then
+    select sum(B45) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B46') then
+    select sum(B46) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B47') then
+    select sum(B47) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B48') then
+    select sum(B48) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B49') then
+    select sum(B49) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B50') then
+    select sum(B50) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B51') then
+    select sum(B51) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B52') then
+    select sum(B52) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B53') then
+    select sum(B53) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B54') then
+    select sum(B54) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B55') then
+    select sum(B55) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B56') then
+    select sum(B56) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B57') then
+    select sum(B57) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B58') then
+    select sum(B58) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B59') then
+    select sum(B59) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B60') then
+    select sum(B60) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B61') then
+    select sum(B61) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B62') then
+    select sum(B62) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B63') then
+    select sum(B63) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B64') then
+    select sum(B64) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B65') then
+    select sum(B65) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B66') then
+    select sum(B66) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B67') then
+    select sum(B67) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B68') then
+    select sum(B68) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B69') then
+    select sum(B69) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B70') then
+    select sum(B70) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B71') then
+    select sum(B71) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B72') then
+    select sum(B72) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B73') then
+    select sum(B73) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B74') then
+    select sum(B74) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B75') then
+    select sum(B75) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B76') then
+    select sum(B76) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B77') then
+    select sum(B77) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B78') then
+    select sum(B78) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B79') then
+    select sum(B79) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B80') then
+    select sum(B80) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B81') then
+    select sum(B81) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B82') then
+    select sum(B82) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B83') then
+    select sum(B83) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B84') then
+    select sum(B84) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B85') then
+    select sum(B85) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B86') then
+    select sum(B86) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B87') then
+    select sum(B87) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B88') then
+    select sum(B88) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B89') then
+    select sum(B89) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B90') then
+    select sum(B90) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B91') then
+    select sum(B91) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B92') then
+    select sum(B92) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B93') then
+    select sum(B93) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B94') then
+    select sum(B94) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B95') then
+    select sum(B95) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B96') then
+    select sum(B96) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B97') then
+    select sum(B97) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B98') then
+    select sum(B98) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B99') then
+    select sum(B99) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (colcode='B100') then
+    select sum(B100) from monthsalary
+    where (emp_ident=:custid) and (sal_date>=:date1) and (sal_date<:date2)
+    into :sum1;
+  if (sum1 is null) then sum1=0;
+  suspend;
+end ^
