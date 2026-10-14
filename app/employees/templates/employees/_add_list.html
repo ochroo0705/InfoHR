@@ -1,0 +1,17 @@
+<div class="col-span-full" data-list="{{ formset.prefix }}">
+  <h3 class="mb-2 font-medium">{{ title }}</h3>
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}<p class="field-error mb-2 rounded bg-red-50 p-2 text-sm text-red-700">{{ formset.non_form_errors|join:" " }}</p>{% endif %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-left text-xs text-slate-500"><tr>{% for field in formset.empty_form.visible_fields %}{% if field.name != "DELETE" %}<th class="p-1 font-normal">{{ field.label }}</th>{% endif %}{% endfor %}{% if formset.can_delete %}<th class="p-1 font-normal">Устгах</th>{% endif %}</tr></thead>
+    <tbody>{% for form in formset %}<tr class="border-t border-slate-100">
+      {% for field in form.visible_fields %}{% if field.name != "DELETE" %}<td class="p-1">{{ field }}{% for e in field.errors %}<span class="field-error text-xs text-red-600">{{ e }}</span>{% endfor %}</td>{% endif %}{% endfor %}
+      {% if formset.can_delete %}<td class="p-1">{% if form.instance.pk %}{{ form.DELETE }}{% endif %}{% for field in form.hidden_fields %}{{ field }}{% endfor %}</td>
+      {% else %}<td>{% for field in form.hidden_fields %}{{ field }}{% endfor %}</td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table>
+  </div>
+  <template class="empty-row"><tr class="border-t border-slate-100">{% for field in formset.empty_form.visible_fields %}{% if field.name != "DELETE" %}<td class="p-1">{{ field }}</td>{% endif %}{% endfor %}<td>{% for field in formset.empty_form.hidden_fields %}{{ field }}{% endfor %}</td></tr></template>
+  <button type="button" class="mt-2 text-sm text-violet-700 hover:underline" onclick="addRow(this)">+ Мөр нэмэх</button>
+</div>

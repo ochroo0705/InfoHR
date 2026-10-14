@@ -1,0 +1,27 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <h2 class="mb-4 text-lg font-semibold">{{ title }}</h2>
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}<input type="hidden" name="prev_effective" value="{{ form.effective.value|date:'Y-m-d'|default:form.effective.value|default:'' }}">
+      {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+      {% if kinds %}<label class="block text-sm">Төрөл *
+        <select name="kind" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" onchange="var v=new FormData(this.form);v.delete('csrfmiddlewaretoken');v.delete('kind');htmx.ajax('GET',this.value,{target:this.closest('div.fixed'),swap:'outerHTML',values:Object.fromEntries(v)})">
+          {% for kind_url, label, selected in kinds %}<option value="{{ kind_url }}"{% if selected %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></label>{% endif %}
+      <label class="block text-sm">{{ form.effective.label }} *
+        {{ form.effective }}{% for e in form.effective.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
+      {% if when == "past" %}<p class="rounded bg-amber-50 p-2 text-sm text-amber-800">Өнгөрсөн огноо — түүх засагдана</p>
+      {% elif when == "future" %}<p class="rounded bg-sky-50 p-2 text-sm text-sky-800">Төлөвлөсөн</p>{% endif %}
+      <div hx-get="{{ action }}" hx-trigger="change" hx-target="#event-summary" hx-swap="innerHTML" hx-include="closest form" hx-params="not csrfmiddlewaretoken" hx-vals='{"summary": "1"}' class="space-y-3">
+        <div id="event-summary">{% include "employees/_event_summary.html" %}</div>
+        <div class="grid gap-3 md:grid-cols-2">{% for field in form %}{% if field.name != "effective" %}
+          <label class="block text-sm {% if field.name == 'reason' or field.name == 'note' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
+            {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endif %}{% endfor %}</div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Хадгалах</button>
+      </div>
+    </form>
+  </div>
+</div>

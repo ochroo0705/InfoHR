@@ -1,0 +1,8 @@
+{% if field.field.widget.input_type == "checkbox" %}<label class="flex items-center gap-2 text-sm">{{ field }} {{ field.label }}
+  {% for e in field.errors %}<span class="field-error text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
+{% else %}<label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
+  {% if field.name == "register_no" %}<input name="register_no" value="{{ field.value|default:'' }}" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+    hx-get="{% url 'employees:check_register' %}" hx-trigger="input changed delay:400ms" hx-target="#register-check">
+    <span id="register-check"></span>{% else %}{{ field }}{% endif %}
+  {% for e in field.errors %}<span class="field-error text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
+{% endif %}

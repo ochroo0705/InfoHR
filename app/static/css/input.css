@@ -1,5 +1,67 @@
 @import "tailwindcss";
+
+/* Inter, self-hosted (static/vendor/inter, SIL OFL). Each subset loads only when a page uses its letters;
+   Mongolian Ө ө Ү ү live in cyrillic-ext. */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("../vendor/inter/inter-cyrillic-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("../vendor/inter/inter-cyrillic-wght-normal.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("../vendor/inter/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
 @source "../../templates";
 @source "../../employees/templates";
 @source "../../accounts/templates";
 @source "../../employees/templatetags";
+
+/* Date picker (static/js/datepicker.js) */
+@layer components {
+  .dp-wrap { position: relative; display: block; }
+  .dp-wrap > input { padding-right: 2.25rem; }
+  .dp-icon { position: absolute; top: 50%; right: .375rem; translate: 0 -50%; display: flex; padding: .25rem; border-radius: .375rem; color: var(--color-slate-400); cursor: pointer; }
+  .dp-icon:hover { color: var(--color-violet-700); background: var(--color-violet-50); }
+  .dp-popup { position: fixed; z-index: 60; width: 17.5rem; padding: .75rem; border: 1px solid var(--color-slate-200); border-radius: .75rem; background: var(--color-white); box-shadow: 0 12px 32px rgb(15 23 42 / .16), 0 2px 6px rgb(15 23 42 / .06); font-size: var(--text-sm); color: var(--color-slate-800); }
+  .dp-head { display: flex; align-items: center; gap: .25rem; margin-bottom: .5rem; }
+  .dp-select { flex: 1; min-width: 0; padding: .25rem .375rem; border-radius: .5rem; font-weight: 600; cursor: pointer; }
+  .dp-select:hover, .dp-select:focus { background: var(--color-slate-100); outline: none; }
+  .dp-nav { width: 2rem; height: 2rem; flex-shrink: 0; border-radius: .5rem; font-size: 1.25rem; line-height: 1; color: var(--color-slate-600); cursor: pointer; }
+  .dp-nav:hover { background: var(--color-slate-100); color: var(--color-slate-800); }
+  .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .dp-dow { padding: .25rem 0; text-align: center; font-size: var(--text-xs); font-weight: 500; color: var(--color-slate-400); }
+  .dp-day { height: 2.125rem; border-radius: .5rem; font-variant-numeric: tabular-nums; cursor: pointer; }
+  .dp-day:hover { background: var(--color-violet-50); color: var(--color-violet-700); }
+  .dp-weekend { color: var(--color-slate-500); }
+  .dp-other { color: var(--color-slate-300); }
+  .dp-today { font-weight: 600; color: var(--color-violet-700); box-shadow: inset 0 0 0 1px var(--color-violet-300); }
+  .dp-selected, .dp-selected:hover { background: var(--color-violet-600); color: var(--color-white); box-shadow: none; font-weight: 600; }
+  .dp-day:disabled { color: var(--color-slate-300); background: none; cursor: not-allowed; text-decoration: line-through; }
+  .dp-day:focus-visible, .dp-nav:focus-visible, .dp-link:focus-visible { outline: 2px solid var(--color-violet-500); outline-offset: 1px; }
+  .dp-foot { display: flex; justify-content: space-between; margin-top: .5rem; padding-top: .5rem; border-top: 1px solid var(--color-slate-100); }
+  .dp-link { padding: .25rem .5rem; border-radius: .375rem; font-weight: 500; color: var(--color-violet-700); cursor: pointer; }
+  .dp-link:hover { background: var(--color-violet-50); }
+  .dp-muted { color: var(--color-slate-500); }
+  .dp-muted:hover { background: var(--color-slate-100); }
+}
+
+/* Always reserve the scrollbar's space so pages don't shift sideways when one appears. */
+@layer base {
+  html { scrollbar-gutter: stable; }
+}
+
+/* Dates and amounts line up in columns. */
+@layer base {
+  table { font-variant-numeric: tabular-nums; }
+}

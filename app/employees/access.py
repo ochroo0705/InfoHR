@@ -3,7 +3,7 @@
 from accounts.models import User
 from django.db.models import QuerySet
 
-from employees.models import ActivityEntry, ActivityKind, Employee
+from employees.models import ActivityEntry, ActivityKind, Employee, Event, EventType
 
 
 def is_own(user: User, employee: Employee) -> bool:
@@ -46,3 +46,17 @@ def visible_activity(user: User, employee: Employee) -> QuerySet[ActivityEntry]:
     if not user.has_perm("employees.view_employees"):  # own page only: no internal notes
         entries = entries.exclude(kind=ActivityKind.NOTE)
     return entries
+
+
+def can_record_event(user: User, type: str) -> bool:
+    """Salary changes need the salary switch; every other event needs manage_employees."""
+    return can_manage_salary(user) if type == EventType.SALARY_CHANGE else can_manage(user)
+
+
+def can_cancel(user: User, event: Event) -> bool:
+    """A mixed (job + salary) event needs both rights, so it is never half-cancelled."""
+    has_job = event.job_records.exists()
+    has_salary = event.salary_records.exists()
+    if not has_job and not has_salary:
+        return can_manage(user)
+    return (not has_job or can_manage(user)) and (not has_salary or can_manage_salary(user))

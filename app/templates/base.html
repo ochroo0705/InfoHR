@@ -5,6 +5,7 @@
   <title>{% block title %}Info HR{% endblock %} · Info HR</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/datepicker.js' %}" defer></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}

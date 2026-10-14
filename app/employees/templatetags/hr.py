@@ -2,10 +2,19 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django import template
-from django.forms import BoundField, CheckboxInput, Select
+from django.db.models.fields.files import FieldFile
+from django.forms import BoundField, CheckboxInput, Select, Textarea
 from django.utils import timezone
 
 register = template.Library()
+
+
+@register.filter
+def thumb(photo: FieldFile, side: int) -> str:
+    """URL of the photo cropped to a side x side px square (see images.thumbnail_url)."""
+    from employees.images import thumbnail_url
+
+    return thumbnail_url(photo, int(side))
 
 
 @register.filter
@@ -29,6 +38,10 @@ def field(bound: BoundField, width: str = "w-full") -> dict[str, object]:
     attrs["aria-label"] = str(bound.label)
     if not checkbox and not isinstance(bound.field.widget, Select):
         attrs["placeholder"] = "—"
+    if isinstance(bound.field.widget, Textarea):
+        # Django's default is 10 rows; start at one line and grow with the text.
+        attrs["rows"] = "1"
+        attrs["class"] = f"{css} resize-none [field-sizing:content]"
     return {"widget": bound.as_widget(attrs=attrs), "errors": bound.errors}
 
 

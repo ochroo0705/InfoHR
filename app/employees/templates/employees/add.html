@@ -2,35 +2,171 @@
 {% block title %}Ажилтан нэмэх{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-xl font-semibold">Ажилтан нэмэх</h1>
-<form method="post" enctype="multipart/form-data" class="space-y-6">{% csrf_token %}
-  <section class="rounded-xl border border-slate-200 bg-white p-6">
-    <h2 class="mb-4 font-medium">1. Хувийн мэдээлэл</h2>
-    <div class="grid gap-3 md:grid-cols-3">{% for field in person %}
-      <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
-        {% if field.name == "register_no" %}<input name="register_no" value="{{ field.value|default:'' }}" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          hx-get="{% url 'employees:check_register' %}" hx-trigger="input changed delay:400ms" hx-target="#register-check">
-          <span id="register-check"></span>{% else %}{{ field }}{% endif %}
-        {% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
-  </section>
-  <section class="rounded-xl border border-slate-200 bg-white p-6">
-    <h2 class="mb-4 font-medium">2. Ажил, гэрээ</h2>
-    <div class="grid gap-3 md:grid-cols-3">{% for field in job %}
-      <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}{{ field }}
-        {% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
-  </section>
-  <section class="rounded-xl border border-slate-200 bg-white p-6">
-    <h2 class="mb-4 font-medium">3. {% if allow_salary %}Цалин, нэвтрэх эрх{% else %}Нэвтрэх эрх{% endif %}</h2>
-    <div class="grid gap-3 md:grid-cols-3">
-      {% if allow_salary %}<label class="block text-sm">{{ extras.base_salary.label }}{{ extras.base_salary }}
-        {% for e in extras.base_salary.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endif %}
-      <label class="flex items-center gap-2 text-sm">{{ extras.create_login }} {{ extras.create_login.label }}</label>
-      <label class="block text-sm">{{ extras.username.label }}{{ extras.username }}
-        {% for e in extras.username.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
+<form id="add-form" method="post" enctype="multipart/form-data" class="space-y-6 pb-24">{% csrf_token %}
+  <div class="flex flex-col gap-6 md:flex-row">
+    <nav role="tablist" aria-label="Табууд" class="flex gap-1 overflow-x-auto md:w-52 md:shrink-0 md:flex-col md:overflow-visible">
+      <button type="button" role="tab" data-tab-btn="basic" onclick="showTab('basic')" class="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100">Үндсэн <span data-badge="basic" class="ml-auto rounded-full px-1.5 text-xs font-semibold"></span></button>
+      <button type="button" role="tab" data-tab-btn="personal" onclick="showTab('personal')" class="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100">Хувийн <span data-badge="personal" class="ml-auto rounded-full px-1.5 text-xs font-semibold"></span></button>
+      {% if si is not None %}<button type="button" role="tab" data-tab-btn="salary" onclick="showTab('salary')" class="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100">Цалин, даатгал <span data-badge="salary" class="ml-auto rounded-full px-1.5 text-xs font-semibold"></span></button>{% endif %}
+      <button type="button" role="tab" data-tab-btn="login" onclick="showTab('login')" class="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100">Нэвтрэх эрх <span data-badge="login" class="ml-auto rounded-full px-1.5 text-xs font-semibold"></span></button>
+    </nav>
+
+    <div class="min-w-0 flex-1 space-y-6">
+      <section role="tabpanel" data-tab="basic" class="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 class="mb-4 font-medium">Үндсэн мэдээлэл</h2>
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=person.family_name %}
+          {% include "employees/_add_field.html" with field=person.given_name %}
+          {% include "employees/_add_field.html" with field=person.clan_name %}
+          {% include "employees/_add_field.html" with field=person.register_no %}
+          {% include "employees/_add_field.html" with field=person.birth_date %}
+          {% include "employees/_add_field.html" with field=person.gender %}
+          {% include "employees/_add_field.html" with field=person.photo %}
+          {% if person.is_bound and person.errors %}<p class="-mt-1 text-xs text-slate-500 md:col-span-2 lg:col-span-3">Зургаа дахин сонгоно уу</p>{% endif %}
+          {% include "employees/_add_field.html" with field=person.work_phone %}
+          {% include "employees/_add_field.html" with field=person.private_phone %}
+          {% include "employees/_add_field.html" with field=person.email %}
+        </div>
+        <h2 class="mb-4 mt-8 font-medium">Ажил, гэрээ</h2>
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=job.start %}
+          {% include "employees/_add_field.html" with field=person.first_hire_date %}
+          {% for field in job %}{% if field.name != "start" %}{% include "employees/_add_field.html" %}{% endif %}{% endfor %}
+        </div>
+      </section>
+
+      <section role="tabpanel" data-tab="personal" class="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 class="mb-4 font-medium">Хувийн мэдээлэл</h2>
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=person.address %}
+          {% include "employees/_add_field.html" with field=person.emergency_name %}
+          {% include "employees/_add_field.html" with field=person.emergency_phone %}
+          {% include "employees/_add_field.html" with field=person.citizenship %}
+          {% include "employees/_add_field.html" with field=person.is_foreigner %}
+          {% include "employees/_add_field.html" with field=person.passport_no %}
+          {% include "employees/_add_field.html" with field=person.marital_status %}
+          {% include "employees/_add_field.html" with field=person.prior_service_years %}
+          {% include "employees/_add_field.html" with field=person.prior_service_months %}
+          {% include "employees/_add_field.html" with field=person.work_conditions %}
+          {% include "employees/_add_field.html" with field=person.work_schedule %}
+          {% include "employees/_add_field.html" with field=person.probation_end %}
+        </div>
+        <h2 class="mb-4 mt-8 font-medium">Бусад мэдээлэл</h2>
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=person.blood_type %}
+          {% include "employees/_add_field.html" with field=person.social_origin %}
+          {% include "employees/_add_field.html" with field=person.military_service %}
+          {% include "employees/_add_field.html" with field=person.housing_condition %}
+          {% include "employees/_add_field.html" with field=person.living_standard %}
+          {% include "employees/_add_field.html" with field=person.car_ownership %}
+          {% include "employees/_add_field.html" with field=person.clothing_size %}
+          {% include "employees/_add_field.html" with field=person.shoe_size %}
+          {% include "employees/_add_field.html" with field=person.elected_position %}
+        </div>
+        <div class="mt-8 grid gap-8">
+          {% for key, title, formset in lists %}{% include "employees/_add_list.html" %}{% endfor %}
+        </div>
+      </section>
+
+      {% if si is not None %}
+      <section role="tabpanel" data-tab="salary" class="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 class="mb-4 font-medium">Цалин, даатгал</h2>
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=extras.base_salary %}
+          {% include "employees/_add_field.html" with field=si.bank %}
+          {% include "employees/_add_field.html" with field=si.account_no %}
+          {% include "employees/_add_field.html" with field=si.social_insurance_no %}
+          {% include "employees/_add_field.html" with field=si.health_insurance_no %}
+          {% include "employees/_add_field.html" with field=si.insured_category %}
+          {% include "employees/_add_field.html" with field=si.taxpayer_no %}
+          {% include "employees/_add_field.html" with field=si.has_disability %}
+        </div>
+      </section>
+      {% endif %}
+
+      <section role="tabpanel" data-tab="login" class="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 class="mb-4 font-medium">Нэвтрэх эрх</h2>
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=extras.create_login %}
+          {% include "employees/_add_field.html" with field=extras.username %}
+        </div>
+      </section>
     </div>
-  </section>
-  <div class="flex justify-end gap-2">
-    <a href="{% url 'employees:list' %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</a>
-    <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Ажилтан үүсгэх</button>
+  </div>
+
+  <div class="fixed inset-x-0 bottom-0 z-40 px-4 pb-4">
+    <div class="mx-auto flex max-w-6xl items-center justify-end gap-2 rounded-xl border-2 border-violet-500 bg-violet-50 p-3 shadow-[0_-8px_24px_rgba(15,23,42,0.18)]">
+      <a href="{% url 'employees:list' %}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm">Болих</a>
+      <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Ажилтан үүсгэх</button>
+    </div>
   </div>
 </form>
+
+<script>
+(function () {
+  var form = document.getElementById("add-form");
+  var sections = [].slice.call(form.querySelectorAll("section[data-tab]"));
+
+  function showTab(name) {
+    sections.forEach(function (s) { s.classList.toggle("hidden", s.dataset.tab !== name); });
+    document.querySelectorAll("[data-tab-btn]").forEach(function (b) {
+      var on = b.dataset.tabBtn === name;
+      b.classList.toggle("bg-violet-50", on);
+      b.classList.toggle("text-violet-700", on);
+      b.classList.toggle("font-medium", on);
+      b.classList.toggle("text-slate-600", !on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  window.showTab = showTab;
+
+  function badges() {
+    sections.forEach(function (s) {
+      var badge = document.querySelector('[data-badge="' + s.dataset.tab + '"]');
+      if (!badge) return;
+      var required = [].slice.call(s.querySelectorAll("[required]"));
+      var missing = required.filter(function (f) { return !f.value; }).length;
+      var errors = s.querySelectorAll(".field-error").length;
+      var done = required.length > 0 && missing === 0;
+      badge.textContent = errors ? String(errors) : done ? "✓" : "";
+      badge.classList.toggle("bg-red-600", errors > 0);
+      badge.classList.toggle("text-white", errors > 0);
+      badge.classList.toggle("text-emerald-700", errors === 0 && done);
+    });
+  }
+
+  function addRow(button) {
+    var wrap = button.closest("[data-list]");
+    var total = wrap.querySelector("[name$=TOTAL_FORMS]");
+    var tbody = wrap.querySelector("tbody");
+    var n = parseInt(total.value, 10);
+    tbody.insertAdjacentHTML("beforeend", wrap.querySelector("template.empty-row").innerHTML.replace(/__prefix__/g, n));
+    total.value = n + 1;
+    var row = tbody.lastElementChild;
+    // Lets the date picker (listens for htmx:load) enhance date inputs in the new row.
+    document.dispatchEvent(new CustomEvent("htmx:load", { detail: { elt: row } }));
+    var first = row.querySelector("input:not([type=hidden]),select,textarea");
+    if (first) first.focus();
+  }
+  window.addRow = addRow;
+
+  // Browser validation can block submit on a field in a hidden tab: open that tab first.
+  // Only the first invalid control per submit attempt decides the tab; the rest are ignored.
+  var reporting = false;
+  form.addEventListener("invalid", function (e) {
+    if (reporting) return;
+    reporting = true;
+    setTimeout(function () { reporting = false; }, 0);
+    var section = e.target.closest("section[data-tab]");
+    if (section) showTab(section.dataset.tab);
+    e.target.focus();
+  }, true);
+  form.addEventListener("input", badges);
+  form.addEventListener("change", badges);
+
+  var firstError = sections.find(function (s) { return s.querySelector(".field-error"); });
+  showTab(firstError ? firstError.dataset.tab : "basic");
+  badges();
+})();
+</script>
 {% endblock %}

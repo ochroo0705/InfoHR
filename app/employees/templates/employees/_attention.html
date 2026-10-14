@@ -1,8 +1,16 @@
-{% if attention %}
+<div id="attention">{% if attention or attention_hidden %}
 <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
   <h2 class="font-semibold mb-1">Анхаарах ({{ attention|length }})</h2>
-  <ul class="space-y-0.5">
-    {% for a in attention %}<li><a href="{% url 'employees:detail' a.employee.pk %}" class="font-medium underline">{{ a.employee.full_name }}</a> — {{ a.text }}</li>{% endfor %}
-  </ul>
+  {% if attention %}<ul class="space-y-0.5">
+    {% for a in attention|slice:":5" %}{% include "employees/_attention_item.html" with action="dismiss" %}{% endfor %}
+  </ul>{% else %}<p class="text-amber-800">Шинэ зүйл алга.</p>{% endif %}
+  {% if attention|length > 5 %}<details class="group">
+    <summary class="mt-1 cursor-pointer list-none font-medium text-amber-800 hover:underline"><span class="group-open:hidden">Бүгдийг харах ({{ attention|length }})</span><span class="hidden group-open:inline">Хураах</span></summary>
+    <ul class="space-y-0.5">{% for a in attention|slice:"5:" %}{% include "employees/_attention_item.html" with action="dismiss" %}{% endfor %}</ul>
+  </details>{% endif %}
+  {% if attention_hidden %}<details class="mt-2 border-t border-amber-200 pt-2 text-amber-800">
+    <summary class="cursor-pointer list-none text-xs hover:underline">Нуусан ({{ attention_hidden|length }})</summary>
+    <ul class="mt-1 space-y-0.5 opacity-75">{% for a in attention_hidden %}{% include "employees/_attention_item.html" with action="restore" %}{% endfor %}</ul>
+  </details>{% endif %}
 </div>
-{% endif %}
+{% endif %}</div>

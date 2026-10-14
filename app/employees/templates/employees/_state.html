@@ -1,4 +1,4 @@
 {% if state == "upcoming" %}<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Ажилд орох: {{ job.period.lower|date:"Y-m-d" }}</span>
 {% elif state == "active" %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">Ажиллаж байгаа</span>
-{% elif state == "long_leave" %}<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">Урт чөлөөтэй</span>
+{% elif state == "long_leave" %}<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">Урт чөлөөтэй{% if until %} · {{ until|date:"Y-m-d" }} хүртэл{% endif %}</span>
 {% else %}<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Гарсан</span>{% endif %}

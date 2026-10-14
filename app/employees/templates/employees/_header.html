@@ -1,12 +1,19 @@
 {% load hr %}
 <div class="flex items-center gap-5 rounded-xl border border-slate-200 bg-white p-6">
   <div class="flex flex-col items-center gap-1">
-    {% if employee.photo %}<img src="{{ employee.photo.url }}" alt="" class="h-20 w-20 rounded-full object-cover">
-    {% else %}<div class="flex h-20 w-20 items-center justify-center rounded-full bg-violet-100 text-2xl text-violet-700">{{ employee.given_name|first }}</div>{% endif %}
-    {% if form %}<label class="cursor-pointer text-xs text-violet-700 hover:underline">Зураг солих
-      <input type="file" name="photo" accept="image/*" form="emp-form" class="sr-only" onchange="document.getElementById('photo-chosen').textContent=this.files.length?'Шинэ зураг сонгосон: '+this.files[0].name:''"></label>
-    <span id="photo-chosen" class="max-w-32 truncate text-xs text-slate-500"></span>
-    {% if employee.photo %}<label class="flex items-center gap-1 text-xs text-slate-500"><input type="checkbox" name="photo-clear" form="emp-form" class="h-3 w-3 accent-violet-600">Зураг устгах</label>{% endif %}
+    <div class="relative h-20 w-20">
+      <img id="photo-img"{% if employee.photo %} src="{{ employee.photo|thumb:80 }}" srcset="{{ employee.photo|thumb:160 }} 2x"{% endif %} alt="" class="h-20 w-20 rounded-full object-cover transition-opacity{% if not employee.photo %} hidden{% endif %}">
+      {% if not employee.photo %}<div id="photo-initial" class="flex h-20 w-20 items-center justify-center rounded-full bg-violet-100 text-2xl text-violet-700">{{ employee.given_name|first }}</div>{% endif %}
+      {% if form %}<label class="absolute -right-1 -bottom-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:text-violet-700 focus-within:ring-2 focus-within:ring-violet-500" title="{% if employee.photo %}Зураг солих{% else %}Зураг нэмэх{% endif %}">
+        <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h2l1.2-1.8h4.6L13.5 6h2A1.5 1.5 0 0 1 17 7.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5z"/><circle cx="10" cy="10.5" r="2.8"/></svg>
+        <span class="sr-only">{% if employee.photo %}Зураг солих{% else %}Зураг нэмэх{% endif %}</span>
+        <input type="file" name="photo" accept="image/*" form="emp-form" class="sr-only" onchange="previewPhoto(this)"></label>
+      {% if employee.photo %}<label class="absolute -right-1 -top-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:text-red-600 has-[:checked]:border-red-300 has-[:checked]:bg-red-50 has-[:checked]:text-red-600 focus-within:ring-2 focus-within:ring-violet-500" title="Зураг устгах">
+        <input type="checkbox" name="photo-clear" form="emp-form" class="sr-only" onchange="markPhotoClear(this)">
+        <svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        <span class="sr-only">Зураг устгах</span></label>{% endif %}{% endif %}
+    </div>
+    {% if form %}<span id="photo-chosen" class="max-w-32 truncate text-xs text-slate-500"></span>
     {% for e in form.photo.errors %}<p class="text-xs text-red-600">{{ e }}</p>{% endfor %}{% endif %}
   </div>
   <div class="flex-1">
@@ -16,7 +23,7 @@
     <p class="text-slate-600">{{ row.job.position|default:"" }}{% if row.job %} · {{ row.job.department }}{% endif %}</p>
     {% if form %}
     <div class="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-slate-500">
-      <span>{{ employee.code }} ·</span><span class="w-36">{% field form.work_phone %}</span><span>·</span><span class="w-56">{% field form.email %}</span><span>· Ажилд орсон {{ employee.first_hire_date|date:"Y-m-d" }}</span>
+      <span>{{ employee.code }}</span><span>·</span>{% field form.work_phone "[field-sizing:content] min-w-20" %}<span>·</span>{% field form.email "[field-sizing:content] min-w-24" %}<span>·</span><span>Ажилд орсон {{ employee.first_hire_date|date:"Y-m-d" }}</span>
     </div>
     {% else %}
     <p class="mt-1 text-sm text-slate-500">{{ employee.code }} · {{ employee.work_phone }}{% if employee.email %} · {{ employee.email }}{% endif %} · Ажилд орсон {{ employee.first_hire_date|date:"Y-m-d" }}</p>
@@ -24,6 +31,22 @@
     <p id="activity-latest" class="mt-1 text-xs text-slate-400">{% include "employees/_activity_latest.html" %}</p>
   </div>
   <div class="flex flex-col items-end gap-3 self-start">
-    {% include "employees/_state.html" with state=row.state job=row.job %}
+    <div class="flex flex-col items-end gap-1">
+      {% include "employees/_state.html" with state=row.state job=row.job until=leave_until %}
+      {% if next_event %}<a href="#work" onclick="showTab('work')" class="flex items-center gap-1 text-xs text-slate-500 hover:text-violet-700" title="Ажлын түүхээс харах, цуцлах">
+        <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12" rx="2"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4"/></svg>
+        {{ next_event.get_type_display }} · {{ next_event.effective|date:"Y-m-d" }}</a>{% endif %}
+    </div>
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      {% if event_menu %}<details class="relative">
+        <summary class="flex h-9 cursor-pointer list-none items-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50">Өөрчлөлт бүртгэх ▾</summary>
+        <div class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {% for value, label in event_menu %}<button type="button" hx-get="{% url 'employees:event' employee.pk value %}" hx-target="#modal" onclick="this.closest('details').removeAttribute('open')" class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">{{ label }}</button>{% endfor %}
+        </div>
+      </details>{% endif %}
+      <button type="button" onclick="openDrawer()" class="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50" title="Үйл ажиллагааны түүх">
+        <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>
+        <span>Түүх (<span id="activity-count">{{ activity_count }}</span>)</span></button>
+    </div>
   </div>
 </div>

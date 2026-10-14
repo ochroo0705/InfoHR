@@ -2,13 +2,18 @@ from typing import Any
 
 from accounts.models import User
 from django import forms
+from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Q
 from django.forms import inlineformset_factory
 
+from employees.images import MAX_UPLOAD_BYTES, shrink_photo
 from employees.models import (
+    ContractType,
     Department,
     Education,
     Employee,
+    EmployeeType,
+    EventType,
     FamilyMember,
     Gift,
     JobRecord,
@@ -16,6 +21,7 @@ from employees.models import (
     SalaryInsurance,
     Talent,
 )
+from employees.services.events import ALLOWED_FIELDS, REASON_CHOICES, SALARY_TYPES
 from employees.validators import normalize_register_no
 
 INPUT = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -27,6 +33,11 @@ class StyledForm(forms.Form):
         for field in self.fields.values():
             if not isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.setdefault("class", INPUT)
+            if isinstance(field.widget, forms.Textarea) and field.widget.attrs.get("rows") == "10":
+                # Django's default is 10 rows; start small and grow with the text.
+                field.widget.attrs["rows"] = "2"
+                field.widget.attrs.pop("cols", None)
+                field.widget.attrs["class"] += " resize-none [field-sizing:content] min-h-[2.5rem]"
             if isinstance(field, forms.DateField):
                 field.widget = forms.DateInput(attrs={"type": "date", "class": INPUT}, format="%Y-%m-%d")
 
@@ -85,10 +96,17 @@ class EmployeeForm(StyledModelForm):
     def clean_register_no(self) -> str:
         return normalize_register_no(self.cleaned_data["register_no"])
 
+    def clean_photo(self) -> Any:
+        photo = self.cleaned_data.get("photo")
+        if not isinstance(photo, UploadedFile):
+            return photo  # unchanged, cleared (False) or empty
+        if photo.size and photo.size > MAX_UPLOAD_BYTES:
+            raise forms.ValidationError(f"Зургийн хэмжээ {MAX_UPLOAD_BYTES // (1024 * 1024)} МБ-аас ихгүй байх ёстой.")
+        return shrink_photo(photo)
+
 
 class HirePersonForm(EmployeeForm):
-    class Meta(EmployeeForm.Meta):
-        fields = EMPLOYEE_FIELDS
+    """The hire page takes every employee field, same as the edit form."""
 
 
 class SalaryInsuranceForm(StyledModelForm):
@@ -188,3 +206,61 @@ class HireExtrasForm(StyledForm):
             elif User.objects.filter(username=username).exists():
                 self.add_error("username", "Ийм нэвтрэх нэр аль хэдийн байна.")
         return data
+
+
+class CancelEventForm(StyledForm):
+    reason = forms.CharField(label="Цуцлах шалтгаан", max_length=200, widget=forms.Textarea(attrs={"rows": 2}))
+
+
+def _job_field(name: str) -> forms.Field:
+    if name == "position":
+        return forms.ModelChoiceField(Position.objects.all(), label="Албан тушаал")
+    if name == "department":
+        return forms.ModelChoiceField(Department.objects.all(), label="Хэлтэс")
+    if name == "manager":
+        return forms.ModelChoiceField(Employee.objects.all(), label="Шууд удирдлага", required=False)
+    if name == "employee_type":
+        return forms.ChoiceField(choices=EmployeeType.choices, label="Ажилтны төрөл")
+    if name == "contract_type":
+        return forms.ChoiceField(choices=ContractType.choices, label="Гэрээний төрөл")
+    if name == "contract_no":
+        return forms.CharField(label="Гэрээний дугаар", max_length=50, required=False)
+    if name == "contract_start":
+        return forms.DateField(label="Гэрээ эхлэх", required=False)
+    return forms.DateField(label="Гэрээ дуусах", required=False)
+
+
+class EventForm(StyledForm):
+    """One form per event type, built from the fields the type may change (services.events)."""
+
+    def __init__(self, type: str, *args: Any, with_salary: bool = False, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.type = type
+        self.job_fields = ALLOWED_FIELDS[type]
+        self.with_salary = with_salary and type in SALARY_TYPES
+        fields: dict[str, forms.Field] = {"effective": forms.DateField(label="Хүчинтэй огноо")}
+        for name in self.job_fields:
+            fields[name] = _job_field(name)
+        if self.with_salary:
+            fields["salary"] = forms.DecimalField(
+                label="Үндсэн цалин",
+                max_digits=14,
+                decimal_places=2,
+                min_value=0,
+                required=type == EventType.SALARY_CHANGE,
+            )
+        choices = REASON_CHOICES.get(type)
+        if choices is not None:
+            fields["reason"] = forms.ChoiceField(choices=[("", "—"), *choices.choices], label="Шалтгаан")
+        else:
+            fields["reason"] = forms.CharField(
+                label="Шалтгаан", max_length=100, required=type == EventType.DEMOTION, widget=forms.TextInput()
+            )
+        if type == EventType.LEAVE_START:
+            fields["expected_return"] = forms.DateField(label="Буцах төлөвлөсөн огноо", required=False)
+        fields["note"] = forms.CharField(label="Тайлбар", required=False, widget=forms.Textarea(attrs={"rows": 2}))
+        for name, field in fields.items():
+            field.widget.attrs.setdefault("class", INPUT)
+            if isinstance(field, forms.DateField):
+                field.widget = forms.DateInput(attrs={"type": "date", "class": INPUT}, format="%Y-%m-%d")
+            self.fields[name] = field

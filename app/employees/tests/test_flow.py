@@ -37,6 +37,14 @@ def test_end_to_end_flow(client: Client) -> None:
             "status": "active",
             "contract_type": "open_ended",
             "base_salary": "2500000",
+            "family-TOTAL_FORMS": "0",
+            "family-INITIAL_FORMS": "0",
+            "education-TOTAL_FORMS": "0",
+            "education-INITIAL_FORMS": "0",
+            "talents-TOTAL_FORMS": "0",
+            "talents-INITIAL_FORMS": "0",
+            "gifts-TOTAL_FORMS": "0",
+            "gifts-INITIAL_FORMS": "0",
         },
     )
     assert response.status_code == 302, [response.context[k].errors for k in ("person", "job", "extras")]

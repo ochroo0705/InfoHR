@@ -558,6 +558,11 @@ def add_payload(job_values: dict[str, Any], **extra: str) -> dict[str, str]:
         "start": "2026-02-01", "position": str(job_values["position"].pk),
         "department": str(job_values["department"].pk),
         "employee_type": "full_time", "status": "active", "contract_type": "open_ended",
+        # Empty list formsets: management forms only, so the lists are valid when not filled in.
+        "family-TOTAL_FORMS": "0", "family-INITIAL_FORMS": "0",
+        "education-TOTAL_FORMS": "0", "education-INITIAL_FORMS": "0",
+        "talents-TOTAL_FORMS": "0", "talents-INITIAL_FORMS": "0",
+        "gifts-TOTAL_FORMS": "0", "gifts-INITIAL_FORMS": "0",
     }  # fmt: skip
     data.update(extra)
     return data
@@ -580,6 +585,101 @@ def test_admin_adds_with_salary_and_login(client: Client, job_values: dict[str, 
     assert emp.user is not None and emp.user.username == "bold"
     assert list(emp.user.groups.values_list("name", flat=True)) == ["Employee"]
     assert not emp.user.has_usable_password()
+
+
+def test_hr_add_ignores_salary_insurance_fields(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "HR")
+    client.post("/employees/new/", add_payload(job_values, **{"si-account_no": "123456"}))
+    emp = Employee.objects.get(register_no="УК88010122")
+    assert not SalaryInsurance.objects.filter(employee=emp, account_no="123456").exists()
+
+
+def test_admin_adds_every_tab_in_one_post(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "Admin")
+    response = client.post(
+        "/employees/new/",
+        add_payload(
+            job_values,
+            **{
+                "si-bank": "Хаан банк",
+                "si-account_no": "123456",
+                "shoe_size": "42",
+                "family-TOTAL_FORMS": "1",
+                "family-0-name": "Доржийн Сараа",
+                "family-0-relation": "Эхнэр",
+            },
+        ),
+    )
+    emp = Employee.objects.get(register_no="УК88010122")
+    assert response.status_code == 302
+    assert emp.salary_insurance.bank == "Хаан банк" and emp.salary_insurance.account_no == "123456"
+    assert emp.shoe_size == "42"
+    assert emp.family.get().name == "Доржийн Сараа"
+
+
+def test_invalid_family_row_creates_nothing(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "Admin")
+    response = client.post(
+        "/employees/new/",
+        add_payload(
+            job_values,
+            **{"family-TOTAL_FORMS": "1", "family-0-name": "", "family-0-relation": "Эхнэр"},
+        ),
+    )
+    assert response.status_code == 200
+    assert not Employee.objects.filter(register_no="УК88010122").exists()
+
+
+def test_admin_hire_saves_photo_as_jpg(
+    client: Client, job_values: dict[str, Any], settings: Any, tmp_path: Any
+) -> None:
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    settings.MEDIA_ROOT = tmp_path
+    login_as(client, "Admin")
+    buffer = io.BytesIO()
+    Image.new("RGB", (4, 4), "red").save(buffer, "PNG")
+    photo = SimpleUploadedFile("p.png", buffer.getvalue(), content_type="image/png")
+    data: dict[str, Any] = add_payload(job_values)
+    data["photo"] = photo
+    response = client.post("/employees/new/", data)
+    assert response.status_code == 302
+    emp = Employee.objects.get(register_no="УК88010122")
+    assert emp.photo and emp.photo.name.endswith(".jpg")
+
+
+def test_invalid_add_creates_no_salary_login_or_user(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "Admin")
+    response = client.post(
+        "/employees/new/",
+        add_payload(
+            job_values,
+            **{
+                "si-bank": "Хаан банк",
+                "si-account_no": "777777",
+                "create_login": "on",
+                "username": "newhire",
+                "family-TOTAL_FORMS": "1",
+                "family-0-name": "",
+                "family-0-relation": "Эхнэр",
+            },
+        ),
+    )
+    assert response.status_code == 200
+    assert not Employee.objects.filter(register_no="УК88010122").exists()
+    assert not SalaryInsurance.objects.filter(account_no="777777").exists()
+    assert not Employee.objects.filter(user__username="newhire").exists()
+    assert not Employee.objects.exists()
+
+
+def test_admin_hire_with_blank_salary_insurance_creates_no_row(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "Admin")
+    client.post("/employees/new/", add_payload(job_values))
+    emp = Employee.objects.get(register_no="УК88010122")
+    assert not SalaryInsurance.objects.filter(employee=emp).exists()
 
 
 def test_duplicate_register_rejected(client: Client, hired: Employee, job_values: dict[str, Any]) -> None:
@@ -629,9 +729,33 @@ def test_register_search_only_for_personal_viewers(client: Client, hired: Employ
     assert hired.code in client.get("/employees/?q=УБ99112233").content.decode()
 
 
-def test_add_page_section_three_heading_capitalised(client: Client) -> None:
+def test_admin_add_page_shows_four_tabs_and_list_tables(client: Client) -> None:
+    login_as(client, "Admin")
+    body = client.get("/employees/new/").content.decode()
+    for label in ("Үндсэн", "Хувийн", "Цалин, даатгал", "Нэвтрэх эрх"):
+        assert label in body
+    assert 'name="family-TOTAL_FORMS"' in body
+    assert 'name="si-account_no"' in body
+    assert 'data-tab="salary"' in body
+    basic = body[body.index('data-tab="basic"') : body.index('data-tab="personal"')]
+    assert 'name="first_hire_date"' in basic
+    assert 'name="family_name"' in basic
+
+
+def test_hr_add_page_has_no_salary_tab(client: Client) -> None:
     login_as(client, "HR")
-    assert "3. Нэвтрэх эрх" in client.get("/employees/new/").content.decode()
+    body = client.get("/employees/new/").content.decode()
+    assert "Цалин, даатгал" not in body
+    assert 'name="si-account_no"' not in body
+
+
+def test_failed_add_post_marks_field_errors(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "Admin")
+    response = client.post("/employees/new/", add_payload(job_values, family_name=""))
+    assert response.status_code == 200
+    body = response.content.decode()
+    assert '<span class="field-error text-xs text-red-600">' in body  # rendered error markup, not the script
+    assert not Employee.objects.filter(register_no="УК88010122").exists()
 
 
 def test_other_fields_activity_split(hired: Employee, actor: User) -> None:
@@ -645,10 +769,10 @@ def test_other_fields_activity_split(hired: Employee, actor: User) -> None:
     assert [c["field"] for c in work.changes] == ["Гутлын хэмжээ"]
 
 
-def test_other_fields_only_on_edit_form(client: Client, hired: Employee) -> None:
+def test_hire_form_takes_other_fields(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
-    new = client.get("/employees/new/").content.decode()
-    assert 'name="blood_type"' not in new
+    form = client.get("/employees/new/").context["person"]
+    assert "blood_type" in form.fields and "shoe_size" in form.fields
     edit = client.get(f"/employees/{hired.pk}/").content.decode()
     assert 'name="blood_type"' in edit and 'name="shoe_size"' in edit
 
@@ -722,7 +846,7 @@ def test_header_count_matches_visible_activity(client: Client, hired: Employee, 
     user = login_as(client, role)
     expected = access.visible_activity(user, hired).count()
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert f'Бүртгэл (<span id="activity-count">{expected}</span>)' in body
+    assert f'Түүх (<span id="activity-count">{expected}</span>)' in body
 
 
 def test_note_post_returns_activity_block(client: Client, hired: Employee, actor: User) -> None:

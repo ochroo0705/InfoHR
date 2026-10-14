@@ -1,11 +1,11 @@
 {% load hr %}
 {% include "employees/_setup.html" %}
 <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
-  <div><dt class="text-slate-500">Албан тушаал</dt><dd>{{ row.job.position|default:"—" }}</dd></div>
-  <div><dt class="text-slate-500">Хэлтэс</dt><dd>{{ row.job.department|default:"—" }}</dd></div>
+  <div><dt class="text-slate-500">Албан тушаал</dt><dd>{{ row.job.position|default:"—" }}{% if 'promotion' in event_allowed %} <button type="button" hx-get="{% url 'employees:event' employee.pk 'promotion' %}" hx-target="#modal" class="text-xs text-violet-700 hover:underline">өөрчлөх</button>{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хэлтэс</dt><dd>{{ row.job.department|default:"—" }}{% if 'transfer' in event_allowed %} <button type="button" hx-get="{% url 'employees:event' employee.pk 'transfer' %}" hx-target="#modal" class="text-xs text-violet-700 hover:underline">өөрчлөх</button>{% endif %}</dd></div>
   <div><dt class="text-slate-500">Шууд удирдлага</dt><dd>{{ row.job.manager.full_name|default:"—" }}</dd></div>
   <div><dt class="text-slate-500">Ажилтны төрөл</dt><dd>{{ row.job.get_employee_type_display|default:"—" }}</dd></div>
-  <div><dt class="text-slate-500">Гэрээ</dt><dd>{{ row.job.get_contract_type_display|default:"—" }} {{ row.job.contract_no }}</dd></div>
+  <div><dt class="text-slate-500">Гэрээ</dt><dd>{{ row.job.get_contract_type_display|default:"—" }} {{ row.job.contract_no }}{% if 'contract' in event_allowed %} <button type="button" hx-get="{% url 'employees:event' employee.pk 'contract' %}" hx-target="#modal" class="text-xs text-violet-700 hover:underline">өөрчлөх</button>{% endif %}</dd></div>
   <div><dt class="text-slate-500">Гэрээний хугацаа</dt><dd>{{ row.job.contract_start|date:"Y-m-d"|default:"—" }} – {{ row.job.contract_end|date:"Y-m-d"|default:"" }}</dd></div>
   <div><dt class="text-slate-500">Ажлын нөхцөл</dt><dd>{% if form %}{% field form.work_conditions %}{% else %}{{ employee.get_work_conditions_display }}{% endif %}</dd></div>
   <div><dt class="text-slate-500">Цагийн хуваарь</dt><dd>{% if form %}{% field form.work_schedule %}{% else %}{{ employee.work_schedule|default:"—" }}{% endif %}</dd></div>
@@ -21,11 +21,11 @@
 </dl>
 <h3 class="mt-8 mb-2 font-medium">Ажлын түүх</h3>
 <table class="w-full text-sm">
-  <thead class="text-left text-slate-500"><tr><th class="py-1">Хугацаа</th><th>Албан тушаал</th><th>Хэлтэс</th><th>Төлөв</th><th>Төрөл</th><th></th></tr></thead>
+  <thead class="text-left text-slate-500"><tr><th class="py-1">Хугацаа</th><th>Албан тушаал</th><th>Хэлтэс</th><th>Төлөв</th><th>Өөрчлөлт</th><th></th></tr></thead>
   <tbody>{% for job in jobs %}
     <tr class="border-t border-slate-100">
-      <td class="py-2">{{ job.period.lower|date:"Y-m-d" }} – {{ job.period.upper|date:"Y-m-d"|default:"одоо" }}</td>
-      <td>{{ job.position }}</td><td>{{ job.department }}</td><td>{{ job.get_status_display }}</td><td>{{ job.get_change_type_display }}</td>
-      <td class="text-right">{% if can_manage %}<button hx-get="{% url 'employees:correct_job' employee.pk job.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td>
+      <td class="py-2">{{ job.period.lower|date:"Y-m-d" }} –{% if job.period.upper %} {{ job.period.upper|date:"Y-m-d" }}{% elif job.status == "long_leave" and job.event.expected_return %} <span class="text-slate-500">({{ job.event.expected_return|date:"Y-m-d" }} буцна)</span>{% elif not job.scheduled %} одоо{% endif %}</td>
+      <td>{{ job.position }}</td><td>{{ job.department }}</td><td>{{ job.get_status_display }}</td><td>{{ job.label }}{% if job.scheduled %} <span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">Төлөвлөсөн</span>{% endif %}</td>
+      <td class="text-right">{% if job.cancellable %}<button hx-get="{% url 'employees:event_cancel' employee.pk job.event_id %}" hx-target="#modal" class="text-red-700 hover:underline">Цуцлах</button>{% elif can_manage and not job.locked %}<button hx-get="{% url 'employees:correct_job' employee.pk job.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td>
     </tr>{% endfor %}</tbody>
 </table>

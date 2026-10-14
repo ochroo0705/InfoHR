@@ -1,3 +1,5 @@
+from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from accounts.models import User
@@ -5,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -14,8 +16,10 @@ from django.views.decorators.vary import vary_on_headers
 
 from employees import access, attention
 from employees.forms import (
+    CancelEventForm,
     EducationFormSet,
     EmployeeForm,
+    EventForm,
     FamilyFormSet,
     GiftFormSet,
     HireExtrasForm,
@@ -35,10 +39,13 @@ from employees.models import (
     Department,
     Employee,
     EmployeeType,
+    Event,
+    EventType,
     JobRecord,
     SalaryInsurance,
 )
-from employees.services import history, records, setup
+from employees.services import events, history, records, setup
+from employees.services.events import ALLOWED_FIELDS, SALARY_TYPES, EventError
 from employees.services.history import HistoryError, salary_on
 from employees.validators import normalize_register_no
 
@@ -103,9 +110,28 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     if not is_partial:  # the strip ignores filters (and search): it covers everyone the user can see
         if q:
             all_rows = employee_rows(access.visible_employees(_user(request)), today)
-        context["attention"] = attention.items(_user(request), all_rows, today)
+        context["attention"], context["attention_hidden"] = attention.split(
+            _user(request), attention.items(_user(request), all_rows, today)
+        )
     template = "employees/_results.html" if is_partial else "employees/list.html"
     return render(request, template, context)
+
+
+@login_required
+@require_POST
+def attention_toggle(request: HttpRequest) -> HttpResponse:
+    """ "Мэдлээ" / "Дахин харуулах" on one Анхаарах item; returns the box."""
+    user, today = _user(request), timezone.localdate()
+    found = attention.items(user, employee_rows(access.visible_employees(user), today), today)
+    item = next((a for a in found if a.key == request.POST.get("key")), None)
+    if item is None:
+        raise Http404
+    if request.POST.get("action") == "restore":
+        attention.restore(user, item)
+    else:
+        attention.dismiss(user, item)
+    shown, hidden = attention.split(user, found)
+    return render(request, "employees/_attention.html", {"attention": shown, "attention_hidden": hidden})
 
 
 def _employee_for(request: HttpRequest, pk: int) -> Employee:
@@ -125,6 +151,28 @@ def _salary_form(employee: Employee) -> SalaryInsuranceForm:
     return SalaryInsuranceForm(instance=instance, prefix="si")
 
 
+def _is_scheduled(event: Event | None, today: date) -> bool:
+    return event is not None and event.status(today) == "scheduled"
+
+
+def _mark_scheduled(rows: Any, user: User, today: date) -> list[Any]:
+    """Flag history rows of a not-yet-effective event, and whether this user may cancel it."""
+    result = list(rows)
+    for row in result:
+        row.scheduled = row.period.lower > today
+        row.locked = _is_scheduled(row.event, today)
+        row.cancellable = row.locked and access.can_cancel(user, row.event)
+        row.label = row.event.get_type_display() if row.event is not None else row.get_change_type_display()
+    return result
+
+
+def _next_event(employee: Employee, can_salary: bool, today: date) -> Event | None:
+    qs = employee.events.filter(cancelled_at__isnull=True, effective__gt=today)
+    if not can_salary:  # a scheduled pay change must not leak to people who cannot see pay
+        qs = qs.exclude(type=EventType.SALARY_CHANGE)
+    return qs.order_by("effective").first()
+
+
 def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object]:
     user, today = _user(request), timezone.localdate()
     can_salary = access.can_view_salary(user)
@@ -132,15 +180,35 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
     activity = access.visible_activity(user, employee)
     show_setup = employee.setup_required and can_manage
     setup_items = setup.status(employee, user) if show_setup else None
+    row = row_for(employee, today)
+    menu = [
+        (t.value, events.PLACEMENT_LABEL if t == EventType.TRANSFER else t.label)
+        for t in EventType
+        if t in events.AVAILABLE.get(row.state, ())
+        and access.can_record_event(user, t.value)
+        and t not in events.PLACEMENT_TYPES[1:]  # one item opens all three, see event_form
+    ]
     return {
         "employee": employee,
         "setup": setup_items,
         "setup_done": sum(i.done for i in setup_items) if setup_items else 0,
         "setup_complete": setup.complete_for(employee, user) if show_setup else False,
-        "row": row_for(employee, today),
-        "jobs": employee.job_records.select_related("position", "department", "manager").order_by("-period"),
+        "row": row,
+        "jobs": _mark_scheduled(
+            employee.job_records.select_related("position", "department", "manager", "event").order_by("-period"),
+            user,
+            today,
+        ),
         "salary": salary_on(employee, today) if can_salary else None,
-        "salaries": employee.salary_records.order_by("-period") if can_salary else [],
+        "salaries": (
+            _mark_scheduled(employee.salary_records.select_related("event").order_by("-period"), user, today)
+            if can_salary
+            else []
+        ),
+        "event_menu": menu,
+        "event_allowed": {value for value, _ in menu},
+        "next_event": _next_event(employee, can_salary, today),
+        "leave_until": events.leave_until(employee, today) if row.state == "long_leave" else None,
         "details": SalaryInsurance.objects.filter(employee=employee).first() if can_salary else None,
         "activity": activity.select_related("by")[:100],
         "activity_count": activity.count(),
@@ -169,7 +237,20 @@ def employee_add(request: HttpRequest) -> HttpResponse:
     job = HireJobForm(request.POST or None)
     extras = HireExtrasForm(request.POST or None)
     allow_salary = access.can_manage_salary(user)
-    if request.method == "POST" and person.is_valid() and job.is_valid() and extras.is_valid():
+    si = SalaryInsuranceForm(request.POST or None, prefix="si") if allow_salary else None
+    lists = [
+        (key, title, formset_class(request.POST or None, instance=Employee(), prefix=key))
+        for key, (formset_class, title) in LISTS.items()
+    ]
+    formsets = [formset for _, _, formset in lists]
+    if (
+        request.method == "POST"
+        and person.is_valid()
+        and job.is_valid()
+        and extras.is_valid()
+        and (si is None or si.is_valid())
+        and all(formset.is_valid() for formset in formsets)
+    ):
         salary = extras.cleaned_data["base_salary"] if allow_salary else None
         with transaction.atomic():
             employee = history.hire(
@@ -179,6 +260,12 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 salary=salary,
                 by=user,
             )
+            if si is not None and si.has_changed():
+                si.instance.employee = employee
+                si.save()
+            for formset in formsets:
+                formset.instance = employee
+                formset.save()
             if extras.cleaned_data["create_login"]:
                 login = User.objects.create_user(
                     extras.cleaned_data["username"].strip(),
@@ -193,7 +280,14 @@ def employee_add(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "employees/add.html",
-        {"person": person, "job": job, "extras": extras, "allow_salary": allow_salary},
+        {
+            "person": person,
+            "job": job,
+            "extras": extras,
+            "allow_salary": allow_salary,
+            "si": si,
+            "lists": lists,
+        },
     )
 
 
@@ -307,7 +401,8 @@ def toggle_setup(request: HttpRequest, pk: int, key: str) -> HttpResponse:
 def correct_job(request: HttpRequest, pk: int, record_id: int) -> HttpResponse:
     employee = _employee_for(request, pk)
     _require(access.can_manage(_user(request)))
-    record = get_object_or_404(employee.job_records, pk=record_id)
+    record = get_object_or_404(employee.job_records.select_related("event"), pk=record_id)
+    _require(not _is_scheduled(record.event, timezone.localdate()))  # scheduled rows are cancelled, not corrected
     form = JobCorrectionForm(request.POST or None, instance=JobRecord.objects.get(pk=record.pk))
     if request.method == "POST" and form.is_valid():
         changes = {f: form.cleaned_data[f] for f in JobRecord.JOB_FIELDS}
@@ -323,7 +418,8 @@ def correct_job(request: HttpRequest, pk: int, record_id: int) -> HttpResponse:
 def correct_salary(request: HttpRequest, pk: int, record_id: int) -> HttpResponse:
     employee = _employee_for(request, pk)
     _require(access.can_manage_salary(_user(request)))
-    record = get_object_or_404(employee.salary_records, pk=record_id)
+    record = get_object_or_404(employee.salary_records.select_related("event"), pk=record_id)
+    _require(not _is_scheduled(record.event, timezone.localdate()))
     form = SalaryCorrectionForm(request.POST or None, initial={"amount": record.base_salary})
     if request.method == "POST" and form.is_valid():
         try:
@@ -405,3 +501,141 @@ def edit_talents(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 def edit_gifts(request: HttpRequest, pk: int) -> HttpResponse:
     return _edit_list(request, pk, "gifts")
+
+
+# --- Events ---
+def _parse_day(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _event_initial(employee: Employee, type: str, effective: date, with_salary: bool) -> dict[str, Any]:
+    """The values in force on `effective`, so the form shows what would change."""
+    initial: dict[str, Any] = {"effective": effective}
+    job = history.job_on(employee, effective)
+    if job is not None:
+        for name in ALLOWED_FIELDS[type]:
+            initial[name] = getattr(job, f"{name}_id" if name in ("position", "department", "manager") else name)
+    current = salary_on(employee, effective) if with_salary else None
+    if current is not None:
+        initial["salary"] = current.base_salary
+    return initial
+
+
+def _event_summary(employee: Employee, form: EventForm) -> str:
+    """'Нягтлан → Ахлах нягтлан · 2026-11-01-нээс' for the values typed so far."""
+    data = getattr(form, "cleaned_data", {})
+    effective = data.get("effective")
+    job = history.job_on(employee, effective) if effective else None
+    if effective is None or job is None:
+        return ""
+    new = {f: data[f] for f in form.job_fields if f in data and getattr(job, f) != data[f]}
+    parts = [f"{d['old']} → {d['new']}" for d in events._diffs(job, new)]
+    salary = data.get("salary")
+    current = salary_on(employee, effective)
+    if form.with_salary and isinstance(salary, Decimal) and (current is None or current.base_salary != salary):
+        parts.append(f"{current.base_salary if current else '—'} → {salary}")
+    return f"{'; '.join(parts)} · {effective:%Y-%m-%d}-нээс" if parts else ""
+
+
+@login_required
+def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
+    employee, user, today = _employee_for(request, pk), _user(request), timezone.localdate()
+    if type not in EventType.values:
+        raise Http404
+    _require(access.can_record_event(user, type))
+    with_salary = access.can_manage_salary(user) and type in SALARY_TYPES
+    effective: date | None
+    if request.method == "POST":
+        form = EventForm(type, request.POST, with_salary=with_salary)
+        if form.is_valid():
+            data = form.cleaned_data
+            salary = data.get("salary") if with_salary else None
+            current = salary_on(employee, data["effective"])
+            if salary is not None and type != EventType.SALARY_CHANGE and current and current.base_salary == salary:
+                salary = None  # the form is pre-filled with the current pay; untouched means no pay change
+            try:
+                events.record(
+                    employee,
+                    type=type,
+                    effective=data["effective"],
+                    changes={f: data[f] for f in form.job_fields},
+                    salary=salary,
+                    reason=data["reason"],
+                    note=data["note"],
+                    by=user,
+                    expected_return=data.get("expected_return"),
+                )
+                return _done(employee)
+            except EventError as error:
+                for name, message in error.errors.items():
+                    form.add_error(name if name in form.fields else None, message)
+        effective = form.cleaned_data.get("effective") if hasattr(form, "cleaned_data") else None
+        summary = _event_summary(employee, form)
+    elif request.GET.get("summary"):
+        form = EventForm(type, request.GET, with_salary=with_salary)
+        form.full_clean()
+        return render(request, "employees/_event_summary.html", {"summary": _event_summary(employee, form)})
+    else:
+        effective = _parse_day(request.GET.get("effective")) or today
+        initial = _event_initial(employee, type, effective, with_salary)
+        initial["reason"] = request.GET.get("reason", "")
+        initial["note"] = request.GET.get("note", "")
+        previous = _parse_day(request.GET.get("prev_effective"))
+        if previous is not None:
+            # The date was changed in an open form: keep what the user edited, refill
+            # the rest with the values in force on the new date.
+            typed = EventForm(type, request.GET, with_salary=with_salary)
+            before = _event_initial(employee, type, previous, with_salary)
+            for name, field in typed.fields.items():
+                if name not in ("effective", "reason", "note") and name in request.GET:
+                    value = typed[name].data
+                    if field.has_changed(before.get(name), value):
+                        initial[name] = value
+        form = EventForm(type, initial=initial, with_salary=with_salary)
+        summary = ""
+    form.fields["effective"].widget.attrs.update(
+        {
+            "hx-get": request.path,
+            "hx-trigger": "change",
+            "hx-target": "closest div.fixed",
+            "hx-swap": "outerHTML",
+            "hx-include": "closest form",
+            "hx-params": "not csrfmiddlewaretoken",
+        }
+    )
+    placement = type in events.PLACEMENT_TYPES
+    context = {
+        "title": events.PLACEMENT_LABEL if placement else EventType(type).label,
+        "kinds": [
+            (reverse("employees:event", args=[employee.pk, t.value]), t.label, t == type)
+            for t in events.PLACEMENT_TYPES
+        ]
+        if placement
+        else [],
+        "form": form,
+        "action": request.path,
+        "summary": summary,
+        "when": "past" if effective and effective < today else "future" if effective and effective > today else "",
+    }
+    return render(request, "employees/_event_form.html", context)
+
+
+@login_required
+def event_cancel(request: HttpRequest, pk: int, event_id: int) -> HttpResponse:
+    employee = _employee_for(request, pk)
+    event: Event = get_object_or_404(employee.events, pk=event_id)
+    _require(access.can_cancel(_user(request), event))
+    if event.status(timezone.localdate()) != "scheduled":
+        raise Http404
+    form = CancelEventForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            events.cancel(event, reason=form.cleaned_data["reason"], by=_user(request))
+            return _done(employee)
+        except EventError as error:
+            for name, message in error.errors.items():
+                form.add_error(name if name in form.fields else None, message)
+    return _modal(request, f"Цуцлах: {event.get_type_display()} ({event.effective:%Y-%m-%d})", form, request.path)

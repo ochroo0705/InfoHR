@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% load hr %}
 {% block title %}{{ employee.full_name }}{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between"><a href="{% url 'employees:list' %}" class="text-sm text-slate-500 hover:text-violet-700">← Ажилтнууд</a><button type="button" onclick="openDrawer()" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Бүртгэл (<span id="activity-count">{{ activity_count }}</span>)</button></div>
+<a href="{% url 'employees:list' %}" class="text-sm text-slate-500 hover:text-violet-700">← Ажилтнууд</a>
 {% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab"></form>
 {% if form.non_field_errors or si_form.non_field_errors %}<p class="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }} {{ si_form.non_field_errors|join:" " }}</p>{% endif %}{% endif %}
 <div id="header" class="mt-2">{% include "employees/_header.html" %}</div>
@@ -47,7 +47,22 @@ if(wide()&&store('hr.activityOpen')==='1')render(true);
 function showTab(name){document.querySelectorAll('[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
 document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('border-b-2', a.hash==='#'+name));}
 if(location.hash&&document.getElementById('tab-'+location.hash.slice(1))){showTab(location.hash.slice(1))}else{showTab('{{ tab|default:"work"|escapejs }}')}
-{% if form or si_form %}(function(){var f=document.getElementById('emp-form');
+{% if form or si_form %}// Show a chosen photo before it is saved. Big downscales in one step look grainy
+// (browsers sample too few pixels), so halve the image step by step to the circle size.
+// "×" on the photo: marks it for removal on Save (dimmed + note); untick to undo.
+window.markPhotoClear=function(box){document.getElementById('photo-img').classList.toggle('opacity-30',box.checked);
+document.getElementById('photo-chosen').textContent=box.checked?'Хадгалахад устгагдана':'';};
+window.previewPhoto=function(input){var file=input.files[0],img=document.getElementById('photo-img'),ini=document.getElementById('photo-initial');
+document.getElementById('photo-chosen').textContent=file?'Хадгалахад солигдоно':'';if(!file)return;
+var clear=document.querySelector('[name=photo-clear]');if(clear){clear.checked=false;img.classList.remove('opacity-30');}
+function show(src){img.removeAttribute('srcset');img.src=src;img.classList.remove('hidden');if(ini)ini.classList.add('hidden');}
+createImageBitmap(file).then(function(bmp){var target=Math.round(img.clientWidth||80)*(window.devicePixelRatio||1),
+side=Math.min(bmp.width,bmp.height),src=bmp,sx=(bmp.width-side)/2,sy=(bmp.height-side)/2,size=side;
+while(true){var next=Math.max(target,Math.round(size/2)),c=document.createElement('canvas');c.width=c.height=next;
+var g=c.getContext('2d');g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(src,sx,sy,size,size,0,0,next,next);
+src=c;sx=sy=0;size=next;if(next<=target)break;}
+show(src.toDataURL('image/jpeg',0.92));}).catch(function(){show(window.URL.createObjectURL(file));});};
+(function(){var f=document.getElementById('emp-form');
 var bar=document.getElementById('save-bar'),dirty={% if form.is_bound or si_form.is_bound %}true{% else %}false{% endif %};
 function mark(e){if(e.target.form===f){dirty=true;bar.classList.remove('hidden');bar.classList.add('flex');}}
 document.addEventListener('input',mark);document.addEventListener('change',mark);

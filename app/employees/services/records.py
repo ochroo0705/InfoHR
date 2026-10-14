@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import FileField, Model
 
 from employees.models import PERSONAL_FIELDS, ActivityEntry, ActivityKind, Employee, SalaryInsurance
+from employees.services.display import shown
 
 
 def _diff(instance: Model, data: dict[str, Any]) -> list[dict[str, str]]:
@@ -19,14 +20,13 @@ def _diff(instance: Model, data: dict[str, Any]) -> list[dict[str, str]]:
             new = new or None
             old_name, new_name = (old.name if old else ""), (new.name if new else "")
             if old_name != new_name or new is not None:
-                changes.append({"field": str(model_field.verbose_name), "old": old_name, "new": new_name})
+                if old_name != new_name:
+                    changes.append({"field": str(model_field.verbose_name), "old": old_name, "new": new_name})
                 model_field.save_form_data(instance, new if new is not None else False)
             continue
         if old != new:
             label = str(model_field.verbose_name)  # type: ignore[union-attr]
-            changes.append(
-                {"field": label, "old": "" if old is None else str(old), "new": "" if new is None else str(new)}
-            )
+            changes.append({"field": label, "old": shown(model_field, old), "new": shown(model_field, new)})
             setattr(instance, field, new)
     return changes
 

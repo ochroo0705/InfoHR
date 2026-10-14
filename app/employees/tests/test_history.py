@@ -5,8 +5,9 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.db import IntegrityError
+from psycopg.types.range import DateRange
 
-from employees.models import ActivityEntry, Employee, JobRecord, Position, SalaryRecord
+from employees.models import ActivityEntry, Employee, Event, JobRecord, Position, SalaryRecord
 from employees.services import history
 from employees.services.history import HistoryError
 
@@ -141,3 +142,145 @@ def test_change_salary_first_only_refuses_existing(hired: Employee, actor: User)
             first_only=True,
         )
     assert hired.salary_records.count() == 1
+
+
+def test_change_job_splits_only_the_period_it_falls_in(hired: Employee, actor: User) -> None:
+    lead = Position.objects.create(name="Ахлах нягтлан")
+    history.change_job(
+        hired, effective=date(2026, 3, 1), changes={"position": lead}, change_type="correction", note="", by=actor
+    )
+    history.change_job(
+        hired, effective=date(2026, 2, 1), changes={"status": "long_leave"}, change_type="correction", note="", by=actor
+    )
+    first, second, third = JobRecord.objects.filter(employee=hired).order_by("period")
+    assert first.period.lower == date(2026, 1, 5) and first.period.upper == date(2026, 2, 1)
+    assert second.period.lower == date(2026, 2, 1) and second.period.upper == date(2026, 3, 1)
+    assert third.period.lower == date(2026, 3, 1) and third.period.upper is None
+    assert third.position == lead and third.status == "active"
+
+
+def test_change_job_on_period_start_already_split_refused(hired: Employee, actor: User) -> None:
+    lead = Position.objects.create(name="Ахлах нягтлан")
+    history.change_job(
+        hired, effective=date(2026, 3, 1), changes={"position": lead}, change_type="correction", note="", by=actor
+    )
+    with pytest.raises(HistoryError):
+        history.change_job(
+            hired, effective=date(2026, 3, 1), changes={"status": "left"}, change_type="correction", note="", by=actor
+        )
+    assert JobRecord.objects.filter(employee=hired).count() == 2
+
+
+def test_change_salary_before_first_salary_refused(hired: Employee, actor: User) -> None:
+    with pytest.raises(HistoryError, match="Энэ өдрөөс хойш цалингийн түүх байна"):
+        history.change_salary(
+            hired, effective=date(2025, 12, 1), amount=Decimal("1000000"), change_type="correction", note="", by=actor
+        )
+    assert hired.salary_records.count() == 1
+
+
+def _event(employee: Employee, effective: date) -> Event:
+    return Event.objects.create(employee=employee, type="promotion", effective=effective)
+
+
+def test_change_job_links_event_and_log_false_skips_entry(hired: Employee, actor: User) -> None:
+    lead = Position.objects.create(name="Ахлах нягтлан")
+    event = _event(hired, date(2026, 6, 1))
+    before = ActivityEntry.objects.filter(employee=hired).count()
+    record = history.change_job(
+        hired,
+        effective=date(2026, 6, 1),
+        changes={"position": lead},
+        change_type="promotion",
+        note="",
+        by=actor,
+        event=event,
+        log=False,
+    )
+    assert record.event == event and list(event.job_records.all()) == [record]
+    assert ActivityEntry.objects.filter(employee=hired).count() == before
+
+
+def test_change_salary_log_false_skips_entry(hired: Employee, actor: User) -> None:
+    event = _event(hired, date(2026, 6, 1))
+    before = ActivityEntry.objects.filter(employee=hired).count()
+    record = history.change_salary(
+        hired,
+        effective=date(2026, 6, 1),
+        amount=Decimal("3000000"),
+        change_type="salary_change",
+        note="",
+        by=actor,
+        event=event,
+        log=False,
+    )
+    assert record.event == event
+    assert ActivityEntry.objects.filter(employee=hired).count() == before
+
+
+def test_undo_merges_job_and_salary_back(hired: Employee, actor: User) -> None:
+    lead = Position.objects.create(name="Ахлах нягтлан")
+    event = _event(hired, date(2026, 6, 1))
+    job = history.change_job(
+        hired,
+        effective=date(2026, 6, 1),
+        changes={"position": lead},
+        change_type="promotion",
+        note="",
+        by=actor,
+        event=event,
+    )
+    salary = history.change_salary(
+        hired,
+        effective=date(2026, 6, 1),
+        amount=Decimal("3000000"),
+        change_type="promotion",
+        note="",
+        by=actor,
+        event=event,
+    )
+    history.undo([job, salary])
+    (only_job,) = JobRecord.objects.filter(employee=hired)
+    (only_salary,) = SalaryRecord.objects.filter(employee=hired)
+    assert only_job.period.lower == date(2026, 1, 5) and only_job.period.upper is None
+    assert only_salary.period.upper is None and only_salary.base_salary == Decimal("2500000.00")
+
+
+def test_undo_first_salary_period_deletes_it(actor: User, job_values: dict[str, Any]) -> None:
+    emp = history.hire(new_employee(), start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    event = _event(emp, date(2026, 3, 1))
+    record = history.change_salary(
+        emp,
+        effective=date(2026, 3, 1),
+        amount=Decimal("1000000"),
+        change_type="salary_change",
+        note="",
+        by=actor,
+        event=event,
+    )
+    history.undo([record])
+    assert not SalaryRecord.objects.filter(employee=emp).exists()
+
+
+def test_undo_refused_when_later_history_has_gap(hired: Employee, actor: User) -> None:
+    first = history.change_salary(
+        hired, effective=date(2026, 3, 1), amount=Decimal("2600000"), change_type="salary_change", note="", by=actor
+    )
+    history.change_salary(
+        hired, effective=date(2026, 6, 1), amount=Decimal("2700000"), change_type="salary_change", note="", by=actor
+    )
+    SalaryRecord.objects.filter(pk=first.pk).update(period=DateRange(date(2026, 3, 1), date(2026, 5, 1), "[)"))
+    with pytest.raises(HistoryError):
+        history.undo([first])
+
+
+def test_undo_non_last_record_refused(hired: Employee, actor: User) -> None:
+    first = history.change_salary(
+        hired, effective=date(2026, 3, 1), amount=Decimal("2600000"), change_type="salary_change", note="", by=actor
+    )
+    history.change_salary(
+        hired, effective=date(2026, 6, 1), amount=Decimal("2700000"), change_type="salary_change", note="", by=actor
+    )
+    with pytest.raises(HistoryError):
+        history.undo([first])
+    assert SalaryRecord.objects.filter(employee=hired).count() == 3

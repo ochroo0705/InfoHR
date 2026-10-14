@@ -9,7 +9,8 @@ from django.db import connection, transaction
 from django.utils import timezone
 from psycopg.types.range import DateRange
 
-from employees.models import ActivityEntry, ActivityKind, Employee, JobRecord, SalaryRecord
+from employees.models import ActivityEntry, ActivityKind, Employee, Event, JobRecord, SalaryRecord
+from employees.services.display import shown
 
 # Fixed key for the advisory lock that serialises employee-code generation in hire().
 HIRE_LOCK_KEY = 7301
@@ -23,10 +24,10 @@ def _label(model: type[JobRecord] | type[SalaryRecord], field: str) -> str:
     return str(getattr(model._meta.get_field(field), "verbose_name", field))
 
 
-def _show(value: Any) -> str:
-    if value is None:
-        return ""
-    return str(value)
+def _show(value: Any, model: type[JobRecord] | type[SalaryRecord] = JobRecord, field: str = "") -> str:
+    if not field:
+        return "" if value is None else str(value)
+    return shown(model._meta.get_field(field), value)
 
 
 def _containing(qs: Any, day: date) -> Any:
@@ -97,7 +98,15 @@ def hire(employee: Employee, *, start: date, job: dict[str, Any], salary: Decima
 
 @transaction.atomic
 def change_job(
-    employee: Employee, *, effective: date, changes: dict[str, Any], change_type: str, note: str, by: User
+    employee: Employee,
+    *,
+    effective: date,
+    changes: dict[str, Any],
+    change_type: str,
+    note: str,
+    by: User,
+    event: Event | None = None,
+    log: bool = True,
 ) -> JobRecord:
     for field in changes:
         if field not in JobRecord.JOB_FIELDS:
@@ -111,14 +120,19 @@ def change_job(
     for field, value in changes.items():
         setattr(record, field, value)
     record.change_type, record.note, record.created_by = change_type, note, by
+    record.event = event
     record.save()
-    ActivityEntry.objects.create(
-        employee=employee,
-        by=by,
-        kind=ActivityKind.HISTORY,
-        message=f"{effective:%Y-%m-%d}-аас өөрчлөгдөв{_backdated(effective)}. {note}".strip(),
-        changes=[{"field": _label(JobRecord, f), "old": _show(old[f]), "new": _show(v)} for f, v in changes.items()],
-    )
+    if log:
+        ActivityEntry.objects.create(
+            employee=employee,
+            by=by,
+            kind=ActivityKind.HISTORY,
+            message=f"{effective:%Y-%m-%d}-аас өөрчлөгдөв{_backdated(effective)}. {note}".strip(),
+            changes=[
+                {"field": _label(JobRecord, f), "old": _show(old[f], JobRecord, f), "new": _show(v, JobRecord, f)}
+                for f, v in changes.items()
+            ],
+        )
     return record
 
 
@@ -132,6 +146,8 @@ def change_salary(
     note: str,
     by: User,
     first_only: bool = False,
+    event: Event | None = None,
+    log: bool = True,
 ) -> SalaryRecord:
     Employee.objects.select_for_update().get(pk=employee.pk)
     if first_only and employee.salary_records.exists():
@@ -146,16 +162,37 @@ def change_salary(
         old = str(current.base_salary)
         record = _split(current, effective)
     record.base_salary, record.change_type, record.note, record.created_by = amount, change_type, note, by
+    record.event = event
     record.save()
-    ActivityEntry.objects.create(
-        employee=employee,
-        by=by,
-        kind=ActivityKind.HISTORY,
-        sensitive=True,
-        message=f"{effective:%Y-%m-%d}-аас цалин өөрчлөгдөв{_backdated(effective)}. {note}".strip(),
-        changes=[{"field": "Үндсэн цалин", "old": old, "new": str(amount)}],
-    )
+    if log:
+        ActivityEntry.objects.create(
+            employee=employee,
+            by=by,
+            kind=ActivityKind.HISTORY,
+            sensitive=True,
+            message=f"{effective:%Y-%m-%d}-аас цалин өөрчлөгдөв{_backdated(effective)}. {note}".strip(),
+            changes=[{"field": "Үндсэн цалин", "old": old, "new": str(amount)}],
+        )
     return record
+
+
+@transaction.atomic
+def undo(records: list[JobRecord | SalaryRecord]) -> None:
+    """Remove history rows and extend the previous period over the gap (used when an event is cancelled)."""
+    for employee_id in sorted({r.employee_id for r in records}):
+        Employee.objects.select_for_update().get(pk=employee_id)
+    for stale in sorted(records, key=lambda r: r.period.lower, reverse=True):
+        model = type(stale)
+        record = model.objects.select_for_update().get(pk=stale.pk)
+        lower, upper = record.period.lower, record.period.upper
+        siblings = model.objects.filter(employee_id=record.employee_id)
+        if siblings.filter(period__startswith__gt=lower).exclude(pk=record.pk).exists():
+            raise HistoryError("Энэ өөрчлөлтөөс хойш өөр өөрчлөлт бий. Эхлээд сүүлийнхийг цуцална уу.")
+        previous = siblings.filter(period__endswith=lower).first()
+        record.delete()
+        if previous is not None:
+            previous.period = DateRange(previous.period.lower, upper, "[)")
+            previous.save(update_fields=["period"])
 
 
 def _require_reason(reason: str) -> str:
@@ -175,7 +212,13 @@ def correct_job(record: JobRecord, *, changes: dict[str, Any], reason: str, by: 
             raise HistoryError(f"'{field}' талбарыг засах боломжгүй.")
         old = getattr(record, field)
         if old != value:
-            diff.append({"field": _label(JobRecord, field), "old": _show(old), "new": _show(value)})
+            diff.append(
+                {
+                    "field": _label(JobRecord, field),
+                    "old": _show(old, JobRecord, field),
+                    "new": _show(value, JobRecord, field),
+                }
+            )
             setattr(record, field, value)
     record.save()
     ActivityEntry.objects.create(

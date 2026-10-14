@@ -1,4 +1,5 @@
 from collections.abc import Collection
+from datetime import date
 from typing import Any
 
 from django.conf import settings
@@ -147,6 +148,11 @@ class Employee(models.Model):
     def full_name(self) -> str:
         return f"{self.family_name} {self.given_name}"
 
+    @property
+    def short_name(self) -> str:
+        """'Алтангэрэлийн Номин' -> 'А. Номин': the usual short form (father's/mother's name initial)."""
+        return f"{self.family_name[:1]}. {self.given_name}" if self.family_name else self.given_name
+
     def clean_fields(self, exclude: Collection[str] | None = None) -> None:
         # Normalise first so length and uniqueness checks see the canonical value.
         self.register_no = normalize_register_no(self.register_no)
@@ -263,6 +269,81 @@ class JobStatus(models.TextChoices):
 class ChangeType(models.TextChoices):
     HIRE = "hire", "Ажилд авсан"
     CORRECTION = "correction", "Засвар"
+    TRANSFER = "transfer", "Шилжүүлсэн"
+    PROMOTION = "promotion", "Дэвшүүлсэн"
+    DEMOTION = "demotion", "Бууруулсан"
+    SALARY_CHANGE = "salary_change", "Цалин өөрчилсөн"
+    CONTRACT = "contract", "Гэрээ сунгасан/өөрчилсөн"
+    LEAVE_START = "leave_start", "Урт чөлөө эхэлсэн"
+    LEAVE_RETURN = "leave_return", "Чөлөөнөөс буцсан"
+    TERMINATION = "termination", "Ажлаас чөлөөлсөн"
+    REHIRE = "rehire", "Дахин ажилд авсан"
+
+
+class EventType(models.TextChoices):
+    TRANSFER = "transfer", "Шилжүүлэх"
+    PROMOTION = "promotion", "Дэвшүүлэх"
+    DEMOTION = "demotion", "Бууруулах"
+    SALARY_CHANGE = "salary_change", "Цалин өөрчлөх"
+    CONTRACT = "contract", "Гэрээ сунгах / өөрчлөх"
+    LEAVE_START = "leave_start", "Урт чөлөө эхлэх"
+    LEAVE_RETURN = "leave_return", "Буцаж ирэх"
+    TERMINATION = "termination", "Ажлаас чөлөөлөх"
+    REHIRE = "rehire", "Дахин ажилд авах"
+
+    @property
+    def change_type(self) -> str:
+        """The ChangeType with the same value."""
+        return str(ChangeType(self.value).value)
+
+
+class TerminationReason(models.TextChoices):
+    RESIGNATION = "resignation", "Өөрийн хүсэлтээр"
+    MUTUAL = "mutual", "Харилцан тохиролцсон"
+    CONTRACT_END = "contract_end", "Гэрээний хугацаа дууссан"
+    DISMISSAL = "dismissal", "Ажлаас халсан"
+    RETIREMENT = "retirement", "Тэтгэвэрт гарсан"
+    DEATH = "death", "Нас барсан"
+
+
+class LeaveKind(models.TextChoices):
+    MATERNITY = "maternity", "Жирэмсний амралт"
+    CHILDCARE = "childcare", "Хүүхэд асрах чөлөө"
+    UNPAID = "unpaid", "Цалингүй чөлөө"
+
+
+class Event(models.Model):
+    """An HR event (transfer, promotion, ...). Never deleted; cancelling removes its history rows."""
+
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="events")
+    type = models.CharField("Төрөл", max_length=20, choices=EventType.choices)
+    effective = models.DateField("Хүчинтэй огноо")
+    reason = models.CharField("Шалтгаан", max_length=100, blank=True)
+    note = models.TextField("Тайлбар", blank=True)
+    # Long leave only: planned, for reminders; the actual return is its own event (scoping D-012).
+    expected_return = models.DateField("Буцах төлөвлөсөн огноо", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    cancel_reason = models.CharField("Цуцлах шалтгаан", max_length=200, blank=True)
+
+    class Meta:
+        verbose_name = "Өөрчлөлт"
+        verbose_name_plural = "Өөрчлөлтүүд"
+        ordering = ["-effective", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.employee.code} {self.get_type_display()} {self.effective}"
+
+    def status(self, today: date) -> str:
+        if self.cancelled_at is not None:
+            return "cancelled"
+        return "scheduled" if self.effective > today else "effective"
 
 
 def no_overlap(name: str) -> ExclusionConstraint:
@@ -301,6 +382,7 @@ class JobRecord(models.Model):
     contract_start = models.DateField("Гэрээ эхлэх", null=True, blank=True)
     contract_end = models.DateField("Гэрээ дуусах", null=True, blank=True)
     change_type = models.CharField("Өөрчлөлтийн төрөл", max_length=20, choices=ChangeType.choices)
+    event = models.ForeignKey(Event, null=True, blank=True, on_delete=models.PROTECT, related_name="job_records")
     note = models.TextField("Тайлбар", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -324,6 +406,7 @@ class SalaryRecord(models.Model):
     period = DateRangeField("Хугацаа")
     base_salary = models.DecimalField("Үндсэн цалин", max_digits=14, decimal_places=2)
     change_type = models.CharField("Өөрчлөлтийн төрөл", max_length=20, choices=ChangeType.choices)
+    event = models.ForeignKey(Event, null=True, blank=True, on_delete=models.PROTECT, related_name="salary_records")
     note = models.TextField("Тайлбар", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -344,7 +427,7 @@ class ActivityKind(models.TextChoices):
     CREATED = "created", "Үүсгэсэн"
     CHANGED = "changed", "Өөрчилсөн"
     CORRECTION = "correction", "Засвар"
-    HISTORY = "history", "Түүхэн өөрчлөлт"
+    HISTORY = "history", "Огноотой өөрчлөлт"
     NOTE = "note", "Тэмдэглэл"
 
 
@@ -379,6 +462,22 @@ PERSONAL_FIELDS = frozenset(
         "living_standard",
     }
 )
+
+
+class AttentionDismissal(models.Model):
+    """One user's "Мэдлээ" on one Анхаарах item. The key holds the item's text, so a changed
+    item (new date, now overdue) is a different key and shows again (scoping D-013)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="+")
+    key = models.CharField(max_length=300)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "key"], name="attention_dismissal_once")]
+
+    def __str__(self) -> str:
+        return self.key
 
 
 class ActivityEntry(models.Model):
