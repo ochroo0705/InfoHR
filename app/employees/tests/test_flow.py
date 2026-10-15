@@ -140,6 +140,6 @@ def test_end_to_end_flow(client: Client) -> None:
 
     # 8. list page, default and left filter
     client.force_login(hr)
-    assert employee.code in client.get("/employees/").content.decode()
-    left = client.get("/employees/?state=left")
+    assert employee.code in client.get("/employees/?view=table").content.decode()
+    left = client.get("/employees/?view=table&state=left")
     assert left.status_code == 200 and employee.code not in left.content.decode()

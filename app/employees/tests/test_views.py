@@ -38,14 +38,14 @@ def test_list_shows_active_hides_left(client: Client, hired: Employee, actor: Us
         other, effective=date(2025, 6, 1), changes={"status": "left"}, change_type="correction", note="", by=actor
     )
     login_as(client, "HR")
-    body = client.get("/employees/").content.decode()
+    body = client.get("/employees/?view=table").content.decode()
     assert hired.code in body and other.code not in body
-    assert other.code in client.get("/employees/?state=left").content.decode()
+    assert other.code in client.get("/employees/?view=table&state=left").content.decode()
 
 
 def test_list_search_htmx_returns_rows_only(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
-    response = client.get("/employees/?q=Сараа", HTTP_HX_REQUEST="true")
+    response = client.get("/employees/?view=table&q=Сараа", HTTP_HX_REQUEST="true")
     body = response.content.decode()
     assert hired.code in body and "<html" not in body
 
@@ -98,7 +98,7 @@ def test_future_hire_listed_as_upcoming(client: Client, actor: User, job_values:
         by=actor,
     )
     login_as(client, "HR")
-    body = client.get("/employees/").content.decode()
+    body = client.get("/employees/?view=table").content.decode()
     assert emp.code in body and "Ажилд орох" in body
 
 
@@ -584,7 +584,7 @@ def test_admin_adds_with_salary_and_login(client: Client, job_values: dict[str, 
     assert emp.salary_records.get().base_salary == Decimal("1800000.00")
     assert emp.user is not None and emp.user.username == "bold"
     assert list(emp.user.groups.values_list("name", flat=True)) == ["Employee"]
-    assert not emp.user.has_usable_password()
+    assert emp.user.must_change_password and emp.user.has_usable_password()
 
 
 def test_hr_add_ignores_salary_insurance_fields(client: Client, job_values: dict[str, Any]) -> None:
@@ -723,10 +723,10 @@ def test_clearing_photo_stores_empty_not_false(hired: Employee, actor: User, set
 
 def test_register_search_only_for_personal_viewers(client: Client, hired: Employee) -> None:
     login_as(client, "Accountant")
-    assert hired.code not in client.get("/employees/?q=УБ99112233").content.decode()
-    assert hired.code in client.get("/employees/?q=Сараа").content.decode()
+    assert hired.code not in client.get("/employees/?view=table&q=УБ99112233").content.decode()
+    assert hired.code in client.get("/employees/?view=table&q=Сараа").content.decode()
     login_as(client, "HR", "hr2")
-    assert hired.code in client.get("/employees/?q=УБ99112233").content.decode()
+    assert hired.code in client.get("/employees/?view=table&q=УБ99112233").content.decode()
 
 
 def test_admin_add_page_shows_four_tabs_and_list_tables(client: Client) -> None:
@@ -762,11 +762,11 @@ def test_other_fields_activity_split(hired: Employee, actor: User) -> None:
     from employees.models import ActivityEntry
     from employees.services import records
 
-    records.update_employee(hired, {"blood_type": "II+", "shoe_size": "42"}, by=actor)
+    records.update_employee(hired, {"blood_type": "II+", "shoe_size": "42", "work_schedule": "8-17"}, by=actor)
     personal = ActivityEntry.objects.get(employee=hired, personal=True, message="Хувийн мэдээлэл өөрчилсөн")
     work = ActivityEntry.objects.get(employee=hired, personal=False, message="Мэдээлэл өөрчилсөн")
-    assert [c["field"] for c in personal.changes] == ["Цусны бүлэг"]
-    assert [c["field"] for c in work.changes] == ["Гутлын хэмжээ"]
+    assert [c["field"] for c in personal.changes] == ["Цусны бүлэг", "Гутлын хэмжээ"]
+    assert [c["field"] for c in work.changes] == ["Ажлын цагийн хуваарь"]
 
 
 def test_hire_form_takes_other_fields(client: Client, hired: Employee) -> None:
@@ -798,12 +798,12 @@ def test_hr_sees_other_fields_talents_and_gifts(client: Client, hired: Employee)
     assert "Хөгжим" in body and "Шинэ жил" in body
 
 
-def test_accountant_sees_only_non_sensitive_other_fields(client: Client, hired: Employee) -> None:
+def test_accountant_sees_no_other_fields(client: Client, hired: Employee) -> None:
     _set_other_fields(hired)
     login_as(client, "Accountant")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "<dd>42</dd>" in body and "Хорооны гишүүн" in body
-    for text in ("II (A) Rh+", "Ядуу", "Хашаатай байшин", "Хөгжим", "Шинэ жил"):
+    assert "Гутлын хэмжээ" not in body
+    for text in ("<dd>42</dd>", "Хорооны гишүүн", "II (A) Rh+", "Ядуу", "Хашаатай байшин", "Хөгжим", "Шинэ жил"):
         assert text not in body
 
 
@@ -828,11 +828,11 @@ def test_hr_header_shows_latest_change(client: Client, hired: Employee, actor: U
 def test_accountant_header_latest_ignores_personal(client: Client, hired: Employee, actor: User) -> None:
     from employees.services.records import update_employee
 
-    update_employee(hired, {"shoe_size": "42"}, by=actor)
+    update_employee(hired, {"work_schedule": "8-17"}, by=actor)
     update_employee(hired, {"address": "Баянзүрх 5-р хороо"}, by=actor)
     login_as(client, "Accountant")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Сүүлд: Гутлын хэмжээ" in body
+    assert "Сүүлд: Ажлын цагийн хуваарь" in body
     assert "Баянзүрх 5-р хороо" not in body and "Хувийн мэдээлэл" not in body
 
 
@@ -881,7 +881,7 @@ def _second_department_employee(hired: Employee, actor: User) -> Employee:
 def test_group_table_shows_department_headings_with_counts(client: Client, hired: Employee, actor: User) -> None:
     other = _second_department_employee(hired, actor)
     login_as(client, "HR")
-    body = client.get("/employees/?group=1").content.decode()
+    body = client.get("/employees/?view=table&group=1").content.decode()
     assert "Санхүү (1)</td>" in body and "Борлуулалт (1)</td>" in body
     assert body.index("Борлуулалт (1)") < body.index("Санхүү (1)")  # ordered by department name
     assert hired.code in body and other.code in body
@@ -897,7 +897,9 @@ def test_group_grid_shows_department_headings(client: Client, hired: Employee, a
 def test_group_combines_with_department_filter(client: Client, hired: Employee, actor: User) -> None:
     _second_department_employee(hired, actor)
     login_as(client, "HR")
-    body = client.get(f"/employees/?group=1&department={hired.job_records.get().department_id}").content.decode()
+    body = client.get(
+        f"/employees/?view=table&group=1&department={hired.job_records.get().department_id}"
+    ).content.decode()
     assert "Санхүү (1)</td>" in body and "Борлуулалт (1)" not in body
     partial = client.get(
         f"/employees/?group=1&view=grid&department={hired.job_records.get().department_id}", HTTP_HX_REQUEST="true"
@@ -908,7 +910,7 @@ def test_group_combines_with_department_filter(client: Client, hired: Employee, 
 def test_ungrouped_list_has_no_department_headings(client: Client, hired: Employee, actor: User) -> None:
     _second_department_employee(hired, actor)
     login_as(client, "HR")
-    body = client.get("/employees/").content.decode()
+    body = client.get("/employees/?view=table").content.decode()
     assert "Санхүү (1)" not in body and "Борлуулалт (1)" not in body
 
 
@@ -917,3 +919,64 @@ def test_list_page_keeps_group_checkbox_and_offers_clear_link(client: Client, hi
     body = client.get("/employees/?group=1").content.decode()
     assert 'name="group" value="1" checked' in body
     assert 'href="?clear=1"' in body
+
+
+def test_other_fields_sit_on_personal_tab_for_hr(client: Client, hired: Employee) -> None:
+    _set_other_fields(hired)
+    login_as(client, "HR")
+    body = client.get(f"/employees/{hired.pk}/").content.decode()
+    personal = body.index('id="tab-personal"')
+    label = '<dt class="text-slate-500">Гутлын хэмжээ</dt>'
+    assert body.count(label) == 1 and body.index(label) > personal
+
+
+def test_htmx_save_error_swaps_in_place(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, Any]
+) -> None:
+    other = _other_employee(actor, job_values)
+    login_as(client, "HR")
+    data = save_payload(hired, register_no=other.register_no, work_schedule="typed value")
+    response = client.post(f"/employees/{hired.pk}/save/", data, HTTP_HX_REQUEST="true")
+    assert response.status_code == 200 and "typed value" in response.content.decode()
+    hired.refresh_from_db()
+    assert hired.work_schedule != "typed value"
+
+
+def test_htmx_save_success_refreshes_in_place(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    response = client.post(
+        f"/employees/{hired.pk}/save/", save_payload(hired, work_schedule="8-17"), HTTP_HX_REQUEST="true"
+    )
+    assert response.status_code == 204 and response.headers["HX-Refresh"] == "true"
+    hired.refresh_from_db()
+    assert hired.work_schedule == "8-17"
+
+
+def test_save_form_posts_with_htmx(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    page = client.get(f"/employees/{hired.pk}/").content.decode()
+    assert 'hx-post="/employees/' in page and 'hx-select="main"' in page
+
+
+def test_hire_form_htmx_error_in_place_and_success_redirects(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "HR")
+    page = client.get("/employees/new/").content.decode()
+    assert 'hx-post="/employees/new/"' in page
+    bad = client.post("/employees/new/", add_payload(job_values, family_name=""), HTTP_HX_REQUEST="true")
+    assert bad.status_code == 200 and 'id="add-form"' in bad.content.decode()
+    good = client.post("/employees/new/", add_payload(job_values), HTTP_HX_REQUEST="true")
+    assert good.status_code == 204 and good.headers["HX-Redirect"].startswith("/employees/")
+
+
+def test_hire_open_ended_drops_end_date(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "HR")
+    client.post("/employees/new/", add_payload(job_values, contract_end="2027-01-01"))
+    job = Employee.objects.order_by("-pk").first().job_records.get()  # type: ignore[union-attr]
+    assert job.contract_type == "open_ended" and job.contract_end is None
+
+
+def test_hire_fixed_term_requires_end_date(client: Client, job_values: dict[str, Any]) -> None:
+    login_as(client, "HR")
+    before = Employee.objects.count()
+    page = client.post("/employees/new/", add_payload(job_values, contract_type="fixed_term")).content.decode()
+    assert "Хугацаатай гэрээнд дуусах огноог заавал" in page and Employee.objects.count() == before

@@ -116,7 +116,7 @@ def test_contract(hired: Employee, actor: User) -> None:
     ch = {"contract_type": "fixed_term", "contract_start": date(2026, 6, 1), "contract_end": date(2027, 6, 1)}
     rec(hired, actor, "contract", future(), changes=ch)
     assert job_at(hired, future()).contract_end == date(2027, 6, 1)
-    bad = {"contract_start": date(2026, 6, 1), "contract_end": date(2026, 5, 1)}
+    bad = {"contract_type": "fixed_term", "contract_start": date(2026, 6, 1), "contract_end": date(2026, 5, 1)}
     assert "contract_end" in errors_of(hired, actor, "contract", PAST, changes=bad)
     assert "__all__" in errors_of(hired, actor, "contract", PAST, changes={"contract_type": "open_ended"})
 
@@ -276,8 +276,22 @@ def test_every_type_every_date(hired: Employee, actor: User, lead: Position, typ
 
 def test_rehire_checks_contract_dates(hired: Employee, actor: User) -> None:
     rec(hired, actor, "termination", PREP, reason="resignation")
-    bad = {"contract_start": date(2026, 6, 1), "contract_end": date(2026, 5, 1)}
+    bad = {"contract_type": "fixed_term", "contract_start": date(2026, 6, 1), "contract_end": date(2026, 5, 1)}
     assert "contract_end" in errors_of(hired, actor, "rehire", PAST, changes=bad)
+
+
+def test_fixed_term_needs_end_date(hired: Employee, actor: User) -> None:
+    errs = errors_of(hired, actor, "contract", future(), changes={"contract_type": "fixed_term"})
+    assert "Хугацаатай гэрээнд дуусах огноог заавал" in errs["contract_end"]
+
+
+def test_open_ended_clears_end_date(hired: Employee, actor: User) -> None:
+    fixed = {"contract_type": "fixed_term", "contract_start": date(2026, 6, 1), "contract_end": date(2027, 6, 1)}
+    rec(hired, actor, "contract", future(), changes=fixed)
+    later = future() + timedelta(days=30)
+    rec(hired, actor, "contract", later, changes={"contract_type": "open_ended", "contract_end": date(2028, 1, 1)})
+    job = job_at(hired, later)
+    assert job.contract_type == "open_ended" and job.contract_end is None
 
 
 def test_status_messages_are_combined(hired: Employee, actor: User) -> None:

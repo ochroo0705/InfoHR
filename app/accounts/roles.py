@@ -21,3 +21,11 @@ DEFAULT_EMPLOYEE_PERMS: dict[str, tuple[str, ...]] = {
     ACCOUNTANT: ("view_employees", "view_salary", "manage_salary"),
     EMPLOYEE: (),
 }
+
+# Leave-module permissions per role (leave app, spec §6).
+DEFAULT_LEAVE_PERMS: dict[str, tuple[str, ...]] = {
+    ADMIN: ("view_leave", "record_leave", "manage_leave_settings"),
+    HR: ("view_leave", "record_leave", "manage_leave_settings"),
+    ACCOUNTANT: ("view_leave",),
+    EMPLOYEE: (),
+}

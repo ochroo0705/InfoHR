@@ -1,16 +1,38 @@
 <div id="attention">{% if attention or attention_hidden %}
-<div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-  <h2 class="font-semibold mb-1">Анхаарах ({{ attention|length }})</h2>
-  {% if attention %}<ul class="space-y-0.5">
-    {% for a in attention|slice:":5" %}{% include "employees/_attention_item.html" with action="dismiss" %}{% endfor %}
-  </ul>{% else %}<p class="text-amber-800">Шинэ зүйл алга.</p>{% endif %}
-  {% if attention|length > 5 %}<details class="group">
-    <summary class="mt-1 cursor-pointer list-none font-medium text-amber-800 hover:underline"><span class="group-open:hidden">Бүгдийг харах ({{ attention|length }})</span><span class="hidden group-open:inline">Хураах</span></summary>
-    <ul class="space-y-0.5">{% for a in attention|slice:"5:" %}{% include "employees/_attention_item.html" with action="dismiss" %}{% endfor %}</ul>
-  </details>{% endif %}
-  {% if attention_hidden %}<details class="mt-2 border-t border-amber-200 pt-2 text-amber-800">
-    <summary class="cursor-pointer list-none text-xs hover:underline">Нуусан ({{ attention_hidden|length }})</summary>
-    <ul class="mt-1 space-y-0.5 opacity-75">{% for a in attention_hidden %}{% include "employees/_attention_item.html" with action="restore" %}{% endfor %}</ul>
-  </details>{% endif %}
-</div>
+<details id="attention-box"{% for g in attention_groups %}{% if g.urgency == 0 and forloop.first %} open data-overdue{% endif %}{% endfor %} class="group/box mb-4 rounded-xl border border-amber-200 bg-amber-50/60 text-sm text-slate-800">
+  <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 select-none">
+    <h2 class="font-semibold text-amber-900">Анхаарах</h2>
+    <span class="rounded-full bg-amber-200/70 px-2 text-xs font-semibold text-amber-900">{{ attention|length }}</span>
+    <svg class="ml-auto h-4 w-4 text-amber-700 transition-transform group-open/box:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.2 7.2a.75.75 0 0 1 1.06 0L10 10.94l3.74-3.74a.75.75 0 1 1 1.06 1.06l-4.27 4.27a.75.75 0 0 1-1.06 0L5.2 8.26a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
+  </summary>
+  <div class="space-y-2 px-4 pb-3">
+    {% for g in attention_groups %}
+    <section class="rounded-lg border-l-4 bg-white/70 py-2 pl-3 pr-2 {% if g.urgency == 0 %}border-red-500{% elif g.urgency == 1 %}border-amber-400{% else %}border-slate-300{% endif %}">
+      <div class="group/head flex items-center gap-2">
+        <h3 class="font-medium {% if g.urgency == 0 %}text-red-700{% elif g.urgency == 1 %}text-amber-800{% else %}text-slate-700{% endif %}">{{ g.label }} · {{ g.items|length }}</h3>
+        {% if g.items|length > 1 %}<form hx-post="{% url 'employees:attention' %}" hx-target="#attention" hx-swap="outerHTML" class="ml-auto opacity-0 transition-opacity group-hover/head:opacity-100 focus-within:opacity-100">
+          {% csrf_token %}<input type="hidden" name="action" value="dismiss_all">{% for a in g.items %}<input type="hidden" name="key" value="{{ a.key }}">{% endfor %}
+          <button class="rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700" title="Энэ бүлгийг надад дахин харуулахгүй — өөрчлөгдвөл дахин гарна">Бүгдийг мэдлээ</button>
+        </form>{% endif %}
+      </div>
+      {% if g.dated %}
+      <ul class="mt-1 space-y-0.5">{% for a in g.items %}{% include "employees/_attention_item.html" with action="dismiss" %}{% endfor %}</ul>
+      {% else %}
+      <div class="mt-1.5 flex flex-wrap gap-1.5">
+        {% for a in g.items %}{% include "employees/_attention_chip.html" with folded=forloop.counter|add:"-5" %}{% endfor %}
+        {% if g.items|length > 5 %}<button type="button" onclick="this.parentElement.querySelectorAll('[data-folded]').forEach(c=>c.classList.replace('hidden','inline-flex'));this.remove()" class="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-xs font-medium text-slate-600 hover:border-violet-300 hover:text-violet-700">+{{ g.items|length|add:"-5" }}</button>{% endif %}
+      </div>
+      {% endif %}
+    </section>
+    {% empty %}<p class="text-amber-800">Шинэ зүйл алга.</p>{% endfor %}
+    {% if attention_hidden %}<details class="pt-1 text-slate-500">
+      <summary class="cursor-pointer list-none text-xs hover:underline">Нуусан ({{ attention_hidden|length }})</summary>
+      <ul class="mt-1 space-y-0.5 opacity-75">{% for a in attention_hidden %}{% include "employees/_attention_item.html" with action="restore" %}{% endfor %}</ul>
+    </details>{% endif %}
+  </div>
+</details>
+<script>(function(){var b=document.getElementById('attention-box');if(!b)return;
+// Folded by default; always open while something is overdue; otherwise the user's last choice.
+if(!b.hasAttribute('data-overdue')){try{if(localStorage.getItem('hr.attentionOpen')==='1')b.open=true;}catch(e){}}
+b.addEventListener('toggle',function(){try{localStorage.setItem('hr.attentionOpen',b.open?'1':'0');}catch(e){}});})();</script>
 {% endif %}</div>

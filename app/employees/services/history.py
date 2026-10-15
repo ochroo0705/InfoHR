@@ -9,7 +9,7 @@ from django.db import connection, transaction
 from django.utils import timezone
 from psycopg.types.range import DateRange
 
-from employees.models import ActivityEntry, ActivityKind, Employee, Event, JobRecord, SalaryRecord
+from employees.models import ActivityEntry, ActivityKind, ContractType, Employee, Event, JobRecord, SalaryRecord
 from employees.services.display import shown
 
 # Fixed key for the advisory lock that serialises employee-code generation in hire().
@@ -59,6 +59,13 @@ def _backdated(effective: date) -> str:
     return " (буцаан хугацаагаар)" if effective < timezone.localdate() else ""
 
 
+def _no_end_if_open_ended(values: dict[str, Any], current_type: str | None = None) -> dict[str, Any]:
+    """An open-ended contract has no end date (models.contract_errors): drop any typed one."""
+    if values.get("contract_type", current_type) == ContractType.OPEN_ENDED:
+        return {**values, "contract_end": None}
+    return values
+
+
 @transaction.atomic
 def hire(employee: Employee, *, start: date, job: dict[str, Any], salary: Decimal | None, by: User) -> Employee:
     with connection.cursor() as cursor:
@@ -68,6 +75,7 @@ def hire(employee: Employee, *, start: date, job: dict[str, Any], salary: Decima
     employee.setup_required = True
     employee.full_clean(exclude=["code"])
     employee.save()
+    job = _no_end_if_open_ended(job)
     JobRecord.objects.create(
         employee=employee, period=DateRange(start, None, "[)"), change_type="hire", created_by=by, **job
     )
@@ -206,6 +214,7 @@ def correct_job(record: JobRecord, *, changes: dict[str, Any], reason: str, by: 
     reason = _require_reason(reason)
     Employee.objects.select_for_update().get(pk=record.employee_id)
     record = JobRecord.objects.select_for_update().get(pk=record.pk)
+    changes = _no_end_if_open_ended(changes, record.contract_type)
     diff = []
     for field, value in changes.items():
         if field not in JobRecord.JOB_FIELDS:

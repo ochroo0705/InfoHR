@@ -2,8 +2,9 @@
 {% block title %}{{ employee.full_name }}{% endblock %}
 {% block content %}
 <a href="{% url 'employees:list' %}" class="text-sm text-slate-500 hover:text-violet-700">← Ажилтнууд</a>
-{% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab"></form>
+{% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data" hx-post="{% url 'employees:save' employee.pk %}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab"></form>
 {% if form.non_field_errors or si_form.non_field_errors %}<p class="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }} {{ si_form.non_field_errors|join:" " }}</p>{% endif %}{% endif %}
+{% if one_time_login %}{% include "employees/_one_time_login.html" %}{% endif %}
 <div id="header" class="mt-2">{% include "employees/_header.html" %}</div>
 <div class="mt-6 rounded-xl border border-slate-200 bg-white">
   <nav class="flex gap-1 border-b border-slate-200 px-4 text-sm">
@@ -15,6 +16,7 @@
   {% if can_view_personal %}<section id="tab-personal" class="p-6 hidden">{% include "employees/_tab_personal.html" %}</section>{% endif %}
   {% if can_view_salary %}<section id="tab-salary" class="p-6 hidden">{% include "employees/_tab_salary.html" %}</section>{% endif %}
 </div>
+{% if leave_years is not None %}{% include "leave/_employee_section.html" %}{% endif %}
 <div id="activity-backdrop" class="fixed inset-0 top-14 z-30 hidden bg-black/30 lg:hidden" onclick="closeDrawer()"></div>
 <aside id="activity-drawer" class="fixed top-14 bottom-0 right-0 z-30 flex w-full translate-x-full flex-col overflow-y-auto border-l border-slate-200 bg-white px-6 pb-6 transition-transform duration-200 lg:w-(--drawer-w)" aria-label="Үйл ажиллагааны бүртгэл" aria-hidden="true">
   <div class="sticky top-0 z-20 -mx-6 flex h-[72px] shrink-0 items-center gap-2 bg-white px-6{% if not can_manage %} mb-4 border-b border-slate-100{% endif %}">
@@ -46,6 +48,9 @@ if(wide()&&store('hr.activityOpen')==='1')render(true);
 })();
 function showTab(name){document.querySelectorAll('[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
 document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('border-b-2', a.hash==='#'+name));}
+// Tab links swap the #hash in place, so switching tabs doesn't add Back-button steps.
+document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');
+if(!a||!document.getElementById('tab-'+a.hash.slice(1)))return;e.preventDefault();showTab(a.hash.slice(1));history.replaceState(null,'',a.hash);});
 if(location.hash&&document.getElementById('tab-'+location.hash.slice(1))){showTab(location.hash.slice(1))}else{showTab('{{ tab|default:"work"|escapejs }}')}
 {% if form or si_form %}// Show a chosen photo before it is saved. Big downscales in one step look grainy
 // (browsers sample too few pixels), so halve the image step by step to the circle size.

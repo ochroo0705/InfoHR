@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["scripts/demo.py", "run"],
+      "port": 8001
+    }
+  ]
+}

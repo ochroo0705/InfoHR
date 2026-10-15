@@ -18,8 +18,8 @@
   <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="group" value="1"{% if group %} checked{% endif %} class="rounded border-slate-300">Хэлтсээр бүлэглэх</label>
   <a href="?clear=1" class="text-sm text-slate-500 hover:text-violet-700">Цэвэрлэх</a>
   <div class="ml-auto inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm">
-    <button type="button" aria-pressed="{% if view == 'table' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'table' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}" data-view-btn="table" onclick="hrSetView(this.form, 'table'); htmx.trigger(this.form, 'viewchange')">Хүснэгт</button>
     <button type="button" aria-pressed="{% if view == 'grid' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'grid' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}" data-view-btn="grid" onclick="hrSetView(this.form, 'grid'); htmx.trigger(this.form, 'viewchange')">Зураг</button>
+    <button type="button" aria-pressed="{% if view == 'table' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'table' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}" data-view-btn="table" onclick="hrSetView(this.form, 'table'); htmx.trigger(this.form, 'viewchange')">Хүснэгт</button>
   </div>
 </form>
 <div id="results">{% include "employees/_results.html" %}</div>
@@ -52,7 +52,7 @@ function hrSetView(form, v) {
   function syncView() {
     var form = document.querySelector("form[hx-get]");
     if (!form || !form.elements.view) { return; }
-    hrSetView(form, new URLSearchParams(location.search).get("view") === "grid" ? "grid" : "table");
+    hrSetView(form, new URLSearchParams(location.search).get("view") === "table" ? "table" : "grid");
   }
   var nav = performance.getEntriesByType("navigation")[0];
   var type = nav && nav.type;

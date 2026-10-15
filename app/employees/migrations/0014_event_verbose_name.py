@@ -4,14 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('employees', '0013_attention_dismissal'),
+        ("employees", "0013_attention_dismissal"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='event',
-            options={'ordering': ['-effective', '-id'], 'verbose_name': 'Өөрчлөлт', 'verbose_name_plural': 'Өөрчлөлтүүд'},
+            name="event",
+            options={
+                "ordering": ["-effective", "-id"],
+                "verbose_name": "Өөрчлөлт",
+                "verbose_name_plural": "Өөрчлөлтүүд",
+            },
         ),
     ]

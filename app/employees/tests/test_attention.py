@@ -114,7 +114,7 @@ def test_strip_on_full_page_only(client: Client, emp: Employee) -> None:
     SalaryInsurance.objects.filter(employee=emp).update(account_no="")
     login_as(client, "Accountant")
     url = reverse("employees:list")
-    assert "Анхаарах (1)" in client.get(url).content.decode()
+    assert "Банкны мэдээлэл дутуу · 1" in client.get(url).content.decode()
     assert "Анхаарах" not in client.get(url, HTTP_HX_REQUEST="true").content.decode()
 
 
@@ -233,7 +233,27 @@ def test_most_urgent_first_and_rest_folded(
     assert [a.urgency for a in found] == sorted(a.urgency for a in found)
     login_as(client, "HR")
     html = client.get(reverse("employees:list")).content.decode()
-    assert len(found) > 5 and f"Бүгдийг харах ({len(found)})" in html
+    groups = attention.group(found)
+    assert groups[0].label == "Гэрээ дууссан" and groups[0].dated
+    assert [g.urgency for g in groups] == sorted(g.urgency for g in groups)
+    assert sum(len(g.items) for g in groups) == len(found)
+    emergency = next(g for g in groups if g.kind == "emergency")
+    assert not emergency.dated and len(emergency.items) >= 6
+    assert "Гэрээ дууссан" in html and f"Яаралтай үед холбогдох хүн дутуу · {len(emergency.items)}" in html
+    assert f"+{len(emergency.items) - 5}" in html  # chips past five fold behind "+N"
+
+
+def test_dismiss_all_in_group(client: Client, emp: Employee, actor: User, job_values: dict[str, Any]) -> None:
+    today = timezone.localdate()
+    for i in range(2):
+        history.hire(new_employee(f"УБ881122{i:02d}"), start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    hr = login_as(client, "HR")
+    found = attention.items(hr, employee_rows(Employee.objects.all(), today), today)
+    keys = [a.key for a in found if a.kind == "emergency"]
+    assert len(keys) >= 2
+    client.post(reverse("employees:attention"), {"key": keys, "action": "dismiss_all"})
+    shown, hidden = attention.split(hr, attention.items(hr, employee_rows(Employee.objects.all(), today), today))
+    assert {a.key for a in hidden} == set(keys) and not any(a.kind == "emergency" for a in shown)
 
 
 def _scheduled_leave(emp: Employee, actor: User, start: date) -> None:
@@ -270,3 +290,58 @@ def test_cannot_dismiss_unknown_key(client: Client, emp: Employee) -> None:
     login_as(client, "HR")
     response = client.post(reverse("employees:attention"), {"key": "leave:999:x", "action": "dismiss"})
     assert response.status_code == 404
+
+
+def test_negative_leave_balance_item(emp: Employee) -> None:
+    from leave.models import LeaveGrant
+    from leave.services import ledger
+    from leave.services.fmt import fmt_days
+
+    ledger.ensure_grants(emp, TODAY)
+    LeaveGrant.objects.create(
+        employee=emp, year_start=emp.first_hire_date, days=Decimal(-20), kind="adjustment", reason="test"
+    )
+    left = ledger.balance(emp, emp.first_hire_date)
+    assert left < 0
+    expected = f"Ээлжийн амралтын үлдэгдэл хасах: {fmt_days(left)} хоног"
+    assert expected in texts(user_in("HR"))
+    assert expected in texts(user_in("Accountant", "acc"))
+    assert not any("Ээлжийн амралтын" in t for t in texts(user_in("Employee", "e1")))
+
+
+def test_future_rehire_does_not_break_leave_item(emp: Employee, actor: User) -> None:
+    events.record(
+        emp, type="termination", effective=date(2026, 3, 1), changes={}, salary=None,
+        reason="resignation", note="", by=actor,
+    )  # fmt: skip
+    events.record(
+        emp, type="rehire", effective=TODAY + timedelta(days=30), changes={}, salary=None,
+        reason="", note="", by=actor,
+    )  # fmt: skip
+    rows = employee_rows(Employee.objects.all(), TODAY)
+    found = attention.items(user_in("HR"), rows, TODAY)
+    assert not any(a.kind == "leave_balance" for a in found)
+
+
+def test_box_opens_only_when_something_is_overdue(client: Client, emp: Employee) -> None:
+    SalaryInsurance.objects.filter(employee=emp).update(account_no="")
+    login_as(client, "Accountant")
+    url = reverse("employees:list")
+    assert " open data-overdue" not in client.get(url).content.decode()  # only missing data: folded
+    emp.job_records.update(contract_end=timezone.localdate() - timedelta(days=1))
+    assert " open data-overdue" in client.get(url).content.decode()
+
+
+def test_attention_never_writes_leave_grants(emp: Employee) -> None:
+    from leave.models import LeaveGrant
+
+    before = LeaveGrant.objects.count()
+    attention.items(user_in("HR"), employee_rows(Employee.objects.all(), TODAY), TODAY)
+    assert LeaveGrant.objects.count() == before
+
+
+def test_attention_survives_missing_leave_rule(emp: Employee) -> None:
+    from leave.models import AnnualLeaveRule
+
+    AnnualLeaveRule.objects.all().delete()
+    attention.items(user_in("HR"), employee_rows(Employee.objects.all(), TODAY), TODAY)

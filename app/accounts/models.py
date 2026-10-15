@@ -1,9 +1,13 @@
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
 class User(AbstractUser):
     """Login account. Roles are Django groups (see accounts.roles)."""
+
+    # Set when a manager hands over a system-made temporary password; cleared when the user changes it.
+    must_change_password = models.BooleanField("нууц үгээ солих ёстой", default=False)
 
     class Meta:
         # Own Meta replaces AbstractUser's, so repeat its (translated) names.

@@ -17,6 +17,9 @@ from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
+from leave.models import Holiday, LeaveType
+from leave.services import calendar as leave_calendar
+from leave.services import records as leave_records
 
 from employees.models import Department, Education, Employee, FamilyMember, Position
 from employees.services import history, records
@@ -262,7 +265,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"Demo өгөгдөл үүслээ: {Employee.objects.count()} ажилтан. "
-                "Нэвтрэх: director / hr / accountant / bold (нууц үг: seed_demo.py дахь DEMO_PASSWORD)."
+                "Нэвтрэх: admin / director / hr / accountant / bold (нууц үг: seed_demo.py дахь DEMO_PASSWORD)."
             )
         )
 
@@ -272,6 +275,8 @@ class Command(BaseCommand):
         system.set_unusable_password()
         system.is_active = False
         system.save()
+        # Superuser for the Django admin and every switch; same demo password as the role logins.
+        User.objects.create_superuser("admin", password=DEMO_PASSWORD, first_name="Админ")
 
         depts = {name: Department.objects.create(name=name) for name in DEPARTMENTS}
         Department.objects.create(name=DEPARTMENT_INACTIVE, active=False)
@@ -403,3 +408,28 @@ class Command(BaseCommand):
         records.add_note(people["Хулан"], text="Ажилд орохоос өмнө эрүүл мэндийн үзлэгийн хуудас авчрах.", by=hr)
         records.update_employee(people["Ганзориг"], {"private_phone": "95443322"}, hr)
         records.update_employee(people["Энхбаяр"], {"work_phone": "99112200"}, director)
+
+        self._seed_leave(people, today, hr)
+
+    def _seed_leave(self, people: dict[str, Employee], today: date, by: User) -> None:
+        """Holidays and a few leaves, all on weekdays relative to today and inside one leave year."""
+        leave_calendar.prefill_year(today.year)
+        leave_calendar.prefill_year(today.year + 1)
+        # Tsagaan Sar (lunar new year): demo only, dates approximate.
+        for day, name in [(17, "Цагаан сар"), (18, "Цагаан сар"), (19, "Цагаан сар")]:
+            Holiday.objects.get_or_create(date=date(today.year, 2, day), defaults={"name": name})
+        types = {t.code: t for t in LeaveType.objects.all()}
+        monday_back = today - timedelta(days=30)
+        monday_back -= timedelta(days=monday_back.weekday())
+        monday_next = today + timedelta(days=30)
+        monday_next += timedelta(days=(7 - monday_next.weekday()) % 7)
+        plan = [
+            ("Болд", "annual", monday_back, 4),  # past, 5 working days
+            ("Номин", "sick", monday_back + timedelta(days=7), 1),
+            ("Ганзориг", "annual", monday_next, 4),  # upcoming
+        ]
+        for name, code, start, length in plan:
+            draft = leave_records.Draft(people[name], types[code], start, start + timedelta(days=length))
+            if leave_records.check(draft, today).errors:  # e.g. a holiday week or a leave-year boundary
+                continue
+            leave_records.record(draft, by, today)

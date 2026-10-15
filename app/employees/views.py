@@ -13,10 +13,13 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.decorators.vary import vary_on_headers
+from leave import access as leave_access
+from leave.services import ledger as leave_ledger
 
 from employees import access, attention
 from employees.forms import (
     CancelEventForm,
+    CreateLoginForm,
     EducationFormSet,
     EmployeeForm,
     EventForm,
@@ -44,7 +47,7 @@ from employees.models import (
     JobRecord,
     SalaryInsurance,
 )
-from employees.services import events, history, records, setup
+from employees.services import events, history, logins, records, setup
 from employees.services.events import ALLOWED_FIELDS, SALARY_TYPES, EventError
 from employees.services.history import HistoryError, salary_on
 from employees.validators import normalize_register_no
@@ -89,7 +92,7 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     etype = request.GET.get("type", "")
     if etype:
         rows = [r for r in rows if r.job and r.job.employee_type == etype]
-    view = "grid" if request.GET.get("view") == "grid" else "table"
+    view = "table" if request.GET.get("view") == "table" else "grid"  # pictures by default
     group = request.GET.get("group") == "1"
     groups = _group_by_department(rows) if group and rows else None
     context: dict[str, Any] = {
@@ -110,9 +113,7 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     if not is_partial:  # the strip ignores filters (and search): it covers everyone the user can see
         if q:
             all_rows = employee_rows(access.visible_employees(_user(request)), today)
-        context["attention"], context["attention_hidden"] = attention.split(
-            _user(request), attention.items(_user(request), all_rows, today)
-        )
+        context.update(_attention_context(_user(request), attention.items(_user(request), all_rows, today)))
     template = "employees/_results.html" if is_partial else "employees/list.html"
     return render(request, template, context)
 
@@ -123,15 +124,21 @@ def attention_toggle(request: HttpRequest) -> HttpResponse:
     """ "Мэдлээ" / "Дахин харуулах" on one Анхаарах item; returns the box."""
     user, today = _user(request), timezone.localdate()
     found = attention.items(user, employee_rows(access.visible_employees(user), today), today)
-    item = next((a for a in found if a.key == request.POST.get("key")), None)
-    if item is None:
+    keys = set(request.POST.getlist("key"))
+    picked = [a for a in found if a.key in keys]
+    if not picked:
         raise Http404
-    if request.POST.get("action") == "restore":
-        attention.restore(user, item)
-    else:
-        attention.dismiss(user, item)
+    for item in picked:
+        if request.POST.get("action") == "restore":
+            attention.restore(user, item)
+        else:  # "dismiss" (one item) or "dismiss_all" (a whole group)
+            attention.dismiss(user, item)
+    return render(request, "employees/_attention.html", _attention_context(user, found))
+
+
+def _attention_context(user: User, found: list[attention.Attention]) -> dict[str, object]:
     shown, hidden = attention.split(user, found)
-    return render(request, "employees/_attention.html", {"attention": shown, "attention_hidden": hidden})
+    return {"attention": shown, "attention_groups": attention.group(shown), "attention_hidden": hidden}
 
 
 def _employee_for(request: HttpRequest, pk: int) -> Employee:
@@ -171,6 +178,10 @@ def _next_event(employee: Employee, can_salary: bool, today: date) -> Event | No
     if not can_salary:  # a scheduled pay change must not leak to people who cannot see pay
         qs = qs.exclude(type=EventType.SALARY_CHANGE)
     return qs.order_by("effective").first()
+
+
+def leave_today() -> date:
+    return timezone.localdate()
 
 
 def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object]:
@@ -214,6 +225,8 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
         "activity_count": activity.count(),
         "latest_activity": activity.select_related("by").first(),
         "can_manage": can_manage,
+        "leave_years": leave_ledger.summaries(employee, leave_today()) if leave_access.can_view(user) else None,
+        "can_record_leave": leave_access.can_record(user),
         "can_view_salary": can_salary,
         "can_manage_salary": access.can_manage_salary(user),
         "can_view_personal": access.can_view_personal(user, employee),
@@ -226,7 +239,16 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
 @login_required
 def employee_detail(request: HttpRequest, pk: int) -> HttpResponse:
     employee = _employee_for(request, pk)
-    return render(request, "employees/detail.html", detail_context(request, employee))
+    context = detail_context(request, employee)
+    # One-time password from the hire form: shown once, then removed from the session.
+    pending = request.session.get(ONE_TIME_LOGIN_KEY)
+    if isinstance(pending, dict) and pending.get("employee") == employee.pk:
+        del request.session[ONE_TIME_LOGIN_KEY]
+        context["one_time_login"] = pending
+    response = render(request, "employees/detail.html", context)
+    if pending and context.get("one_time_login"):
+        response["Cache-Control"] = "no-store"  # the page must not come back from the Back cache with the password
+    return response
 
 
 @login_required
@@ -267,15 +289,16 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 formset.instance = employee
                 formset.save()
             if extras.cleaned_data["create_login"]:
-                login = User.objects.create_user(
-                    extras.cleaned_data["username"].strip(),
-                    first_name=employee.given_name,
-                    last_name=employee.family_name,
-                )
-                login.set_unusable_password()  # admin sets the password in the back office
-                login.save()
-                employee.user = login
-                employee.save(update_fields=["user"])
+                login, password = logins.create_login(employee, extras.cleaned_data["username"], by=user)
+                request.session[ONE_TIME_LOGIN_KEY] = {
+                    "employee": employee.pk,
+                    "username": login.username,
+                    "password": password,
+                }
+        if request.headers.get("HX-Request"):  # errors swap in place; success opens the new employee's page
+            response = HttpResponse(status=204)
+            response["HX-Redirect"] = reverse("employees:detail", args=[employee.pk])
+            return response
         return redirect("employees:detail", pk=employee.pk)
     return render(
         request,
@@ -289,6 +312,42 @@ def employee_add(request: HttpRequest) -> HttpResponse:
             "lists": lists,
         },
     )
+
+
+@login_required
+def login_create(request: HttpRequest, pk: int) -> HttpResponse:
+    employee = _employee_for(request, pk)
+    user = _user(request)
+    _require(access.can_manage(user))
+    form = CreateLoginForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            login, password = logins.create_login(employee, form.cleaned_data["username"], by=user)
+        except ValueError as error:
+            form.add_error(None, str(error))
+        else:
+            return _password_shown(request, login.username, password)
+    return render(
+        request,
+        "employees/_modal.html",
+        {
+            "title": "Нэвтрэх эрх үүсгэх",
+            "form": form,
+            "action": request.path,
+            "hint": "Нууц үг автоматаар үүснэ. Гарсны дараа ажилтанд өгнө; анх нэвтрэхдээ солино.",
+        },
+    )
+
+
+def _password_shown(request: HttpRequest, username: str, password: str) -> HttpResponse:
+    """The one-time password pop-up. The password lives only in this response."""
+    response = render(
+        request,
+        "employees/_password_shown.html",
+        {"username": username, "password": password},
+    )
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required
@@ -315,6 +374,7 @@ def _require(allowed: bool) -> None:
         raise PermissionDenied
 
 
+ONE_TIME_LOGIN_KEY = "one_time_login"  # session key: {employee, username, password} shown once on the detail page
 TABS = ("work", "personal", "salary")
 WORK_TAB_FIELDS = frozenset(
     {
@@ -322,10 +382,6 @@ WORK_TAB_FIELDS = frozenset(
         "work_conditions",
         "work_schedule",
         "probation_end",
-        "car_ownership",
-        "clothing_size",
-        "shoe_size",
-        "elected_position",
     }
 )
 
@@ -364,6 +420,10 @@ def employee_save(request: HttpRequest, pk: int) -> HttpResponse:
                 records.update_salary_insurance(
                     employee, {f: si_form.cleaned_data[f] for f in si_form.changed_data}, user
                 )
+        if request.headers.get("HX-Request"):  # reload in place: no extra history step, the tab (#hash) stays
+            response = HttpResponse(status=204)
+            response["HX-Refresh"] = "true"
+            return response
         url = reverse("employees:detail", args=[pk])
         return HttpResponseRedirect(f"{url}#{tab}" if tab in TABS else url, status=303)
     context = detail_context(request, employee) | {
@@ -371,7 +431,9 @@ def employee_save(request: HttpRequest, pk: int) -> HttpResponse:
         "si_form": si_form,
         "tab": _error_tab(form, si_form, tab),
     }
-    return render(request, "employees/detail.html", context, status=400)
+    # htmx swaps only <main> with the errors (status 200: htmx ignores 4xx), so the URL and history stay as they were.
+    status = 200 if request.headers.get("HX-Request") else 400
+    return render(request, "employees/detail.html", context, status=status)
 
 
 @login_required

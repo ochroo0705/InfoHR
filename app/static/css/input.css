@@ -25,6 +25,7 @@
 @source "../../templates";
 @source "../../employees/templates";
 @source "../../accounts/templates";
+@source "../../leave/templates";
 @source "../../employees/templatetags";
 
 /* Date picker (static/js/datepicker.js) */
@@ -54,6 +55,28 @@
   .dp-link:hover { background: var(--color-violet-50); }
   .dp-muted { color: var(--color-slate-500); }
   .dp-muted:hover { background: var(--color-slate-100); }
+}
+
+/* Dropdown list (static/js/select.js) */
+@layer components {
+  .sel-popup { position: fixed; z-index: 60; max-width: min(28rem, calc(100vw - 8px)); padding: .375rem; border: 1px solid var(--color-slate-200); border-radius: .75rem; background: var(--color-white); box-shadow: 0 12px 32px rgb(15 23 42 / .16), 0 2px 6px rgb(15 23 42 / .06); font-size: var(--text-sm); color: var(--color-slate-800); }
+  .sel-popup:focus { outline: none; }
+  .sel-search { display: block; width: 100%; margin-bottom: .375rem; padding: .375rem .625rem; border: 1px solid var(--color-slate-300); border-radius: .5rem; font-size: var(--text-sm); }
+  .sel-search:focus { outline: 2px solid var(--color-violet-500); outline-offset: -1px; border-color: transparent; }
+  .sel-list { max-height: 16rem; overflow-y: auto; }
+  .sel-item { display: flex; align-items: center; width: 100%; padding: .4375rem .625rem .4375rem 1.75rem; border-radius: .5rem; text-align: left; white-space: nowrap; cursor: pointer; position: relative; }
+  .sel-item[hidden], .sel-empty[hidden] { display: none; }
+  .sel-active { background: var(--color-violet-50); color: var(--color-violet-700); }
+  .sel-selected { font-weight: 600; color: var(--color-violet-700); }
+  .sel-selected::before { content: "✓"; position: absolute; left: .625rem; }
+  .sel-item:disabled { color: var(--color-slate-300); cursor: not-allowed; }
+  .sel-empty { padding: .5rem .625rem; color: var(--color-slate-400); }
+}
+
+/* Tailwind 4 gives buttons the default arrow; everything clickable shows the hand. */
+@layer base {
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary, label:has(input[type="checkbox"]), select { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
 }
 
 /* Always reserve the scrollbar's space so pages don't shift sideways when one appears. */

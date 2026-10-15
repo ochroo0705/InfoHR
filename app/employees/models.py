@@ -5,6 +5,7 @@ from typing import Any
 from django.conf import settings
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateRangeField, RangeOperators
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from .validators import normalize_register_no, validate_register_no
@@ -353,6 +354,16 @@ def no_overlap(name: str) -> ExclusionConstraint:
     )
 
 
+def contract_errors(contract_type: str, start: date | None, end: date | None) -> dict[str, str]:
+    """The contract rule shared by the hire form, corrections and job-change events.
+    An open-ended contract has no end date (callers clear it); a fixed-term one must have one."""
+    if contract_type == ContractType.FIXED_TERM and end is None:
+        return {"contract_end": "Хугацаатай гэрээнд дуусах огноог заавал оруулна."}
+    if start and end and end < start:
+        return {"contract_end": "Гэрээ дуусах огноо эхлэх огнооноос өмнө байж болохгүй."}
+    return {}
+
+
 class JobRecord(models.Model):
     """One period of position/department/status. Written only by services.history."""
 
@@ -397,6 +408,12 @@ class JobRecord(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee.code} {self.period}"
+
+    def clean(self) -> None:
+        if self.contract_type == ContractType.OPEN_ENDED:
+            self.contract_end = None
+        if errors := contract_errors(self.contract_type, self.contract_start, self.contract_end):
+            raise ValidationError(errors)
 
 
 class SalaryRecord(models.Model):
@@ -460,6 +477,10 @@ PERSONAL_FIELDS = frozenset(
         "military_service",
         "housing_condition",
         "living_standard",
+        "car_ownership",
+        "clothing_size",
+        "shoe_size",
+        "elected_position",
     }
 )
 

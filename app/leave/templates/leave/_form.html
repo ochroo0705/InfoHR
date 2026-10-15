@@ -1,0 +1,20 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <h2 class="mb-4 text-lg font-semibold">{{ title }}</h2>
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      {% if leave_id %}<input type="hidden" name="leave_id" value="{{ leave_id }}">{% endif %}
+      {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+      <div class="grid gap-3 md:grid-cols-2" hx-post="{% url 'leave:check' %}" hx-trigger="change" hx-target="#leave-check" hx-swap="innerHTML" hx-include="closest form">
+        {% for field in form %}
+        <label class="block text-sm {% if field.name == 'note' or field.name == 'override_reason' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
+          {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}
+      </div>
+      <div id="leave-check" class="text-sm"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Хадгалах</button>
+      </div>
+    </form>
+  </div>
+</div>

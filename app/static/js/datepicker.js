@@ -139,7 +139,7 @@
     input.type = "text";
     input.inputMode = "numeric";
     input.autocomplete = "off";
-    input.placeholder = "ОООО-СС-ӨӨ";
+    if (!input.placeholder) input.placeholder = "ОООО-СС-ӨӨ";
     input.maxLength = 10;
     var wrap = el("span", "dp-wrap");
     input.parentNode.insertBefore(wrap, input);

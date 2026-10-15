@@ -1,0 +1,7 @@
+<div id="one-time-login" class="mb-4 rounded-xl border-2 border-violet-500 bg-violet-50 p-4 text-sm">
+  <p class="font-medium text-violet-900">Нэвтрэх эрх үүсгэгдлээ. Түр нууц үг нэг удаа харагдана.</p>
+  <p class="mt-2">Нэвтрэх нэр: <span class="font-mono">{{ one_time_login.username }}</span></p>
+  <p class="mt-1">Түр нууц үг: <span class="rounded bg-white px-2 py-1 font-mono text-base tracking-wider select-all">{{ one_time_login.password }}</span></p>
+  <p class="mt-2 text-xs text-slate-600">Ажилтанд өгөөд хадгалахгүй байгаарай. Ажилтан анх нэвтрэхдээ нууц үгээ солино.</p>
+  <button type="button" onclick="this.closest('#one-time-login').remove()" class="mt-2 text-violet-700 hover:underline">Ойлголоо, хаах</button>
+</div>

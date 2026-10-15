@@ -250,6 +250,4 @@ def test_other_fields_round_trip_and_personal_split() -> None:
     employee.save()
     employee.refresh_from_db()
     assert {name: getattr(employee, name) for name in values} == values
-    sensitive = {"blood_type", "social_origin", "military_service", "housing_condition", "living_standard"}
-    assert PERSONAL_FIELDS >= sensitive
-    assert not PERSONAL_FIELDS & (set(values) - sensitive)
+    assert PERSONAL_FIELDS >= set(values)  # all "other" fields are personal (D-010 as changed 2026-10-15)

@@ -34,3 +34,22 @@ def test_seed_demo_refuses_without_debug_or_when_data_exists(settings: SettingsW
     call_command("seed_demo", stdout=StringIO())
     with pytest.raises(CommandError):
         call_command("seed_demo", stdout=StringIO())
+
+
+def test_seed_demo_adds_holidays_and_leaves(settings: SettingsWrapper) -> None:
+    from leave.models import Holiday, Leave
+
+    settings.DEBUG = True
+    call_command("seed_demo", stdout=StringIO())
+    assert Holiday.objects.exists()
+    assert Leave.objects.count() >= 3
+
+
+@pytest.mark.django_db
+def test_seed_creates_demo_superuser(settings: SettingsWrapper) -> None:
+    from employees.management.commands.seed_demo import DEMO_PASSWORD
+
+    settings.DEBUG = True
+    call_command("seed_demo", stdout=StringIO())
+    admin = User.objects.get(username="admin")
+    assert admin.is_superuser and admin.is_staff and admin.check_password(DEMO_PASSWORD)

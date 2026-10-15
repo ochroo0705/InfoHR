@@ -4,15 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('employees', '0014_event_verbose_name'),
+        ("employees", "0014_event_verbose_name"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='activityentry',
-            name='kind',
-            field=models.CharField(choices=[('created', 'Үүсгэсэн'), ('changed', 'Өөрчилсөн'), ('correction', 'Засвар'), ('history', 'Огноотой өөрчлөлт'), ('note', 'Тэмдэглэл')], max_length=20, verbose_name='Төрөл'),
+            model_name="activityentry",
+            name="kind",
+            field=models.CharField(
+                choices=[
+                    ("created", "Үүсгэсэн"),
+                    ("changed", "Өөрчилсөн"),
+                    ("correction", "Засвар"),
+                    ("history", "Огноотой өөрчлөлт"),
+                    ("note", "Тэмдэглэл"),
+                ],
+                max_length=20,
+                verbose_name="Төрөл",
+            ),
         ),
     ]

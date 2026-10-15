@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import Decimal
 
 from accounts.models import User
 from django.db.models import Q
@@ -65,7 +66,13 @@ def _scheduled(rows: list[Row], today: date, can_salary: bool) -> list[Attention
 def items(user: User, rows: list[Row], today: date) -> list[Attention]:
     can_manage = access.can_manage(user)
     can_salary = access.can_view_salary(user)
-    if not (can_manage or can_salary):
+    from leave import access as leave_access  # local import: leave depends on employees, not the reverse
+    from leave.services import entitlement as leave_entitlement
+    from leave.services import ledger as leave_ledger
+    from leave.services.fmt import fmt_days
+
+    can_leave = leave_access.can_view(user)
+    if not (can_manage or can_salary or can_leave):
         return []
     rows = [r for r in rows if r.state != "left"]
     with_account: set[int] = set()
@@ -92,6 +99,16 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
             out.append(Attention(e, f"Чөлөөнөөс буцах огноо өнгөрсөн: {_fmt(back)}", "leave", OVERDUE, back))
         elif back is not None and back <= today + timedelta(days=SCHEDULED_DAYS):
             out.append(Attention(e, f"Чөлөөнөөс буцах: {_fmt(back)}", "leave", DUE, back))
+        if can_leave and leave_entitlement.employment_start(e) <= today:
+            try:  # read-only: a list GET must not write grants; the current year's auto grant is previewed
+                year = leave_entitlement.year_start_for(e, today)
+                left = leave_ledger.balance(e, year) + leave_ledger.pending_grant(e, year)
+            except (LookupError, ValueError):
+                left = Decimal(0)
+            if left < 0:
+                out.append(
+                    Attention(e, f"Ээлжийн амралтын үлдэгдэл хасах: {fmt_days(left)} хоног", "leave_balance", OVERDUE)
+                )
         if can_manage and e.setup_required and not setup.complete_for(e, user):
             out.append(Attention(e, "Бүрдүүлэлт дутуу", "setup"))
         if access.can_view_personal(user, e) and not (e.emergency_name and e.emergency_phone):
@@ -102,6 +119,46 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
     # Most urgent first: overdue, then due soonest, then missing data; ties by name.
     out.sort(key=lambda a: (a.urgency, a.due or date.max, a.employee.full_name, a.employee.pk))
     return out
+
+
+# Group headings per (kind, urgency); a kind not listed falls back to its first item's text.
+GROUP_LABELS: dict[tuple[str, int], str] = {
+    ("termination", DUE): "Ажлаас гарах",
+    ("scheduled", DUE): "Төлөвлөсөн өөрчлөлт",
+    ("probation", DUE): "Туршилтын хугацаа дуусах",
+    ("contract", DUE): "Гэрээ дуусах",
+    ("contract", OVERDUE): "Гэрээ дууссан",
+    ("leave", DUE): "Чөлөөнөөс буцах",
+    ("leave", OVERDUE): "Чөлөөнөөс буцах огноо өнгөрсөн",
+    ("leave_balance", OVERDUE): "Ээлжийн амралтын үлдэгдэл хасах",
+    ("setup", MISSING): "Бүрдүүлэлт дутуу",
+    ("emergency", MISSING): "Яаралтай үед холбогдох хүн дутуу",
+    ("bank", MISSING): "Банкны мэдээлэл дутуу",
+}
+
+
+@dataclass
+class Group:
+    kind: str
+    urgency: int
+    label: str
+    items: list[Attention]
+
+    @property
+    def dated(self) -> bool:
+        """Dated items (and those with their own detail text) show one line each; the rest show as name chips."""
+        return any(a.due is not None for a in self.items) or self.kind == "leave_balance"
+
+
+def group(found: list[Attention]) -> list[Group]:
+    """Items grouped by problem, in the order of their most urgent item (`found` is already sorted)."""
+    groups: dict[tuple[str, int], Group] = {}
+    for a in found:
+        key = (a.kind, a.urgency)
+        if key not in groups:
+            groups[key] = Group(a.kind, a.urgency, GROUP_LABELS.get(key, a.text), [])
+        groups[key].items.append(a)
+    return sorted(groups.values(), key=lambda g: g.urgency)
 
 
 def split(user: User, found: list[Attention]) -> tuple[list[Attention], list[Attention]]:

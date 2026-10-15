@@ -2,7 +2,7 @@
 {% for row in rows %}
   <a href="{% url 'employees:detail' row.employee.pk %}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:border-violet-300 hover:shadow-sm">
     <div class="flex items-center gap-3">
-      {% if row.employee.photo %}<img src="{{ row.employee.photo|thumb:56 }}" srcset="{{ row.employee.photo|thumb:112 }} 2x" alt="" class="h-14 w-14 shrink-0 rounded-full object-cover">
+      {% if row.employee.photo %}<img src="{{ row.employee.photo|thumb:56 }}" srcset="{{ row.employee.photo|thumb:112 }} 2x, {{ row.employee.photo|thumb:168 }} 3x" alt="" class="h-14 w-14 shrink-0 rounded-full object-cover">
       {% else %}<div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xl text-violet-700">{{ row.employee.given_name|first }}</div>{% endif %}
       <div class="min-w-0">
         <div class="truncate font-medium" title="{{ row.employee.full_name }}">{{ row.employee.short_name }}</div>

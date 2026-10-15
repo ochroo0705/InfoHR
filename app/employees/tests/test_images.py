@@ -29,7 +29,7 @@ def test_large_photo_is_shrunk_to_max_side_as_jpeg() -> None:
     image = _open(result)
     assert image.format == "JPEG"
     assert max(image.size) == MAX_SIDE
-    assert image.size == (MAX_SIDE, 450)
+    assert image.size == (MAX_SIDE, MAX_SIDE * 9 // 16)
     assert str(result.name).endswith(".jpg")
 
 
@@ -42,8 +42,8 @@ def test_exif_orientation_is_applied_and_metadata_removed() -> None:
     exif = Image.Exif()
     exif[0x0112] = 6  # rotate 90 degrees when displayed
     exif[0x010F] = "PhoneMaker"
-    image = _open(shrink_photo(_upload((1000, 500), exif=exif)))
-    assert image.size == (400, MAX_SIDE)
+    image = _open(shrink_photo(_upload((1600, 800), exif=exif)))
+    assert image.size == (MAX_SIDE // 2, MAX_SIDE)
     assert not image.getexif()
 
 
@@ -74,7 +74,7 @@ def test_thumbnail_is_exact_square_cached_and_survives_missing_file(
     hired.photo.save("face.jpg", shrink_photo(_upload((800, 600))))
     url = thumbnail_url(hired.photo, 80)
     thumb = tmp_path / "employees" / "photos" / Path(url).name
-    assert url.endswith("_80.jpg") and Image.open(thumb).size == (80, 80)
+    assert url.endswith("_80hq.jpg") and Image.open(thumb).size == (80, 80)
     mtime = thumb.stat().st_mtime_ns
     assert thumbnail_url(hired.photo, 80) == url and thumb.stat().st_mtime_ns == mtime
     gone = Employee.objects.get(pk=hired.pk)

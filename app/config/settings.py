@@ -4,6 +4,7 @@ from pathlib import Path
 
 import django_stubs_ext
 import environ
+from django.templatetags.static import static
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
@@ -28,6 +29,7 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
     "accounts",
     "employees",
+    "leave",
 ]
 
 MIDDLEWARE = [
@@ -37,6 +39,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.ForcePasswordChangeMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -70,11 +73,9 @@ DATABASES["default"]["OPTIONS"] = {"options": "-c search_path=hr,public"}
 
 AUTH_USER_MODEL = "accounts.User"
 
-AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+AUTH_PASSWORD_VALIDATORS = [  # user decision 2026-10-15: 8+ characters with upper, lower and a digit
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "accounts.validators.CharacterClassesValidator"},
 ]
 
 LANGUAGE_CODE = "mn"
@@ -104,6 +105,10 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# The admin "+" opens its add form in an iframe modal (static/js/admin_related_modal.js).
+# Other sites still cannot frame us.
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
 # Admin theme (django-unfold). The admin is the back office for logins and roles;
 # HR staff work in the app's own screens.
 UNFOLD = {
@@ -115,6 +120,11 @@ UNFOLD = {
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_LANGUAGES": True,
+    "SCRIPTS": [
+        lambda request: static("js/admin_related_modal.js"),  # "+" opens a modal, not a window
+        lambda request: static("js/admin_effective_perms.js"),  # role permissions shown ticked on the user page
+        lambda request: static("js/admin_row_click.js"),  # whole list row opens the record
+    ],
     "SIDEBAR": {
         "show_search": False,
         "show_all_applications": False,

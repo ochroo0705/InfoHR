@@ -12,6 +12,7 @@ from employees.models import (
     ActivityEntry,
     ActivityKind,
     ChangeType,
+    ContractType,
     Employee,
     Event,
     EventType,
@@ -19,6 +20,7 @@ from employees.models import (
     JobStatus,
     LeaveKind,
     TerminationReason,
+    contract_errors,
 )
 from employees.services import history
 from employees.services.history import HistoryError
@@ -114,10 +116,14 @@ def _validate(
     if type == EventType.CONTRACT and not new:
         _add(errors, "__all__", "Гэрээний аль нэг мэдээллийг өөрчилнө үү.")
     if "contract_end" in allowed:
+        kind = changes.get("contract_type", current.contract_type)
+        if kind == ContractType.OPEN_ENDED:  # an open-ended contract has no end date: clear it, never refuse
+            new.pop("contract_end", None)
+            if current.contract_end is not None:
+                new["contract_end"] = None
         start = changes.get("contract_start", current.contract_start)
-        end = changes.get("contract_end", current.contract_end)
-        if start and end and end < start:
-            errors["contract_end"] = "Гэрээ дуусах огноо эхлэх огнооноос өмнө байж болохгүй."
+        end = new.get("contract_end", current.contract_end) if kind != ContractType.OPEN_ENDED else None
+        errors.update(contract_errors(kind, start, end))
     needed = REQUIRED_STATUS.get(type)
     if needed is not None and current.status != needed:
         _add(

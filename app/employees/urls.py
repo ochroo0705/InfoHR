@@ -11,6 +11,7 @@ urlpatterns = [
     path("check-register/", views.check_register, name="check_register"),
     path("<int:pk>/", views.employee_detail, name="detail"),
     path("<int:pk>/save/", views.employee_save, name="save"),
+    path("<int:pk>/login/", views.login_create, name="login_create"),
     path("<int:pk>/setup/<str:key>/", views.toggle_setup, name="setup_toggle"),
     path("<int:pk>/note/", views.add_note, name="note"),
     path("<int:pk>/job/<int:record_id>/correct/", views.correct_job, name="correct_job"),

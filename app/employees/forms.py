@@ -208,6 +208,14 @@ class HireExtrasForm(StyledForm):
         return data
 
 
+class CreateLoginForm(StyledForm):
+    username = forms.CharField(
+        label="Нэвтрэх нэр",
+        max_length=150,
+        error_messages={"required": "Нэвтрэх нэрийг бичнэ үү."},
+    )
+
+
 class CancelEventForm(StyledForm):
     reason = forms.CharField(label="Цуцлах шалтгаан", max_length=200, widget=forms.Textarea(attrs={"rows": 2}))
 

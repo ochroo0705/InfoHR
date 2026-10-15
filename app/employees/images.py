@@ -8,8 +8,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile, UploadedFile
 from django.db.models.fields.files import FieldFile
 from PIL import Image, ImageOps
 
-MAX_SIDE = 800
-JPEG_QUALITY = 85
+MAX_SIDE = 1200
+JPEG_QUALITY = 90
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
@@ -45,7 +45,7 @@ def thumbnail_url(photo: FieldFile, side: int) -> str:
     if not photo:
         return ""
     original = Path(photo.name or "")
-    name = original.with_name(f"{original.stem}_{side}.jpg").as_posix()
+    name = original.with_name(f"{original.stem}_{side}hq.jpg").as_posix()
     storage = photo.storage
     if not storage.exists(name):
         try:
@@ -53,7 +53,8 @@ def thumbnail_url(photo: FieldFile, side: int) -> str:
                 image = ImageOps.exif_transpose(source).convert("RGB")
                 image = ImageOps.fit(image, (side, side), Image.Resampling.LANCZOS)
                 buffer = BytesIO()
-                image.save(buffer, "JPEG", quality=90)
+                # Full-colour (4:4:4) JPEG keeps edges around eyes and hair crisp at small sizes.
+                image.save(buffer, "JPEG", quality=95, subsampling=0)
         except Exception:  # Pillow raises several types for missing or broken files
             return photo.url
         storage.save(name, ContentFile(buffer.getvalue()))

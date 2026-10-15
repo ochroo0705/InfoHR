@@ -1,0 +1,5 @@
+<div class="rounded-lg bg-slate-50 p-3">
+  {% for e in check.errors %}<p class="text-red-700">{{ e }}</p>{% endfor %}
+  {% if not check.errors %}<p><b>{{ check.working_days|floatformat:"-1" }}</b> ажлын өдөр{% if check.balance_after is not None %} · үлдэх: <b>{{ check.balance_after|floatformat:"-1" }}</b>{% endif %}</p>{% endif %}
+  {% for w in check.warnings %}<p class="text-amber-700">{{ w }}</p>{% endfor %}
+</div>

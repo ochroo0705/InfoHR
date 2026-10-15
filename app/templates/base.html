@@ -6,16 +6,21 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/datepicker.js' %}" defer></script>
+  <script src="{% static 'js/select.js' %}" defer></script>
+  <script src="{% static 'js/contract.js' %}" defer></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}
   <header class="bg-white border-b border-slate-200">
-    <nav class="mx-auto max-w-6xl flex items-center gap-6 px-4 h-14">
-      <a href="{% url 'home' %}" class="font-semibold text-violet-700">Info HR</a>
-      <a href="{% url 'employees:list' %}" class="text-sm hover:text-violet-700">Ажилтнууд</a>
-      <span class="ml-auto text-sm text-slate-500">{{ user.get_full_name|default:user.username }}</span>
-      <form method="post" action="{% url 'logout' %}">{% csrf_token %}
-        <button class="text-sm text-slate-500 hover:text-red-600">Гарах</button>
+    <nav class="mx-auto max-w-6xl flex items-stretch gap-1 px-4 h-14 text-sm">
+      {% with app=request.resolver_match.app_name %}
+      <a href="{% url 'home' %}" class="mr-4 flex items-center font-semibold text-violet-700">Info HR</a>
+      <a href="{% url 'employees:list' %}" class="flex items-center border-b-2 px-3 hover:bg-slate-50 hover:text-violet-700 {% if app == 'employees' %}border-violet-600 font-medium text-violet-700{% else %}border-transparent{% endif %}">Ажилтнууд</a>
+      {% if perms.leave.view_leave %}<a href="{% url 'leave:list' %}" class="flex items-center border-b-2 px-3 hover:bg-slate-50 hover:text-violet-700 {% if app == 'leave' %}border-violet-600 font-medium text-violet-700{% else %}border-transparent{% endif %}">Чөлөө, амралт</a>{% endif %}
+      {% endwith %}
+      <span class="ml-auto flex items-center px-3 text-slate-500">{{ user.get_full_name|default:user.username }}</span>
+      <form method="post" action="{% url 'logout' %}" class="flex">{% csrf_token %}
+        <button class="flex items-center px-3 text-slate-500 hover:bg-red-50 hover:text-red-600">Гарах</button>
       </form>
     </nav>
   </header>

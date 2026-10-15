@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEMO_DB = "info_hr_demo"
-PORT = "8001"
+PORT = os.environ.get("PORT", "8001")  # the preview tool may assign another port
 
 
 def manage(*args: str) -> None:

@@ -2,7 +2,7 @@
 {% block title %}Ажилтан нэмэх{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-xl font-semibold">Ажилтан нэмэх</h1>
-<form id="add-form" method="post" enctype="multipart/form-data" class="space-y-6 pb-24">{% csrf_token %}
+<form id="add-form" method="post" enctype="multipart/form-data" hx-post="{{ request.path }}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML" class="space-y-6 pb-24">{% csrf_token %}
   <div class="flex flex-col gap-6 md:flex-row">
     <nav role="tablist" aria-label="Табууд" class="flex gap-1 overflow-x-auto md:w-52 md:shrink-0 md:flex-col md:overflow-visible">
       <button type="button" role="tab" data-tab-btn="basic" onclick="showTab('basic')" class="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100">Үндсэн <span data-badge="basic" class="ml-auto rounded-full px-1.5 text-xs font-semibold"></span></button>

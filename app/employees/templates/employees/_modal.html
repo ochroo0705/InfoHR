@@ -7,6 +7,7 @@
       <div class="grid gap-3 md:grid-cols-2">{% for field in form %}
         <label class="block text-sm {% if field.name == 'reason' or field.name == 'address' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
           {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
+      {% if hint %}<p class="text-xs text-slate-500">{{ hint }}</p>{% endif %}
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
         <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Хадгалах</button>
