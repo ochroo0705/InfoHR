@@ -1,32 +1,36 @@
 """The only doorway for HR events (spec B). Every function is atomic."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
 from accounts.models import User
 from django.db import transaction
 from django.utils import timezone
+from macs.models import FiredReason
 
 from employees.models import (
     ActivityEntry,
     ActivityKind,
     ChangeType,
     ContractType,
+    Department,
     Employee,
     Event,
     EventType,
     JobRecord,
     JobStatus,
     LeaveKind,
-    TerminationReason,
+    Position,
     contract_errors,
+    ensure_ext,
 )
-from employees.services import history
+from employees.services import history, macs_writes, orders
 from employees.services.history import HistoryError
+from employees.services.orders import OrderError
 
 _PLACEMENT = ("position", "department", "manager")
-_CONTRACT = ("contract_type", "contract_no", "contract_start", "contract_end")
+_CONTRACT = ("emptype", "contract_type", "contract_no", "contract_start", "contract_end")
 ALLOWED_FIELDS: dict[str, tuple[str, ...]] = {
     EventType.TRANSFER: _PLACEMENT,
     EventType.PROMOTION: _PLACEMENT,
@@ -58,7 +62,7 @@ REQUIRED_STATUS = {
     EventType.LEAVE_START: JobStatus.ACTIVE,
     EventType.LEAVE_RETURN: JobStatus.LONG_LEAVE,
 }
-REASON_CHOICES: dict[str, Any] = {EventType.TERMINATION: TerminationReason, EventType.LEAVE_START: LeaveKind}
+REASON_CHOICES: dict[str, Any] = {EventType.LEAVE_START: LeaveKind}
 _IN_SERVICE = (
     EventType.TRANSFER,
     EventType.PROMOTION,
@@ -85,7 +89,9 @@ class EventError(Exception):
         self.errors = errors
 
 
-def _reason_text(type: str, reason: str) -> str:
+def _reason_text(type: str, reason: str, fired_reason: FiredReason | None = None) -> str:
+    if fired_reason is not None:
+        return str(fired_reason)
     choices = REASON_CHOICES.get(type)
     if choices is not None and reason in choices.values:
         return str(choices(reason).label)
@@ -97,7 +103,14 @@ def _add(errors: dict[str, str], key: str, message: str) -> None:
 
 
 def _validate(
-    employee: Employee, type: EventType, effective: date, changes: dict[str, Any], salary: Decimal | None, reason: str
+    employee: Employee,
+    type: EventType,
+    effective: date,
+    changes: dict[str, Any],
+    salary: Decimal | None,
+    reason: str,
+    fired_reason: FiredReason | None = None,
+    pension: bool = False,
 ) -> dict[str, Any]:
     """Return the job changes to apply (including the status), or raise EventError."""
     errors: dict[str, str] = {}
@@ -113,7 +126,7 @@ def _validate(
         _add(errors, "__all__", "Хэлтэс, албан тушаал эсвэл удирдлагын аль нэгийг өөрчилнө үү.")
     if type in (EventType.PROMOTION, EventType.DEMOTION) and "position" not in new:
         errors["position"] = "Албан тушаал өөрчлөгдөөгүй байна."
-    if type == EventType.CONTRACT and not new:
+    if type == EventType.CONTRACT and not new and not pension:
         _add(errors, "__all__", "Гэрээний аль нэг мэдээллийг өөрчилнө үү.")
     if "contract_end" in allowed:
         kind = changes.get("contract_type", current.contract_type)
@@ -144,6 +157,10 @@ def _validate(
             errors["reason"] = "Жагсаалтаас шалтгаан сонгоно уу."
     elif type == EventType.DEMOTION and not reason:
         errors["reason"] = "Шалтгааныг заавал бичнэ үү."
+    if type == EventType.TERMINATION and fired_reason is None:
+        errors["fired_reason"] = "Жагсаалтаас шалтгаан сонгоно уу."
+    elif type != EventType.TERMINATION and fired_reason is not None:
+        errors["fired_reason"] = "Ажлаас гарсан шалтгаан зөвхөн ажлаас чөлөөлөхөд хамаарна."
     if salary is not None:
         if type not in SALARY_TYPES:
             errors["salary"] = "Энэ өөрчлөлтөд цалин оруулах боломжгүй."
@@ -172,6 +189,18 @@ def _diffs(current: JobRecord, new: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def start_placement_missing(employee: Employee) -> tuple[str, ...]:
+    """Placement values the event form must ask for before the first event (QC 1d): only for a MACS-only
+    employee (no HR job history) whose MACS row has no department or position. Empty otherwise."""
+    if employee.job_records.exists():
+        return ()
+    return tuple(
+        name
+        for name, value in (("department", employee.department_id), ("position", employee.position_id))
+        if value is None
+    )
+
+
 @transaction.atomic
 def record(
     employee: Employee,
@@ -184,6 +213,14 @@ def record(
     note: str,
     by: User,
     expected_return: date | None = None,
+    fired_reason: FiredReason | None = None,
+    pension: bool = False,
+    start_department: Department | None = None,
+    start_position: Position | None = None,
+    order_number: str = "",
+    order_date: date | None = None,
+    order_summary: str = "",
+    order_issued_by: str = "",
 ) -> Event:
     Employee.objects.select_for_update().get(pk=employee.pk)
     try:
@@ -195,7 +232,29 @@ def record(
             raise EventError({"expected_return": "Буцах огноо зөвхөн урт чөлөөнд хамаарна."})
         if expected_return <= effective:
             raise EventError({"expected_return": "Буцах огноо чөлөө эхлэх огнооноос хойш байх ёстой."})
-    new = _validate(employee, event_type, effective, changes, salary, reason)
+    if not employee.job_records.exists():
+        # QC 1d: the first event starts the HR history from the MACS row, in this same transaction.
+        given = {"department": start_department, "position": start_position}
+        missing = {
+            f"start_{name}": "Заавал сонгоно уу." for name in start_placement_missing(employee) if not given[name]
+        }
+        if missing:
+            raise EventError(missing)
+        try:
+            history.start_from_macs(
+                employee, by=by, effective=effective, department=start_department, position=start_position
+            )
+        except HistoryError as exc:
+            raise EventError({"__all__": str(exc)}) from exc
+    changes = dict(changes)
+    if "emptype" in changes and changes["emptype"] is None:
+        del changes["emptype"]  # nothing chosen: keep the stored type
+    if event_type == EventType.REHIRE and "emptype" not in changes:
+        kind = changes.get("contract_type") or getattr(history.job_on(employee, effective), "contract_type", None)
+        changes["emptype"] = 5 if kind == ContractType.FIXED_TERM else 1
+    if pension and event_type not in (EventType.TERMINATION, EventType.CONTRACT):
+        raise EventError({"pension": "Тэтгэвэрт гарсан нь зөвхөн ажлаас гарах эсвэл гэрээ өөрчлөхөд хамаарна."})
+    new = _validate(employee, event_type, effective, changes, salary, reason, fired_reason, pension)
     if (new and employee.job_records.filter(period__startswith__gt=effective).exists()) or (
         salary is not None and employee.salary_records.filter(period__startswith__gt=effective).exists()
     ):
@@ -210,10 +269,16 @@ def record(
         type=event_type,
         effective=effective,
         reason=reason,
+        fired_reason=fired_reason,
         note=note,
         expected_return=expected_return,
+        pension=pension,
         created_by=by,
     )
+    if pension and event_type == EventType.CONTRACT:
+        ext = ensure_ext(employee)
+        ext.is_pensioner = True
+        ext.save(update_fields=["is_pensioner"])
     try:
         if new:
             history.change_job(
@@ -239,13 +304,33 @@ def record(
             )
     except HistoryError as exc:
         raise EventError({"__all__": str(exc)}) from exc
+    macs_writes.write_event_rows(event)
+    new_state = macs_writes._state_on(employee, effective)
+    if new_state is not None:
+        old_state = macs_writes._state_on(employee, effective - timedelta(days=1)) or new_state
+        order_type = orders.classify(event, old_state, new_state)
+        if order_type is not None:
+            try:
+                orders.create_for_change(
+                    employee=employee,
+                    event=event,
+                    is_hire=False,
+                    order_type=order_type,
+                    number=order_number,
+                    date=order_date,
+                    summary=order_summary,
+                    issued_by=order_issued_by,
+                    by=by,
+                )
+            except OrderError as exc:
+                raise EventError({f"order_{k}" if k != "__all__" else k: v for k, v in exc.errors.items()}) from exc
     message = f"{ChangeType(event_type.change_type).label} · {effective:%Y-%m-%d}-нээс"
     if effective < timezone.localdate():
         message += " (өнгөрсөн огноогоор)"
     if expected_return is not None:
         message += f" · {expected_return:%Y-%m-%d} хүртэл"
-    if reason:
-        message += f". {_reason_text(event_type, reason)}"
+    if reason or fired_reason is not None:
+        message += f". {_reason_text(event_type, reason, fired_reason)}"
     if job_diffs:
         ActivityEntry.objects.create(
             employee=employee, by=by, kind=ActivityKind.HISTORY, message=message, changes=job_diffs
@@ -282,7 +367,7 @@ def leave_until(employee: Employee, today: date) -> date | None:
 
 
 @transaction.atomic
-def cancel(event: Event, *, reason: str, by: User) -> Event:
+def cancel(event: Event, *, reason: str, by: User, cancel_order_no: str = "") -> Event:
     reason = reason.strip()
     if not reason:
         raise EventError({"reason": "Цуцлах шалтгаанаа бичнэ үү."})
@@ -292,12 +377,24 @@ def cancel(event: Event, *, reason: str, by: User) -> Event:
         raise EventError({"__all__": "Зөвхөн төлөвлөсөн үйл явдлыг цуцлах боломжтой."})
     job_records = list(event.job_records.all())
     salary_records = list(event.salary_records.all())
+    macs_writes.delete_event_rows(event)
     try:
         history.undo([*job_records, *salary_records])
     except HistoryError as exc:
         raise EventError({"__all__": str(exc)}) from exc
     event.cancelled_at, event.cancelled_by, event.cancel_reason = timezone.now(), by, reason
     event.save(update_fields=["cancelled_at", "cancelled_by", "cancel_reason"])
+    try:
+        orders.cancel_for_event(event, reason=reason, cancel_order_no=cancel_order_no)
+    except OrderError as exc:
+        raise EventError(exc.errors) from exc
+    if event.pension and event.type == EventType.CONTRACT:
+        # Still a pensioner only if another live contract event says so.
+        ext = ensure_ext(event.employee)
+        ext.is_pensioner = event.employee.events.filter(
+            type=EventType.CONTRACT, pension=True, cancelled_at__isnull=True
+        ).exists()
+        ext.save(update_fields=["is_pensioner"])
     message = f"Цуцалсан: {event.get_type_display()} ({event.effective:%Y-%m-%d}) — {reason}"
     if job_records or not salary_records:
         ActivityEntry.objects.create(employee=event.employee, by=by, kind=ActivityKind.HISTORY, message=message)

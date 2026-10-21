@@ -5,6 +5,8 @@ from django.contrib.auth.models import AnonymousUser, Group, Permission
 from employees import access
 from employees.models import ActivityEntry, Employee
 
+from .conftest import link_login
+
 pytestmark = pytest.mark.django_db
 
 
@@ -36,7 +38,7 @@ def test_accountant(hired: Employee) -> None:
 
 def test_employee_sees_only_self_without_notes_or_salary(hired: Employee) -> None:
     me = user_in("Employee", "me")
-    hired.user = me
+    link_login(hired, me)
     hired.save()
     ActivityEntry.objects.create(employee=hired, kind="note", message="internal")
     me = User.objects.get(pk=me.pk)
@@ -54,7 +56,7 @@ def test_employee_role_without_linked_record(hired: Employee) -> None:
 
 def test_inactive_employee_loses_own_record(hired: Employee) -> None:
     me = user_in("Employee", "gone")
-    hired.user = me
+    link_login(hired, me)
     hired.save()
     me = User.objects.get(pk=me.pk)
     me.is_active = False

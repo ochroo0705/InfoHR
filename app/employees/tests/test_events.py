@@ -5,12 +5,14 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.utils import timezone
+from macs.models import FiredReason
 
 from employees import access
 from employees.models import ActivityEntry, Department, Employee, Event, JobRecord, Position, SalaryRecord
 from employees.services import events, history
 from employees.services.events import EventError
 
+from .conftest import named
 from .test_access import user_in
 
 PAST = date(2026, 3, 1)
@@ -109,7 +111,9 @@ def test_salary_change_rules(hired: Employee, actor: User) -> None:
 
 
 def test_salary_refused_for_other_types(hired: Employee, actor: User) -> None:
-    assert "salary" in errors_of(hired, actor, "termination", PAST, reason="death", salary=Decimal("1"))
+    assert "salary" in errors_of(
+        hired, actor, "termination", PAST, fired_reason=named(FiredReason, "Нас барсан"), salary=Decimal("1")
+    )
 
 
 def test_contract(hired: Employee, actor: User) -> None:
@@ -134,11 +138,13 @@ def test_leave_cycle(hired: Employee, actor: User) -> None:
 
 
 def test_termination_and_rehire(hired: Employee, actor: User, lead: Position) -> None:
-    assert "reason" in errors_of(hired, actor, "termination", PAST, reason="")
+    assert "fired_reason" in errors_of(hired, actor, "termination", PAST)
     assert "__all__" in errors_of(hired, actor, "rehire", PAST)
-    rec(hired, actor, "termination", PAST, reason="resignation")
+    rec(hired, actor, "termination", PAST, fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"))
     assert job_at(hired, PAST).status == "left"
-    assert "__all__" in errors_of(hired, actor, "termination", date(2026, 4, 1), reason="death")
+    assert "__all__" in errors_of(
+        hired, actor, "termination", date(2026, 4, 1), fired_reason=named(FiredReason, "Өөрийн хүсэлтээр")
+    )
     rec(hired, actor, "rehire", date(2026, 5, 1), changes={"position": lead}, salary=Decimal("3100000"))
     job = job_at(hired, date(2026, 5, 1))
     assert job.status == "active" and job.position == lead and job.change_type == "rehire"
@@ -233,7 +239,7 @@ def _kwargs(type: str, lead: Position) -> dict[str, Any]:
         "contract": {"changes": {"contract_type": "fixed_term", "contract_end": date(2030, 1, 1)}},
         "leave_start": {"reason": "unpaid"},
         "leave_return": {},
-        "termination": {"reason": "resignation"},
+        "termination": {"fired_reason": named(FiredReason, "Өөрийн хүсэлтээр")},
         "rehire": {"changes": {"position": lead}, "salary": Decimal("3100000")},
     }
     return table[type]
@@ -258,7 +264,7 @@ def test_every_type_every_date(hired: Employee, actor: User, lead: Position, typ
     if type == "leave_return":
         rec(hired, actor, "leave_start", PREP, reason="unpaid")
     if type == "rehire":
-        rec(hired, actor, "termination", PREP, reason="resignation")
+        rec(hired, actor, "termination", PREP, fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"))
     today = timezone.localdate()
     day = {"today": today, "past": PAST, "future": future()}[when]
     ev = rec(hired, actor, type, day, **_kwargs(type, lead))
@@ -275,7 +281,7 @@ def test_every_type_every_date(hired: Employee, actor: User, lead: Position, typ
 
 
 def test_rehire_checks_contract_dates(hired: Employee, actor: User) -> None:
-    rec(hired, actor, "termination", PREP, reason="resignation")
+    rec(hired, actor, "termination", PREP, fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"))
     bad = {"contract_type": "fixed_term", "contract_start": date(2026, 6, 1), "contract_end": date(2026, 5, 1)}
     assert "contract_end" in errors_of(hired, actor, "rehire", PAST, changes=bad)
 
@@ -295,9 +301,9 @@ def test_open_ended_clears_end_date(hired: Employee, actor: User) -> None:
 
 
 def test_status_messages_are_combined(hired: Employee, actor: User) -> None:
-    rec(hired, actor, "termination", PREP, reason="resignation")
+    rec(hired, actor, "termination", PREP, fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"))
     errs = errors_of(hired, actor, "termination", PAST, reason="bogus")
-    assert "reason" in errs and "__all__" in errs
+    assert "fired_reason" in errs and "__all__" in errs
     errs = errors_of(hired, actor, "transfer", PAST)
     assert "__all__" in errs
 
@@ -327,8 +333,26 @@ def test_salary_failure_rolls_back_job_part(
     assert JobRecord.objects.get(employee=hired).period.upper is None
 
 
-def test_invalid_termination_reason(hired: Employee, actor: User) -> None:
-    assert "reason" in errors_of(hired, actor, "termination", PAST, reason="bogus")
+def test_termination_requires_fired_reason(hired: Employee, actor: User) -> None:
+    errs = errors_of(hired, actor, "termination", PAST)
+    assert errs["fired_reason"] == "Жагсаалтаас шалтгаан сонгоно уу."
+
+
+def test_termination_stores_fired_reason(hired: Employee, actor: User) -> None:
+    reason = named(FiredReason, "Өөрийн хүсэлтээр")
+    ev = rec(hired, actor, "termination", PAST, fired_reason=reason)
+    ev.refresh_from_db()
+    assert ev.fired_reason == reason and ev.reason == ""
+    entry = ActivityEntry.objects.get(employee=hired, message__startswith="Ажлаас чөлөөлсөн")
+    assert entry.message.endswith(". Өөрийн хүсэлтээр")
+
+
+def test_fired_reason_rejected_for_transfer(hired: Employee, actor: User) -> None:
+    dep = Department.objects.get_or_create(name="Х")[0]
+    errs = errors_of(
+        hired, actor, "transfer", PAST, changes={"department": dep}, fired_reason=named(FiredReason, "Нас барсан")
+    )
+    assert "fired_reason" in errs
 
 
 def test_demotion_unchanged_position_refused(hired: Employee, actor: User, job_values: dict[str, Any]) -> None:
@@ -377,7 +401,7 @@ def test_cancel_refused_while_later_row_exists(hired: Employee, actor: User, lea
 
 
 def test_cancel_termination_refused_when_rehire_scheduled(hired: Employee, actor: User, lead: Position) -> None:
-    term = rec(hired, actor, "termination", _days(10), reason="resignation")
+    term = rec(hired, actor, "termination", _days(10), fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"))
     rec(hired, actor, "rehire", _days(20), changes={"position": lead})
     assert "__all__" in _cancel_errors(term, actor, "x")
     assert JobRecord.objects.filter(employee=hired).count() == 3
@@ -394,12 +418,14 @@ def test_record_before_later_job_row_refused(hired: Employee, actor: User, lead:
 def test_termination_before_later_job_row_refused(hired: Employee, actor: User) -> None:
     dept = Department.objects.create(name="Х")
     rec(hired, actor, "transfer", _days(60), changes={"department": dept})
-    assert "__all__" in errors_of(hired, actor, "termination", _days(10), reason="resignation")
+    assert "__all__" in errors_of(
+        hired, actor, "termination", _days(10), fired_reason=named(FiredReason, "Өөрийн хүсэлтээр")
+    )
 
 
 def test_termination_ignores_later_salary_row(hired: Employee, actor: User) -> None:
     rec(hired, actor, "salary_change", _days(60), salary=Decimal("2900000"))
-    rec(hired, actor, "termination", _days(10), reason="resignation")
+    rec(hired, actor, "termination", _days(10), fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"))
 
 
 def test_salary_event_before_later_salary_row_refused(hired: Employee, actor: User) -> None:

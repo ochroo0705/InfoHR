@@ -19,7 +19,7 @@ def login_as(client: Client, role: str, name: str = "viewer") -> User:
 def test_create_login_links_user_and_logs(hired: Employee, actor: User) -> None:
     login, password = logins.create_login(hired, "  saraa.b  ", by=actor)
     hired.refresh_from_db()
-    assert hired.user == login
+    assert hired.ext.user == login
     assert login.username == "saraa.b"
     assert login.check_password(password)
     assert login.must_change_password
@@ -35,7 +35,7 @@ def test_create_login_refuses_empty(hired: Employee, actor: User, username: str)
     with pytest.raises(ValueError, match="Нэвтрэх нэрийг бичнэ үү"):
         logins.create_login(hired, username, by=actor)
     hired.refresh_from_db()
-    assert hired.user is None
+    assert hired.ext.user is None
 
 
 def test_create_login_refuses_taken_username(hired: Employee, actor: User) -> None:
@@ -43,7 +43,7 @@ def test_create_login_refuses_taken_username(hired: Employee, actor: User) -> No
     with pytest.raises(ValueError, match="бүртгэлтэй байна"):
         logins.create_login(hired, "taken", by=actor)
     hired.refresh_from_db()
-    assert hired.user is None
+    assert hired.ext.user is None
 
 
 def test_create_login_refuses_when_employee_has_login(hired: Employee, actor: User) -> None:
@@ -60,11 +60,11 @@ def test_manager_creates_login_from_detail_page(client: Client, hired: Employee)
     assert response.status_code == 200
     body = response.content.decode()
     hired.refresh_from_db()
-    assert hired.user is not None and hired.user.username == "newuser"
-    assert hired.user.must_change_password
+    assert hired.ext.user is not None and hired.ext.user.username == "newuser"
+    assert hired.ext.user.must_change_password
     assert "Түр нууц үг" in body and "newuser" in body
     password = body.split('select-all">')[1].split("<")[0]
-    assert len(password) == 10 and hired.user.check_password(password)
+    assert len(password) == 10 and hired.ext.user.check_password(password)
     assert response["Cache-Control"] == "no-store"
 
 
@@ -74,7 +74,7 @@ def test_login_form_shows_error_for_taken_name(client: Client, hired: Employee, 
     assert response.status_code == 200
     assert "бүртгэлтэй байна" in response.content.decode()
     hired.refresh_from_db()
-    assert hired.user is None
+    assert hired.ext.user is None
 
 
 def test_login_modal_get_shows_form_and_hint(client: Client, hired: Employee) -> None:

@@ -25,11 +25,13 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    "django.contrib.staticfiles",
+    "config.apps.HRStaticFilesConfig",  # = django.contrib.staticfiles, see config/apps.py
     "django.contrib.postgres",
     "accounts",
+    "macs",
     "employees",
     "leave",
+    "lists",
 ]
 
 MIDDLEWARE = [
@@ -39,6 +41,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "employees.daily_sync.DailySyncMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -89,12 +92,19 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+ORDER_FILES_ROOT = BASE_DIR / "private" / "orders"
+ORDER_FILE_MAX_MB = 10
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+# Changed static files get a new URL (hash after collectstatic, ?v=mtime otherwise): config/storage.py
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "config.storage.VersionedStaticFilesStorage"},
+}
 
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
@@ -142,12 +152,12 @@ UNFOLD = {
                     {
                         "title": "Хэлтсүүд",
                         "icon": "apartment",
-                        "link": reverse_lazy("admin:employees_department_changelist"),
+                        "link": reverse_lazy("admin:macs_department_changelist"),
                     },
                     {
                         "title": "Албан тушаалууд",
                         "icon": "work",
-                        "link": reverse_lazy("admin:employees_position_changelist"),
+                        "link": reverse_lazy("admin:macs_position_changelist"),
                     },
                 ],
             },

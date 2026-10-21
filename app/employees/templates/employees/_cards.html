@@ -2,16 +2,17 @@
 {% for row in rows %}
   <a href="{% url 'employees:detail' row.employee.pk %}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:border-violet-300 hover:shadow-sm">
     <div class="flex items-center gap-3">
-      {% if row.employee.photo %}<img src="{{ row.employee.photo|thumb:56 }}" srcset="{{ row.employee.photo|thumb:112 }} 2x, {{ row.employee.photo|thumb:168 }} 3x" alt="" class="h-14 w-14 shrink-0 rounded-full object-cover">
-      {% else %}<div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xl text-violet-700">{{ row.employee.given_name|first }}</div>{% endif %}
+      {% with url=row.employee|thumb:56 %}{% if url %}<img src="{{ url }}" srcset="{{ row.employee|thumb:112 }} 2x, {{ row.employee|thumb:168 }} 3x" alt="" class="h-14 w-14 shrink-0 rounded-xl object-cover">
+      {% else %}<div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xl text-violet-700">{{ row.employee.given_name|first }}</div>{% endif %}{% endwith %}
       <div class="min-w-0">
-        <div class="truncate font-medium" title="{{ row.employee.full_name }}">{{ row.employee.short_name }}</div>
-        <div class="truncate text-sm text-slate-500">{{ row.job.position|default:"—" }} · {{ row.job.department|default:"—" }}</div>
+        <div class="flex items-baseline gap-2"><span class="truncate font-medium" title="{{ row.employee.full_name }}">{{ row.employee.short_name }}</span>{% if row.employee.code %}<span class="shrink-0 text-xs text-slate-400">{{ row.employee.code }}</span>{% endif %}</div>
+        <div class="truncate text-sm text-slate-600" title="{{ row.job.position|default:'' }}">{{ row.job.position|default:"—" }}</div>
+        <div class="truncate text-xs text-slate-500" title="{{ row.job.department|default:'' }}">{{ row.job.department|default:"—" }}</div>
       </div>
     </div>
-    <div class="mt-3 flex items-center justify-between gap-2 text-sm">
-      <span class="truncate text-slate-600">{{ row.employee.work_phone }}</span>
-      {% include "employees/_state.html" with state=row.state job=row.job %}
+    <div class="mt-3 flex min-h-6 items-center justify-between gap-2 text-sm">
+      {% if row.employee.work_phone %}<span class="inline-flex min-w-0 items-center gap-1 text-slate-600" title="Ажлын утас"><svg aria-hidden="true" class="h-3.5 w-3.5 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h1.15a1.5 1.5 0 0 1 1.46 1.16l.57 2.4a1.5 1.5 0 0 1-.6 1.57l-.9.63a11.04 11.04 0 0 0 5.06 5.06l.63-.9a1.5 1.5 0 0 1 1.57-.6l2.4.57A1.5 1.5 0 0 1 18 13.35v1.15A1.5 1.5 0 0 1 16.5 16h-1C8.04 16 2 9.96 2 2.5v1Z"/></svg><span class="sr-only">Ажлын утас: </span><span class="truncate">{{ row.employee.work_phone }}</span></span>{% else %}<span></span>{% endif %}
+      {% include "employees/_state.html" with state=row.state job=row.job hide_active=True %}
     </div>
   </a>
 {% empty %}

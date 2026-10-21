@@ -1,11 +1,11 @@
-"""Company calendar: Sat/Sun off plus the Holiday table (spec §4)."""
+"""Company calendar: Sat/Sun off plus public holidays from hr_legalholidays (spec §4)."""
 
 from datetime import date, timedelta
-from decimal import Decimal
 
-from leave.models import Holiday
+from django.db.models import QuerySet
+from macs.models import LegalHoliday
 
-HALF = Decimal("0.5")
+from leave.services import writes
 
 # Fixed-date public holidays (Law on public holidays). Moving ones (Tsagaan Sar) are entered by hand.
 FIXED_HOLIDAYS: list[tuple[int, int, str]] = [
@@ -22,34 +22,51 @@ FIXED_HOLIDAYS: list[tuple[int, int, str]] = [
 ]
 
 
+def _overlapping(start: date, end: date) -> QuerySet[LegalHoliday]:
+    return LegalHoliday.objects.filter(start_date__lte=end, end_date__gte=start)
+
+
+def holiday_names(year: int) -> dict[date, str]:
+    """Every day of `year` covered by a LegalHoliday row, mapped to that row's name."""
+    return _expand(date(year, 1, 1), date(year, 12, 31))
+
+
+def _expand(start: date, end: date) -> dict[date, str]:
+    names: dict[date, str] = {}
+    for row in _overlapping(start, end):
+        first = max(row.start_date, start)
+        last = min(row.end_date, end)
+        for n in range((last - first).days + 1):
+            names[first + timedelta(n)] = row.name
+    return names
+
+
 def holidays_between(start: date, end: date) -> set[date]:
-    return set(Holiday.objects.filter(date__range=(start, end)).values_list("date", flat=True))
+    return set(_expand(start, end))
 
 
 def is_working_day(day: date, holidays: set[date]) -> bool:
     return day.weekday() < 5 and day not in holidays
 
 
-def working_days(start: date, end: date, *, start_half: bool = False, end_half: bool = False) -> Decimal:
+def working_days(start: date, end: date) -> int:
     holidays = holidays_between(start, end)
-    days = [start + timedelta(n) for n in range((end - start).days + 1)]
-    total = Decimal(sum(1 for d in days if is_working_day(d, holidays)))
-    if start == end:
-        return HALF if (start_half or end_half) and total else total
-    if start_half and is_working_day(start, holidays):
-        total -= HALF
-    if end_half and is_working_day(end, holidays):
-        total -= HALF
-    return total
+    return sum(1 for n in range((end - start).days + 1) if is_working_day(start + timedelta(n), holidays))
 
 
 def prefill_year(year: int) -> int:
-    created = 0
+    """Add the fixed-date holidays missing from `year`. Returns how many dates were added."""
+    mapping = holiday_names(year)
+    added = 0
     for month, day, name in FIXED_HOLIDAYS:
-        _, was_created = Holiday.objects.get_or_create(date=date(year, month, day), defaults={"name": name})
-        created += was_created
-    return created
+        fixed = date(year, month, day)
+        if fixed not in mapping:
+            mapping[fixed] = name
+            added += 1
+    if added:
+        writes.set_holiday_dates(year, mapping)
+    return added
 
 
 def has_holidays(year: int) -> bool:
-    return Holiday.objects.filter(date__year=year).exists()
+    return _overlapping(date(year, 1, 1), date(year, 12, 31)).exists()

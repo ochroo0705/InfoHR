@@ -1,13 +1,13 @@
-{% for l in leaves %}
-<tr class="border-t border-slate-100 hover:bg-violet-50 cursor-pointer {% if l.status != 'recorded' %}text-slate-400 line-through{% endif %}"
-  {% if can_record and l.status == 'recorded' %}hx-get="{% url 'leave:edit' l.pk %}" hx-target="body" hx-swap="beforeend" title="Засах"
-  {% else %}onclick="location.href='{% url 'employees:detail' l.employee.pk %}'"{% endif %}>
-  <td class="py-2"><a class="hover:text-violet-700 hover:underline" href="{% url 'employees:detail' l.employee.pk %}" onclick="event.stopPropagation()">{{ l.employee.full_name }}</a></td>
-  <td>{{ l.leave_type }}{% if l.status == 'mistake' %} <span class="ml-1 rounded bg-slate-100 px-1.5 text-xs no-underline">Буруу бүртгэсэн</span>{% endif %}</td>
-  <td>{{ l.start_date|date:"Y-m-d" }} – {{ l.end_date|date:"Y-m-d" }}</td>
-  <td class="text-right">{{ l.working_days|floatformat:"-1" }}</td>
-  <td class="pl-6 text-slate-500">{{ l.note|truncatechars:60 }}</td>
-  <td class="text-right">{% if can_record and l.status == 'recorded' %}
-    <button hx-get="{% url 'leave:cancel' l.pk %}" hx-target="body" hx-swap="beforeend" onclick="event.stopPropagation()" class="whitespace-nowrap rounded px-2 py-1 text-red-600 hover:bg-red-50">{% if l.start_date <= today %}Буруу бүртгэсэн{% else %}Цуцлах{% endif %}</button>{% endif %}</td>
+{% for l, e in items %}
+<tr class="border-t border-slate-100 hover:bg-violet-50 cursor-pointer {% if not l.counts %}text-slate-400 line-through{% endif %}"
+  {% if can_record and l.counts %}hx-get="{% url 'leave:edit' l.id %}" hx-target="body" hx-swap="beforeend" title="Засах"
+  {% else %}onclick="location.href='{% url 'employees:detail' e.pk %}'"{% endif %}>
+  <td class="py-2"><a class="hover:text-violet-700 hover:underline" href="{% url 'employees:detail' e.pk %}" onclick="event.stopPropagation()">{{ e.full_name }}</a></td>
+  <td>{{ l.leave_type }}{% if l.state.name == 'MISTAKE' or l.state.name == 'REJECTED' %} <span class="ml-1 rounded bg-slate-100 px-1.5 text-xs no-underline">{{ l.state.value }}</span>{% endif %}</td>
+  <td>{{ l.start|date:"Y-m-d" }} – {{ l.end|date:"Y-m-d" }}</td>
+  <td class="text-right">{{ l.days }}</td>
+  <td class="pl-6 text-slate-500">{{ l.comment|truncatechars:60 }}</td>
+  <td class="text-right">{% if can_record and l.counts %}
+    <button hx-get="{% url 'leave:cancel' l.id %}" hx-target="body" hx-swap="beforeend" onclick="event.stopPropagation()" class="whitespace-nowrap rounded px-2 py-1 text-red-600 hover:bg-red-50">{% if l.start <= today %}Буруу бүртгэсэн{% else %}Цуцлах{% endif %}</button>{% endif %}</td>
 </tr>
 {% empty %}<tr><td colspan="6" class="py-6 text-center text-slate-400">Чөлөө бүртгэгдээгүй</td></tr>{% endfor %}

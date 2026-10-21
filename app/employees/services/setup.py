@@ -7,16 +7,15 @@ from accounts.models import User
 from django.db import transaction
 
 from employees import access
-from employees.models import ActivityEntry, ActivityKind, Employee, SalaryInsurance, SetupItem
+from employees.models import ActivityEntry, ActivityKind, Employee, SetupItem
 
 ITEMS = [
     ("contract", "Гэрээ байгуулсан"),
     ("id_copy", "Иргэний үнэмлэхний хуулбар авсан"),
-    ("login", "Нэвтрэх эрх үүсгэсэн"),
     ("equipment", "Тоног төхөөрөмж өгсөн"),
     ("bank", "Банкны мэдээлэл бүртгэсэн"),
 ]
-AUTO = frozenset({"login", "bank"})
+AUTO = frozenset({"bank"})
 
 
 @dataclass
@@ -31,8 +30,7 @@ class Item:
 
 def _all(employee: Employee) -> list[Item]:
     ticked = {i.key: i for i in employee.setup_items.select_related("done_by")}
-    account = SalaryInsurance.objects.filter(employee=employee).values_list("account_no", flat=True).first()
-    auto_done = {"login": employee.user_id is not None, "bank": bool(account)}
+    auto_done = {"bank": bool(employee.account_no)}
     items = []
     for key, label in ITEMS:
         tick = ticked.get(key)

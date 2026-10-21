@@ -7,31 +7,32 @@ from employees.models import ActivityEntry, ActivityKind, Employee, Event, Event
 
 
 def is_own(user: User, employee: Employee) -> bool:
-    return user.is_active and employee.user_id is not None and employee.user_id == user.pk
+    ext = getattr(employee, "ext", None)  # EmployeeExt holds the login link (one-to-one, may be missing)
+    return user.is_active and ext is not None and ext.user_id is not None and ext.user_id == user.pk
 
 
 def visible_employees(user: User) -> QuerySet[Employee]:
     if not user.is_active:
         return Employee.objects.none()
-    if user.has_perm("employees.view_employees"):
+    if user.has_perm("macs.view_employees"):
         return Employee.objects.all()
-    return Employee.objects.filter(user_id=user.pk)
+    return Employee.objects.filter(ext__user_id=user.pk)
 
 
 def can_manage(user: User) -> bool:
-    return user.has_perm("employees.manage_employees")
+    return user.has_perm("macs.manage_employees")
 
 
 def can_view_salary(user: User) -> bool:
-    return user.has_perm("employees.view_salary")
+    return user.has_perm("macs.view_salary")
 
 
 def can_manage_salary(user: User) -> bool:
-    return user.has_perm("employees.manage_salary") and can_view_salary(user)
+    return user.has_perm("macs.manage_salary") and can_view_salary(user)
 
 
 def can_view_personal(user: User, employee: Employee) -> bool:
-    return user.has_perm("employees.view_personal") or is_own(user, employee)
+    return user.has_perm("macs.view_personal") or is_own(user, employee)
 
 
 def visible_activity(user: User, employee: Employee) -> QuerySet[ActivityEntry]:
@@ -43,7 +44,7 @@ def visible_activity(user: User, employee: Employee) -> QuerySet[ActivityEntry]:
         entries = entries.filter(sensitive=False)
     if not can_view_personal(user, employee):
         entries = entries.filter(personal=False)
-    if not user.has_perm("employees.view_employees"):  # own page only: no internal notes
+    if not user.has_perm("macs.view_employees"):  # own page only: no internal notes
         entries = entries.exclude(kind=ActivityKind.NOTE)
     return entries
 

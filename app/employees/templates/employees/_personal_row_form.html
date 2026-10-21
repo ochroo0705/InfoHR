@@ -1,0 +1,21 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <h2 class="mb-4 text-lg font-semibold">{{ title }}</h2>
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+      {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+      {% for slug, label in empty_lists %}<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ label }} жагсаалт хоосон байна. <a href="{% url 'lists:list' slug %}" class="text-violet-700 hover:underline">Жагсаалт</a> хэсэгт нэмнэ үү.</p>{% endfor %}
+      <div class="grid gap-3 md:grid-cols-2">{% for field in form.visible_fields %}
+        <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
+          {{ field }}{% for e in field.errors %}<span class="block text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
+      <div class="flex items-center gap-2 pt-2{% if delete_url %} justify-between{% else %} justify-end{% endif %}">
+        {% if delete_url %}<button type="button" hx-get="{{ delete_url }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="rounded px-2 py-1 text-red-600 hover:bg-red-50">Устгах</button>{% endif %}
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+          <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

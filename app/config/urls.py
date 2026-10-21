@@ -14,6 +14,7 @@ urlpatterns = [
     path("password/change/", ForcedPasswordChangeView.as_view(), name="password_change"),
     path("employees/", include("employees.urls")),
     path("leave/", include("leave.urls")),
+    path("lists/", include("lists.urls")),
     path("i18n/", include("django.conf.urls.i18n")),  # language switcher
     path("admin/", admin.site.urls),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -49,5 +49,5 @@ def forwards(apps: Any, schema_editor: Any) -> None:
 
 
 class Migration(migrations.Migration):
-    dependencies = [("leave", "0001_initial"), ("accounts", "0002_role_groups")]
+    dependencies = [("leave", "0001_initial")]
     operations = [migrations.RunPython(forwards, migrations.RunPython.noop)]

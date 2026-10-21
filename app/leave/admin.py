@@ -5,7 +5,7 @@ from django.http import HttpRequest
 from unfold.admin import ModelAdmin
 
 from leave import access
-from leave.models import AnnualLeaveRule, Holiday, LeaveType
+from leave.models import AnnualLeaveRule
 
 
 class SettingsAdmin(ModelAdmin):  # type: ignore[misc]
@@ -26,16 +26,6 @@ class SettingsAdmin(ModelAdmin):  # type: ignore[misc]
         return False  # deactivate types / add a new rule row instead
 
 
-@admin.register(LeaveType)
-class LeaveTypeAdmin(SettingsAdmin):
-    list_display = ("name", "code", "is_paid", "uses_annual_balance", "is_active", "order")
-
-
 @admin.register(AnnualLeaveRule)
 class AnnualLeaveRuleAdmin(SettingsAdmin):
     list_display = ("effective_from", "base_days", "min_continuous_part", "eligibility_months")
-
-
-@admin.register(Holiday)
-class HolidayAdmin(SettingsAdmin):
-    list_display = ("date", "name")

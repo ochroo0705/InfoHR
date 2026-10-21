@@ -1,7 +1,8 @@
 # Secrets and local config
 .env
 # Old ERP database and copies: never commit
-db/
+db/*
+!db/schema/
 *.fdb
 *.FDB
 # Python
@@ -14,6 +15,8 @@ __pycache__/
 # Django
 app/staticfiles/
 app/media/
+# Signed HR order files (staff personal data): never commit
+app/private/
 # Editors / OS
 .vscode/
 .idea/

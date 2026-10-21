@@ -1,65 +1,85 @@
 from datetime import date
-from decimal import Decimal
+from typing import Any
 
 import pytest
 from accounts.models import User
-from employees.models import Employee
+from employees.models import ActivityEntry, Employee
+from macs.models import LeaveAssign, LeaveTypeRow
 
-from leave.models import LeaveStatus, LeaveType
-from leave.services import ledger, records
+from leave.models import LeaveExt
+from leave.services import ledger, records, rows, writes
 from leave.services.records import Draft
+from leave.services.rows import State
+from leave.services.writes import DUPLICATE, STALE
 
 pytestmark = pytest.mark.django_db
 TODAY = date(2026, 10, 14)
 
 
-def d(e: Employee, t: LeaveType, s: date, end: date, **kw: object) -> Draft:
-    return Draft(employee=e, leave_type=t, start_date=s, end_date=end, **kw)  # type: ignore[arg-type]
+def d(e: Employee, t: LeaveTypeRow, s: date, end: date, **kw: Any) -> Draft:
+    return Draft(employee=e, leave_type=t, start_date=s, end_date=end, **kw)
 
 
-def test_check_counts_days_and_balance(employee: Employee, annual: LeaveType) -> None:
+def _record(draft: Draft, actor: User) -> LeaveAssign:
+    return records.record(draft, actor, TODAY)
+
+
+def test_check_counts_days_and_period(employee: Employee, annual: LeaveTypeRow, grants_on: None) -> None:
     c = records.check(d(employee, annual, date(2026, 11, 2), date(2026, 11, 13)), TODAY)
-    assert c.working_days == Decimal(10) and c.year_start == date(2026, 3, 1)
-    assert c.balance_after == Decimal(5) and not c.errors and not c.needs_override
+    assert c.working_days == 10
+    assert c.period is not None and c.period.start == date(2026, 3, 1)
+    assert c.balance_after == 5 and not c.errors and not c.needs_override
 
 
-def test_weekend_only_is_an_error(employee: Employee, annual: LeaveType) -> None:
+def test_weekend_only_is_an_error(employee: Employee, annual: LeaveTypeRow) -> None:
     c = records.check(d(employee, annual, date(2026, 11, 7), date(2026, 11, 8)), TODAY)
     assert c.errors == ["Сонгосон хугацаанд ажлын өдөр алга."]
 
 
-def test_year_boundary_refused(employee: Employee, annual: LeaveType) -> None:
+def test_year_boundary_refused(employee: Employee, annual: LeaveTypeRow) -> None:
     c = records.check(d(employee, annual, date(2027, 2, 22), date(2027, 3, 5)), TODAY)
     assert c.errors and "хоёр хуваан" in c.errors[0]
 
 
-def test_negative_balance_needs_override(employee: Employee, annual: LeaveType, actor: User) -> None:
-    draft = d(employee, annual, date(2026, 11, 2), date(2026, 11, 27))  # 20 days > 15
+def test_negative_balance_needs_override(
+    employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None
+) -> None:
+    draft = d(employee, annual, date(2026, 11, 2), date(2026, 11, 27))  # 20 working days > 15
     c = records.check(draft, TODAY)
-    assert c.needs_override and c.balance_after == Decimal(-5)
-    assert any("-5 хоног" in w and ".0" not in w for w in c.warnings)
+    assert c.needs_override and c.balance_after == -5
+    assert any("-5 хоног" in w for w in c.warnings)
     with pytest.raises(records.LeaveError):
-        records.record(draft, actor, TODAY)
+        _record(draft, actor)
     draft.override_reason = "Захирал зөвшөөрсөн"
-    assert records.record(draft, actor, TODAY).working_days == Decimal(20)
+    assert _record(draft, actor).adays == 20
 
 
-def test_overlap_warning_but_not_with_itself(employee: Employee, annual: LeaveType, actor: User) -> None:
-    leave = records.record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 13)), actor, TODAY)
+def test_annual_overlap_is_error_except_with_itself(
+    employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None
+) -> None:
+    leave = _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 13)), actor)
     again = records.check(d(employee, annual, date(2026, 11, 10), date(2026, 11, 11)), TODAY)
-    assert any("өөр чөлөө" in err for err in again.errors)  # annual vs annual is an error now
+    assert any("өөр чөлөө" in err for err in again.errors)
     edit = records.check(d(employee, annual, date(2026, 11, 2), date(2026, 11, 12), leave_id=leave.pk), TODAY)
     assert not any("өөр чөлөө" in w for w in edit.warnings)
-    assert edit.balance_after == Decimal(6)  # its own old 10 days are not counted
+    assert edit.balance_after == 6  # its own old 10 days are not counted
 
 
-def test_ten_day_rule_warning(employee: Employee, annual: LeaveType, actor: User) -> None:
-    records.record(d(employee, annual, date(2026, 4, 6), date(2026, 4, 10)), actor, TODAY)  # 5
-    c = records.check(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), TODAY)  # 5 → left 5
+def test_duplicate_active_leave_refused(employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None) -> None:
+    draft = d(employee, annual, date(2026, 11, 2), date(2026, 11, 6))
+    _record(draft, actor)
+    assert records.check(draft, TODAY).errors == [DUPLICATE]
+    with pytest.raises(records.LeaveError, match=DUPLICATE):
+        _record(draft, actor)
+
+
+def test_ten_day_rule_warning(employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None) -> None:
+    _record(d(employee, annual, date(2026, 4, 6), date(2026, 4, 10)), actor)  # 5 days
+    c = records.check(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), TODAY)  # 5 more, 5 left
     assert any("10-аас доошгүй" in w for w in c.warnings)
 
 
-def test_eligibility_warning(actor: User, annual: LeaveType) -> None:
+def test_eligibility_warning(actor: User, annual: LeaveTypeRow) -> None:
     from leave.tests.conftest import make_employee
 
     e = make_employee(actor, hired=date(2026, 9, 1), register_no="УБ66112233")
@@ -67,98 +87,118 @@ def test_eligibility_warning(actor: User, annual: LeaveType) -> None:
     assert any("6 сар" in w for w in c.warnings)
 
 
-def test_sick_leave_has_no_balance(employee: Employee) -> None:
-    sick = LeaveType.objects.get(code="sick")
+def test_no_grant_period_warns_and_needs_reason(employee: Employee, annual: LeaveTypeRow, grants_on: None) -> None:
+    c = records.check(d(employee, annual, date(2027, 6, 7), date(2027, 6, 8)), TODAY)
+    assert c.period is None and c.needs_override and c.balance_after == -2
+    assert any("амралтын эрх олдсонгүй" in w for w in c.warnings)
+
+
+def test_sick_leave_has_no_balance(employee: Employee, sick: LeaveTypeRow) -> None:
     c = records.check(d(employee, sick, date(2026, 11, 2), date(2026, 11, 3)), TODAY)
-    assert c.year_start is None and c.balance_after is None and c.working_days == Decimal(2)
+    assert c.period is None and c.balance_after is None and c.working_days == 2
 
 
-def test_record_update_cancel_log(employee: Employee, annual: LeaveType, actor: User) -> None:
-    leave = records.record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor, TODAY)
-    records.update(leave, d(employee, annual, date(2026, 11, 2), date(2026, 11, 4)), actor, TODAY)
-    leave.refresh_from_db()
-    assert leave.working_days == Decimal(3)
+def test_record_update_cancel_log(employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None) -> None:
+    leave = _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor)
+    records.update(
+        leave, d(employee, annual, date(2026, 11, 2), date(2026, 11, 4), loaded=writes.snapshot(leave)), actor, TODAY
+    )
+    leave = LeaveAssign.objects.get(pk=leave.pk)
+    assert leave.adays == 3
     with pytest.raises(records.LeaveError):
-        records.cancel(leave, "", actor, TODAY)
-    records.cancel(leave, "Төлөвлөгөө өөрчлөгдсөн", actor, TODAY)
-    leave.refresh_from_db()
-    assert leave.status == LeaveStatus.CANCELLED
-    assert ledger.balance(employee, date(2026, 3, 1)) == Decimal(15)
+        records.cancel(leave, writes.snapshot(leave), "", actor, TODAY)
+    records.cancel(leave, writes.snapshot(leave), "Төлөвлөгөө өөрчлөгдсөн", actor, TODAY)
+    leave = LeaveAssign.objects.get(pk=leave.pk)
+    assert leave.status == LeaveAssign.CANCELLED
+    assert ledger.balance_on(employee, date(2026, 3, 1)) == 15
     assert employee.activity.count() >= 3
 
 
-def test_end_before_start_is_error(employee: Employee, annual: LeaveType) -> None:
+def test_end_before_start_is_error(employee: Employee, annual: LeaveTypeRow) -> None:
     c = records.check(d(employee, annual, date(2026, 11, 6), date(2026, 11, 2)), TODAY)
     assert c.errors == ["Дуусах огноо эхлэхээс өмнө байна."]
 
 
-def test_annual_leave_before_employment_start_is_error(employee: Employee, annual: LeaveType) -> None:
+def test_annual_leave_before_employment_start_is_error(employee: Employee, annual: LeaveTypeRow) -> None:
     c = records.check(d(employee, annual, date(2024, 2, 5), date(2024, 2, 6)), TODAY)
     assert c.errors == ["Ажилд орохоос өмнөх огноо байна."]
 
 
-def test_update_of_cancelled_leave_refused(employee: Employee, annual: LeaveType, actor: User) -> None:
-    leave = records.record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor, TODAY)
-    records.cancel(leave, "Шалтгаан", actor, TODAY)
-    with pytest.raises(records.LeaveError):
+def test_update_without_loaded_row_is_refused(
+    employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None
+) -> None:
+    leave = _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor)
+    with pytest.raises(records.LeaveError, match=STALE):
         records.update(leave, d(employee, annual, date(2026, 11, 2), date(2026, 11, 4)), actor, TODAY)
 
 
-def test_cancel_twice_refused(employee: Employee, annual: LeaveType, actor: User) -> None:
-    leave = records.record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor, TODAY)
-    records.cancel(leave, "Шалтгаан", actor, TODAY)
+def test_update_of_cancelled_leave_refused(
+    employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None
+) -> None:
+    leave = _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor)
+    records.cancel(leave, writes.snapshot(leave), "Шалтгаан", actor, TODAY)
+    leave = LeaveAssign.objects.get(pk=leave.pk)
     with pytest.raises(records.LeaveError):
-        records.cancel(leave, "Дахин", actor, TODAY)
+        records.update(
+            leave,
+            d(employee, annual, date(2026, 11, 2), date(2026, 11, 4), loaded=writes.snapshot(leave)),
+            actor,
+            TODAY,
+        )
 
 
-def test_update_keeps_original_employee(employee: Employee, annual: LeaveType, actor: User) -> None:
+def test_cancel_twice_refused(employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None) -> None:
+    leave = _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor)
+    records.cancel(leave, writes.snapshot(leave), "Шалтгаан", actor, TODAY)
+    leave = LeaveAssign.objects.get(pk=leave.pk)
+    with pytest.raises(records.LeaveError):
+        records.cancel(leave, writes.snapshot(leave), "Дахин", actor, TODAY)
+
+
+def test_update_keeps_original_employee(employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None) -> None:
     from leave.tests.conftest import make_employee
 
     other = make_employee(actor, hired=date(2020, 6, 1), register_no="УБ55112233")
-    leave = records.record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor, TODAY)
-    records.update(leave, d(other, annual, date(2026, 11, 2), date(2026, 11, 4)), actor, TODAY)
-    leave.refresh_from_db()
-    assert leave.employee_id == employee.pk and leave.year_start == date(2026, 3, 1)
-    assert leave.working_days == Decimal(3)
+    leave = _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor)
+    records.update(
+        leave, d(other, annual, date(2026, 11, 2), date(2026, 11, 4), loaded=writes.snapshot(leave)), actor, TODAY
+    )
+    leave = LeaveAssign.objects.get(pk=leave.pk)
+    assert leave.employee_id == employee.pk and leave.adays == 3
 
 
-def test_check_for_future_year_writes_no_grants(employee: Employee, annual: LeaveType) -> None:
-    from leave.models import GrantKind, LeaveGrant
+def test_check_for_future_year_writes_no_grants(employee: Employee, annual: LeaveTypeRow, grants_on: None) -> None:
+    from macs.models import Entitlement
 
     c = records.check(d(employee, annual, date(2031, 3, 3), date(2031, 3, 7)), TODAY)
-    assert not c.errors and c.year_start == date(2031, 3, 1)
-    assert c.balance_after == Decimal(13)  # the 2031 auto grant (15 + 3 service) is counted, not written
-    starts = set(LeaveGrant.objects.filter(employee=employee, kind=GrantKind.AUTO).values_list("year_start", flat=True))
-    assert max(starts) == date(2026, 3, 1)
+    assert not c.errors and c.period is None
+    assert not Entitlement.objects.filter(employee=employee, date1__year=2031).exists()
 
 
-def test_holiday_added_later_recounts_leave(employee: Employee, annual: LeaveType, actor: User) -> None:
-    leave = records.record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 13)), actor, TODAY)
-    assert leave.working_days == Decimal(10)
-    from leave.models import Holiday
-
-    Holiday.objects.create(date=date(2026, 11, 4), name="x")
-    assert records.recount({date(2026, 11, 4)}, actor) == 1
-    leave.refresh_from_db()
-    assert leave.working_days == Decimal(9)
-    assert ledger.balance(employee, date(2026, 3, 1)) == Decimal(6)
-    assert records.recount({date(2026, 12, 25)}, actor) == 0
-
-
-def test_started_leave_is_marked_mistake_not_cancelled(employee: Employee, annual: LeaveType, actor: User) -> None:
-    from employees.models import ActivityEntry
-
-    leave = records.record(d(employee, annual, date(2026, 10, 12), date(2026, 10, 16)), actor, TODAY)
-    before = ledger.balance(employee, date(2026, 3, 1))
-    records.cancel(leave, "Өөр хүнд бүртгэсэн", actor, TODAY)
-    leave.refresh_from_db()
-    assert leave.status == LeaveStatus.MISTAKE
-    assert ledger.balance(employee, date(2026, 3, 1)) == before + leave.working_days
+def test_started_leave_is_marked_mistake_not_cancelled(
+    employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None
+) -> None:
+    leave = _record(d(employee, annual, date(2026, 10, 12), date(2026, 10, 16)), actor)
+    before = ledger.balance_on(employee, date(2026, 3, 1))
+    assert before is not None
+    records.cancel(leave, writes.snapshot(leave), "Өөр хүнд бүртгэсэн", actor, TODAY)
+    leave = LeaveAssign.objects.get(pk=leave.pk)
+    assert leave.status == LeaveAssign.CANCELLED
+    assert LeaveExt.objects.get(assign=leave).mistake is True
+    assert rows.leave(leave.pk).state is State.MISTAKE
+    assert ledger.balance_on(employee, date(2026, 3, 1)) == before + 5
     assert ActivityEntry.objects.filter(employee=employee, message__startswith="Буруу бүртгэсэн тул хассан").exists()
 
 
-def test_future_leave_is_cancelled(employee: Employee, annual: LeaveType, actor: User) -> None:
-    leave = records.record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor, TODAY)
-    records.cancel(leave, "Төлөвлөгөө өөрчлөгдсөн", actor, TODAY)
-    leave.refresh_from_db()
-    assert leave.status == LeaveStatus.CANCELLED
+def test_future_leave_is_cancelled(employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None) -> None:
+    leave = _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 6)), actor)
+    records.cancel(leave, writes.snapshot(leave), "Төлөвлөгөө өөрчлөгдсөн", actor, TODAY)
+    assert rows.leave(leave.pk).state is State.CANCELLED
+
+
+def test_record_rechecks_under_lock(employee: Employee, annual: LeaveTypeRow, actor: User, grants_on: None) -> None:
+    _record(d(employee, annual, date(2026, 11, 2), date(2026, 11, 13)), actor)
+
+    with pytest.raises(records.LeaveError):
+        _record(d(employee, annual, date(2026, 11, 10), date(2026, 11, 16)), actor)
+    assert LeaveAssign.objects.filter(employee=employee, leave_type=annual).count() == 1

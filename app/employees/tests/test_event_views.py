@@ -6,10 +6,12 @@ from accounts.models import User
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+from macs.models import FiredReason
 
 from employees.models import Employee, Event, Position
 from employees.services import events
 
+from .conftest import link_login, named
 from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -59,7 +61,7 @@ def test_menu_per_role(client: Client, hired: Employee) -> None:
 
 
 def test_employee_has_no_menu_and_cannot_open_form(client: Client, hired: Employee) -> None:
-    hired.user = login_as(client, "Employee", "me")
+    link_login(hired, login_as(client, "Employee", "me"))
     hired.save()
     assert "Өөрчлөлт бүртгэх" not in client.get(f"/employees/{hired.pk}/").content.decode()
     assert client.get(url(hired, "promotion")).status_code == 403
@@ -100,7 +102,7 @@ def test_post_termination_and_leave(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     data = {"effective": "2026-03-01", "reason": "maternity", "note": ""}
     assert client.post(url(hired, "leave_start"), data).status_code == 204
-    data = {"effective": tomorrow_plus(), "reason": "resignation", "note": ""}
+    data = {"effective": tomorrow_plus(), "fired_reason": named(FiredReason, "Өөрийн хүсэлтээр").pk, "note": ""}
     assert client.post(url(hired, "termination"), data).status_code == 204
     assert Event.objects.count() == 2
 
@@ -165,7 +167,7 @@ def test_scheduled_badge_in_tables(client: Client, hired: Employee, actor: User)
 
 def test_own_page_event_without_salary_or_note(client: Client, hired: Employee, actor: User) -> None:
     schedule(hired, actor, salary=Decimal("3100000"), note="нууц тайлбар")
-    hired.user = login_as(client, "Employee", "me")
+    link_login(hired, login_as(client, "Employee", "me"))
     hired.save()
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     assert "Дэвшүүлэх" in body
@@ -218,7 +220,7 @@ def test_header_hides_scheduled_salary_change_without_view_salary(client: Client
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     assert "Ажлын түүхээс харах, цуцлах" in body and "Цалин өөрчлөх" not in body and "Дэвшүүлэх" in body
-    hired.user = login_as(client, "Employee", "me")
+    link_login(hired, login_as(client, "Employee", "me"))
     hired.save()
     assert "Цалин өөрчлөх" not in client.get(f"/employees/{hired.pk}/").content.decode()
 
@@ -248,7 +250,7 @@ def test_hr_salary_param_ignored_and_error_page_has_no_salary(client: Client, hi
 
 
 def test_summary_forbidden_for_employee_and_accountant_on_job_type(client: Client, hired: Employee) -> None:
-    hired.user = login_as(client, "Employee", "me")
+    link_login(hired, login_as(client, "Employee", "me"))
     hired.save()
     assert client.get(url(hired, "promotion"), {"summary": "1"}).status_code == 403
     login_as(client, "Accountant", "acc")
@@ -278,7 +280,8 @@ def test_menu_matches_current_state(client: Client, hired: Employee, actor: User
         effective=timezone.localdate(),
         changes={},
         salary=None,
-        reason="resignation",
+        reason="",
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
         note="",
         by=actor,
     )
@@ -296,6 +299,17 @@ def test_changing_date_keeps_edited_fields_and_refills_untouched(client: Client,
     assert f'<option value="{job.department_id}" selected' in html  # untouched: refilled
     assert "Сайн ажилласан" in html
     assert f'name="prev_effective" value="{data["effective"]}"' in html
+
+
+def test_rebuilt_form_keeps_typed_order_fields(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    data = promote_data(hired, prev_effective=tomorrow_plus())
+    data.update({"order-number": "Б/77", "order-summary": "Тушаалын агуулга", "order-issued_by": "Захирал Дорж"})
+    html = client.get(url(hired, "promotion"), {k: str(v) for k, v in data.items()}).content.decode()
+    assert 'value="Б/77"' in html and 'value="Тушаалын агуулга"' in html and 'value="Захирал Дорж"' in html
+    assert "no-anim" in html
+    first = client.get(url(hired, "promotion"), {"order-number": "Б/77"}).content.decode()
+    assert 'value="Б/77"' not in first and "no-anim" not in first  # a fresh open ignores stray values
 
 
 def test_placement_events_share_one_menu_item_and_a_type_choice(client: Client, hired: Employee) -> None:

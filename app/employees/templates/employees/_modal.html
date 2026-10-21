@@ -5,7 +5,7 @@
       {% csrf_token %}
       {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
       <div class="grid gap-3 md:grid-cols-2">{% for field in form %}
-        <label class="block text-sm {% if field.name == 'reason' or field.name == 'address' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
+        <label class="block text-sm {% if field.name == 'reason' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
           {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
       {% if hint %}<p class="text-xs text-slate-500">{{ hint }}</p>{% endif %}
       <div class="flex justify-end gap-2 pt-2">

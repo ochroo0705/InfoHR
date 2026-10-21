@@ -42,14 +42,15 @@ def test_password_page_has_no_password_inputs_and_resets(admin_client: Client) -
 
 
 def test_reset_logged_on_linked_employee_without_password(admin_client: Client) -> None:
-    from employees.models import ActivityEntry
+    from employees.models import ActivityEntry, ensure_ext
     from leave.tests.conftest import make_employee
 
     root = User.objects.get(username="root")
     employee = make_employee(root, hired=__import__("datetime").date(2024, 3, 1))
     user = User.objects.create_user("saraa", password="Old-pass-1")  # noqa: S106
-    employee.user = user
-    employee.save(update_fields=["user"])
+    ext = ensure_ext(employee)
+    ext.user = user
+    ext.save(update_fields=["user"])
     response = admin_client.post(f"/admin/accounts/user/{user.pk}/password/")
     entry = ActivityEntry.objects.get(employee=employee, message="Нууц үг шинэчилсэн")
     assert entry.by == root and _shown_password(response) not in str(entry.changes)

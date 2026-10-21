@@ -1,0 +1,5 @@
+{% if legacy %}<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Хуучин програм</span>
+{% elif order.state == "pending" %}<span class="rounded-full border border-dashed border-amber-400 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{{ order.get_state_display }}</span>
+{% elif order.state == "registered" %}<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-900">{{ order.get_state_display }}</span>
+{% elif order.state == "signed" %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">{{ order.get_state_display }}</span>
+{% else %}<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">{{ order.get_state_display }}</span>{% endif %}

@@ -2,9 +2,11 @@ from decimal import Decimal
 
 import pytest
 from django.test import Client
+from macs.models import Country
 
 from employees.models import ActivityEntry, Department, Employee, Position
 
+from .conftest import link_login, named
 from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -23,11 +25,11 @@ def test_end_to_end_flow(client: Client) -> None:
             "given_name": "Сараа",
             "register_no": "уб 99112233",
             "birth_date": "1999-11-22",
-            "gender": "female",
+            "gender": "F",
             "work_phone": "99112233",
-            "citizenship": "Монгол",
+            "citizenship": str(named(Country, "Монгол").pk),
             "first_hire_date": "2026-01-05",
-            "work_conditions": "normal",
+            "work_conditions": "1",
             "prior_service_years": "0",
             "prior_service_months": "0",
             "start": "2026-01-05",
@@ -57,7 +59,7 @@ def test_end_to_end_flow(client: Client) -> None:
     detail = f"/employees/{employee.pk}/"
     body = client.get(detail).content.decode()
     assert employee.full_name in body
-    assert "2 500 000" not in body
+    assert "2,500,000" not in body
 
     # 3. edit work phone on the page
     data = {
@@ -65,11 +67,11 @@ def test_end_to_end_flow(client: Client) -> None:
         "given_name": "Сараа",
         "register_no": "УБ99112233",
         "birth_date": "1999-11-22",
-        "gender": "female",
+        "gender": "F",
         "work_phone": "88001122",
-        "citizenship": "Монгол",
+        "citizenship": str(named(Country, "Монгол").pk),
         "first_hire_date": "2026-01-05",
-        "work_conditions": "normal",
+        "work_conditions": "1",
         "prior_service_years": "0",
         "prior_service_months": "0",
     }
@@ -111,7 +113,7 @@ def test_end_to_end_flow(client: Client) -> None:
     assert response.status_code == 204
     salary = employee.salary_records.get()
     assert salary.base_salary == Decimal("2500000.00")
-    assert "2 500 000" in client.get(detail).content.decode()
+    assert "2,500,000" in client.get(detail).content.decode()
     response = client.post(f"{detail}salary/{salary.pk}/correct/", {"amount": "2600000", "reason": "Алдаа"})
     assert response.status_code == 204
     salary.refresh_from_db()
@@ -121,8 +123,7 @@ def test_end_to_end_flow(client: Client) -> None:
 
     # 7. Employee role: own page without notes or salary, other page 404
     me = login_as(client, "Employee", "emp1")
-    employee.user = me
-    employee.save(update_fields=["user"])
+    link_login(employee, me)
     own = client.get(detail)
     assert own.status_code == 200
     text = own.content.decode()
@@ -132,7 +133,7 @@ def test_end_to_end_flow(client: Client) -> None:
         given_name="Болд",
         register_no="УБ11223344",
         birth_date="1990-01-01",
-        gender="male",
+        gender="M",
         work_phone="99000000",
         first_hire_date="2026-01-05",
     )
@@ -140,6 +141,6 @@ def test_end_to_end_flow(client: Client) -> None:
 
     # 8. list page, default and left filter
     client.force_login(hr)
-    assert employee.code in client.get("/employees/?view=table").content.decode()
+    assert str(employee.code) in client.get("/employees/?view=table").content.decode()
     left = client.get("/employees/?view=table&state=left")
-    assert left.status_code == 200 and employee.code not in left.content.decode()
+    assert left.status_code == 200 and str(employee.code) not in left.content.decode()

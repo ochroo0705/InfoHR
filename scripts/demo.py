@@ -43,6 +43,20 @@ def reset() -> None:
     ) as conn:
         conn.execute(f'DROP DATABASE IF EXISTS "{DEMO_DB}" WITH (FORCE)')
         conn.execute(f'CREATE DATABASE "{DEMO_DB}"')
+    # Production MACS structure first (the HR app writes these tables), then the HR schema and grants.
+    schema = (ROOT / "db" / "schema" / "macs_public.sql").read_text(encoding="utf-8")
+    grants = (ROOT / "scripts" / "grant_macs_pg.sql").read_text(encoding="utf-8")
+    with psycopg.connect(
+        host=db["HOST"],
+        port=db["PORT"] or 5432,
+        dbname=DEMO_DB,
+        user=db["USER"],
+        password=db["PASSWORD"],
+        autocommit=True,
+    ) as conn:
+        conn.execute(schema)
+        conn.execute("create schema if not exists hr")
+        conn.execute(grants)
     manage("migrate", "-v", "0")
     manage("seed_demo")
 

@@ -1,25 +1,43 @@
-from decimal import Decimal
-
 import pytest
+from accounts.models import User
 from django.contrib.auth.models import Group
+from macs.models import LeaveTypeRow
 
-from leave.models import AnnualLeaveRule, LeaveType
+from leave.models import AnnualLeaveRule, LeaveSettings, LeaveTypeExt, type_ext
 
 pytestmark = pytest.mark.django_db
 
 
-def test_seeded_leave_types() -> None:
-    codes = list(LeaveType.objects.order_by("order").values_list("code", flat=True))
-    assert codes == ["annual", "sick", "unpaid", "personal", "other"]
-    annual = LeaveType.objects.get(code=LeaveType.ANNUAL)
-    assert annual.uses_annual_balance and annual.is_paid
-    assert not LeaveType.objects.get(code="sick").uses_annual_balance
+def test_type_ext_defaults_when_missing() -> None:
+    row = LeaveTypeRow.objects.create(name="Өвчний чөлөө")
+    ext = type_ext(row)
+    assert ext.uses_annual_balance is False
+    assert not LeaveTypeExt.objects.exists()
+
+
+def test_settings_default_off() -> None:
+    assert LeaveSettings.get().auto_annual_grant is False
+    assert LeaveSettings.objects.count() == 1
+
+
+def test_permissions_kept() -> None:
+    user = User.objects.create_user("hr_user", password="x-long-pass-123")  # noqa: S106
+    user.groups.add(Group.objects.get(name="HR"))
+    user = User.objects.get(pk=user.pk)
+    assert user.has_perm("leave.record_leave")
+    assert user.has_perm("leave.view_leave")
+    assert not user.has_perm("leave.manage_leave_settings")  # leave settings are Admin only (user, 2026-10-19)
+
+
+def test_rule_whole_days() -> None:
+    rule = AnnualLeaveRule.objects.get()
+    assert rule.base_days == 15
+    assert rule.base_days_minor_or_disabled == 20
 
 
 def test_seeded_rule_matches_law() -> None:
     rule = AnnualLeaveRule.objects.get()
     assert str(rule.effective_from) == "2022-01-01"
-    assert rule.base_days == Decimal("15")
     assert rule.brackets == [
         {"from_month": 61, "extra_days": 3},
         {"from_month": 121, "extra_days": 5},
@@ -41,5 +59,5 @@ def test_role_permissions() -> None:
 
     full = {"view_leave", "record_leave", "manage_leave_settings"}
     assert codes("Admin") == full
-    assert codes("HR") == full
+    assert codes("HR") == {"view_leave", "record_leave"}
     assert codes("Accountant") == {"view_leave"}

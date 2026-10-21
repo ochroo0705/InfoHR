@@ -17,12 +17,11 @@ from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
+from employees.models import Department, Education, Employee, FamilyMember, Position
+from employees.services import history, records
 from leave.models import Holiday, LeaveType
 from leave.services import calendar as leave_calendar
 from leave.services import records as leave_records
-
-from employees.models import Department, Education, Employee, FamilyMember, Position
-from employees.services import history, records
 
 DEMO_PASSWORD = "Demo-InfoHR-2026"  # noqa: S105 — local demo database only (DEBUG-gated)
 

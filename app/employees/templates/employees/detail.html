@@ -2,21 +2,21 @@
 {% block title %}{{ employee.full_name }}{% endblock %}
 {% block content %}
 <a href="{% url 'employees:list' %}" class="text-sm text-slate-500 hover:text-violet-700">← Ажилтнууд</a>
-{% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data" hx-post="{% url 'employees:save' employee.pk %}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab"></form>
+{% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data" hx-post="{% url 'employees:save' employee.pk %}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab">{% if form %}<input type="hidden" name="loaded" value="{{ form|loaded_snapshot }}">{% endif %}{% if si_form %}<input type="hidden" name="si-loaded" value="{{ si_form|loaded_snapshot }}">{% endif %}</form>
 {% if form.non_field_errors or si_form.non_field_errors %}<p class="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }} {{ si_form.non_field_errors|join:" " }}</p>{% endif %}{% endif %}
 {% if one_time_login %}{% include "employees/_one_time_login.html" %}{% endif %}
 <div id="header" class="mt-2">{% include "employees/_header.html" %}</div>
 <div class="mt-6 rounded-xl border border-slate-200 bg-white">
-  <nav class="flex gap-1 border-b border-slate-200 px-4 text-sm">
-    <a href="#work" class="tab px-3 py-3 border-b-2 border-violet-600 font-medium" onclick="showTab('work')">Ажил</a>
-    {% if can_view_personal %}<a href="#personal" class="tab px-3 py-3" onclick="showTab('personal')">Хувийн</a>{% endif %}
-    {% if can_view_salary %}<a href="#salary" class="tab px-3 py-3" onclick="showTab('salary')">Цалин, даатгал</a>{% endif %}
+  <nav class="flex gap-6 border-b border-slate-200 px-6">
+    <a href="#work" class="tab" onclick="showTab('work')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7.5 6V4.5A1.5 1.5 0 0 1 9 3h2a1.5 1.5 0 0 1 1.5 1.5V6M3 10.5h14"/></svg>Ажил</a>
+    {% if can_view_personal %}<a href="#personal" class="tab" onclick="showTab('personal')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>Хувийн</a>{% endif %}
+    {% if can_view_salary %}<a href="#salary" class="tab" onclick="showTab('salary')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8v4M14.5 8v4"/></svg>Цалин, даатгал</a>{% endif %}
   </nav>
   <section id="tab-work" class="p-6">{% include "employees/_tab_work.html" %}</section>
   {% if can_view_personal %}<section id="tab-personal" class="p-6 hidden">{% include "employees/_tab_personal.html" %}</section>{% endif %}
   {% if can_view_salary %}<section id="tab-salary" class="p-6 hidden">{% include "employees/_tab_salary.html" %}</section>{% endif %}
 </div>
-{% if leave_years is not None %}{% include "leave/_employee_section.html" %}{% endif %}
+{% if leave_visible %}{% include "leave/_employee_section.html" %}{% endif %}
 <div id="activity-backdrop" class="fixed inset-0 top-14 z-30 hidden bg-black/30 lg:hidden" onclick="closeDrawer()"></div>
 <aside id="activity-drawer" class="fixed top-14 bottom-0 right-0 z-30 flex w-full translate-x-full flex-col overflow-y-auto border-l border-slate-200 bg-white px-6 pb-6 transition-transform duration-200 lg:w-(--drawer-w)" aria-label="Үйл ажиллагааны бүртгэл" aria-hidden="true">
   <div class="sticky top-0 z-20 -mx-6 flex h-[72px] shrink-0 items-center gap-2 bg-white px-6{% if not can_manage %} mb-4 border-b border-slate-100{% endif %}">
@@ -47,7 +47,7 @@ window.addEventListener('resize',function(){render(isOpen())});
 if(wide()&&store('hr.activityOpen')==='1')render(true);
 })();
 function showTab(name){document.querySelectorAll('[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
-document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('border-b-2', a.hash==='#'+name));}
+document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('tab-on', a.hash==='#'+name));}
 // Tab links swap the #hash in place, so switching tabs doesn't add Back-button steps.
 document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');
 if(!a||!document.getElementById('tab-'+a.hash.slice(1)))return;e.preventDefault();showTab(a.hash.slice(1));history.replaceState(null,'',a.hash);});
@@ -59,7 +59,7 @@ window.markPhotoClear=function(box){document.getElementById('photo-img').classLi
 document.getElementById('photo-chosen').textContent=box.checked?'Хадгалахад устгагдана':'';};
 window.previewPhoto=function(input){var file=input.files[0],img=document.getElementById('photo-img'),ini=document.getElementById('photo-initial');
 document.getElementById('photo-chosen').textContent=file?'Хадгалахад солигдоно':'';if(!file)return;
-var clear=document.querySelector('[name=photo-clear]');if(clear){clear.checked=false;img.classList.remove('opacity-30');}
+var clear=document.querySelector('[name=photo_clear]');if(clear){clear.checked=false;img.classList.remove('opacity-30');}
 function show(src){img.removeAttribute('srcset');img.src=src;img.classList.remove('hidden');if(ini)ini.classList.add('hidden');}
 createImageBitmap(file).then(function(bmp){var target=Math.round(img.clientWidth||80)*(window.devicePixelRatio||1),
 side=Math.min(bmp.width,bmp.height),src=bmp,sx=(bmp.width-side)/2,sy=(bmp.height-side)/2,size=side;

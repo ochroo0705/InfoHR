@@ -2,6 +2,7 @@
 {% block title %}Ажилтан нэмэх{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-xl font-semibold">Ажилтан нэмэх</h1>
+{% for e in person.non_field_errors %}<p class="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
 <form id="add-form" method="post" enctype="multipart/form-data" hx-post="{{ request.path }}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML" class="space-y-6 pb-24">{% csrf_token %}
   <div class="flex flex-col gap-6 md:flex-row">
     <nav role="tablist" aria-label="Табууд" class="flex gap-1 overflow-x-auto md:w-52 md:shrink-0 md:flex-col md:overflow-visible">
@@ -25,6 +26,7 @@
           {% if person.is_bound and person.errors %}<p class="-mt-1 text-xs text-slate-500 md:col-span-2 lg:col-span-3">Зургаа дахин сонгоно уу</p>{% endif %}
           {% include "employees/_add_field.html" with field=person.work_phone %}
           {% include "employees/_add_field.html" with field=person.private_phone %}
+          {% include "employees/_add_field.html" with field=person.phone2 %}
           {% include "employees/_add_field.html" with field=person.email %}
         </div>
         <h2 class="mb-4 mt-8 font-medium">Ажил, гэрээ</h2>
@@ -32,17 +34,22 @@
           {% include "employees/_add_field.html" with field=job.start %}
           {% include "employees/_add_field.html" with field=person.first_hire_date %}
           {% for field in job %}{% if field.name != "start" %}{% include "employees/_add_field.html" %}{% endif %}{% endfor %}
+          {% include "employees/_add_field.html" with field=person.second_position %}
+          {% include "employees/_add_field.html" with field=person.office %}
+          {% include "employees/_add_field.html" with field=person.section %}
+          {% include "employees/_add_field.html" with field=person.job_type %}
+          {% include "employees/_add_field.html" with field=person.job_figure %}
         </div>
+        <div class="mt-8 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{% include "employees/_order_fields.html" %}</div>
       </section>
 
       <section role="tabpanel" data-tab="personal" class="rounded-xl border border-slate-200 bg-white p-6">
         <h2 class="mb-4 font-medium">Хувийн мэдээлэл</h2>
         <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {% include "employees/_add_field.html" with field=person.address %}
-          {% include "employees/_add_field.html" with field=person.emergency_name %}
-          {% include "employees/_add_field.html" with field=person.emergency_phone %}
+          {% include "employees/_add_field.html" with field=person.birth_city %}
+          {% include "employees/_add_field.html" with field=person.birth_district %}
+          {% include "employees/_add_field.html" with field=person.birth_place_text %}
           {% include "employees/_add_field.html" with field=person.citizenship %}
-          {% include "employees/_add_field.html" with field=person.is_foreigner %}
           {% include "employees/_add_field.html" with field=person.passport_no %}
           {% include "employees/_add_field.html" with field=person.marital_status %}
           {% include "employees/_add_field.html" with field=person.prior_service_years %}
@@ -54,6 +61,7 @@
         <h2 class="mb-4 mt-8 font-medium">Бусад мэдээлэл</h2>
         <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {% include "employees/_add_field.html" with field=person.blood_type %}
+          {% include "employees/_add_field.html" with field=person.blood_rh %}
           {% include "employees/_add_field.html" with field=person.social_origin %}
           {% include "employees/_add_field.html" with field=person.military_service %}
           {% include "employees/_add_field.html" with field=person.housing_condition %}
@@ -63,8 +71,20 @@
           {% include "employees/_add_field.html" with field=person.shoe_size %}
           {% include "employees/_add_field.html" with field=person.elected_position %}
         </div>
-        <div class="mt-8 grid gap-8">
-          {% for key, title, formset in lists %}{% include "employees/_add_list.html" %}{% endfor %}
+        <h2 class="mb-4 mt-8 font-medium">Хаяг</h2>
+        {% for e in address.non_field_errors %}<p class="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=address.city %}
+          {% include "employees/_district_field.html" with field=address.district %}
+          {% include "employees/_add_field.html" with field=address.street %}
+        </div>
+        <h2 class="mb-4 mt-8 font-medium">Яаралтай үед холбогдох</h2>
+        {% for e in contact.non_field_errors %}<p class="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {% include "employees/_add_field.html" with field=contact.contact_type %}
+          {% include "employees/_add_field.html" with field=contact.name %}
+          {% include "employees/_add_field.html" with field=contact.relative %}
+          {% include "employees/_add_field.html" with field=contact.value %}
         </div>
       </section>
 

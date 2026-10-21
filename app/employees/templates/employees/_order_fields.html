@@ -1,0 +1,8 @@
+{# Order number, date, text and issuer embedded in a form (prefix "order"). All optional: empty = the order waits for its number. #}
+<div class="space-y-2 md:col-span-2">
+  <h3 class="border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал <span class="font-normal text-slate-500">· дугаарыг дараа нь оруулж болно</span></h3>
+  {% for e in order_form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
+  <div class="grid gap-3 md:grid-cols-2">{% for field in order_form %}
+    <label class="block text-sm {% if field.name == 'summary' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
+      {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
+</div>

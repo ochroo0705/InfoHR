@@ -1,4 +1,4 @@
-from collections.abc import Collection
+import os
 from datetime import date
 from typing import Any
 
@@ -6,116 +6,42 @@ from django.conf import settings
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateRangeField, RangeOperators
 from django.core.exceptions import ValidationError
+from django.core.files.storage import FileSystemStorage
 from django.db import models
+from macs.models import Department as Department
+from macs.models import EducRow as EducRow
+from macs.models import Employee as Employee
+from macs.models import Position as Position
+from macs.models import PresentRow as PresentRow
 
-from .validators import normalize_register_no, validate_register_no
-
-
-class ReferenceItem(models.Model):
-    """Short list HR edits in the admin. Inactive items stay on old records but can't be chosen."""
-
-    name = models.CharField("Нэр", max_length=150, unique=True)
-    active = models.BooleanField("Идэвхтэй", default=True)
-
-    class Meta:
-        abstract = True
-        ordering = ["name"]
-
-    def __str__(self) -> str:
-        return self.name
+from employees.validators import normalize_register_no as normalize_register_no
+from employees.validators import validate_register_no as validate_register_no
 
 
-class Department(ReferenceItem):
-    class Meta(ReferenceItem.Meta):
-        verbose_name = "Хэлтэс"
-        verbose_name_plural = "Хэлтсүүд"
+class BloodRh(models.TextChoices):
+    POS = "+", "Rh+"
+    NEG = "-", "Rh−"
 
 
-class Position(ReferenceItem):
-    class Meta(ReferenceItem.Meta):
-        verbose_name = "Албан тушаал"
-        verbose_name_plural = "Албан тушаалууд"
+class EmployeeExt(models.Model):
+    """HR-only data for a production employee (spec §3). One row per employee_id."""
 
-
-class Gender(models.TextChoices):
-    MALE = "male", "Эрэгтэй"
-    FEMALE = "female", "Эмэгтэй"
-
-
-class MaritalStatus(models.TextChoices):
-    SINGLE = "single", "Гэрлээгүй"
-    MARRIED = "married", "Гэрлэсэн"
-    DIVORCED = "divorced", "Салсан"
-    WIDOWED = "widowed", "Бэлэвсэн"
-
-
-class WorkConditions(models.TextChoices):
-    NORMAL = "normal", "Хэвийн"
-    HARSH = "harsh", "Хүнд, хортой"
-
-
-class BloodType(models.TextChoices):
-    I_POS = "I+", "I (O) Rh+"
-    I_NEG = "I-", "I (O) Rh−"
-    II_POS = "II+", "II (A) Rh+"
-    II_NEG = "II-", "II (A) Rh−"
-    III_POS = "III+", "III (B) Rh+"
-    III_NEG = "III-", "III (B) Rh−"
-    IV_POS = "IV+", "IV (AB) Rh+"
-    IV_NEG = "IV-", "IV (AB) Rh−"
-
-
-class MilitaryService(models.TextChoices):
-    SERVED = "served", "Цэргийн алба хаасан"
-    NOT_SERVED = "not_served", "Хаагаагүй"
-    EXEMPT = "exempt", "Чөлөөлөгдсөн"
-
-
-class Employee(models.Model):
-    code = models.CharField("Ажилтны код", max_length=10, unique=True, editable=False)
-    erp_employee_id = models.CharField("ERP ажилтны ID", max_length=50, unique=True, null=True, blank=True)
-    family_name = models.CharField("Эцэг/эхийн нэр", max_length=100)
-    given_name = models.CharField("Нэр", max_length=100)
-    clan_name = models.CharField("Ургийн овог", max_length=100, blank=True)
-    register_no = models.CharField("Регистрийн дугаар", max_length=20, unique=True, validators=[validate_register_no])
-    birth_date = models.DateField("Төрсөн огноо")
-    gender = models.CharField("Хүйс", max_length=10, choices=Gender.choices)
-    photo = models.ImageField("Зураг", upload_to="employees/photos/", blank=True)
-    work_phone = models.CharField("Ажлын утас", max_length=30)
-    private_phone = models.CharField("Хувийн утас", max_length=30, blank=True)
-    email = models.EmailField("И-мэйл", blank=True)
-    address = models.TextField("Хаяг", blank=True)
-    emergency_name = models.CharField("Яаралтай үед холбогдох хүн", max_length=150, blank=True)
-    emergency_phone = models.CharField("Яаралтай үед утас", max_length=30, blank=True)
-    citizenship = models.CharField("Иргэншил", max_length=50, default="Монгол")
-    is_foreigner = models.BooleanField("Гадаадын иргэн", default=False)
-    passport_no = models.CharField("Гадаад паспортын дугаар", max_length=30, blank=True)
-    marital_status = models.CharField("Гэрлэлтийн байдал", max_length=10, choices=MaritalStatus.choices, blank=True)
-    first_hire_date = models.DateField("Анх ажилд орсон огноо")
-    prior_service_years = models.PositiveSmallIntegerField("Өмнөх ажилласан жил", default=0)
-    prior_service_months = models.PositiveSmallIntegerField("Өмнөх ажилласан сар", default=0)
-    work_conditions = models.CharField(
-        "Ажлын нөхцөл", max_length=10, choices=WorkConditions.choices, default=WorkConditions.NORMAL
+    employee = models.OneToOneField(
+        Employee, primary_key=True, on_delete=models.PROTECT, related_name="ext", db_constraint=True
     )
-    work_schedule = models.CharField("Ажлын цагийн хуваарь", max_length=100, blank=True)
+    prior_service_months = models.PositiveSmallIntegerField("Өмнөх ажилласан сар", default=0)
     probation_end = models.DateField("Туршилтын хугацаа дуусах", null=True, blank=True)
-    blood_type = models.CharField("Цусны бүлэг", max_length=5, choices=BloodType.choices, blank=True)
-    social_origin = models.CharField("Нийгмийн гарал", max_length=100, blank=True)
-    military_service = models.CharField("Цэргийн алба", max_length=20, choices=MilitaryService.choices, blank=True)
-    housing_condition = models.CharField("Орон байрны нөхцөл", max_length=100, blank=True)
+    blood_rh = models.CharField("Rh хүчин зүйл", max_length=1, choices=BloodRh.choices, blank=True)
     living_standard = models.CharField("Амьжиргааны түвшин", max_length=100, blank=True)
-    car_ownership = models.CharField("Автомашин эзэмшил", max_length=100, blank=True)
-    clothing_size = models.CharField("Хувцасны хэмжээ", max_length=20, blank=True)
-    shoe_size = models.CharField("Гутлын хэмжээ", max_length=20, blank=True)
-    elected_position = models.CharField("Сонгуульт ажил", max_length=150, blank=True)
-    setup_required = models.BooleanField(default=False)  # new hires get the onboarding checklist
+    setup_required = models.BooleanField(default=False)
+    is_pensioner = models.BooleanField("Тэтгэврийн настай", default=False)
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         verbose_name="Нэвтрэх эрх",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="employee",
+        related_name="employee_ext",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -127,127 +53,82 @@ class Employee(models.Model):
     )
 
     class Meta:
-        verbose_name = "Ажилтан"
-        verbose_name_plural = "Ажилтнууд"
-        ordering = ["family_name", "given_name"]
-        permissions = [
-            ("view_employees", "Бүх ажилтныг харах"),
-            ("manage_employees", "Ажилтан нэмэх, засах, засвар хийх"),
-            ("view_personal", "Хувийн мэдээллийг харах"),
-            ("view_salary", "Цалин, даатгалын мэдээллийг харах"),
-            ("manage_salary", "Цалин, даатгалын мэдээллийг засах"),
-        ]
+        db_table = "employees_employeeext"
 
     def __str__(self) -> str:
-        return f"{self.code} {self.full_name}"
-
-    def save(self, *args: Any, **kwargs: Any) -> None:
-        self.register_no = normalize_register_no(self.register_no)
-        super().save(*args, **kwargs)
-
-    @property
-    def full_name(self) -> str:
-        return f"{self.family_name} {self.given_name}"
-
-    @property
-    def short_name(self) -> str:
-        """'Алтангэрэлийн Номин' -> 'А. Номин': the usual short form (father's/mother's name initial)."""
-        return f"{self.family_name[:1]}. {self.given_name}" if self.family_name else self.given_name
-
-    def clean_fields(self, exclude: Collection[str] | None = None) -> None:
-        # Normalise first so length and uniqueness checks see the canonical value.
-        self.register_no = normalize_register_no(self.register_no)
-        super().clean_fields(exclude=exclude)
-
-    def clean(self) -> None:
-        self.register_no = normalize_register_no(self.register_no)
-
-    @classmethod
-    def next_code(cls) -> str:
-        last = cls.objects.order_by("-code").values_list("code", flat=True).first()
-        number = int(last[1:]) + 1 if last else 1
-        return f"E{number:04d}"
+        return f"HR мэдээлэл: {self.employee}"
 
 
-class FamilyMember(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="family")
-    name = models.CharField("Нэр", max_length=150)
-    relation = models.CharField("Хамаарал", max_length=50)
-    birth_year = models.PositiveSmallIntegerField("Төрсөн он", null=True, blank=True)
+def ensure_ext(employee: Employee) -> EmployeeExt:
+    ext, _ = EmployeeExt.objects.get_or_create(employee=employee)
+    return ext
+
+
+def ext_of(employee: Employee) -> EmployeeExt | None:
+    """The HR row of a production employee, or None when HR has never touched them."""
+    return getattr(employee, "ext", None)  # the reverse one-to-one raises AttributeError when missing
+
+
+class DepartmentExt(models.Model):
+    department = models.OneToOneField(Department, primary_key=True, on_delete=models.PROTECT, related_name="ext")
+    active = models.BooleanField("Идэвхтэй", default=True)
 
     class Meta:
-        verbose_name = "Гэр бүлийн гишүүн"
-        verbose_name_plural = "Гэр бүлийн гишүүд"
+        db_table = "employees_departmentext"
 
     def __str__(self) -> str:
-        return f"{self.name} ({self.relation})"
+        return f"HR мэдээлэл: {self.department}"
 
 
-class Education(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="education")
-    school = models.CharField("Сургууль", max_length=200)
-    degree = models.CharField("Зэрэг", max_length=100, blank=True)
+class PositionExt(models.Model):
+    position = models.OneToOneField(Position, primary_key=True, on_delete=models.PROTECT, related_name="ext")
+    active = models.BooleanField("Идэвхтэй", default=True)
+
+    class Meta:
+        db_table = "employees_positionext"
+
+    def __str__(self) -> str:
+        return f"HR мэдээлэл: {self.position}"
+
+
+class EducationExt(models.Model):
+    """HR-only details of a production education row (educ). Keyed by educ_id; no DB constraint (D-017)."""
+
+    educ = models.OneToOneField(
+        EducRow,
+        primary_key=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="ext",
+    )
+    school = models.CharField("Сургууль", max_length=200, blank=True)
     field = models.CharField("Мэргэжил", max_length=150, blank=True)
     graduation_year = models.PositiveSmallIntegerField("Төгссөн он", null=True, blank=True)
 
     class Meta:
-        verbose_name = "Боловсрол"
-        verbose_name_plural = "Боловсрол"
+        db_table = "employees_educationext"
 
     def __str__(self) -> str:
-        return self.school
+        return f"HR мэдээлэл: боловсрол {self.educ_id}"
 
 
-class Talent(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="talents")
-    name = models.CharField("Авьяас", max_length=150)
-    trained_year = models.PositiveSmallIntegerField("Суралцсан он", null=True, blank=True)
-    description = models.CharField("Тайлбар", max_length=200, blank=True)
+class GiftExt(models.Model):
+    """HR-only details of a production gift row (given_present). Keyed by present_id; no DB constraint (D-017)."""
 
-    class Meta:
-        verbose_name = "Авьяас"
-        verbose_name_plural = "Авьяас"
-        ordering = ["id"]
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class Gift(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="gifts")
-    gift_type = models.CharField("Бэлгийн төрөл", max_length=100)
-    given_date = models.DateField("Олгосон огноо")
-    child_count = models.PositiveSmallIntegerField("Хүүхдийн тоо", null=True, blank=True)
-    amount = models.DecimalField("Үнэ", max_digits=14, decimal_places=2, null=True, blank=True)
+    present = models.OneToOneField(
+        PresentRow,
+        primary_key=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="ext",
+    )
     note = models.CharField("Тайлбар", max_length=200, blank=True)
 
     class Meta:
-        verbose_name = "Олгосон бэлэг"
-        verbose_name_plural = "Олгосон бэлэг"
-        ordering = ["-given_date"]
+        db_table = "employees_giftext"
 
     def __str__(self) -> str:
-        return f"{self.gift_type} {self.given_date}"
-
-
-class SalaryInsurance(models.Model):
-    """Protected details: guarded by employees.view_salary / manage_salary."""
-
-    employee = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name="salary_insurance")
-    bank = models.CharField("Банк", max_length=100, blank=True)
-    account_no = models.CharField("Дансны дугаар", max_length=50, blank=True)
-    social_insurance_no = models.CharField("НДД-ийн дугаар", max_length=50, blank=True)
-    health_insurance_no = models.CharField("ЭМДД-ийн дугаар", max_length=50, blank=True)
-    insured_category = models.CharField("Даатгуулагчийн төрөл", max_length=100, blank=True)
-    taxpayer_no = models.CharField("Татвар төлөгчийн дугаар", max_length=50, blank=True)
-    has_disability = models.BooleanField("Хөгжлийн бэрхшээлтэй", default=False)
-
-    class Meta:
-        verbose_name = "Цалин, даатгал"
-        verbose_name_plural = "Цалин, даатгал"
-
-    def __str__(self) -> str:
-        return f"Цалин, даатгал: {self.employee}"
+        return f"HR мэдээлэл: бэлэг {self.present_id}"
 
 
 class EmployeeType(models.TextChoices):
@@ -269,6 +150,7 @@ class JobStatus(models.TextChoices):
 
 class ChangeType(models.TextChoices):
     HIRE = "hire", "Ажилд авсан"
+    OPENING = "opening", "Эхлэл (MACS-аас)"
     CORRECTION = "correction", "Засвар"
     TRANSFER = "transfer", "Шилжүүлсэн"
     PROMOTION = "promotion", "Дэвшүүлсэн"
@@ -298,15 +180,6 @@ class EventType(models.TextChoices):
         return str(ChangeType(self.value).value)
 
 
-class TerminationReason(models.TextChoices):
-    RESIGNATION = "resignation", "Өөрийн хүсэлтээр"
-    MUTUAL = "mutual", "Харилцан тохиролцсон"
-    CONTRACT_END = "contract_end", "Гэрээний хугацаа дууссан"
-    DISMISSAL = "dismissal", "Ажлаас халсан"
-    RETIREMENT = "retirement", "Тэтгэвэрт гарсан"
-    DEATH = "death", "Нас барсан"
-
-
 class LeaveKind(models.TextChoices):
     MATERNITY = "maternity", "Жирэмсний амралт"
     CHILDCARE = "childcare", "Хүүхэд асрах чөлөө"
@@ -321,6 +194,15 @@ class Event(models.Model):
     effective = models.DateField("Хүчинтэй огноо")
     reason = models.CharField("Шалтгаан", max_length=100, blank=True)
     note = models.TextField("Тайлбар", blank=True)
+    # Termination only: the production leaving-reason list (macs.FiredReason); `reason` keeps the long-leave kind.
+    fired_reason = models.ForeignKey(
+        "macs.FiredReason",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+        verbose_name="Ажлаас гарсан шалтгаан",
+    )
     # Long leave only: planned, for reminders; the actual return is its own event (scoping D-012).
     expected_return = models.DateField("Буцах төлөвлөсөн огноо", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -332,6 +214,7 @@ class Event(models.Model):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
     cancel_reason = models.CharField("Цуцлах шалтгаан", max_length=200, blank=True)
+    pension = models.BooleanField("Тэтгэвэрт гарсан", default=False)
 
     class Meta:
         verbose_name = "Өөрчлөлт"
@@ -345,6 +228,88 @@ class Event(models.Model):
         if self.cancelled_at is not None:
             return "cancelled"
         return "scheduled" if self.effective > today else "effective"
+
+
+class OrderType(models.IntegerChoices):
+    HIRED = 1, "Ажилд орсон"
+    DEPARTMENT = 2, "Хэлтэс, салбар шилжсэн"
+    POSITION = 3, "Албан тушаал сольсон"
+    FIRED = 4, "Ажлаас гарсан"
+    PENSION = 5, "Тэтгэвэрт гарсан"
+    TYPE_CHANGED = 6, "Төрөл солигдсон"
+
+
+class OrderState(models.TextChoices):
+    PENDING = "pending", "Дугаар оруулаагүй"
+    REGISTERED = "registered", "Бүртгэсэн"
+    SIGNED = "signed", "Гарын үсэгтэй"
+    CANCELLED = "cancelled", "Цуцалсан"
+
+
+class OrderFileStorage(FileSystemStorage):
+    """Order files live under settings.ORDER_FILES_ROOT, read on every access (not cached),
+    so tests can override the setting after the models are loaded."""
+
+    @property
+    def base_location(self) -> str:
+        return str(settings.ORDER_FILES_ROOT)
+
+    @property
+    def location(self) -> str:
+        return os.path.abspath(self.base_location)
+
+
+def order_storage() -> FileSystemStorage:
+    return OrderFileStorage()
+
+
+class HrOrder(models.Model):
+    """An HR order (тушаал) tied to one change or to the hire."""
+
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="hr_orders")
+    event = models.OneToOneField(Event, null=True, blank=True, on_delete=models.PROTECT, related_name="order")
+    is_hire = models.BooleanField(default=False)
+    order_type = models.SmallIntegerField("Тушаалын төрөл", choices=OrderType.choices)
+    state = models.CharField("Төлөв", max_length=12, choices=OrderState.choices, default=OrderState.PENDING)
+    number = models.CharField("Тушаалын дугаар", max_length=10, blank=True)
+    number_key = models.CharField(max_length=10, blank=True)
+    date = models.DateField("Тушаалын огноо", null=True, blank=True)
+    summary = models.CharField("Агуулга", max_length=50, blank=True)
+    issued_by = models.CharField("Гаргасан", max_length=25, blank=True)
+    file = models.FileField("Файл", storage=order_storage, upload_to="%Y/", blank=True)
+    command_id = models.IntegerField(null=True, blank=True)
+    history_id = models.IntegerField(null=True, blank=True)
+    cancel_reason = models.CharField("Цуцлах шалтгаан", max_length=200, blank=True)
+    cancel_order_no = models.CharField("Цуцалсан тушаалын дугаар", max_length=10, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Тушаал"
+        verbose_name_plural = "Тушаалууд"
+        constraints = [
+            models.CheckConstraint(
+                condition=(models.Q(event__isnull=False, is_hire=False) | models.Q(event__isnull=True, is_hire=True)),
+                name="hrorder_event_xor_hire",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee_id} {self.get_order_type_display()} {self.number}"
+
+
+class EventProdRow(models.Model):
+    """The production rows an event wrote, so cancelling can remove exactly those (spec §4)."""
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="prod_rows")
+    movement_id = models.IntegerField(null=True, blank=True)
+    history_id = models.IntegerField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"{self.event_id}: {self.movement_id}/{self.history_id}"
 
 
 def no_overlap(name: str) -> ExclusionConstraint:
@@ -372,6 +337,7 @@ class JobRecord(models.Model):
         "department",
         "manager",
         "employee_type",
+        "emptype",
         "status",
         "contract_type",
         "contract_no",
@@ -387,9 +353,21 @@ class JobRecord(models.Model):
         Employee, verbose_name="Шууд удирдлага", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
     employee_type = models.CharField("Ажилтны төрөл", max_length=20, choices=EmployeeType.choices)
+    emptype = models.SmallIntegerField(
+        "Ажилтны төрлийн код",
+        null=True,
+        blank=True,
+        choices=[
+            (1, "Үндсэн"),
+            (3, "Ажлаас гарсан"),
+            (5, "Гэрээт (хугацаатай)"),
+            (6, "Тэтгэвэрт гарсан"),
+            (9, "Туршилтын"),
+        ],
+    )
     status = models.CharField("Төлөв", max_length=20, choices=JobStatus.choices, default=JobStatus.ACTIVE)
     contract_type = models.CharField("Гэрээний төрөл", max_length=20, choices=ContractType.choices)
-    contract_no = models.CharField("Гэрээний дугаар", max_length=50, blank=True)
+    contract_no = models.CharField("Гэрээний дугаар", max_length=10, blank=True)
     contract_start = models.DateField("Гэрээ эхлэх", null=True, blank=True)
     contract_end = models.DateField("Гэрээ дуусах", null=True, blank=True)
     change_type = models.CharField("Өөрчлөлтийн төрөл", max_length=20, choices=ChangeType.choices)
@@ -417,7 +395,7 @@ class JobRecord(models.Model):
 
 
 class SalaryRecord(models.Model):
-    """One period of base salary. Protected by employees.view_salary."""
+    """One period of base salary. Protected by macs.view_salary."""
 
     employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="salary_records")
     period = DateRangeField("Хугацаа")
@@ -463,16 +441,16 @@ PERSONAL_FIELDS = frozenset(
         "gender",
         "clan_name",
         "citizenship",
-        "is_foreigner",
+        "foreign_emp",
+        "nationality",
         "passport_no",
         "marital_status",
         "private_phone",
-        "address",
-        "emergency_name",
-        "emergency_phone",
+        "phone2",
         "prior_service_years",
         "prior_service_months",
         "blood_type",
+        "blood_rh",
         "social_origin",
         "military_service",
         "housing_condition",
@@ -481,6 +459,15 @@ PERSONAL_FIELDS = frozenset(
         "clothing_size",
         "shoe_size",
         "elected_position",
+    }
+)
+
+EXT_FIELDS = frozenset(
+    {
+        "prior_service_months",
+        "probation_end",
+        "blood_rh",
+        "living_standard",
     }
 )
 
@@ -547,3 +534,37 @@ class SetupItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee.code} {self.key}"
+
+
+class DailySync(models.Model):
+    """One row (pk 1): the calendar day the daily MACS sync last ran. See employees/daily_sync.py."""
+
+    day = models.DateField(null=True)
+
+    class Meta:
+        db_table = "employees_dailysync"
+
+    def __str__(self) -> str:
+        return f"Last daily sync: {self.day}"
+
+
+class CompanySettings(models.Model):
+    """Single row (pk=1) of company details, edited in the admin: used by HR orders (print header, issued-by)."""
+
+    name = models.CharField("Байгууллагын нэр", max_length=100, blank=True)
+    director_name = models.CharField(
+        "Захирлын нэр", max_length=25, blank=True, help_text="Тушаал гаргасан албан тушаалтны анхны утга."
+    )
+
+    class Meta:
+        verbose_name = "Байгууллагын тохиргоо"
+        verbose_name_plural = "Байгууллагын тохиргоо"
+        default_permissions = ("change", "view")
+
+    def __str__(self) -> str:
+        return "Байгууллагын тохиргоо"
+
+    @classmethod
+    def get(cls) -> "CompanySettings":
+        row, _ = cls.objects.get_or_create(pk=1)
+        return row

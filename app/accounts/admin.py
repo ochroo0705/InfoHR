@@ -52,6 +52,8 @@ def permission_group(permission: Permission) -> str:
     app_label = permission.content_type.app_label
     if app_label == "accounts":
         return _("Switches")
+    # The employee switches sit on the production table model (macs.Employee), so they show under Ажилтан.
+    app_label = {"macs": "employees"}.get(app_label, app_label)
     return str(apps.get_app_config(app_label).verbose_name)
 
 
@@ -201,7 +203,7 @@ def _show_once(request: HttpRequest, user: User, password: str) -> None:
 def _log_reset(user: User, by: User) -> None:
     from employees.models import ActivityEntry, ActivityKind, Employee
 
-    employee = Employee.objects.filter(user=user).first()
+    employee = Employee.objects.filter(ext__user=user).first()
     if employee is not None:
         ActivityEntry.objects.create(employee=employee, by=by, kind=ActivityKind.CHANGED, message="Нууц үг шинэчилсэн")
 

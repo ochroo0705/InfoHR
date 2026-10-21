@@ -1,0 +1,28 @@
+{# Orders (тушаал) of one employee: ours with state and actions, then the old program's rows read-only. #}
+{% if order_warning %}<p class="mt-8 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ order_warning }}</p>{% endif %}
+<h3 class="mt-8 mb-3 flex items-baseline gap-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаалууд <span class="text-xs font-normal text-slate-500">{{ orders|length }}</span></h3>
+{% if not orders %}<p class="text-sm text-slate-400">Тушаал бүртгэгдээгүй</p>{% else %}
+<table class="w-full text-sm">
+  <thead class="text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="py-1 whitespace-nowrap">Дугаар</th><th class="whitespace-nowrap">Огноо</th><th class="whitespace-nowrap">Төрөл</th><th>Агуулга</th><th class="whitespace-nowrap">Төлөв</th><th></th></tr></thead>
+  <tbody>{% for row in orders %}{% with o=row.order c=row.legacy %}
+    {% if o %}<tr class="border-t border-slate-100 {% if o.state == 'cancelled' %}text-slate-400 line-through{% elif can_manage and o.state == 'pending' or can_manage and o.state == 'registered' %}cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage and o.state == 'pending' or can_manage and o.state == 'registered' %} hx-get="{% url 'employees:order_edit' employee.pk o.pk %}" hx-target="body" hx-swap="beforeend"{% endif %}>
+      <td class="py-2 whitespace-nowrap">{% if o.number %}№ {{ o.number }}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}</td>
+      <td class="whitespace-nowrap">{{ o.date|date:"Y-m-d"|default:"—" }}</td>
+      <td>{{ o.get_order_type_display }}{% if o.is_hire %} <span class="text-xs text-slate-500">(ажилд авсан)</span>{% endif %}</td>
+      <td>{{ o.summary|default:"" }}{% if o.state == 'cancelled' and o.cancel_order_no %} <span class="text-xs">(цуцалсан: № {{ o.cancel_order_no }})</span>{% endif %}</td>
+      <td>{% include "employees/_order_state.html" with order=o legacy=None %}</td>
+      <td class="text-right whitespace-nowrap">
+        {% if o.file %}<a href="{% url 'employees:order_file' employee.pk o.pk %}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-violet-700 hover:underline">Файл харах</a>{% endif %}
+        {% if can_manage and o.state == 'registered' %}<button type="button" hx-get="{% url 'employees:order_upload' employee.pk o.pk %}" hx-target="body" hx-swap="beforeend" onclick="event.stopPropagation()" class="ml-3 text-violet-700 hover:underline">Файл хавсаргах</button>{% endif %}
+      </td>
+    </tr>
+    {% else %}<tr class="border-t border-slate-100">
+      <td class="py-2 whitespace-nowrap">№ {{ c.number }}</td>
+      <td class="whitespace-nowrap">{{ c.date|date:"Y-m-d"|default:"—" }}</td>
+      <td class="text-slate-400">—</td>
+      <td>{{ c.summary|default:"" }}</td>
+      <td>{% include "employees/_order_state.html" with order=None legacy=c %}</td>
+      <td></td>
+    </tr>{% endif %}
+  {% endwith %}{% endfor %}</tbody>
+</table>{% endif %}

@@ -9,7 +9,7 @@ from accounts.models import User
 from accounts.passwords import set_temp_password
 from django.db import transaction
 
-from employees.models import ActivityEntry, ActivityKind, Employee
+from employees.models import ActivityEntry, ActivityKind, Employee, ensure_ext
 
 
 @transaction.atomic
@@ -21,14 +21,15 @@ def create_login(employee: Employee, username: str, by: User) -> tuple[User, str
     username = username.strip()
     if not username:
         raise ValueError("Нэвтрэх нэрийг бичнэ үү.")
-    if employee.user_id is not None:
+    ext = ensure_ext(employee)
+    if ext.user_id is not None:
         raise ValueError("Нэвтрэх эрх аль хэдийн байна.")
     if User.objects.filter(username=username).exists():
         raise ValueError("Энэ нэвтрэх нэр бүртгэлтэй байна.")
     login = User.objects.create_user(username, first_name=employee.given_name, last_name=employee.family_name)
     password = set_temp_password(login)
-    employee.user = login
-    employee.save(update_fields=["user"])
+    ext.user = login
+    ext.save(update_fields=["user"])
     ActivityEntry.objects.create(
         employee=employee,
         by=by,

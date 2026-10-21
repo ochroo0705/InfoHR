@@ -1,23 +1,32 @@
 {% if setup is not None %}
 <div id="setup" class="mb-6">
-<details{% if not setup_complete %} open{% endif %}>
-{% if setup_complete %}
-  <summary class="cursor-pointer text-sm text-emerald-700">Бүрдүүлэлт дууссан ✓ <span class="text-xs text-slate-500 underline">дэлгэрэнгүй</span></summary>
-{% endif %}
-  <div class="rounded border border-slate-200 p-4">
-    <h3 class="mb-2 font-medium">Бүрдүүлэлт <span class="text-sm text-slate-500">{{ setup_done }}/{{ setup|length }}</span></h3>
-    <ul class="space-y-1 text-sm">{% for item in setup %}
-      <li>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" {% if item.done %}checked{% endif %}
-            {% if item.auto %}disabled{% else %}hx-post="{% url 'employees:setup_toggle' employee.pk item.key %}" hx-target="#setup" hx-swap="outerHTML"{% endif %}>
-          <span>{{ item.label }}</span>
-          {% if item.auto %}<span class="text-xs text-slate-400">автоматаар</span>
-          {% elif item.done %}<span class="text-xs text-slate-400">{{ item.done_by|default:"—" }}, {{ item.done_at|date:"Y-m-d H:i" }}</span>{% endif %}
-        </label>
-      </li>{% endfor %}
-    </ul>
-  </div>
+<details class="group card-hover overflow-hidden rounded-xl border border-l-4 border-slate-200 {% if setup_complete %}border-l-emerald-500{% else %}border-l-amber-500{% endif %} bg-white"{% if not setup_complete %} open{% endif %}>
+  <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-2.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+    {% if setup_complete %}
+    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 10.5l3 3 7-7"/></svg></span>
+    <span class="text-sm font-semibold text-emerald-800">Бүрдүүлэлт дууссан</span>
+    {% else %}
+    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">{{ setup_done }}</span>
+    <span class="text-sm font-semibold text-slate-700">Бүрдүүлэлт</span>
+    <span class="text-sm text-slate-500">{{ setup_done }}/{{ setup|length }} хийгдсэн</span>
+    {% endif %}
+    <span class="ml-auto hidden h-1.5 w-28 overflow-hidden rounded-full bg-slate-100 sm:block"><span class="block h-full rounded-full {% if setup_complete %}bg-emerald-500{% else %}bg-amber-500{% endif %} transition-all" style="width:{% widthratio setup_done setup|length 100 %}%"></span></span>
+    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true"><path d="M5 8l5 5 5-5"/></svg>
+  </summary>
+  <ul class="divide-y divide-slate-100 border-t border-slate-100">{% for item in setup %}
+    <li>
+      <label class="flex items-center gap-3 px-4 py-2.5 text-sm {% if item.auto %}cursor-default{% else %}hover:bg-slate-50{% endif %}">
+        <input type="checkbox" class="peer sr-only" {% if item.done %}checked{% endif %}
+          {% if item.auto %}disabled{% else %}hx-post="{% url 'employees:setup_toggle' employee.pk item.key %}" hx-target="#setup" hx-swap="outerHTML"{% endif %}>
+        <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-violet-500 {% if item.done %}border-emerald-500 bg-emerald-500 text-white{% else %}border-slate-300 bg-white{% endif %}{% if item.auto %} opacity-70{% endif %}">
+          {% if item.done %}<svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 10.5l3 3 7-7"/></svg>{% endif %}
+        </span>
+        <span class="{% if item.done %}text-slate-500{% else %}font-medium text-slate-800{% endif %}">{{ item.label }}</span>
+        {% if item.auto %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500" title="Систем өөрөө тэмдэглэнэ">автоматаар</span>{% endif %}
+        {% if item.done and not item.auto %}<span class="ml-auto text-xs text-slate-400">{{ item.done_by|default:"—" }} · {{ item.done_at|date:"Y-m-d H:i" }}</span>{% endif %}
+      </label>
+    </li>{% endfor %}
+  </ul>
 </details>
 </div>
 {% endif %}

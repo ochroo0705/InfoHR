@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>Хүний нөөцийн тушаалууд</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 16px; color: #000; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; }
+  h1 { font-size: 16px; text-align: center; margin: 8px 0 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #444; padding: 3px 5px; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  td.group { font-weight: bold; background: #f6f6f6; }
+  .sign { margin-top: 28px; }
+  .noprint { margin-bottom: 8px; }
+  @media print { .noprint { display: none; } body { margin: 0; } tr { page-break-inside: avoid; } thead { display: table-header-group; } }
+</style>
+</head>
+<body>
+<div class="noprint"><button type="button" onclick="window.print()">Хэвлэх</button></div>
+<div class="top"><div>{{ company }}</div><div>{{ today|date:"Y-m-d" }}</div></div>
+<h1>Хүний нөөцийн тушаалууд</h1>
+<table>
+  <thead><tr><th>№</th><th>Огноо</th><th>Ажилтан</th><th>Албан тушаал</th><th>Тушаал №</th><th>Тушаалын утга</th><th>Тушаал гаргасан албан тушаалтан</th><th>Регистр №</th><th>Хүйс</th><th>Нас</th></tr></thead>
+  <tbody>{% for dept, items in groups %}
+    <tr><td class="group" colspan="10">Хэлтэс: {{ dept }}</td></tr>
+    {% for r in items %}<tr><td>{{ forloop.counter }}</td><td>{{ r.date|date:"Y-m-d" }}</td><td>{{ r.employee_name }}</td><td>{{ r.position }}</td><td>{{ r.number }}</td><td>{{ r.summary }}</td><td>{{ r.issued_by }}</td><td>{{ r.register_no }}</td><td>{{ r.gender }}</td><td>{{ r.age|default_if_none:"" }}</td></tr>{% endfor %}
+  {% empty %}<tr><td colspan="10">Тушаал олдсонгүй</td></tr>{% endfor %}</tbody>
+</table>
+<p class="sign">Хүний нөөцийн мэргэжилтэн: ........ / /</p>
+</body>
+</html>

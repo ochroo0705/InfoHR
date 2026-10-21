@@ -6,6 +6,27 @@
       "runtimeExecutable": ".venv/Scripts/python",
       "runtimeArgs": ["scripts/demo.py", "run"],
       "port": 8001
+    },
+    {
+      "name": "macs",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8002"],
+      "env": {"DJANGO_DB_NAME": "macs_pg", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8002
+    },
+    {
+      "name": "leave-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8003"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_leave", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8003
+    },
+    {
+      "name": "orders-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8004"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_orders", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8004
     }
   ]
 }

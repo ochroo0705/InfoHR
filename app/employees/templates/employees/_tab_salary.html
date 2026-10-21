@@ -8,11 +8,11 @@
   <td class="text-right">{% if s.cancellable %}<button hx-get="{% url 'employees:event_cancel' employee.pk s.event_id %}" hx-target="#modal" class="text-red-700 hover:underline">Цуцлах</button>{% elif can_manage_salary and not s.locked %}<button hx-get="{% url 'employees:correct_salary' employee.pk s.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td></tr>{% endfor %}</tbody></table>
 <h3 class="mt-8 mb-2 font-medium">Банк, даатгал</h3>
 <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
-  <div><dt class="text-slate-500">Банк</dt><dd>{% if si_form %}{% field si_form.bank %}{% else %}{{ details.bank|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Дансны дугаар</dt><dd>{% if si_form %}{% field si_form.account_no %}{% else %}{{ details.account_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">НДД</dt><dd>{% if si_form %}{% field si_form.social_insurance_no %}{% else %}{{ details.social_insurance_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">ЭМДД</dt><dd>{% if si_form %}{% field si_form.health_insurance_no %}{% else %}{{ details.health_insurance_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Даатгуулагчийн төрөл</dt><dd>{% if si_form %}{% field si_form.insured_category %}{% else %}{{ details.insured_category|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">ТТД</dt><dd>{% if si_form %}{% field si_form.taxpayer_no %}{% else %}{{ details.taxpayer_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Хөгжлийн бэрхшээл</dt><dd>{% if si_form %}{% field si_form.has_disability %}{% else %}{% if not details %}—{% elif details.has_disability %}Тийм{% else %}Үгүй{% endif %}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Банк</dt><dd>{% if si_form %}{% field si_form.bank %}{% else %}{{ employee.bank.name|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Дансны дугаар</dt><dd>{% if si_form %}{% field si_form.account_no %}{% else %}{{ employee.account_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">НДД</dt><dd>{% if si_form %}{% field si_form.social_insurance_no %}{% else %}{{ employee.social_insurance_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">ЭМДД</dt><dd>{% if si_form %}{% field si_form.health_insurance_no %}{% else %}{{ employee.health_insurance_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Даатгуулагчийн төрөл</dt><dd>{% if si_form %}{% field si_form.insured_category %}{% else %}{{ employee.insured_category.name|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">ТТД</dt><dd>{% if si_form %}{% field si_form.taxpayer_no %}{% else %}{{ employee.taxpayer_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хөгжлийн бэрхшээл</dt><dd>{% if si_form %}{% field si_form.has_disability %}{% else %}{% if employee.has_disability %}Тийм{% else %}Үгүй{% endif %}{% endif %}</dd></div>
 </dl>

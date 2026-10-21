@@ -1,0 +1,7 @@
+{% comment %}The row as the form loaded it. Posted back so the save can refuse a row another program changed (spec §10).{% endcomment %}
+{% if loaded %}<input type="hidden" name="loaded_type" value="{{ loaded.leave_type_id }}">
+<input type="hidden" name="loaded_date1" value="{{ loaded.date1|date:'Y-m-d' }}">
+<input type="hidden" name="loaded_date2" value="{{ loaded.date2|date:'Y-m-d' }}">
+<input type="hidden" name="loaded_status" value="{{ loaded.status|default_if_none:'' }}">
+<input type="hidden" name="loaded_adays" value="{{ loaded.adays|default_if_none:'' }}">
+{% if loaded.comment is not None %}<input type="hidden" name="loaded_comment" value="{{ loaded.comment }}">{% endif %}{% endif %}

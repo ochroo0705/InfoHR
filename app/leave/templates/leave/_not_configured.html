@@ -1,0 +1,1 @@
+{% if not_configured %}<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ not_configured }}{% if perms.leave.manage_leave_settings %} <a href="{% url 'leave:settings' %}" class="underline">Тохируулах</a>{% endif %}</p>{% endif %}

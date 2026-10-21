@@ -19,7 +19,7 @@ def test_role_groups_exist_with_default_switches() -> None:
 def test_new_user_gets_employee_role_only() -> None:
     user = User.objects.create_user("bat", password="x-long-pass-123")
     assert list(user.groups.values_list("name", flat=True)) == [EMPLOYEE]
-    assert not user.has_perm("employees.view_salary")
+    assert not user.has_perm("macs.view_salary")
 
 
 @pytest.mark.django_db
@@ -27,7 +27,7 @@ def test_hr_cannot_see_salary_until_switched_on() -> None:
     user = User.objects.create_user("hr1", password="x-long-pass-123")
     user.groups.add(Group.objects.get(name=HR))
     assert user.has_perm("accounts.approve_leave")
-    assert not User.objects.get(pk=user.pk).has_perm("employees.view_salary")
+    assert not User.objects.get(pk=user.pk).has_perm("macs.view_salary")
 
 
 @pytest.mark.django_db
@@ -53,13 +53,15 @@ def test_role_editor_groups_permissions_into_cards() -> None:
     with translation.override("mn"):
         field = copy.deepcopy(permission_formfield())  # forms copy their fields; grouping must survive
         groups = [group for group, _options in field.widget.choices]
-    assert groups == ["Үйл ажиллагааны эрх", "Ажилтан", "Чөлөө, амралт"]
+    assert groups == ["Үйл ажиллагааны эрх", "Ажилтан", "Чөлөө, амралт", "Жагсаалтууд"]
     switches = {label for _value, label in field.widget.choices[0][1]}
     assert switches == {"Чөлөө, амралт батлах", "Тушаал гаргах / баталгаажуулах", "Жагсаалтыг Excel рүү гаргах"}
     employee_card = {label for _value, label in field.widget.choices[1][1]}
     assert "Цалин, даатгалын мэдээллийг харах" in employee_card
     leave_card = {label for _value, label in field.widget.choices[2][1]}
     assert leave_card == {"Чөлөө харах", "Чөлөө бүртгэх", "Чөлөөний тохиргоо"}
+    lists_card = {label for _value, label in field.widget.choices[3][1]}
+    assert lists_card == {"Жагсаалт засах"}
 
 
 def test_full_name_is_family_name_first() -> None:

@@ -11,7 +11,7 @@ from employees.models import ActivityEntry, Employee, Event, JobRecord, Position
 from employees.services import history
 from employees.services.history import HistoryError
 
-from .conftest import new_employee
+from .conftest import hire_values
 
 pytestmark = pytest.mark.django_db
 
@@ -26,7 +26,7 @@ def test_hire_creates_open_periods_and_log(hired: Employee) -> None:
 
 
 def test_hire_without_salary(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(new_employee(), start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
     assert not SalaryRecord.objects.filter(employee=emp).exists()
 
 
@@ -80,7 +80,7 @@ def test_job_on_and_salary_on(hired: Employee, actor: User) -> None:
 
 
 def test_change_salary_creates_first_period(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(new_employee(), start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
     record = history.change_salary(
         emp, effective=date(2026, 1, 5), amount=Decimal("1800000"), change_type="hire", note="", by=actor
     )
@@ -109,13 +109,18 @@ def test_salary_correction_log_is_sensitive(hired: Employee, actor: User) -> Non
 def test_failure_rolls_back_everything(actor: User, job_values: dict[str, Any]) -> None:
     job_values["position"] = Position(name="unsaved")  # not saved -> insert fails
     with pytest.raises((ValueError, IntegrityError)):
-        history.hire(new_employee(), start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+        history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
     assert not Employee.objects.exists() and not ActivityEntry.objects.exists()
 
 
 def test_future_hire_has_no_current_job(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(new_employee(), start=date.today() + timedelta(days=10), job=job_values, salary=None, by=actor)
+    emp = history.hire(
+        hire_values(), {}, start=date.today() + timedelta(days=10), job=job_values, salary=None, by=actor
+    )
     assert history.job_on(emp, date.today()) is None
+    emp.refresh_from_db()
+    assert emp.department_id == job_values["department"].pk  # coming job is copied (latest-period fallback)
+    assert emp.emptype == 1 and emp.status == "active"
 
 
 @pytest.mark.parametrize("bad", ["period", "positon", "employee", "id"])
@@ -247,7 +252,7 @@ def test_undo_merges_job_and_salary_back(hired: Employee, actor: User) -> None:
 
 
 def test_undo_first_salary_period_deletes_it(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(new_employee(), start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
     event = _event(emp, date(2026, 3, 1))
     record = history.change_salary(
         emp,

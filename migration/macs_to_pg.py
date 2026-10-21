@@ -16,13 +16,14 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 
 import psycopg2
+from firebird.driver import connect as fb_connect
+from firebird.driver import driver_config
 from psycopg2 import sql
 from psycopg2.extras import execute_values
-from firebird.driver import connect as fb_connect, driver_config
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FB_DB = os.path.join(ROOT, "db", "work", "MACS_COPY.FDB")
@@ -37,25 +38,23 @@ LOGIC_DIR = os.path.join(ROOT, "docs", "migration", "legacy-logic")
 # Groups A-E from table-selection.md (Group E as decided 2026-10-13).
 TABLES = {
     "A": "EMPLOYEE EMPLOYEE_HISTORY EMP_PHOTO EMP_VACATION FAMILY FAMILY_MEMBERS "
-         "EMP_TT11SUM EMP_COLNAMES EMP_ACTTYPE TIME_TABLENEW MONTH_DAYS ADDITIONAL_INFO",
+    "EMP_TT11SUM EMP_COLNAMES EMP_ACTTYPE TIME_TABLENEW MONTH_DAYS ADDITIONAL_INFO",
     "B": "MONTHSALARY MONTHSALARY_NEW MONTHSALARY_STATUS COLNAMES COLNAMES_VERSION COLEXPR "
-         "INSUR_COLNAMES INSUR_COLEXPR INSUR_TYPE NDSH_CONFIG SALARY_EMAIL_COLUMNS "
-         "SALREPORTS SALREPORT_FIELDS",
-    "C": "BRANCH DEPS OCCUPATION OCCUP_CLASS BANKS COUNTRY CITYTOWN DISTRICT EDUCATION "
-         "GRADUATE WORK_SKILL",
+    "INSUR_COLNAMES INSUR_COLEXPR INSUR_TYPE NDSH_CONFIG SALARY_EMAIL_COLUMNS "
+    "SALREPORTS SALREPORT_FIELDS",
+    "C": "BRANCH DEPS OCCUPATION OCCUP_CLASS BANKS COUNTRY CITYTOWN DISTRICT EDUCATION GRADUATE WORK_SKILL",
     "D": "ADDRESS APARTMENT_COND ARMY_RANK AWARDS BEFORE_WORK BIRTH_PLACE BODY CAROWN_COND "
-         "CAUSE_DAY CHECKINOUT CLOTHES_SIZE_TYPE COMMAND DEGREE DISCIPLINE DISCIPLINE_TYPE EDUC "
-         "EMP_BONUS EMP_GRADE EMP_INSTYPES EMP_TALENTS ENTITLEMENT FACTORY_ACCIDENT "
-         "FACTORY_ACCIDENT_TYPE FINGERPRINT FIRED_REASON FLANGUAGES FOREIGN_LANG GARNISHCHANGE "
-         "GARNISHCHANGE_DETAIL GARNISHCHANGE_ITEM GARNISH_HISTORY GIVEN_PRESENT HOLIDAY "
-         "HOLIDAY_SCHEDULE HOLIDAY_TYPE HR_ABSENTS HR_ADDEDVALBUDG HR_ADDEDVALSTAT HR_COMPLAINTS "
-         "HR_LEGALHOLIDAYS HR_LOAN HR_OFFICE HR_SECTION HR_SKILLWORK HR_TEMPLATE HR_TEMPLATEWORDS "
-         "HR_TRAINING LANG_LEVEL LEAVE_ASSIGN LEAVE_TYPE LOAN_REFS MARITAL_STATUS MATERIAL_HELP "
-         "MATERIAL_HELP_TYPE MILITARY MONTHDECREASE MOVEMENT NATIONALITY NIIGMIIN_GARAL PERSONTIME "
-         "PRESENT_TYPE PROFESSION_TYPE QUALIFICATION QUALIFICATION_TYPE RELATIVE SCHEDULE SHIFTS "
-         "SPEC_EDU SPEC_EDU_TYPE TALENTS TIME_TABLE VOTING_WORK",
-    "E": "CUSTOMER EMP_WORKS WORKS SERVCARDS EMP_WORKPERCENT EMP_ASSETS CONTRACTS REST_TIMES "
-         "MACS_OPTIONS INFO",
+    "CAUSE_DAY CHECKINOUT CLOTHES_SIZE_TYPE COMMAND DEGREE DISCIPLINE DISCIPLINE_TYPE EDUC "
+    "EMP_BONUS EMP_GRADE EMP_INSTYPES EMP_TALENTS ENTITLEMENT FACTORY_ACCIDENT "
+    "FACTORY_ACCIDENT_TYPE FINGERPRINT FIRED_REASON FLANGUAGES FOREIGN_LANG GARNISHCHANGE "
+    "GARNISHCHANGE_DETAIL GARNISHCHANGE_ITEM GARNISH_HISTORY GIVEN_PRESENT HOLIDAY "
+    "HOLIDAY_SCHEDULE HOLIDAY_TYPE HR_ABSENTS HR_ADDEDVALBUDG HR_ADDEDVALSTAT HR_COMPLAINTS "
+    "HR_LEGALHOLIDAYS HR_LOAN HR_OFFICE HR_SECTION HR_SKILLWORK HR_TEMPLATE HR_TEMPLATEWORDS "
+    "HR_TRAINING LANG_LEVEL LEAVE_ASSIGN LEAVE_TYPE LOAN_REFS MARITAL_STATUS MATERIAL_HELP "
+    "MATERIAL_HELP_TYPE MILITARY MONTHDECREASE MOVEMENT NATIONALITY NIIGMIIN_GARAL PERSONTIME "
+    "PRESENT_TYPE PROFESSION_TYPE QUALIFICATION QUALIFICATION_TYPE RELATIVE SCHEDULE SHIFTS "
+    "SPEC_EDU SPEC_EDU_TYPE TALENTS TIME_TABLE VOTING_WORK",
+    "E": "CUSTOMER EMP_WORKS WORKS SERVCARDS EMP_WORKPERCENT EMP_ASSETS CONTRACTS REST_TIMES MACS_OPTIONS INFO",
 }
 SELECTED = {t: g for g, names in TABLES.items() for t in names.split()}
 
@@ -63,8 +62,21 @@ SELECTED = {t: g for g, names in TABLES.items() for t in names.split()}
 FILTERED = {"CUSTOMER"}
 
 # Procedures/triggers whose source mentions any of these are saved as text for rule reading.
-LOGIC_KEYWORDS = ("MONTHSALARY", "COLEXPR", "COLNAMES", "NDSH", "INSUR", "SALARY", "EMPLOYEE",
-                  "VACATION", "HOLIDAY", "MONTH_DAYS", "TIME_TABLE", "ХХОАТ", "НДШ")
+LOGIC_KEYWORDS = (
+    "MONTHSALARY",
+    "COLEXPR",
+    "COLNAMES",
+    "NDSH",
+    "INSUR",
+    "SALARY",
+    "EMPLOYEE",
+    "VACATION",
+    "HOLIDAY",
+    "MONTH_DAYS",
+    "TIME_TABLE",
+    "ХХОАТ",
+    "НДШ",
+)
 
 # Firebird RDB$FIELD_TYPE codes
 FB_SMALLINT, FB_INTEGER, FB_FLOAT, FB_DATE, FB_TIME, FB_CHAR, FB_BIGINT, FB_BOOLEAN = 7, 8, 10, 12, 13, 14, 16, 23
@@ -106,16 +118,28 @@ def fetch_all(cur, query, params=()):
 
 
 def read_columns(fcur, table):
-    rows = fetch_all(fcur, """
+    rows = fetch_all(
+        fcur,
+        """
         SELECT TRIM(rf.RDB$FIELD_NAME), f.RDB$FIELD_TYPE, f.RDB$FIELD_SUB_TYPE, f.RDB$FIELD_LENGTH,
                f.RDB$CHARACTER_LENGTH, f.RDB$FIELD_PRECISION, f.RDB$FIELD_SCALE,
                COALESCE(rf.RDB$NULL_FLAG, f.RDB$NULL_FLAG, 0),
                IIF(f.RDB$COMPUTED_BLR IS NULL, 0, 1)
         FROM RDB$RELATION_FIELDS rf JOIN RDB$FIELDS f ON f.RDB$FIELD_NAME = rf.RDB$FIELD_SOURCE
-        WHERE rf.RDB$RELATION_NAME = ? ORDER BY rf.RDB$FIELD_POSITION""", (table,))
-    return [dict(name=r[0], type=pg_type(*r[1:7]), notnull=bool(r[7]), computed=bool(r[8]),
-                 is_char=r[1] in (FB_CHAR, FB_VARCHAR), is_blob=r[1] == FB_BLOB)
-            for r in rows]
+        WHERE rf.RDB$RELATION_NAME = ? ORDER BY rf.RDB$FIELD_POSITION""",
+        (table,),
+    )
+    return [
+        dict(
+            name=r[0],
+            type=pg_type(*r[1:7]),
+            notnull=bool(r[7]),
+            computed=bool(r[8]),
+            is_char=r[1] in (FB_CHAR, FB_VARCHAR),
+            is_blob=r[1] == FB_BLOB,
+        )
+        for r in rows
+    ]
 
 
 def read_keys(fcur):
@@ -123,19 +147,32 @@ def read_keys(fcur):
     seg = """SELECT TRIM(s.RDB$FIELD_NAME) FROM RDB$INDEX_SEGMENTS s
              WHERE s.RDB$INDEX_NAME = ? ORDER BY s.RDB$FIELD_POSITION"""
     pks = {}
-    for table, idx in fetch_all(fcur, """
+    for table, idx in fetch_all(
+        fcur,
+        """
             SELECT TRIM(RDB$RELATION_NAME), TRIM(RDB$INDEX_NAME) FROM RDB$RELATION_CONSTRAINTS
-            WHERE RDB$CONSTRAINT_TYPE = 'PRIMARY KEY'"""):
+            WHERE RDB$CONSTRAINT_TYPE = 'PRIMARY KEY'""",
+    ):
         pks[table] = [r[0] for r in fetch_all(fcur, seg, (idx,))]
     fks = []
-    for name, table, idx, ref_table, ref_idx in fetch_all(fcur, """
+    for name, table, idx, ref_table, ref_idx in fetch_all(
+        fcur,
+        """
             SELECT TRIM(rc.RDB$CONSTRAINT_NAME), TRIM(rc.RDB$RELATION_NAME), TRIM(rc.RDB$INDEX_NAME),
                    TRIM(rc2.RDB$RELATION_NAME), TRIM(rc2.RDB$INDEX_NAME)
             FROM RDB$RELATION_CONSTRAINTS rc
             JOIN RDB$REF_CONSTRAINTS r ON r.RDB$CONSTRAINT_NAME = rc.RDB$CONSTRAINT_NAME
-            JOIN RDB$RELATION_CONSTRAINTS rc2 ON rc2.RDB$CONSTRAINT_NAME = r.RDB$CONST_NAME_UQ"""):
-        fks.append((name, table, [r[0] for r in fetch_all(fcur, seg, (idx,))],
-                    ref_table, [r[0] for r in fetch_all(fcur, seg, (ref_idx,))]))
+            JOIN RDB$RELATION_CONSTRAINTS rc2 ON rc2.RDB$CONSTRAINT_NAME = r.RDB$CONST_NAME_UQ""",
+    ):
+        fks.append(
+            (
+                name,
+                table,
+                [r[0] for r in fetch_all(fcur, seg, (idx,))],
+                ref_table,
+                [r[0] for r in fetch_all(fcur, seg, (ref_idx,))],
+            )
+        )
     return pks, fks
 
 
@@ -159,10 +196,15 @@ def ident(name):
 
 def filter_clause(table, fks):
     """WHERE clause keeping only rows referenced from other selected tables."""
-    refs = [(t, cols, rcols) for _, t, cols, rt, rcols in fks
-            if rt == table and t in SELECTED and t not in FILTERED and len(cols) == 1]
-    parts = [f"{rcols[0]} IN (SELECT {cols[0]} FROM {t} WHERE {cols[0]} IS NOT NULL)"
-             for t, cols, rcols in refs]
+    refs = [
+        (t, cols, rcols)
+        for _, t, cols, rt, rcols in fks
+        if rt == table and t in SELECTED and t not in FILTERED and len(cols) == 1
+    ]
+    parts = [
+        f"{rcols[0]} IN (SELECT {cols[0]} FROM {t} WHERE {cols[0]} IS NOT NULL)"  # noqa: S608  -- catalog names only
+        for t, cols, rcols in refs
+    ]
     return " OR ".join(parts) if parts else "1=0"
 
 
@@ -173,8 +215,14 @@ def dump_logic():
     source comes from isql's metadata export instead. isql emits each procedure twice
     (an empty stub, then the real body); the last occurrence wins.
     """
-    ddl = subprocess.run([ISQL, "-user", "SYSDBA", "-x", "-ch", "NONE", FB_DB],
-                         capture_output=True).stdout.decode("utf-8", errors="replace").replace("\r\n", "\n")
+    ddl = (
+        subprocess.run(  # noqa: S603  -- fixed argv, no shell
+            [ISQL, "-user", "SYSDBA", "-x", "-ch", "NONE", FB_DB],  # noqa: S603  -- fixed argv, no shell
+            capture_output=True,
+        )
+        .stdout.decode("utf-8", errors="replace")
+        .replace("\r\n", "\n")
+    )
     blocks = {}
     for m in re.finditer(r"^(CREATE OR ALTER PROCEDURE|ALTER PROCEDURE|CREATE TRIGGER) (\S+).*?\^$", ddl, re.M | re.S):
         kind = "procedures" if "PROCEDURE" in m.group(1) else "triggers"
@@ -223,23 +271,31 @@ def main():
         if not cols:
             notes.append(f"{table}: not found in source, skipped")
             continue
-        defs = [sql.SQL("{} {}{}").format(ident(c["name"]), sql.SQL(c["type"]),
-                                          sql.SQL(" NOT NULL" if c["notnull"] else "")) for c in cols]
+        defs = [
+            sql.SQL("{} {}{}").format(
+                ident(c["name"]), sql.SQL(c["type"]), sql.SQL(" NOT NULL" if c["notnull"] else "")
+            )
+            for c in cols
+        ]
         if table in pks:
             defs.append(sql.SQL("PRIMARY KEY ({})").format(sql.SQL(", ").join(map(ident, pks[table]))))
-        pcur.execute(sql.SQL("CREATE TABLE {}.{} ({})").format(ident(SCHEMA), ident(table),
-                                                             sql.SQL(", ").join(defs)))
+        pcur.execute(sql.SQL("CREATE TABLE {}.{} ({})").format(ident(SCHEMA), ident(table), sql.SQL(", ").join(defs)))
         computed = [c["name"] for c in cols if c["computed"]]
         if computed:
             notes.append(f"{table}: computed columns copied as plain values: {', '.join(computed)}")
 
         where = filter_clause(table, fks) if table in FILTERED else "1=1"
-        fcur.execute(f"SELECT {', '.join(c['name'] for c in cols)} FROM {table} WHERE {where}")
-        rows = [tuple(convert(v, c) for v, c in zip(r, cols)) for r in fcur.fetchall()]
+        fcur.execute(f"SELECT {', '.join(c['name'] for c in cols)} FROM {table} WHERE {where}")  # noqa: S608  -- catalog names, no user input
+        rows = [tuple(convert(v, c) for v, c in zip(r, cols, strict=True)) for r in fcur.fetchall()]
         if rows:
-            execute_values(pcur, sql.SQL("INSERT INTO {}.{} ({}) VALUES %s").format(
-                ident(SCHEMA), ident(table), sql.SQL(", ").join(ident(c["name"]) for c in cols)
-            ).as_string(pcur), rows, page_size=1000)
+            execute_values(
+                pcur,
+                sql.SQL("INSERT INTO {}.{} ({}) VALUES %s")
+                .format(ident(SCHEMA), ident(table), sql.SQL(", ").join(ident(c["name"]) for c in cols))
+                .as_string(pcur),
+                rows,
+                page_size=1000,
+            )
         pcur.execute(sql.SQL("SELECT COUNT(*) FROM {}.{}").format(ident(SCHEMA), ident(table)))
         results.append((SELECTED[table], table, len(cols), len(rows), pcur.fetchone()[0]))
         pcon.commit()
@@ -252,9 +308,17 @@ def main():
             fk_skipped.append(f"{table}({', '.join(cols)}) -> {ref_table}: target not migrated")
             continue
         try:
-            pcur.execute(sql.SQL("ALTER TABLE {}.{} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {}.{} ({})").format(
-                ident(SCHEMA), ident(table), ident(name), sql.SQL(", ").join(map(ident, cols)),
-                ident(SCHEMA), ident(ref_table), sql.SQL(", ").join(map(ident, ref_cols))))
+            pcur.execute(
+                sql.SQL("ALTER TABLE {}.{} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {}.{} ({})").format(
+                    ident(SCHEMA),
+                    ident(table),
+                    ident(name),
+                    sql.SQL(", ").join(map(ident, cols)),
+                    ident(SCHEMA),
+                    ident(ref_table),
+                    sql.SQL(", ").join(map(ident, ref_cols)),
+                )
+            )
             pcon.commit()
             fk_added += 1
         except psycopg2.Error as e:
@@ -264,20 +328,29 @@ def main():
     pcon.close()
     write_report(results, notes, fk_added, fk_skipped, logic)
     bad = [r for r in results if r[3] != r[4]]
-    print(f"{len(results)} tables, {sum(r[4] for r in results)} rows, {fk_added} FKs, "
-          f"{len(fk_skipped)} FKs skipped, {len(logic)} logic files; mismatches: {len(bad)}")
+    print(
+        f"{len(results)} tables, {sum(r[4] for r in results)} rows, {fk_added} FKs, "
+        f"{len(fk_skipped)} FKs skipped, {len(logic)} logic files; mismatches: {len(bad)}"
+    )
     return 1 if bad else 0
 
 
 def write_report(results, notes, fk_added, fk_skipped, logic):
     lines = [
-        "# MACS → PostgreSQL migration report", "",
+        "# MACS → PostgreSQL migration report",
+        "",
         f"Run: {datetime.now():%Y-%m-%d %H:%M}. Source `db/work/MACS_COPY.FDB` → "
-        f"PostgreSQL `{PG_DB}`, schema `{SCHEMA}`. Generated by `migration/macs_to_pg.py`.", "",
-        f"- Tables: {len(results)}", f"- Rows: {sum(r[4] for r in results)}",
+        f"PostgreSQL `{PG_DB}`, schema `{SCHEMA}`. Generated by `migration/macs_to_pg.py`.",
+        "",
+        f"- Tables: {len(results)}",
+        f"- Rows: {sum(r[4] for r in results)}",
         f"- Foreign keys added: {fk_added}; skipped: {len(fk_skipped)}",
-        f"- Stored procedures/triggers saved as text: {len(logic)} (in `docs/migration/legacy-logic/`)", "",
-        "## Tables", "", "| Group | Table | Columns | Rows read | Rows in PG |", "| --- | --- | --- | --- | --- |",
+        f"- Stored procedures/triggers saved as text: {len(logic)} (in `docs/migration/legacy-logic/`)",
+        "",
+        "## Tables",
+        "",
+        "| Group | Table | Columns | Rows read | Rows in PG |",
+        "| --- | --- | --- | --- | --- |",
     ]
     lines += [f"| {g} | {t.lower()} | {c} | {r} | {p} |" for g, t, c, r, p in sorted(results)]
     lines += ["", "## Notes", ""] + [f"- {n}" for n in notes or ["(none)"]]

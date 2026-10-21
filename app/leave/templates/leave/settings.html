@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Чөлөөний тохиргоо{% endblock %}
+{% block content %}
+<div class="flex items-center gap-3">
+  <h1 class="mr-auto text-xl font-semibold">Чөлөөний тохиргоо</h1>
+  <a href="{% url 'leave:holidays' %}" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">Баярын өдрүүд</a>
+  <button hx-get="{% url 'leave:type_add' %}" hx-target="body" hx-swap="beforeend" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Төрөл нэмэх</button>
+</div>
+
+<h2 class="mt-6 font-medium">Чөлөөний төрөл</h2>
+<p class="mt-1 text-sm text-slate-500">Ээлжийн амралтаас хасна гэж тэмдэглэсэн төрлийн чөлөө л ээлжийн амралтын үлдэгдэлд тооцогдоно. Ашиглагдаж байгаа төрлийг устгах боломжгүй.</p>
+<table class="mt-3 w-full text-sm">
+  <thead class="text-left text-slate-500"><tr><th class="py-2">Нэр</th><th>Цалинтай</th><th>Ээлжийн амралтаас хасна</th><th>Идэвхтэй</th></tr></thead>
+  <tbody>
+  {% for row, ext in types %}
+  <tr class="border-t border-slate-100 hover:bg-violet-50 cursor-pointer {% if not ext.is_active %}text-slate-400 line-through{% endif %}"
+    hx-get="{% url 'leave:type_edit' row.pk %}" hx-target="body" hx-swap="beforeend">
+    <td class="py-2">{{ row.name }}</td>
+    <td>{% if ext.is_paid %}Тийм{% else %}Үгүй{% endif %}</td>
+    <td>{% if ext.uses_annual_balance %}Тийм{% else %}Үгүй{% endif %}</td>
+    <td>{% if ext.is_active %}Тийм{% else %}Үгүй{% endif %}</td>
+  </tr>
+  {% empty %}<tr><td colspan="4" class="py-6 text-center text-slate-400">Чөлөөний төрөл бүртгээгүй</td></tr>{% endfor %}
+  </tbody>
+</table>
+
+<form method="post" class="mt-8 max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
+  {% csrf_token %}
+  <h2 class="font-medium">Ээлжийн амралтын эрхийг автоматаар нэмэх</h2>
+  <p class="mt-1 text-sm text-slate-500">Асаалттай үед ажлын жил бүрт хуулийн дагуух эрх автоматаар бичигдэнэ. Унтраалттай үед эрхийг гараар нэмнэ. Унтраасан нь бичигдсэн эрхийг устгахгүй.</p>
+  <label class="mt-4 flex items-center gap-2 text-sm">
+    <input type="checkbox" name="auto_annual_grant" {% if auto %}checked{% endif %} class="rounded border-slate-300">
+    Ээлжийн амралтын эрхийг автоматаар нэмэх
+  </label>
+  <div class="mt-4 flex justify-end">
+    <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
+  </div>
+</form>
+{% endblock %}

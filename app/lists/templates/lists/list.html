@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ spec.label }}{% endblock %}
+{% block content %}
+<div class="flex items-center gap-3">
+  <a href="{% url 'lists:index' %}" class="text-sm text-violet-700 hover:underline">← Жагсаалтууд</a>
+  <h1 class="mr-auto text-xl font-semibold">{{ spec.label }}</h1>
+  <button hx-get="{% url 'lists:add' spec.slug %}" hx-target="body" hx-swap="beforeend" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Нэмэх</button>
+</div>
+
+<table class="mt-4 w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
+  <thead class="text-left text-slate-500">
+    <tr>{% for name, label in columns %}<th class="px-4 py-2 font-normal">{{ label }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% for entry, cells in rows %}
+    <tr class="border-t border-slate-100 hover:bg-violet-50 cursor-pointer"
+        hx-get="{% url 'lists:edit' spec.slug entry.pk %}" hx-target="body" hx-swap="beforeend">
+      {% for value in cells %}<td class="px-4 py-2">{{ value|default_if_none:"" }}</td>{% endfor %}
+    </tr>
+    {% empty %}
+    <tr><td colspan="{{ columns|length }}" class="py-6 text-center text-slate-400">бүртгэгдээгүй</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

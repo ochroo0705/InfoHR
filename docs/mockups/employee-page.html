@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Employee page mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; }
+  .h { font-family: Manrope, Inter, sans-serif; }
+  /* Variant A: cool violet */
+  .vA { --bg:#f6f7fb; --card:#fff; --line:#e5e7ef; --ink:#1e1b3a; --muted:#6b7280; --brand:#6d28d9; --brand-soft:#ede9fe; --accent:#6d28d9; --accent-soft:#ede9fe; --side:#1e1b3a; --side-ink:#c4b5fd; }
+  /* Variant B: warm accent */
+  .vB { --bg:#faf7f2; --card:#fff; --line:#ece4d8; --ink:#2a2118; --muted:#7c6f60; --brand:#5b3fd1; --brand-soft:#ece8fb; --accent:#d97706; --accent-soft:#fef3c7; --side:#2a2118; --side-ink:#fcd9a0; }
+  .v { background:var(--bg); color:var(--ink); }
+  .card { background:var(--card); border:1px solid var(--line); }
+  .muted { color:var(--muted); }
+  .line { border-color:var(--line); }
+  .brand { color:var(--brand); }
+  .brand-bg { background:var(--brand); color:#fff; }
+  .brand-soft { background:var(--brand-soft); color:var(--brand); }
+  .acc-soft { background:var(--accent-soft); color:var(--accent); }
+  .acc { color:var(--accent); }
+  .side { background:var(--side); color:#fff; }
+  .side-ink { color:var(--side-ink); }
+  .tab-on { border-color:var(--brand); color:var(--ink); }
+  .btn-o { border:1px solid var(--brand); color:var(--brand); background:#fff; }
+  .del { color:var(--muted); } .del:hover { color:#dc2626; background:#fef2f2; }
+  tr.row:hover { background:var(--brand-soft); }
+</style>
+</head>
+<body class="bg-slate-200">
+<div class="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-slate-800 px-4 py-2 text-sm text-white">
+  <span class="mr-2 font-semibold">Mockup — employee page</span>
+  <button onclick="show('A')" id="bA" class="rounded px-3 py-1">A · Cool violet</button>
+  <button onclick="show('B')" id="bB" class="rounded px-3 py-1">B · Warm accent</button>
+  <button onclick="show('both')" id="bboth" class="rounded px-3 py-1">Side by side</button>
+</div>
+<div id="wrap" class="flex flex-col gap-4 p-4 xl:flex-row"></div>
+
+<template id="page">
+<div class="v flex min-h-[900px] flex-1 overflow-hidden rounded-xl shadow">
+  <!-- sidebar -->
+  <aside class="side hidden w-48 shrink-0 flex-col gap-1 p-4 text-sm md:flex">
+    <div class="h mb-6 text-lg font-extrabold">Info<span class="side-ink">HR</span></div>
+    <a class="rounded-md bg-white/10 px-3 py-2 font-medium">👥 Ажилтнууд</a>
+    <a class="rounded-md px-3 py-2 opacity-70">🌴 Чөлөө, амралт</a>
+    <a class="rounded-md px-3 py-2 opacity-70">📄 Тушаал</a>
+    <a class="rounded-md px-3 py-2 opacity-70">⚙️ Жагсаалтууд</a>
+    <div class="mt-auto rounded-md bg-white/5 p-3 text-xs"><div class="side-ink font-semibold">Анхаарах · 3</div><div class="opacity-70">2 гэрээ дуусах, 1 яаралтай холбоо дутуу</div></div>
+  </aside>
+
+  <main class="flex-1 p-4 md:p-6">
+    <div class="muted mb-3 text-xs">Ажилтнууд › Батбаярын Энхбаяр</div>
+
+    <!-- header -->
+    <section class="card rounded-2xl p-5">
+      <div class="flex flex-wrap items-start gap-4">
+        <div class="brand-soft h mr-1 flex h-20 w-20 items-center justify-center rounded-2xl text-3xl font-extrabold">Э</div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="h text-2xl font-extrabold tracking-tight">Батбаярын Энхбаяр</h1>
+            <span class="muted text-sm">#2010</span>
+            <span class="acc-soft rounded-full px-2.5 py-0.5 text-xs font-semibold">Гэрээ 45 хоногт дуусна</span>
+          </div>
+          <div class="muted mt-1 text-sm">Гүйцэтгэх захирал · Удирдлага</div>
+        </div>
+        <button class="brand-bg rounded-lg px-4 py-2 text-sm font-semibold">Засах</button>
+      </div>
+      <div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="rounded-xl border line p-3"><div class="muted text-xs">Ажилд орсон</div><div class="h mt-1 font-bold">2015-03-02</div><div class="muted text-xs">11 жил 7 сар</div></div>
+        <div class="rounded-xl border line p-3"><div class="muted text-xs">Ажлын хэлбэр</div><div class="h mt-1 font-bold">Үндсэн</div><div class="muted text-xs">09:00–18:00</div></div>
+        <div class="rounded-xl border line p-3"><div class="muted text-xs">Ээлжийн амралт</div><div class="h mt-1 font-bold">12 / 18 өдөр</div><div class="muted text-xs">үлдсэн / нийт</div></div>
+        <div class="rounded-xl border line p-3"><div class="muted text-xs">Утас</div><div class="h mt-1 font-bold">9900 1122</div><div class="muted text-xs">enkh@infosys.mn</div></div>
+      </div>
+    </section>
+
+    <!-- tabs -->
+    <nav class="mt-5 flex gap-6 border-b line text-sm">
+      <a class="muted border-b-2 border-transparent pb-2">Ажил</a>
+      <a class="tab-on border-b-2 pb-2 font-semibold">Хувийн</a>
+      <a class="muted border-b-2 border-transparent pb-2">Цалин</a>
+      <a class="muted border-b-2 border-transparent pb-2">Чөлөө</a>
+      <a class="muted border-b-2 border-transparent pb-2">Түүх</a>
+    </nav>
+
+    <!-- personal facts -->
+    <section class="card mt-5 rounded-xl p-5">
+      <h3 class="h mb-3 font-bold">🪪 Үндсэн мэдээлэл</h3>
+      <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
+        <div><dt class="muted text-xs">Регистрийн дугаар</dt><dd class="font-medium">УБ85031245</dd></div>
+        <div><dt class="muted text-xs">Төрсөн огноо</dt><dd class="font-medium">1985-03-12</dd></div>
+        <div><dt class="muted text-xs">Хүйс</dt><dd class="font-medium">Эрэгтэй</dd></div>
+        <div><dt class="muted text-xs">Гэрлэлтийн байдал</dt><dd class="font-medium">Гэрлэсэн</dd></div>
+        <div><dt class="muted text-xs">Цусны бүлэг</dt><dd class="font-medium">II Rh+</dd></div>
+        <div><dt class="muted text-xs">Боловсрол</dt><dd class="font-medium">Бакалавр</dd></div>
+      </dl>
+    </section>
+
+    <!-- list cards -->
+    <section class="card mt-4 overflow-hidden rounded-xl">
+      <div class="flex items-center justify-between border-b line px-5 py-3">
+        <h3 class="h font-bold">👪 Гэр бүл <span class="muted ml-1 text-sm font-medium">2</span></h3>
+        <button class="btn-o rounded-md px-2.5 py-1 text-xs font-semibold">+ нэмэх</button>
+      </div>
+      <div class="px-5"><table class="w-full text-sm">
+        <thead><tr class="muted text-left text-xs uppercase tracking-wide"><th class="py-2 font-medium">Хамаарал</th><th class="font-medium">Нэр</th><th class="font-medium">Төрсөн</th><th class="font-medium">Утас</th><th></th></tr></thead>
+        <tbody>
+          <tr class="row border-t line"><td class="py-2.5">Эхнэр</td><td>Отгонбаяр</td><td>1987-06-01</td><td>9900 1122</td><td class="text-right"><button class="del rounded px-2 py-1">Устгах</button></td></tr>
+          <tr class="row border-t line"><td class="py-2.5">Хүү</td><td>Тэмүүлэн</td><td>2014-02-19</td><td>—</td><td class="text-right"><button class="del rounded px-2 py-1">Устгах</button></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section class="card mt-4 overflow-hidden rounded-xl">
+      <div class="flex items-center justify-between border-b line px-5 py-3">
+        <h3 class="h font-bold">🎓 Боловсрол <span class="muted ml-1 text-sm font-medium">1</span></h3>
+        <button class="btn-o rounded-md px-2.5 py-1 text-xs font-semibold">+ нэмэх</button>
+      </div>
+      <div class="px-5"><table class="w-full text-sm">
+        <thead><tr class="muted text-left text-xs uppercase tracking-wide"><th class="py-2 font-medium">Төрөл</th><th class="font-medium">Сургууль</th><th class="font-medium">Мэргэжил</th><th class="font-medium">Он</th><th></th></tr></thead>
+        <tbody><tr class="row border-t line"><td class="py-2.5">Бакалавр</td><td>МУИС</td><td>Менежмент</td><td>2003–2007</td><td class="text-right"><button class="del rounded px-2 py-1">Устгах</button></td></tr></tbody>
+      </table></div>
+    </section>
+
+    <div class="mt-4 grid gap-4 md:grid-cols-2">
+      <section class="card flex items-center justify-between rounded-xl px-5 py-3">
+        <div><h3 class="h font-bold">⭐ Авьяас</h3><div class="muted text-sm">бүртгэгдээгүй</div></div>
+        <button class="btn-o rounded-md px-2.5 py-1 text-xs font-semibold">+ нэмэх</button>
+      </section>
+      <section class="card flex items-center justify-between rounded-xl px-5 py-3">
+        <div><h3 class="h font-bold">🎁 Олгосон бэлэг</h3><div class="muted text-sm">бүртгэгдээгүй</div></div>
+        <button class="btn-o rounded-md px-2.5 py-1 text-xs font-semibold">+ нэмэх</button>
+      </section>
+    </div>
+
+    <section class="card mt-4 overflow-hidden rounded-xl">
+      <div class="flex items-center justify-between border-b line px-5 py-3">
+        <h3 class="h font-bold">🚨 Яаралтай үед холбогдох <span class="acc-soft ml-1 rounded-full px-2 py-0.5 text-xs font-semibold">дутуу</span></h3>
+        <button class="btn-o rounded-md px-2.5 py-1 text-xs font-semibold">+ нэмэх</button>
+      </div>
+      <div class="muted px-5 py-3 text-sm">бүртгэгдээгүй</div>
+    </section>
+  </main>
+</div>
+</template>
+
+<script>
+  function render(v){ const n=document.getElementById('page').content.cloneNode(true); n.firstElementChild.classList.add('v'+v); return n; }
+  function show(which){
+    const w=document.getElementById('wrap'); w.innerHTML='';
+    (which==='both'?['A','B']:[which]).forEach(v=>w.appendChild(render(v)));
+    ['A','B','both'].forEach(k=>document.getElementById('b'+k).className='rounded px-3 py-1 '+(k===which?'bg-white text-slate-900':'bg-white/10'));
+  }
+  show('A');
+</script>
+</body>
+</html>

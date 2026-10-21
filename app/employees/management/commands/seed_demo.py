@@ -15,17 +15,49 @@ from accounts.models import User
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
-from leave.models import Holiday, LeaveType
+from leave.models import LeaveSettings
 from leave.services import calendar as leave_calendar
+from leave.services import ledger as leave_ledger
 from leave.services import records as leave_records
+from leave.services import writes as leave_writes
+from lists.models import DEATH, MONGOLIA, MeaningfulEntry
+from macs.models import (
+    AddressRow,
+    Bank,
+    City,
+    ContactType,
+    Country,
+    District,
+    EducRow,
+    EduType,
+    FamilyRelation,
+    FamilyRow,
+    FiredReason,
+    InsuredCategory,
+    LeaveAssign,
+    LeaveTypeRow,
+    MaritalStatus,
+    PresentRow,
+    PresentType,
+    Shift,
+    TalentKind,
+)
 
-from employees.models import Department, Education, Employee, FamilyMember, Position
-from employees.services import history, records
+from employees.models import Employee, EmployeeExt, ensure_ext
+from employees.services import history, macs_writes, records
 
 DEMO_PASSWORD = "Demo-InfoHR-2026"  # noqa: S105 — local demo database only (DEBUG-gated)
 
+FIRED_REASONS = [
+    "Өөрийн хүсэлтээр",
+    "Харилцан тохиролцсон",
+    "Гэрээний хугацаа дууссан",
+    "Ажлаас халсан",
+    "Тэтгэвэрт гарсан",
+    "Нас барсан",
+]
 DEPARTMENTS = ["Удирдлага", "Санхүү", "Хүний нөөц", "Програм хангамж", "Борлуулалт", "Техникийн дэмжлэг"]
 POSITIONS = [
     "Гүйцэтгэх захирал",
@@ -40,6 +72,15 @@ POSITIONS = [
     "Жолооч",
 ]
 DEPARTMENT_INACTIVE = "Түр төсөл"  # shows how inactive list items behave
+# Same five leave types as the leave app's 0002_seed migration: code, name, is_paid, uses_annual_balance, order.
+LEAVE_TYPES = [
+    ("annual", "Ээлжийн амралт", True, True, 1),
+    ("sick", "Өвчний чөлөө", True, False, 2),
+    ("unpaid", "Цалингүй чөлөө", False, False, 3),
+    ("personal", "Цалинтай хувийн чөлөө", True, False, 4),
+    ("other", "Бусад", False, False, 5),
+]
+TSAGAAN_SAR = [(17, "Цагаан сар"), (18, "Цагаан сар"), (19, "Цагаан сар")]  # demo only, dates approximate
 
 # (login, role group, family name, given name, clan, register no, birth, gender, phone, email,
 #  start, position, department, type, contract, salary, address)
@@ -236,20 +277,39 @@ PEOPLE: list[dict[str, Any]] = [
     ),
 ]
 
-FAMILY = {
-    "Энхбаяр": [("Отгонбаяр", "Эхнэр", 1980), ("Тэмүжин", "Хүү", 2008), ("Анужин", "Охин", 2012)],
-    "Оюунчимэг": [("Батзориг", "Нөхөр", 1984), ("Ананд", "Хүү", 2014)],
-    "Болд": [("Дорждэрэм", "Эцэг", 1962), ("Цэцэг", "Эх", 1965)],
-    "Номин": [("Алтангэрэл", "Эцэг", 1966)],
+# Personal lists: the street-prefix code in each address (the old program's "СБД, ...") -> district of Ulaanbaatar.
+ADDRESS_DISTRICT = {
+    "СБД": "Сүхбаатар",
+    "БЗД": "Баянзүрх",
+    "БГД": "Баянгол",
+    "ХУД": "Хан-Уул",
+    "ЧД": "Чингэлтэй",
+    "СХД": "Сонгинохайрхан",
 }
-EDUCATION = {
-    "Энхбаяр": [("МУИС", "Магистр", "Бизнесийн удирдлага", 2005)],
-    "Оюунчимэг": [("СЭЗИС", "Бакалавр", "Хүний нөөцийн менежмент", 2008)],
-    "Сарантуяа": [("СЭЗИС", "Бакалавр", "Нягтлан бодох бүртгэл", 2004)],
-    "Болд": [("ШУТИС", "Бакалавр", "Програм хангамж", 2014)],
-    "Тэмүүлэн": [("МУИС", "Бакалавр", "Мэдээллийн технологи", 2021)],
-    "Номин": [("Санхүү эдийн засгийн дээд сургууль", "Бакалавр", "Санхүү", 2016)],
+# Emergency contact per employee (given name): name, relative, phone.
+EMERGENCY = {
+    "Энхбаяр": ("Отгонбаяр", "Эхнэр", "99001122"),
+    "Оюунчимэг": ("Батзориг", "Нөхөр", "88001133"),
+    "Сарантуяа": ("Ганбат", "Нөхөр", "95002244"),
+    "Болд": ("Цэцэг", "Эх", "99003355"),
+    "Тэмүүлэн": ("Мөнхбат", "Эцэг", "80004466"),
+    "Ариунаа": ("Нямдорж", "Эцэг", "99005577"),
+    "Ганзориг": ("Пүрэвсүрэн", "Эцэг", "86006688"),
+    "Номин": ("Алтангэрэл", "Эцэг", "99007799"),
+    "Мөнх-Эрдэнэ": ("Баасанжав", "Ах", "91008800"),
+    "Хулан": ("Энхтайван", "Эцэг", "85009911"),
 }
+FAMILY_RELATIONS = {"Эцэг": "dad", "Эх": "mother", "Эхнэр": "spouse", "Нөхөр": "spouse", "Ах": "other"}  # fm_type codes
+EDUCATION_TYPES = ["Бакалавр", "Магистр"]
+TALENT_KINDS = ["Хөгжим", "Спорт"]
+PRESENT_TYPES = ["Мөнгөн бэлэг", "Ном"]
+CONTACT_TYPE = "Гар утас"
+
+
+def _list_entry(model: Any, name: str, **extra: Any) -> Any:
+    """Return the list row with this name, creating it through macs_writes when missing."""
+    found = model.objects.filter(name=name).first()
+    return found or macs_writes.save_list_entry(model, {"name": name, **extra})
 
 
 class Command(BaseCommand):
@@ -258,7 +318,7 @@ class Command(BaseCommand):
     def handle(self, *args: Any, **options: Any) -> None:
         if not settings.DEBUG:
             raise CommandError("seed_demo нь зөвхөн DEBUG горимд ажиллана.")
-        if Employee.objects.exists():
+        if EmployeeExt.objects.exists():
             raise CommandError("Ажилтан аль хэдийн байна. seed_demo-г зөвхөн хоосон (demo) өгөгдлийн санд ажиллуулна.")
         with transaction.atomic():
             self._seed()
@@ -278,39 +338,70 @@ class Command(BaseCommand):
         # Superuser for the Django admin and every switch; same demo password as the role logins.
         User.objects.create_superuser("admin", password=DEMO_PASSWORD, first_name="Админ")
 
-        depts = {name: Department.objects.create(name=name) for name in DEPARTMENTS}
-        Department.objects.create(name=DEPARTMENT_INACTIVE, active=False)
-        positions = {name: Position.objects.create(name=name) for name in POSITIONS}
+        # List entries go through the production writer (macs_writes), never straight into the ORM.
+        marital = _list_entry(MaritalStatus, "Гэрлэсэн")
+        shift = _list_entry(Shift, "09:00-18:00")
+        mongolia = _list_entry(Country, "Монгол")
+        _list_entry(Country, "Япон")
+        _list_entry(Country, "Солонгос")
+        MeaningfulEntry.objects.update_or_create(key=MONGOLIA, defaults={"value": mongolia.pk})
+        reasons = {name: _list_entry(FiredReason, name) for name in FIRED_REASONS}
+        MeaningfulEntry.objects.update_or_create(key=DEATH, defaults={"value": reasons["Нас барсан"].pk})
+        ulaanbaatar = _list_entry(City, "Улаанбаатар")
+        districts = {name: _list_entry(District, name, city=ulaanbaatar) for name in ADDRESS_DISTRICT.values()}
+        darkhan = _list_entry(City, "Дархан")
+        darkhan_district = _list_entry(District, "Дархан-Уул", city=darkhan)
+        relations = {name: _list_entry(FamilyRelation, name, fm_type=code) for name, code in FAMILY_RELATIONS.items()}
+        edu_types = {name: _list_entry(EduType, name) for name in EDUCATION_TYPES}
+        talent_kinds = {name: _list_entry(TalentKind, name) for name in TALENT_KINDS}
+        present_types = {name: _list_entry(PresentType, name) for name in PRESENT_TYPES}
+        contact_type = _list_entry(ContactType, CONTACT_TYPE)
+
+        depts = {name: macs_writes.save_department(name) for name in DEPARTMENTS}
+        inactive = macs_writes.save_department(DEPARTMENT_INACTIVE)
+        inactive.ext.active = False
+        inactive.ext.save(update_fields=["active"])
+        positions = {name: macs_writes.save_position(name) for name in POSITIONS}
 
         people: dict[str, Employee] = {}
         for p in PEOPLE:
             start = p["start"] or today + timedelta(days=14)  # one upcoming hire
             emp = history.hire(
-                Employee(
-                    family_name=p["family"],
-                    given_name=p["given"],
-                    clan_name=p["clan"],
-                    register_no=p["reg"],
-                    birth_date=p["birth"],
-                    gender=p["gender"],
-                    work_phone=p["phone"],
-                    email=p["email"],
-                    address=p["address"],
-                    first_hire_date=start,
-                    marital_status="married",
-                    emergency_name="Гэр бүлийн гишүүн",
-                    emergency_phone="99000000",
-                    prior_service_years=2,
-                    work_schedule="Даваа–Баасан 09:00–18:00",
-                ),
+                {
+                    "family_name": p["family"],
+                    "given_name": p["given"],
+                    "clan_name": p["clan"],
+                    "register_no": p["reg"],
+                    "birth_date": p["birth"],
+                    "gender": "M" if p["gender"] == "male" else "F",
+                    "work_phone": p["phone"],
+                    "email": p["email"],
+                    "first_hire_date": start,
+                    "marital_status": marital,
+                    "prior_service_years": 2,
+                    "work_schedule": shift,
+                    "work_conditions": 1,
+                },
+                {},
                 start=start,
+                address={
+                    "city_id": ulaanbaatar.pk,
+                    "district_id": districts[ADDRESS_DISTRICT[p["address"].split(",", 1)[0]]].pk,
+                    "street": p["address"].split(", ", 1)[1],
+                },
+                contact={
+                    "contact_type_id": contact_type.pk,
+                    "name": EMERGENCY[p["given"]][0],
+                    "relative": EMERGENCY[p["given"]][1],
+                    "value": EMERGENCY[p["given"]][2],
+                },
                 job={
                     "position": positions[p["pos"]],
                     "department": depts[p["dept"]],
                     "employee_type": p["type"],
                     "contract_type": p["contract"],
                     "status": "active",
-                    "contract_no": f"ХГ-{start.year}/{len(people) + 1:03d}",
+                    "contract_no": f"ХГ{start.year % 100:02d}-{len(people) + 1:03d}",  # max 10 characters
                     "contract_start": start,
                     "contract_end": start + timedelta(days=365) if p["contract"] == "fixed_term" else None,
                 },
@@ -321,11 +412,11 @@ class Command(BaseCommand):
             records.update_salary_insurance(
                 emp,
                 {
-                    "bank": "Хаан банк" if len(people) % 2 else "Голомт банк",
+                    "bank": _list_entry(Bank, "Хаан банк" if len(people) % 2 else "Голомт банк"),
                     "account_no": f"50{emp.pk:02d}{p['birth']:%y%m%d}12",
                     "social_insurance_no": f"НД{p['birth']:%Y}{emp.pk:04d}",
                     "health_insurance_no": f"ЭМ{p['birth']:%Y}{emp.pk:04d}",
-                    "insured_category": "Хөдөлмөрийн гэрээгээр ажиллагч",
+                    "insured_category": _list_entry(InsuredCategory, "Хөдөлмөрийн гэрээгээр ажиллагч"),
                     "taxpayer_no": p["reg"],
                 },
                 system,
@@ -336,16 +427,13 @@ class Command(BaseCommand):
                 )
                 if p["role"]:
                     user.groups.add(Group.objects.get(name=p["role"]))
-                emp.user = user
-                emp.save(update_fields=["user"])
-            for name, relation, year in FAMILY.get(p["given"], []):
-                FamilyMember.objects.create(employee=emp, name=name, relation=relation, birth_year=year)
-            for school, degree, field, year in EDUCATION.get(p["given"], []):
-                Education.objects.create(employee=emp, school=school, degree=degree, field=field, graduation_year=year)
+                ext = ensure_ext(emp)
+                ext.user = user
+                ext.save(update_fields=["user"])
 
-        director = people["Энхбаяр"].user or system
-        hr = people["Оюунчимэг"].user or system
-        accountant = people["Сарантуяа"].user or system
+        director = ensure_ext(people["Энхбаяр"]).user or system
+        hr = ensure_ext(people["Оюунчимэг"]).user or system
+        accountant = ensure_ext(people["Сарантуяа"]).user or system
         boss = people["Энхбаяр"]
         for name in people:
             if name != "Энхбаяр":
@@ -409,16 +497,100 @@ class Command(BaseCommand):
         records.update_employee(people["Ганзориг"], {"private_phone": "95443322"}, hr)
         records.update_employee(people["Энхбаяр"], {"work_phone": "99112200"}, director)
 
+        # Old-style personal rows: written straight into the tables, the way the old program left them
+        # (no HR ext row, no personal_writes). Written through macs_writes; the talent has no ORM model, so raw SQL.
+        macs_writes.save_list_entry(
+            FamilyRow,
+            {
+                "employee": people["Болд"],
+                "relation": relations["Эцэг"],
+                "given_name": "Дорждэрэм",
+                "birth_date": date(1962, 1, 1),
+            },
+        )
+        macs_writes.save_list_entry(
+            EducRow,
+            {
+                "employee": people["Номин"],
+                "edu_type": edu_types["Бакалавр"],
+                "start_year": 2016,
+                "startdate": date(2016, 9, 1),
+            },
+        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO emp_talents (emp_ident, talent_ident, trained_year, description) VALUES (%s, %s, %s, %s)",
+                [people["Болд"].pk, talent_kinds["Хөгжим"].pk, 2015, "Гитар"],
+            )
+        macs_writes.save_list_entry(
+            PresentRow,
+            {
+                "employee": people["Тэмүүлэн"],
+                "childqty": 1,
+                "price": 50000,
+                "given_year": 2025,
+                "pdate": date(2025, 3, 8),
+                "present_type": present_types["Ном"],
+                "child_age": 3,
+                "given": 1,
+            },
+        )
+        # An address whose district belongs to another city (Darkhan), as the old program could leave it.
+        macs_writes.save_list_entry(
+            AddressRow,
+            {
+                "employee": people["Номин"],
+                "street": "Дархан хот, 3-р хороо",
+                "city": ulaanbaatar,
+                "district": darkhan_district,
+            },
+        )
+
         self._seed_leave(people, today, hr)
 
     def _seed_leave(self, people: dict[str, Employee], today: date, by: User) -> None:
-        """Holidays and a few leaves, all on weekdays relative to today and inside one leave year."""
+        """Leave types, holidays and leaves: production rows, plus a few old-style rows written without an ext row."""
+        types: dict[str, LeaveTypeRow] = {}
+        for code, name, paid, annual, order in LEAVE_TYPES:
+            ext = {"is_paid": paid, "uses_annual_balance": annual, "is_active": True, "order": order}
+            types[code] = leave_writes.save_leave_type(name, ext)
         leave_calendar.prefill_year(today.year)
         leave_calendar.prefill_year(today.year + 1)
-        # Tsagaan Sar (lunar new year): demo only, dates approximate.
-        for day, name in [(17, "Цагаан сар"), (18, "Цагаан сар"), (19, "Цагаан сар")]:
-            Holiday.objects.get_or_create(date=date(today.year, 2, day), defaults={"name": name})
-        types = {t.code: t for t in LeaveType.objects.all()}
+        holidays = leave_calendar.holiday_names(today.year)
+        holidays.update({date(today.year, 2, day): name for day, name in TSAGAAN_SAR})
+        leave_writes.set_holiday_dates(today.year, holidays)
+
+        # Old-style rows: no ext row, the way the old program wrote them (status NULL / adays NULL, rejected).
+        year_start, year_end = date(today.year, 1, 1), date(today.year, 12, 31)
+        leave_writes.write_old_style_grant(
+            people["Болд"], types["annual"], year_start, year_end, 15, "Хуучин системээс"
+        )
+        leave_writes.write_old_style_assign(
+            people["Болд"],
+            types["annual"],
+            today - timedelta(days=60),
+            today - timedelta(days=60),
+            status=None,
+            adays=None,
+            comment="Хуучин системд бүртгэсэн",
+        )
+        leave_writes.write_old_style_assign(
+            people["Номин"],
+            types["sick"],
+            today - timedelta(days=20),
+            today - timedelta(days=18),
+            status=LeaveAssign.REJECTED,
+            adays=3,
+            comment="Хуучин системд татгалзсан",
+        )
+
+        # Demo only: the auto annual grant is on, so every employee gets the law's grant for the current year.
+        leave_settings = LeaveSettings.get()
+        leave_settings.auto_annual_grant = True
+        leave_settings.save(update_fields=["auto_annual_grant"])
+        for person in people.values():
+            leave_ledger.ensure_grants(person, today)
+
         monday_back = today - timedelta(days=30)
         monday_back -= timedelta(days=monday_back.weekday())
         monday_next = today + timedelta(days=30)

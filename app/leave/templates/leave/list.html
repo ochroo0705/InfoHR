@@ -5,15 +5,17 @@
   <h1 class="mr-auto text-xl font-semibold">Чөлөө, амралт</h1>
   <a href="{% url 'leave:calendar' %}" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">Багийн хуанли</a>
   {% if perms.leave.manage_leave_settings %}<a href="{% url 'leave:holidays' %}" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">Баярын өдрүүд</a>{% endif %}
+  {% if perms.leave.manage_leave_settings %}<a href="{% url 'leave:settings' %}" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">Тохиргоо</a>{% endif %}
   {% if can_record %}<button hx-get="{% url 'leave:add' %}" hx-target="body" hx-swap="beforeend" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Чөлөө бүртгэх</button>{% endif %}
 </div>
+{% include "leave/_not_configured.html" %}
 {% for y in missing_holidays %}
   <p class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ y }} оны баярын өдөр бүртгээгүй байна — ажлын өдөр буруу тоологдоно. {% if perms.leave.manage_leave_settings %}<a class="underline" href="{% url 'leave:holidays' %}?year={{ y }}">Бүртгэх</a>{% endif %}</p>
 {% endfor %}
 <form hx-get="{% url 'leave:list' %}" hx-target="#rows" hx-trigger="change" class="mt-4 flex flex-wrap items-center gap-2 text-sm">
   <input type="search" name="q" value="{{ q }}" placeholder="Ажилтны нэр, кодоор хайх" hx-get="{% url 'leave:list' %}" hx-trigger="input changed delay:300ms, search" hx-target="#rows" hx-include="closest form" class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
   <select name="type" class="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="">Бүх төрөл</option>{% for t in types %}<option value="{{ t.pk }}" {% if filters.type == t.pk|stringformat:"s" %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-  <select name="status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="recorded" {% if filters.status == "recorded" %}selected{% endif %}>Бүртгэсэн</option><option value="cancelled" {% if filters.status == "cancelled" %}selected{% endif %}>Цуцалсан</option><option value="mistake" {% if filters.status == "mistake" %}selected{% endif %}>Буруу бүртгэсэн</option><option value="all" {% if filters.status == "all" %}selected{% endif %}>Бүгд</option></select>
+  <select name="status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="recorded" {% if filters.status == "recorded" %}selected{% endif %}>Бүртгэсэн</option><option value="cancelled" {% if filters.status == "cancelled" %}selected{% endif %}>Цуцалсан</option><option value="mistake" {% if filters.status == "mistake" %}selected{% endif %}>Буруу бүртгэсэн</option><option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>Татгалзсан</option><option value="all" {% if filters.status == "all" %}selected{% endif %}>Бүгд</option></select>
   <div class="flex items-center gap-1 rounded-lg border border-slate-300 bg-white pl-3 focus-within:border-violet-500">
     <span class="text-slate-500">Хугацаа</span>
     <input type="date" name="from" value="{{ filters.from }}" placeholder="Эхлэх" aria-label="Эхлэх огноо" class="w-36 rounded-lg border-0 px-2 py-2 text-sm focus:ring-0 focus:outline-none">

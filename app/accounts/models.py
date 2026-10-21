@@ -1,6 +1,11 @@
+from typing import TYPE_CHECKING
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+if TYPE_CHECKING:
+    from macs.models import Employee
 
 
 class User(AbstractUser):
@@ -23,3 +28,8 @@ class User(AbstractUser):
     def get_full_name(self) -> str:
         """Mongolian order, like Employee.full_name: family (patronymic) name first."""
         return f"{self.last_name} {self.first_name}".strip()
+
+    @property
+    def employee(self) -> "Employee | None":
+        ext = getattr(self, "employee_ext", None)
+        return ext.employee if ext is not None else None

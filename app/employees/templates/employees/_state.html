@@ -1,4 +1,4 @@
-{% if state == "upcoming" %}<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Ажилд орох: {{ job.period.lower|date:"Y-m-d" }}</span>
-{% elif state == "active" %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">Ажиллаж байгаа</span>
-{% elif state == "long_leave" %}<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">Урт чөлөөтэй{% if until %} · {{ until|date:"Y-m-d" }} хүртэл{% endif %}</span>
+{% if state == "upcoming" %}<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-300">Ажилд орох: {{ job.period.lower|date:"Y-m-d" }}</span>
+{% elif state == "active" %}{% if not hide_active %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">Ажиллаж байгаа</span>{% endif %}
+{% elif state == "long_leave" %}<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-900 ring-1 ring-inset ring-sky-300">Урт чөлөөтэй{% if until %} · {{ until|date:"Y-m-d" }} хүртэл{% endif %}</span>
 {% else %}<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Гарсан</span>{% endif %}

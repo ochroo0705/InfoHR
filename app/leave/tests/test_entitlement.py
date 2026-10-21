@@ -1,5 +1,4 @@
 from datetime import date
-from decimal import Decimal
 
 import pytest
 from accounts.models import User
@@ -31,7 +30,8 @@ def test_not_yet_hired_has_no_years(actor: User) -> None:
 def test_base_only_under_five_years(actor: User) -> None:
     e = make_employee(actor, hired=date(2024, 3, 1))
     ent = entitlement.entitled(e, date(2026, 3, 1))
-    assert ent.days == Decimal(15)
+    assert ent.days == 15
+    assert type(ent.days) is int
     assert ent.breakdown == "15 (2 жил 0 сар ажилласан)"
 
 
@@ -39,7 +39,7 @@ def test_base_only_under_five_years(actor: User) -> None:
 def test_brackets_with_prior_service(actor: User, prior: int, expected: int) -> None:
     # hired 2024-03-01, year starting 2026-03-01 adds 24 months at this company
     e = make_employee(actor, hired=date(2024, 3, 1), prior_months=prior)
-    assert entitlement.entitled(e, date(2026, 3, 1)).days == Decimal(expected)
+    assert entitlement.entitled(e, date(2026, 3, 1)).days == expected
 
 
 def test_breakdown_with_extra(actor: User) -> None:
@@ -75,13 +75,13 @@ def test_childcare_leave_is_not_service(actor: User) -> None:
 def test_rule_selected_by_effective_date(actor: User) -> None:
     AnnualLeaveRule.objects.create(
         effective_from=date(2027, 1, 1),
-        base_days=Decimal(16),
-        base_days_minor_or_disabled=Decimal(20),
+        base_days=16,
+        base_days_minor_or_disabled=20,
         brackets=[{"from_month": 61, "extra_days": 3}],
     )
     e = make_employee(actor, hired=date(2024, 3, 1))
-    assert entitlement.entitled(e, date(2026, 3, 1)).days == Decimal(15)
-    assert entitlement.entitled(e, date(2027, 3, 1)).days == Decimal(16)
+    assert entitlement.entitled(e, date(2026, 3, 1)).days == 15
+    assert entitlement.entitled(e, date(2027, 3, 1)).days == 16
 
 
 def test_eligible_from(actor: User) -> None:

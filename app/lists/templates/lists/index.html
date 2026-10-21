@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Жагсаалтууд{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold">Жагсаалтууд</h1>
+<p class="mt-2 text-sm text-slate-500">Ажилтны бүртгэлд ашиглагдах нийтлэг жагсаалтууд. Бичлэг устгахаас өмнө ашиглагдаж байгаа эсэхийг шалгана.</p>
+
+<div class="mt-4 grid gap-3 md:grid-cols-3">
+  {% for item in items %}
+  <a href="{% url 'lists:list' item.spec.slug %}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:border-violet-300 hover:bg-violet-50">
+    <div class="font-medium">{{ item.spec.label }}</div>
+    <div class="mt-1 text-sm text-slate-500">{{ item.count }} бичлэг</div>
+  </a>
+  {% endfor %}
+</div>
+
+<h2 class="mt-8 text-lg font-semibold">Утгын холбоо</h2>
+<p class="mt-1 text-sm text-slate-500">Программ зарим утгыг жагсаалтын тодорхой бичлэгээр тодорхойлдог.</p>
+<a href="{% url 'lists:meaning' %}" class="mt-3 block rounded-xl border border-slate-200 bg-white p-4 hover:border-violet-300 hover:bg-violet-50">
+  <div class="font-medium">Утгын холбоо</div>
+  <div class="mt-1 text-sm text-slate-500">{{ meanings|length }} холбоо</div>
+</a>
+{% endblock %}

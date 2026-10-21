@@ -3,9 +3,11 @@ from accounts.models import User
 from django.test import Client
 from django.urls import reverse
 
-from employees.models import ActivityEntry, Employee, SalaryInsurance, SetupItem
+from employees.models import ActivityEntry, Employee, EmployeeExt, SetupItem
 from employees.services import setup
 from employees.tests.test_views import login_as
+
+from .conftest import set_account
 
 
 def url(e: Employee, key: str) -> str:
@@ -13,7 +15,7 @@ def url(e: Employee, key: str) -> str:
 
 
 def test_hire_sets_setup_required(hired: Employee) -> None:
-    assert hired.setup_required is True
+    assert hired.ext.setup_required is True
 
 
 def test_toggle_creates_deletes_and_logs(hired: Employee, actor: User) -> None:
@@ -29,12 +31,10 @@ def test_toggle_creates_deletes_and_logs(hired: Employee, actor: User) -> None:
 def test_auto_items_reflect_data_and_cannot_toggle(hired: Employee, actor: User) -> None:
     admin = User.objects.create_superuser("root", password="x-long-pass-123")  # noqa: S106
     done = {i.key: i.done for i in setup.status(hired, admin)}
-    assert not done["login"] and not done["bank"]
-    hired.user = actor
-    hired.save()
-    SalaryInsurance.objects.create(employee=hired, account_no="123")
+    assert "login" not in done and not done["bank"]  # login is no longer a checklist item
+    set_account(hired, "123")  # the account number alone ticks the bank item
     done = {i.key: i.done for i in setup.status(hired, admin)}
-    assert done["login"] and done["bank"]
+    assert done["bank"]
     for key in ("login", "bank", "nope"):
         with pytest.raises(ValueError):
             setup.toggle(hired, key, actor)
@@ -62,15 +62,13 @@ def test_accountant_forbidden(client: Client, hired: Employee) -> None:
 def test_hr_toggle_and_complete(client: Client, hired: Employee, actor: User) -> None:
     login_as(client, "HR")
     page = client.get(reverse("employees:detail", args=[hired.pk])).content.decode()
-    assert "Бүрдүүлэлт" in page and "/4" in page
+    assert "Бүрдүүлэлт" in page and "/3" in page
     response = client.post(url(hired, "contract"))
-    assert response.status_code == 200 and "1/4" in response.content.decode()
+    assert response.status_code == 200 and "1/3" in response.content.decode()
     for key in ("id_copy", "equipment"):
         setup.toggle(hired, key, actor)
-    hired.user = actor
-    hired.save()
     assert setup.is_complete(hired) is False
-    SalaryInsurance.objects.create(employee=hired, account_no="1")
+    set_account(hired, "1")
     assert setup.is_complete(hired)
     assert "Бүрдүүлэлт дууссан" in client.get(reverse("employees:detail", args=[hired.pk])).content.decode()
 
@@ -78,8 +76,6 @@ def test_hr_toggle_and_complete(client: Client, hired: Employee, actor: User) ->
 def _done_except_bank(hired: Employee, actor: User) -> None:
     for key in ("contract", "id_copy", "equipment"):
         setup.toggle(hired, key, actor)
-    hired.user = actor
-    hired.save()
 
 
 def test_complete_is_per_viewer(client: Client, hired: Employee, actor: User) -> None:
@@ -94,6 +90,6 @@ def test_complete_is_per_viewer(client: Client, hired: Employee, actor: User) ->
 
 
 def test_toggle_on_non_required_employee_forbidden(client: Client, hired: Employee) -> None:
-    Employee.objects.filter(pk=hired.pk).update(setup_required=False)
+    EmployeeExt.objects.filter(employee=hired).update(setup_required=False)
     login_as(client, "HR")
     assert client.post(url(hired, "contract")).status_code == 403
