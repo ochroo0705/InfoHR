@@ -28,3 +28,6 @@ tools/
 
 # Markdown docs are kept local only, out of git (user decision 2026-10-14)
 *.md
+
+# Old program exe and its extracted forms (2026-10-28): never commit
+/macs/

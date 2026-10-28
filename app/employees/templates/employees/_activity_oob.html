@@ -1,0 +1,3 @@
+{# Header bits that follow the activity log, swapped out of band after a write (note, inline list row). #}
+<p id="activity-latest" hx-swap-oob="true" class="mt-1 text-xs text-slate-500">{% include "employees/_activity_latest.html" %}</p>
+<span id="activity-count" hx-swap-oob="true">{{ activity_count }}</span>

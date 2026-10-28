@@ -263,11 +263,11 @@ def test_existing_auto_grant_not_rewritten_by_new_rule(employee: Employee, annua
 
 
 def test_leaver_gets_no_grant_for_year_after_leaving(actor: User, annual: LeaveTypeRow) -> None:
-    from employees.services import events
+    from employees.tests.helpers import record_signed
     from macs.models import FiredReason
 
     e = make_employee(actor, hired=date(2024, 3, 1), register_no="УБ44112233")
-    events.record(
+    record_signed(
         e,
         type="termination",
         effective=date(2025, 6, 1),

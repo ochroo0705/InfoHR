@@ -1,0 +1,34 @@
+{% comment %}
+The personal tab's section menu, shown in the page rail under «Хувийн» while that tab is open (detail.html showTab).
+Context: section_counts.
+{% endcomment %}
+<nav id="personal-nav" class="mt-1 mb-1 ml-3 hidden border-l border-slate-200" aria-label="Хувийн мэдээллийн хэсгүүд">
+  <ol class="space-y-0.5 text-sm">
+    {% include "employees/_personal_menu_group.html" with title="Үндсэн мэдээлэл" key="basic" %}
+    {% include "employees/_personal_menu_item.html" with sec="identity" title="Хувийн мэдээлэл" %}
+    {% include "employees/_personal_menu_item.html" with sec="contact" title="Холбоо барих, хаяг" count=section_counts.address %}
+    {% include "employees/_personal_menu_item.html" with sec="family" title="Гэр бүл" count=section_counts.family %}
+    {% include "employees/_personal_menu_item.html" with sec="relative" title="Хамаатан садан" count=section_counts.relative %}
+    {% include "employees/_personal_menu_group.html" with title="Боловсрол, туршлага" key="edu" %}
+    {% include "employees/_personal_menu_item.html" with sec="education" title="Боловсрол" count=section_counts.education %}
+    {% include "employees/_personal_menu_item.html" with sec="before_work" title="Ажлын туршлага" count=section_counts.before_work %}
+    {% include "employees/_personal_menu_item.html" with sec="certificate" title="Мэргэшил, сертификат" count=section_counts.certificate %}
+    {% include "employees/_personal_menu_item.html" with sec="training" title="Сургалт" count=section_counts.training %}
+    {% include "employees/_personal_menu_item.html" with sec="language" title="Гадаад хэл" count=section_counts.language %}
+    {% include "employees/_personal_menu_item.html" with sec="talent" title="Авьяас" count=section_counts.talent %}
+    {% include "employees/_personal_menu_item.html" with sec="skill" title="Ур чадварын даалгавар" count=section_counts.skill %}
+    {% include "employees/_personal_menu_group.html" with title="Шагнал, сахилга" key="award" %}
+    {% include "employees/_personal_menu_item.html" with sec="award" title="Шагнал урамшил" count=section_counts.award %}
+    {% include "employees/_personal_menu_item.html" with sec="discipline" title="Сахилгын шийтгэл" count=section_counts.discipline %}
+    {% include "employees/_personal_menu_item.html" with sec="complaint" title="Үйлчлүүлэгчийн гомдол" count=section_counts.complaint %}
+    {% include "employees/_personal_menu_item.html" with sec="gift" title="Олгосон бэлэг" count=section_counts.gift %}
+    {% include "employees/_personal_menu_item.html" with sec="material_help" title="Буцалтгүй тусламж" count=section_counts.material_help %}
+    {% include "employees/_personal_menu_group.html" with title="Эрүүл мэнд, цэрэг" key="health" %}
+    {% include "employees/_personal_menu_item.html" with sec="body" title="Эрүүл мэндийн үзлэг" count=section_counts.body %}
+    {% include "employees/_personal_menu_item.html" with sec="driver" title="Жолоо" count=section_counts.driver %}
+    {% include "employees/_personal_menu_item.html" with sec="military" title="Цэргийн алба" count=section_counts.military %}
+    {% include "employees/_personal_menu_item.html" with sec="army_rank" title="Цэргийн цол" count=section_counts.army_rank %}
+    {% include "employees/_personal_menu_group.html" with title="Бусад" key="other" %}
+    {% include "employees/_personal_menu_item.html" with sec="other" title="Бусад мэдээлэл" count=section_counts.other %}
+  </ol>
+</nav>

@@ -1,5 +1,6 @@
 """The "needs attention" strip above the employee list."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -11,7 +12,16 @@ from macs.models import ContactRow
 
 from employees import access
 from employees.listing import Row
-from employees.models import AttentionDismissal, Employee, Event, EventType, HrOrder, OrderState, ext_of
+from employees.models import (
+    AttentionDismissal,
+    Employee,
+    Event,
+    EventQuerySet,
+    EventType,
+    HrOrder,
+    OrderState,
+    ext_of,
+)
 from employees.services import events, setup
 
 PROBATION_DAYS = 14
@@ -20,6 +30,10 @@ SCHEDULED_DAYS = 14
 
 
 OVERDUE, DUE, MISSING = 0, 1, 2  # urgency: shown in this order, dated ones by date
+
+
+# Where a missing-data item is fixed: the salary tab holds the bank, the personal tab's first group the contacts.
+ANCHORS = {"bank": "#salary", "emergency": "#personal-basic"}
 
 
 @dataclass
@@ -32,6 +46,11 @@ class Attention:
     url: str = ""  # where a system item links to; employee is None for those
 
     @property
+    def anchor(self) -> str:
+        """The employee-page tab (#hash) where this item is fixed; "" opens the default tab."""
+        return ANCHORS.get(self.kind, "")
+
+    @property
     def key(self) -> str:
         """Identity for "Мэдлээ": the text carries the date and the overdue wording."""
         return f"{self.kind}:{self.employee.pk if self.employee else 0}:{self.text}"[:300]
@@ -41,17 +60,61 @@ def _fmt(d: date) -> str:
     return d.strftime("%Y-%m-%d")
 
 
+def sees_hr_dates(user: User) -> bool:
+    """Whether this user sees the dated items (contract, probation, return, scheduled, waiting).
+
+    Needs the manage, salary or leave right; the leave right counts only once annual leave is configured.
+    """
+    from leave import access as leave_access  # local import: leave depends on employees, not the reverse
+    from leave.services import ledger as leave_ledger
+
+    can_leave = leave_access.can_view(user) and leave_ledger.annual_configured()
+    return access.can_manage(user) or access.can_view_salary(user) or can_leave
+
+
+def probation_end(row: Row) -> date | None:
+    ext = ext_of(row.employee)
+    return ext.probation_end if ext is not None else None
+
+
+def contract_end(row: Row) -> date | None:
+    return row.job.contract_end if row.job else None
+
+
+def planned_return(row: Row, today: date) -> date | None:
+    """Planned return of a row on long leave today; None for any other row."""
+    if row.state != "long_leave":
+        return None
+    return events.leave_until(row.employee, today)
+
+
+def dated_events(
+    employee_ids: Iterable[int], can_salary: bool, *, start: date | None = None, waiting: bool = False
+) -> EventQuerySet:
+    """Not cancelled events of these employees. Applied ones on or after `start` (None: no lower bound);
+    `waiting=True` gives the changes still waiting for their signed order, and ignores `start`.
+    Salary changes only with the salary right."""
+    qs = Event.objects.filter(employee_id__in=list(employee_ids), cancelled_at__isnull=True)
+    if waiting:
+        qs = qs.filter(applied_at__isnull=True)
+    else:
+        qs = qs.applied()
+        if start is not None:
+            qs = qs.filter(effective__gte=start)
+    if not can_salary:
+        qs = qs.exclude(type=EventType.SALARY_CHANGE)
+    return qs
+
+
 def _scheduled(rows: list[Row], today: date, can_salary: bool) -> list[Attention]:
     """Future-dated, not cancelled events: any termination, others within SCHEDULED_DAYS."""
     if not rows:
         return []
     by_pk = {r.employee.pk: r.employee for r in rows}
     horizon = today + timedelta(days=SCHEDULED_DAYS)
-    upcoming = Event.objects.filter(employee_id__in=list(by_pk), cancelled_at__isnull=True, effective__gt=today).filter(
+    upcoming = dated_events(list(by_pk), can_salary, start=today + timedelta(days=1)).filter(
         Q(type=EventType.TERMINATION) | Q(effective__lte=horizon)
     )
-    if not can_salary:
-        upcoming = upcoming.exclude(type=EventType.SALARY_CHANGE)
     out: list[Attention] = []
     for ev in upcoming:
         e = by_pk[ev.employee_id]
@@ -63,6 +126,22 @@ def _scheduled(rows: list[Row], today: date, can_salary: bool) -> list[Attention
                     e, f"Төлөвлөсөн: {ev.get_type_display()} {_fmt(ev.effective)}", "scheduled", DUE, ev.effective
                 )
             )
+    return out
+
+
+def _awaiting(rows: list[Row], today: date, can_salary: bool) -> list[Attention]:
+    """Changes waiting for their signed order: one line each, overdue once their date has come."""
+    if not rows:
+        return []
+    by_pk = {r.employee.pk: r.employee for r in rows}
+    waiting = dated_events(list(by_pk), can_salary, waiting=True)
+    out: list[Attention] = []
+    for ev in waiting:
+        due = ev.effective <= today
+        text = f"{ev.get_type_display()} {_fmt(ev.effective)} — гарын үсэг хүлээж байна"
+        if due:
+            text += ", хугацаа нь болсон"
+        out.append(Attention(by_pk[ev.employee_id], text, "awaiting", OVERDUE if due else DUE, ev.effective))
     return out
 
 
@@ -111,8 +190,10 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
     from leave.services.fmt import fmt_days
 
     can_leave = leave_access.can_view(user) and leave_ledger.annual_configured()
-    if not (can_manage or can_salary or can_leave):
-        return system_items
+    # Waiting changes use every visible employee, left ones too: a waiting rehire belongs to a left employee.
+    awaiting = _awaiting(rows, today, can_salary)
+    if not sees_hr_dates(user):
+        return _sorted(awaiting + system_items)
     rows = [r for r in rows if r.state != "left"]
     # Emergency contacts are production rows (contacting); an employee with none is listed.
     with_contact = set(
@@ -141,7 +222,7 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
     for r in rows:
         e = r.employee
         ext = ext_of(e)
-        pe = ext.probation_end if ext is not None else None
+        pe = probation_end(r)
         emptype = r.job.emptype if r.job else None
         if can_manage and emptype == 9 and pe is not None and pe < today:
             out.append(
@@ -155,7 +236,7 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
             )
         if pe is not None and today <= pe <= today + timedelta(days=PROBATION_DAYS):
             out.append(Attention(e, f"Туршилтын хугацаа {_fmt(pe)}-нд дуусна", "probation", DUE, pe))
-        ce = r.job.contract_end if r.job else None
+        ce = contract_end(r)
         if ce is not None:
             if today <= ce <= today + timedelta(days=CONTRACT_DAYS):
                 out.append(Attention(e, f"Гэрээ {_fmt(ce)}-нд дуусна", "contract", DUE, ce))
@@ -171,7 +252,7 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
                 )
             elif ce < today and r.state == "active":
                 out.append(Attention(e, f"Гэрээ {_fmt(ce)}-нд дууссан", "contract", OVERDUE, ce))
-        back = events.leave_until(e, today) if r.state == "long_leave" else None
+        back = planned_return(r, today)
         if back is not None and back < today:
             out.append(Attention(e, f"Чөлөөнөөс буцах огноо өнгөрсөн: {_fmt(back)}", "leave", OVERDUE, back))
         elif back is not None and back <= today + timedelta(days=SCHEDULED_DAYS):
@@ -195,8 +276,13 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
         if can_salary and e.pk not in with_account:
             out.append(Attention(e, "Банкны мэдээлэл бүртгээгүй", "bank"))
     out.extend(_scheduled(rows, today, can_salary))
+    out.extend(awaiting)
     out.extend(system_items)
-    # Most urgent first: overdue, then due soonest, then missing data; ties by name.
+    return _sorted(out)
+
+
+def _sorted(out: list[Attention]) -> list[Attention]:
+    """Most urgent first: overdue, then due soonest, then missing data; ties by name."""
     out.sort(
         key=lambda a: (
             a.urgency,
@@ -212,6 +298,8 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
 GROUP_LABELS: dict[tuple[str, int], str] = {
     ("termination", DUE): "Ажлаас гарах",
     ("scheduled", DUE): "Төлөвлөсөн өөрчлөлт",
+    ("awaiting", DUE): "Гарын үсэг хүлээж буй өөрчлөлт",
+    ("awaiting", OVERDUE): "Гарын үсэг хүлээж буй өөрчлөлт — хугацаа нь болсон",
     ("probation", DUE): "Туршилтын хугацаа дуусах",
     ("contract", DUE): "Гэрээ дуусах",
     ("contract", OVERDUE): "Гэрээ дууссан",

@@ -1,31 +1,36 @@
 {% extends "base.html" %}{% load hr %}
 {% block title %}{{ employee.full_name }}{% endblock %}
+{% block main_width %}max-w-none px-6{% endblock %}
 {% block content %}
-<a href="{% url 'employees:list' %}" class="text-sm text-slate-500 hover:text-violet-700">← Ажилтнууд</a>
+<a href="{% url 'employees:list' %}" class="text-sm text-slate-500 hover:text-violet-700 lg:hidden">← Ажилтнууд</a>
 {% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data" hx-post="{% url 'employees:save' employee.pk %}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab">{% if form %}<input type="hidden" name="loaded" value="{{ form|loaded_snapshot }}">{% endif %}{% if si_form %}<input type="hidden" name="si-loaded" value="{{ si_form|loaded_snapshot }}">{% endif %}</form>
 {% if form.non_field_errors or si_form.non_field_errors %}<p class="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }} {{ si_form.non_field_errors|join:" " }}</p>{% endif %}{% endif %}
 {% if one_time_login %}{% include "employees/_one_time_login.html" %}{% endif %}
-<div id="header" class="mt-2">{% include "employees/_header.html" %}</div>
+<div class="mt-2 lg:flex lg:items-start lg:gap-8">
+{% include "employees/_rail.html" %}
+<div class="min-w-0 flex-1">
+<div id="header">{% include "employees/_header.html" %}</div>
 <div class="mt-6 rounded-xl border border-slate-200 bg-white">
-  <nav class="flex gap-6 border-b border-slate-200 px-6">
+  <nav class="flex gap-6 border-b lg:hidden border-slate-200 px-6">
     <a href="#work" class="tab" onclick="showTab('work')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7.5 6V4.5A1.5 1.5 0 0 1 9 3h2a1.5 1.5 0 0 1 1.5 1.5V6M3 10.5h14"/></svg>Ажил</a>
-    {% if can_view_personal %}<a href="#personal" class="tab" onclick="showTab('personal')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>Хувийн</a>{% endif %}
     {% if can_view_salary %}<a href="#salary" class="tab" onclick="showTab('salary')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8v4M14.5 8v4"/></svg>Цалин, даатгал</a>{% endif %}
+    {% if can_view_personal %}<a href="#personal" class="tab" onclick="showTab('personal')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>Хувийн</a>{% endif %}
   </nav>
   <section id="tab-work" class="p-6">{% include "employees/_tab_work.html" %}</section>
   {% if can_view_personal %}<section id="tab-personal" class="p-6 hidden">{% include "employees/_tab_personal.html" %}</section>{% endif %}
   {% if can_view_salary %}<section id="tab-salary" class="p-6 hidden">{% include "employees/_tab_salary.html" %}</section>{% endif %}
 </div>
-{% if leave_visible %}{% include "leave/_employee_section.html" %}{% endif %}
+</div>
+</div>
 <div id="activity-backdrop" class="fixed inset-0 top-14 z-30 hidden bg-black/30 lg:hidden" onclick="closeDrawer()"></div>
-<aside id="activity-drawer" class="fixed top-14 bottom-0 right-0 z-30 flex w-full translate-x-full flex-col overflow-y-auto border-l border-slate-200 bg-white px-6 pb-6 transition-transform duration-200 lg:w-(--drawer-w)" aria-label="Үйл ажиллагааны бүртгэл" aria-hidden="true">
+<aside id="activity-drawer" class="fixed top-14 bottom-0 right-0 z-30 flex w-full translate-x-full flex-col overflow-y-auto overscroll-contain border-l border-slate-200 bg-white px-6 pb-6 transition-transform duration-200 lg:w-(--drawer-w)" aria-label="Үйл ажиллагааны бүртгэл" aria-hidden="true" inert>
   <div class="sticky top-0 z-20 -mx-6 flex h-[72px] shrink-0 items-center gap-2 bg-white px-6{% if not can_manage %} mb-4 border-b border-slate-100{% endif %}">
     <h2 class="mr-auto font-medium">Үйл ажиллагааны бүртгэл</h2>
-    <button type="button" onclick="closeDrawer()" aria-label="Хаах" class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <button type="button" onclick="closeDrawer()" aria-label="Хаах" data-drawer-close class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div id="activity">{% include "employees/_activity.html" %}</div>
 </aside>
-<style>:root{--drawer-w:420px}#page{transition:padding-right .2s}@media (min-width:1024px){body.drawer-open #page{padding-right:var(--drawer-w)}}</style>
+<style>:root{--drawer-w:420px}@media (min-width:1536px){:root{--drawer-w:520px}}@media (min-width:1920px){:root{--drawer-w:600px}}#page{transition:padding-right .2s}@media (min-width:1024px){body.drawer-open #page{padding-right:var(--drawer-w)}}</style>
 {% if form or si_form %}<div id="save-bar" class="{% if form.is_bound or si_form.is_bound %}flex{% else %}hidden{% endif %} sticky bottom-0 z-40 mt-6 items-center justify-end gap-2 rounded-xl border-2 border-violet-500 bg-violet-50 p-3 shadow-[0_-8px_24px_rgba(15,23,42,0.18)]">
   <span class="mr-auto flex items-center gap-2 text-sm font-medium text-violet-900"><span class="h-2 w-2 rounded-full bg-violet-600"></span>Хадгалаагүй өөрчлөлт байна</span>
   <button type="button" id="save-cancel" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50">Болих</button>
@@ -38,20 +43,31 @@ function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localSto
 function isOpen(){return !d.classList.contains('translate-x-full')}
 // Wide screens: an in-page panel that pushes the content left and stays open across pages.
 // Narrow screens: the same panel covers the page, with a backdrop.
-function render(open){d.classList.toggle('translate-x-full',!open);d.setAttribute('aria-hidden',open?'false':'true');
+// Closed, the panel is inert: off screen, so its controls must not take Tab focus.
+function render(open){d.classList.toggle('translate-x-full',!open);d.setAttribute('aria-hidden',open?'false':'true');d.inert=!open;
 document.body.classList.toggle('drawer-open',open);b.classList.toggle('hidden',!open||wide());}
-window.openDrawer=function(){if(wide())store('hr.activityOpen','1');render(true)};
-window.closeDrawer=function(){store('hr.activityOpen','0');render(false)};
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen()&&!document.querySelector('#modal > *'))closeDrawer()});
+// Opening moves focus into the panel; closing hands it back to the button that opened it.
+var opener=null;
+window.openDrawer=function(){if(wide())store('hr.activityOpen','1');opener=document.activeElement;render(true);d.querySelector('[data-drawer-close]').focus()};
+window.closeDrawer=function(){var back=d.contains(document.activeElement);store('hr.activityOpen','0');render(false);if(back){(opener&&document.contains(opener)?opener:document.querySelector('[onclick="openDrawer()"]')).focus()}opener=null};
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!e.defaultPrevented&&isOpen()&&!document.querySelector('#modal > *, .fixed.inset-0.z-50'))closeDrawer()});
 window.addEventListener('resize',function(){render(isOpen())});
 if(wide()&&store('hr.activityOpen')==='1')render(true);
 })();
+// Rail name (_rail.html): shown once the page header has scrolled under the top bar.
+(function(){var who=document.getElementById('rail-who'),head=document.getElementById('header');
+if(!who||!head||!window.IntersectionObserver)return;
+new IntersectionObserver(function(es){who.classList.toggle('hidden',es[0].isIntersecting)},{rootMargin:'-80px 0px 0px 0px'}).observe(head);})();
 function showTab(name){document.querySelectorAll('[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
-document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('tab-on', a.hash==='#'+name));}
+document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('tab-on', a.hash==='#'+name));
+document.querySelectorAll('.rtab').forEach(a=>{var on=a.hash==='#'+name;['bg-violet-50','text-violet-700','font-semibold'].forEach(c=>a.classList.toggle(c,on));});
+var pm=document.getElementById('personal-nav');if(pm)pm.classList.toggle('hidden',name!=='personal');}
 // Tab links swap the #hash in place, so switching tabs doesn't add Back-button steps.
 document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');
 if(!a||!document.getElementById('tab-'+a.hash.slice(1)))return;e.preventDefault();showTab(a.hash.slice(1));history.replaceState(null,'',a.hash);});
-if(location.hash&&document.getElementById('tab-'+location.hash.slice(1))){showTab(location.hash.slice(1))}else{showTab('{{ tab|default:"work"|escapejs }}')}
+// #personal-<group> (a personal-tab group page, sections.js) opens the personal tab.
+var hashTab=location.hash.slice(1).split('-')[0];
+if(hashTab&&document.getElementById('tab-'+hashTab)){showTab(hashTab)}else{showTab('{{ tab|default:"work"|escapejs }}')}
 {% if form or si_form %}// Show a chosen photo before it is saved. Big downscales in one step look grainy
 // (browsers sample too few pixels), so halve the image step by step to the circle size.
 // "×" on the photo: marks it for removal on Save (dimmed + note); untick to undo.
@@ -69,7 +85,8 @@ src=c;sx=sy=0;size=next;if(next<=target)break;}
 show(src.toDataURL('image/jpeg',0.92));}).catch(function(){show(window.URL.createObjectURL(file));});};
 (function(){var f=document.getElementById('emp-form');
 var bar=document.getElementById('save-bar'),dirty={% if form.is_bound or si_form.is_bound %}true{% else %}false{% endif %};
-function mark(e){if(e.target.form===f){dirty=true;bar.classList.remove('hidden');bar.classList.add('flex');}}
+function mark(e){if(e.target.form===f){dirty=true;bar.classList.remove('hidden');bar.classList.add('flex');
+var dd=e.target.closest('dd');if(dd)dd.classList.add('f-changed');}}// violet edge on a changed soft box (UI_RULES §2e)
 document.addEventListener('input',mark);document.addEventListener('change',mark);
 f.addEventListener('submit',function(){dirty=false;document.getElementById('emp-tab').value=location.hash.slice(1);});
 document.getElementById('save-cancel').addEventListener('click',function(){dirty=false;var url='{% url 'employees:detail' employee.pk %}';

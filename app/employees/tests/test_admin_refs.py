@@ -112,3 +112,12 @@ def test_usage_counts_position_in_history_only(hired: Any) -> None:
     with pytest.raises(ValueError):
         macs_writes.delete_position(position)
     assert Position.objects.filter(pk=position.pk).exists()
+
+
+@pytest.mark.django_db
+def test_employee_admin_page_hides_old_login_password(admin_client: Client, hired: Any) -> None:
+    Employee.objects.filter(pk=hired.pk).update(loginpass="Qx7-secret")
+    page = admin_client.get(f"/admin/macs/employee/{hired.pk}/change/").content.decode()
+    assert "Qx7-secret" not in page
+    assert "Хуучин программын нэвтрэх нууц үг" not in page
+    assert "Төрсөн он" in page and "Birth year" not in page  # columns carry Mongolian labels

@@ -1,14 +1,14 @@
-{# Rows of the order register; each row opens the employee page. #}
+{# Rows of the order register; an Info HR order opens its detail pop-up, an old-program row the employee page. #}
 <table class="w-full text-sm">
   <thead class="text-left text-slate-500"><tr><th class="py-2 whitespace-nowrap">Дугаар</th><th class="whitespace-nowrap">Огноо</th><th>Ажилтан</th><th>Хэлтэс</th><th>Тушаалын утга</th><th class="whitespace-nowrap">Төлөв</th></tr></thead>
   <tbody>{% for r in rows %}
-    <tr class="cursor-pointer border-t border-slate-100 hover:bg-violet-50{% if r.state == 'cancelled' %} text-slate-400 line-through{% endif %}" onclick="location.href='{% url 'employees:detail' r.employee_id %}'">
+    <tr class="cursor-pointer border-t border-slate-100 hover:bg-violet-50{% if r.state == 'cancelled' %} text-slate-400 line-through{% endif %}" {% if r.order_id %}hx-get="{% url 'employees:order_detail' r.employee_id r.order_id %}" hx-target="body" hx-swap="beforeend"{% else %}onclick="location.href='{% url 'employees:detail' r.employee_id %}'"{% endif %}>
       <td class="py-2 whitespace-nowrap">{% if r.number %}№ {{ r.number }}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}</td>
       <td class="whitespace-nowrap">{{ r.date|date:"Y-m-d"|default:"—" }}</td>
       <td>{{ r.employee_name }}</td>
       <td>{{ r.department }}</td>
       <td>{{ r.summary }}</td>
-      <td>{% if r.state == 'legacy' %}{% include "employees/_order_state.html" with order=None legacy=True %}{% else %}<span class="rounded-full px-2 py-0.5 text-xs {% if r.state == 'pending' %}border border-dashed border-amber-400 bg-amber-50 text-amber-900{% elif r.state == 'registered' %}bg-sky-100 text-sky-900{% elif r.state == 'signed' %}bg-emerald-100 text-emerald-800{% else %}bg-slate-200 text-slate-700{% endif %}">{{ r.state_label }}</span>{% endif %}</td>
+      <td>{% if r.state == 'legacy' %}{% include "employees/_order_state.html" with order=None legacy=True %}{% else %}{% if r.state == 'signed' %}<span class="seal">{{ r.state_label }}</span>{% else %}<span class="rounded-full px-2 py-0.5 text-xs {% if r.state == 'pending' %}border border-dashed border-amber-400 bg-amber-50 text-amber-900{% elif r.state == 'registered' %}bg-sky-100 text-sky-900{% else %}bg-slate-200 text-slate-700{% endif %}">{{ r.state_label }}</span>{% endif %}{% if r.awaiting %} {% include "employees/_awaiting_chip.html" %}{% endif %}{% endif %}</td>
     </tr>
   {% empty %}<tr><td colspan="6" class="py-6 text-center text-slate-400">Тушаал олдсонгүй</td></tr>{% endfor %}</tbody>
 </table>

@@ -1,0 +1,63 @@
+{# Pop-up with everything about one order (opened from the register). Needs employee, order, links, entries, can_manage, editable. #}
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <div class="mb-1 flex items-start gap-3">
+      <div>
+        <h2 class="text-lg font-semibold">{% if order.event %}{{ order.event.get_type_display }} · {{ order.event.effective|date:"Y-m-d" }}{% else %}Ажилд авсан{% endif %}</h2>
+        <p class="text-sm text-slate-500"><a href="{% url 'employees:detail' employee.pk %}" class="text-violet-700 hover:underline">{{ employee.full_name }}</a> <span class="text-xs text-slate-400">{{ employee.code }}</span></p>
+      </div>
+      {% if change_status == 'scheduled' %}<span class="ml-auto rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">Төлөвлөсөн</span>{% elif change_status == 'awaiting_signature' %}<span class="ml-auto">{% include "employees/_awaiting_chip.html" %}</span>{% elif change_status == 'cancelled' %}<span class="ml-auto rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Цуцлагдсан</span>{% endif %}
+    </div>
+    <h3 class="mt-5 mb-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Өөрчлөлт</h3>
+    {% if change_status == 'awaiting_signature' %}<p class="mb-2 text-xs text-slate-500">Тушаал гарын үсэгтэй болмогц хүчин төгөлдөр болно</p>{% endif %}
+    <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+      <dt class="text-slate-500">Хүчинтэй огноо</dt><dd>{% if order.event %}{{ order.event.effective|date:"Y-m-d" }}{% else %}{{ order.date|date:"Y-m-d"|default:"—" }}{% endif %}</dd>
+      <dt class="text-slate-500">Хэлтэс, албан тушаал</dt><dd>{{ department|default:"—" }} · {{ position|default:"—" }}</dd>
+      {% if order.event.reason %}<dt class="text-slate-500">Шалтгаан</dt><dd>{{ order.event.reason }}</dd>{% endif %}
+      {% if order.event.note %}<dt class="text-slate-500">Тайлбар</dt><dd>{{ order.event.note }}</dd>{% endif %}
+      {% if change_status == 'cancelled' %}<dt class="text-slate-500">Цуцалсан шалтгаан</dt><dd>{{ order.event.cancel_reason|default:"—" }}</dd>{% endif %}
+    </dl>
+    <h3 class="mt-5 mb-2 flex items-center gap-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал {% if order.number %}№ {{ order.number }}{% else %}<span class="font-normal italic text-amber-700">дугаар хүлээгдэж байна</span>{% endif %} <span class="ml-auto font-normal">{% include "employees/_order_state.html" with legacy=None %}</span></h3>
+    <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+      <dt class="text-slate-500">Төрөл</dt><dd>{{ order.get_order_type_display }}</dd>
+      <dt class="text-slate-500">Огноо</dt><dd>{{ order.date|date:"Y-m-d"|default:"—" }}</dd>
+      <dt class="text-slate-500">Агуулга</dt><dd>{{ order.summary|default:"—" }}</dd>
+      <dt class="text-slate-500">Гаргасан</dt><dd>{{ order.issued_by|default:"—" }}</dd>
+      <dt class="text-slate-500">Гарын үсэгтэй файл</dt>
+      <dd>{% if order.file %}<a href="{% url 'employees:order_file' employee.pk order.pk %}" target="_blank" rel="noopener" class="text-violet-700 hover:underline">Файл харах</a>{% else %}<span class="text-slate-400">хавсаргаагүй</span>{% endif %}</dd>
+      {% if order.state == 'cancelled' %}
+      <dt class="text-slate-500">Цуцалсан</dt>
+      <dd>{{ order.cancel_reason|default:"—" }}{% if order.cancel_order_no %} · цуцлах тушаал: {% if links.cancelled_by %}<a href="#" hx-get="{% url 'employees:order_detail' employee.pk links.cancelled_by.pk %}" hx-target="body" hx-swap="beforeend" hx-on::after-request="this.closest('div.fixed').remove()" class="text-violet-700 hover:underline">№ {{ order.cancel_order_no }}</a>{% else %}№ {{ order.cancel_order_no }}{% endif %}{% endif %}</dd>
+      {% endif %}
+      {% for c in links.cancels %}
+      <dt class="text-slate-500">Цуцалсан тушаал</dt>
+      <dd><a href="#" hx-get="{% url 'employees:order_detail' employee.pk c.pk %}" hx-target="body" hx-swap="beforeend" hx-on::after-request="this.closest('div.fixed').remove()" class="text-violet-700 hover:underline">№ {{ c.number }}</a> тушаалыг цуцалсан</dd>
+      {% endfor %}
+    </dl>
+    <h3 class="mt-6 mb-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Түүх</h3>
+    {% if not entries %}<p class="text-sm text-slate-400">Бүртгэл алга</p>{% else %}
+    <ol class="ml-1 border-l border-slate-200">{% for e in entries %}
+      <li class="relative pb-3 pl-4 text-sm last:pb-1">
+        <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-white bg-violet-500"></span>
+        <div class="flex items-baseline gap-2"><span class="truncate font-medium">{{ e.by.get_full_name|default:e.by.username|default:"Систем" }}</span><span class="ml-auto shrink-0 text-xs text-slate-400">{{ e.at|date:"Y-m-d H:i" }}</span></div>
+        <p class="mt-0.5 text-slate-700">{{ e.message }}</p>
+        {% if e.changes %}<dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">{% for c in e.changes %}
+          <dt class="text-slate-500">{{ c.field }}</dt>
+          <dd class="text-slate-800">{% if c.old %}<s class="text-slate-400">{{ c.old }}</s> → {% endif %}{{ c.new|default:"(хоосон)" }}</dd>{% endfor %}</dl>{% endif %}
+      </li>{% endfor %}</ol>{% endif %}
+    <div class="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-slate-100 pt-4">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        {% if can_manage and order.state != 'cancelled' %}
+        <a href="{% url 'employees:order_document' employee.pk order.pk %}" class="text-violet-700 hover:underline">Word татах</a>
+        <a href="{% url 'employees:order_document_pdf' employee.pk order.pk %}" class="text-violet-700 hover:underline">PDF татах</a>{% endif %}
+        {% if cancel_change %}<button type="button" hx-get="{% url 'employees:event_cancel' employee.pk order.event_id %}" hx-target="#modal" hx-on::after-request="this.closest('div.fixed').remove()" class="text-red-700 hover:underline">Цуцлах</button>
+        {% elif can_manage and order.state == 'registered' and not order.event_id %}<button type="button" hx-get="{% url 'employees:order_cancel' employee.pk order.pk %}" hx-target="body" hx-swap="beforeend" class="text-red-700 hover:underline">Тушаал цуцлах</button>{% endif %}
+      </div>
+      <div class="ml-auto flex flex-wrap justify-end gap-2">
+        {% if can_manage and order.state == 'registered' %}<button type="button" hx-get="{% url 'employees:order_upload' employee.pk order.pk %}" hx-target="body" hx-swap="beforeend" class="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Файл хавсаргах</button>{% endif %}
+        {% if editable %}<button type="button" hx-get="{% url 'employees:order_edit' employee.pk order.pk %}" hx-target="body" hx-swap="beforeend" class="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Засах</button>{% endif %}
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Хаах</button>
+      </div>
+    </div>
+  </div>
+</div>

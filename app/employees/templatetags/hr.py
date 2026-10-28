@@ -29,20 +29,31 @@ def mnt(value: Decimal | str | None) -> str:
 
 BOXED = "rounded-lg border border-slate-300 px-3 py-2 text-sm"
 INLINE = "border-b border-transparent bg-transparent hover:border-slate-300 focus:border-violet-600 focus:outline-none"
+# Edit on the spot inside a tab's field grid (UI_RULES §2e): a quiet box that is always there, so an
+# editable value never looks like plain text. `f-soft` is the hook for the changed-field marker.
+SOFT = (
+    "f-soft rounded-md border border-slate-200 bg-slate-50 px-2 py-1 hover:border-slate-400 hover:bg-white"
+    " focus:border-violet-600 focus:bg-white focus:outline-none"
+)
 
 
 @register.inclusion_tag("employees/_field.html")
 def field(
-    bound: BoundField, width: str = "w-full", form_id: str = "emp-form", boxed: bool = False
+    bound: BoundField,
+    width: str = "w-full",
+    form_id: str = "emp-form",
+    boxed: bool = False,
+    soft: bool = False,
 ) -> dict[str, object]:
     """An edit-in-place input: looks like the text it replaces, with its errors underneath.
     `form_id` is the id of the <form> the input posts with (a section form has its own).
-    `boxed` gives the bordered input of a form (UI_RULES §2) instead of the borderless edit-in-place one."""
+    `boxed` gives the bordered input of a form (UI_RULES §2) instead of the borderless edit-in-place one;
+    `soft` gives the quiet always-visible box of a tab's field grid (UI_RULES §2e)."""
     checkbox = isinstance(bound.field.widget, CheckboxInput)
     if checkbox:
         css = "h-4 w-4 accent-violet-600"
     else:
-        css = f"{width} {BOXED if boxed else INLINE}"
+        css = f"{width} {BOXED if boxed else SOFT if soft else INLINE}"
     attrs: dict[str, str | bool] = {"class": css, "form": form_id, "autocomplete": "off"}
     attrs["aria-label"] = str(bound.label)
     if not checkbox and not isinstance(bound.field.widget, Select):
@@ -78,3 +89,13 @@ def day_label(value: datetime, today: date) -> str:
     if day == today - timedelta(days=1):
         return "Өчигдөр"
     return day.isoformat()
+
+
+@register.inclusion_tag("employees/_inline_list.html", takes_context=True)
+def inline_list(context: template.Context, kind: str) -> dict[str, object]:
+    """A personal list edited in its own rows (UI_RULES §2f), closed, from the personal tab's context."""
+    from employees import sections
+
+    return sections.inline_context(
+        context["employee"], kind, context["personal"][kind], bool(context.get("can_manage"))
+    )

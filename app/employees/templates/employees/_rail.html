@@ -1,0 +1,15 @@
+{% comment %}
+Left rail of the employee page (lg and up): the tabs as a vertical list, «Хувийн» last so its long section menu
+ends the rail (UI_RULES §8); «Хувийн» opens into its section menu while
+that tab is open. On narrower screens the horizontal tab bar in detail.html is used instead. Context: can_view_personal,
+can_view_salary, section_counts, employee, row.
+Once the page header has scrolled away, the rail shows whose record this is (#rail-who), so a long tab never
+loses its owner (detail.html script).
+{% endcomment %}
+<aside id="emp-rail" class="sticky top-20 hidden max-h-[calc(100vh-6rem)] w-60 shrink-0 self-start overflow-y-auto overscroll-contain lg:block" aria-label="Ажилтны хэсгүүд">
+  <div class="sticky top-0 z-10 bg-slate-50 pb-1"><a href="{% url 'employees:list' %}" class="mb-1 block px-3 text-sm text-slate-500 hover:text-violet-700">← Ажилтнууд</a><div id="rail-who" class="mb-2 hidden border-b border-slate-200 px-3 pb-3"><p class="text-sm leading-snug font-semibold text-slate-900">{{ employee.full_name }}</p>{% if row.job.position %}<p class="truncate text-xs text-slate-500">{{ row.job.position }}</p>{% endif %}</div></div>
+  <a href="#work" class="rtab flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7.5 6V4.5A1.5 1.5 0 0 1 9 3h2a1.5 1.5 0 0 1 1.5 1.5V6M3 10.5h14"/></svg>Ажил</a>
+  {% if can_view_salary %}<a href="#salary" class="rtab mt-0.5 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8v4M14.5 8v4"/></svg>Цалин, даатгал</a>{% endif %}
+  {% if can_view_personal %}<a href="#personal" class="rtab mt-0.5 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>Хувийн</a>
+  {% include "employees/_personal_menu.html" %}{% endif %}
+</aside>

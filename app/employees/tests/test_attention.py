@@ -1,10 +1,11 @@
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
 import pytest
 from accounts.models import User
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -16,11 +17,12 @@ from leave.services.fmt import fmt_days
 from macs.models import ContactRow, ContactType, Entitlement, FiredReason, LeaveTypeRow
 
 from employees import attention
-from employees.listing import employee_rows
-from employees.models import Employee, SetupItem
+from employees.listing import Row, employee_rows
+from employees.models import Employee, EmployeeExt, SetupItem
 from employees.services import events, history
 
 from .conftest import hire_values, link_login, named, set_account, set_ext
+from .helpers import record_signed
 from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -133,12 +135,11 @@ def test_left_excluded_and_sorted(emp: Employee, actor: User, job_values: dict[s
     assert {a.employee.pk for a in attention.items(admin, rows, TODAY) if a.employee} == {emp.pk}
 
 
-def test_strip_on_full_page_only(client: Client, emp: Employee) -> None:
+def test_box_on_today_page(client: Client, emp: Employee) -> None:
     set_account(emp, "")
     login_as(client, "Accountant")
-    url = reverse("employees:list")
+    url = reverse("employees:today")
     assert "Банкны мэдээлэл дутуу · 1" in client.get(url).content.decode()
-    assert "Анхаарах" not in client.get(url, HTTP_HX_REQUEST="true").content.decode()
 
 
 def _fully_ticked_without_bank(emp: Employee) -> None:
@@ -167,7 +168,7 @@ def test_scheduled_termination_and_near_event_shown(emp: Employee, actor: User) 
         emp, type="contract", effective=TODAY + timedelta(days=7), changes={"contract_no": "CN-NEW"},
         salary=None, reason="", note="", by=actor,
     )  # fmt: skip
-    events.record(
+    record_signed(
         emp, type="termination", effective=TODAY + timedelta(days=20), changes={}, salary=None,
         reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
     )  # fmt: skip
@@ -256,7 +257,7 @@ def test_most_urgent_first_and_rest_folded(
     assert found[0].employee == emp and "дууссан" in found[0].text
     assert [a.urgency for a in found] == sorted(a.urgency for a in found)
     login_as(client, "HR")
-    html = client.get(reverse("employees:list")).content.decode()
+    html = client.get(reverse("employees:today")).content.decode()
     groups = attention.group(found)
     assert groups[0].label == "Гэрээ дууссан" and groups[0].dated
     assert [g.urgency for g in groups] == sorted(g.urgency for g in groups)
@@ -362,26 +363,17 @@ def test_attention_silent_when_not_configured(emp: Employee, annual_type: LeaveT
 
 
 def test_future_rehire_does_not_break_leave_item(emp: Employee, actor: User) -> None:
-    events.record(
+    record_signed(
         emp, type="termination", effective=date(2026, 3, 1), changes={}, salary=None,
         reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
     )  # fmt: skip
-    events.record(
+    record_signed(
         emp, type="rehire", effective=TODAY + timedelta(days=30), changes={}, salary=None,
         reason="", note="", by=actor,
     )  # fmt: skip
     rows = employee_rows(Employee.objects.all(), TODAY)
     found = attention.items(user_in("HR"), rows, TODAY)
     assert not any(a.kind == "leave_balance" for a in found)
-
-
-def test_box_opens_only_when_something_is_overdue(client: Client, emp: Employee) -> None:
-    set_account(emp, "")
-    login_as(client, "Accountant")
-    url = reverse("employees:list")
-    assert " open data-overdue" not in client.get(url).content.decode()  # only missing data: folded
-    emp.job_records.update(contract_end=timezone.localdate() - timedelta(days=1))
-    assert " open data-overdue" in client.get(url).content.decode()
 
 
 def test_attention_never_writes_leave_grants(emp: Employee) -> None:
@@ -496,3 +488,110 @@ def test_non_manager_keeps_old_contract_item_and_sees_no_new_ones(emp: Employee)
     assert f"Гэрээ {_fmt(TODAY - timedelta(days=1))}-нд дууссан" in texts(acc)
     _expired(emp, 9)
     assert _kinds(acc) == set()
+
+
+# --- shared date rules (attention.sees_hr_dates, probation_end, contract_end, planned_return, dated_events) ---
+
+
+def _row(employee: Employee, today: date = TODAY) -> Row:
+    return next(iter(employee_rows(Employee.objects.filter(pk=employee.pk), today)))
+
+
+def test_sees_hr_dates_for_manage_or_salary_right() -> None:
+    assert attention.sees_hr_dates(user_in("HR"))
+    assert attention.sees_hr_dates(user_in("Accountant", "acc"))
+    assert not attention.sees_hr_dates(user_in("Employee", "plain"))
+
+
+def test_sees_hr_dates_leave_right_needs_annual_type() -> None:
+    user = user_in("Employee", "leave_only")
+    user.user_permissions.add(Permission.objects.get(content_type__app_label="leave", codename="view_leave"))
+    user = User.objects.get(pk=user.pk)  # fresh instance: permission cache is per object
+    assert not attention.sees_hr_dates(user)
+
+
+def test_sees_hr_dates_leave_right_with_annual_type(annual_type: LeaveTypeRow) -> None:
+    user = user_in("Employee", "leave_only")
+    user.user_permissions.add(Permission.objects.get(content_type__app_label="leave", codename="view_leave"))
+    user = User.objects.get(pk=user.pk)
+    assert attention.sees_hr_dates(user)
+
+
+def test_probation_and_contract_end_read_the_row(emp: Employee) -> None:
+    set_ext(emp, probation_end=TODAY + timedelta(days=3))
+    emp.save()
+    job = emp.job_records.get()
+    job.contract_end = TODAY + timedelta(days=9)
+    job.save()
+    row = _row(emp)
+    assert attention.probation_end(row) == TODAY + timedelta(days=3)
+    assert attention.contract_end(row) == TODAY + timedelta(days=9)
+
+
+def test_probation_end_none_without_hr_row(emp: Employee) -> None:
+    EmployeeExt.objects.filter(employee=emp).delete()
+    assert attention.probation_end(_row(emp)) is None
+
+
+def test_planned_return_only_for_long_leave_rows(emp: Employee) -> None:
+    actor = user_in("HR", "hr1")
+    back = TODAY + timedelta(days=20)
+    events.record(
+        emp,
+        type="leave_start",
+        effective=TODAY - timedelta(days=30),
+        changes={},
+        salary=None,
+        reason="unpaid",
+        note="",
+        by=actor,
+        expected_return=back,
+    )
+    row = _row(emp)
+    assert row.state == "long_leave"
+    assert attention.planned_return(row, TODAY) == back
+    assert attention.planned_return(replace(row, state="active"), TODAY) is None
+
+
+def test_dated_events_applied_waiting_cancelled_and_salary(emp: Employee, actor: User) -> None:
+    today = timezone.localdate()  # events.cancel judges on the real clock
+    ids = [emp.pk]
+    events.record(  # before the window: recorded first, later changes must not precede it
+        emp, type="contract", effective=today - timedelta(days=1), changes={"contract_no": "C0"},
+        salary=None, reason="", note="", by=actor,
+    )  # fmt: skip
+    on_day = events.record(
+        emp, type="contract", effective=today, changes={"contract_no": "C1"}, salary=None, reason="", note="", by=actor
+    )  # fmt: skip
+    salary = events.record(
+        emp, type="salary_change", effective=today + timedelta(days=2), changes={},
+        salary=Decimal("3000000"), reason="", note="", by=actor,
+    )  # fmt: skip
+    cancelled = events.record(
+        emp, type="contract", effective=today + timedelta(days=5), changes={"contract_no": "CX"},
+        salary=None, reason="", note="", by=actor,
+    )  # fmt: skip
+    events.cancel(cancelled, reason="алдсан", by=actor)
+    waiting = events.record(
+        emp, type="termination", effective=today + timedelta(days=6), changes={}, salary=None,
+        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
+    )  # fmt: skip
+
+    def pks(can_salary: bool, **kwargs: Any) -> set[int]:
+        return set(attention.dated_events(ids, can_salary, **kwargs).values_list("pk", flat=True))
+
+    assert pks(True, start=today) == {on_day.pk, salary.pk}
+    assert pks(False, start=today) == {on_day.pk}
+    assert pks(True, start=today + timedelta(days=1)) == {salary.pk}
+    assert pks(True, start=today, waiting=True) == {waiting.pk}
+    assert pks(True, start=today + timedelta(days=30), waiting=True) == {waiting.pk}  # waiting ignores start
+
+
+def test_missing_data_chips_open_the_tab_that_fixes_them(emp: Employee, client: Client) -> None:
+    set_account(emp, "")
+    set_contact(emp, present=False)
+    emp.save()
+    login_as(client, "Admin")
+    html = client.get(reverse("employees:today")).content.decode()
+    detail = reverse("employees:detail", args=[emp.pk])
+    assert f'href="{detail}#salary"' in html and f'href="{detail}#personal-basic"' in html

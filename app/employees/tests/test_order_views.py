@@ -226,4 +226,62 @@ def test_cancel_signed_missing_number_names_the_field() -> None:
 
     form = CancelEventForm(data={"reason": "алдаа"}, signed=True)
     assert not form.is_valid()
-    assert "цуцалсан тушаалын дугаар" in str(form.errors["cancel_order_no"][0]).lower()
+    assert "цуцлах шинэ тушаалын дугаар" in str(form.errors["cancel_order_no"][0]).lower()
+
+
+def test_suggest_number_is_highest_plain_number_of_the_year_plus_one(hired: Employee, actor: User) -> None:
+    assert orders.suggest_number(date(2026, 3, 1)) == "1"
+    order = HrOrder.objects.get(employee=hired, is_hire=True)
+    orders.register(order, number="12", date=date(2026, 1, 5), summary="", issued_by="", by=actor)
+    assert orders.suggest_number(date(2026, 3, 1)) == "13"
+    assert orders.suggest_number(date(2027, 3, 1)) == "1"  # numbers are counted per calendar year
+
+
+def test_suggest_number_ignores_lettered_numbers_and_never_guesses_for_letters_only(
+    hired: Employee, actor: User
+) -> None:
+    order = HrOrder.objects.get(employee=hired, is_hire=True)
+    orders.register(order, number="А/54", date=date(2026, 1, 5), summary="", issued_by="", by=actor)
+    assert orders.suggest_number(date(2026, 3, 1)) == ""
+
+
+def test_order_edit_prefills_a_suggested_number_only_for_a_pending_order(
+    hr: Client, hired: Employee, actor: User
+) -> None:
+    order = HrOrder.objects.get(employee=hired, is_hire=True)
+    body = hr.get(edit_url(hired, order)).content.decode()
+    assert 'value="1"' in body and "автоматаар санал болгосон" in body
+    orders.register(order, number="7", date=date.today(), summary="", issued_by="", by=actor)
+    body = hr.get(edit_url(hired, order)).content.decode()
+    assert 'value="7"' in body and "автоматаар санал болгосон" not in body
+
+
+def test_suggest_number_counts_old_program_orders(hired: Employee) -> None:
+    Command.objects.create(employee_id=hired.pk, number="20", date=date(2026, 6, 1), summary="Хуучин")
+    Command.objects.create(employee_id=hired.pk, number="99", date=date(2025, 6, 1), summary="Өмнөх жил")
+    assert orders.suggest_number(date(2026, 7, 1)) == "21"
+
+
+def test_order_suggest_endpoint_returns_number_and_date(hr: Client, hired: Employee, actor: User) -> None:
+    order = HrOrder.objects.get(employee=hired, is_hire=True)
+    orders.register(order, number="12", date=date(2026, 1, 5), summary="", issued_by="", by=actor)
+    data = hr.get("/employees/orders/suggest/", {"date": "2026-03-01"}).json()
+    assert data == {"number": "13", "date": "2026-03-01"}  # a typed date picks the year and is echoed back
+    data = hr.get("/employees/orders/suggest/", {"date": "2027-03-01"}).json()
+    assert data["number"] == "1"
+    assert hr.get("/employees/orders/suggest/").json()["date"] == date.today().isoformat()
+    assert hr.get("/employees/orders/suggest/", {"date": "junk"}).json()["date"] == date.today().isoformat()
+
+
+def test_order_suggest_endpoint_needs_a_login(client: Client) -> None:
+    assert client.get("/employees/orders/suggest/").status_code == 302
+
+
+def test_suggest_button_is_on_the_change_form_and_the_edit_pop_up(hr: Client, hired: Employee) -> None:
+    order = HrOrder.objects.get(employee=hired, is_hire=True)
+    for body in (
+        hr.get(url(hired, "promotion")).content.decode(),
+        hr.get(edit_url(hired, order)).content.decode(),
+    ):
+        assert body.count("data-order-suggest=") == 1 and "/employees/orders/suggest/" in body
+    assert "data-order-suggest=" not in hr.get(url(hired, "leave_start")).content.decode()

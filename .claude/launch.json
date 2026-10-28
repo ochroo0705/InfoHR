@@ -27,6 +27,37 @@
       "runtimeArgs": ["app/manage.py", "runserver", "8004"],
       "env": {"DJANGO_DB_NAME": "info_hr_demo_orders", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
       "port": 8004
+    },
+    {
+      "name": "lists-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8005"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_lists", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8005
+    },
+    {
+      "name": "reports-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8006", "--noreload"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_orders", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8006,
+      "autoPort": false
+    },
+    {
+      "name": "reports2-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8007", "--noreload"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_orders", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8007,
+      "autoPort": false
+    },
+    {
+      "name": "reports5-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8008", "--noreload"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_orders", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8008,
+      "autoPort": false
     }
   ]
 }

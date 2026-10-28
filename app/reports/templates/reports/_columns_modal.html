@@ -1,0 +1,27 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-white p-6 shadow-xl">
+    <h2 class="mb-4 text-lg font-semibold">Багана сонгох</h2>
+    {# A plain GET to the report: the picked columns and the grouping go into the address, the page reloads with them. #}
+    <form method="get" action="{% url 'reports:report' report.key %}" class="space-y-4">
+      {% for name, value in keep %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+      <div class="grid gap-4 md:grid-cols-2">{% for title, picks in groups %}
+        <fieldset class="text-sm">
+          <legend class="mb-1 border-b border-slate-200 pb-1 font-semibold text-slate-800">{{ title }}</legend>
+          {% for p in picks %}
+          <label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="cols" value="{{ p.key }}"{% if p.checked %} checked{% endif %} class="rounded border-slate-300">{{ p.label }}</label>
+          {% endfor %}
+        </fieldset>
+        {% endfor %}</div>
+      <label class="block text-sm">Бүлэглэх
+        <select name="group" class="mt-1 w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+          <option value="">Бүлэглэхгүй</option>
+          {% for c in group_choices %}<option value="{{ c.key }}"{% if group == c.key %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хэрэглэх</button>
+      </div>
+    </form>
+  </div>
+</div>

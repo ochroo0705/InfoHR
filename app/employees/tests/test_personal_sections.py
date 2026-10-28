@@ -4,6 +4,7 @@ import html
 import re
 
 import pytest
+from django.contrib.auth.models import Permission
 from django.test import Client
 from macs.models import BirthPlace, City, Country, Employee
 
@@ -20,7 +21,7 @@ def _loaded(page: str) -> str:
 
 def _open(client: Client, employee: Employee, section: str = "identity") -> str:
     """The hidden `loaded` the section form posts when opened for editing."""
-    return _loaded(client.get(f"/employees/{employee.pk}/section/{section}/?edit=1").content.decode())
+    return _loaded(client.get(f"/employees/{employee.pk}/section/{section}/").content.decode())
 
 
 def _url(employee: Employee, section: str = "identity") -> str:
@@ -71,12 +72,32 @@ def test_section_requires_manage(client: Client, hired: Employee) -> None:
     assert hired.clan_name != "Ботгон"
 
 
-def test_section_get_read_and_edit(client: Client, hired: Employee) -> None:
+def test_identity_is_edited_on_the_spot(client: Client, hired: Employee) -> None:
+    """UI_RULES §2f: a manager gets the soft boxes at once and a save strip that waits hidden."""
     login_as(client, "HR")
     read = client.get(_url(hired)).content.decode()
-    assert 'name="clan_name"' not in read
-    edit = client.get(_url(hired) + "?edit=1").content.decode()
-    assert 'name="clan_name"' in edit and 'form="sec-identity-form"' in edit
+    assert 'name="clan_name"' in read and 'form="sec-identity-form"' in read and "f-soft" in read
+    assert "data-on-spot" in read and "data-strip hidden" in read
+    assert "?edit=1" not in read
+
+
+def test_identity_boxes_on_the_employee_page(client: Client, hired: Employee) -> None:
+    """The page itself (not only the section URL) renders the boxes, with the section's own snapshot."""
+    login_as(client, "HR")
+    page = _page(client, hired)
+    section = page[page.index('id="sec-identity"') : page.index('id="sec-contact"')]
+    assert 'name="clan_name"' in section and 'form="sec-identity-form"' in section
+    assert html.unescape(_loaded(section)) == html.unescape(_loaded(client.get(_url(hired)).content.decode()))
+
+
+def _viewer(client: Client) -> None:
+    """A user who may read the personal tab but not edit it: sections show plain text."""
+    user = login_as(client, "Accountant", name="reader")
+    user.user_permissions.add(Permission.objects.get(codename="view_personal", content_type__app_label="macs"))
+
+
+def _page(client: Client, employee: Employee) -> str:
+    return client.get(f"/employees/{employee.pk}/").content.decode()
 
 
 def test_section_save_ignores_blank_required_outside_section(client: Client, hired: Employee) -> None:
@@ -114,41 +135,43 @@ def _read(client: Client, employee: Employee, section: str) -> str:
 
 
 def test_identity_read_mode_merges_citizenship(client: Client, hired: Employee) -> None:
-    login_as(client, "HR")
+    _viewer(client)
     mongolia = Country.objects.create(name="Монгол")
     Employee.objects.filter(pk=hired.pk).update(citizenship=mongolia, foreign_emp=0)
-    body = _read(client, hired, "identity")
+    body = _page(client, hired)
+    assert 'name="clan_name"' not in body
     assert "Монгол · гадаад иргэн биш" in body
     assert ">Гадаад иргэн</dt>" not in body  # one line with the citizenship, no row of its own
     Employee.objects.filter(pk=hired.pk).update(foreign_emp=1)
-    assert "Монгол · гадаад иргэн" in _read(client, hired, "identity")
+    assert "Монгол · гадаад иргэн" in _page(client, hired)
 
 
 def test_passport_hidden_unless_foreign(client: Client, hired: Employee) -> None:
-    login_as(client, "HR")
+    _viewer(client)
     Employee.objects.filter(pk=hired.pk).update(passport_no="AB1234567", foreign_emp=0)
-    assert "AB1234567" not in _read(client, hired, "identity")
+    assert "AB1234567" not in _page(client, hired)
     Employee.objects.filter(pk=hired.pk).update(foreign_emp=1)
-    assert "AB1234567" in _read(client, hired, "identity")
+    assert "AB1234567" in _page(client, hired)
 
 
 def test_other_section_read_mode_lists_every_field_even_when_empty(client: Client, hired: Employee) -> None:
     """«Бусад мэдээлэл» shows all its labels in read mode (a dash for empty ones), not a folded name list."""
-    login_as(client, "HR")
-    read = client.get(_url(hired, "other")).content.decode()
+    _viewer(client)
+    page = _page(client, hired)
+    read = page[page.index('id="sec-other"') : page.index("</section>", page.index('id="sec-other"'))]
     for label in ("Цусны бүлэг", "Цэргийн алба", "Нийгмийн гарал", "Орон байрны нөхцөл", "Гутлын хэмжээ"):
         assert f">{label}</dt>" in read
     assert "<details" not in read
     Employee.objects.filter(pk=hired.pk).update(shoe_size=None)
-    empty = _read(client, hired, "other")
+    empty = _page(client, hired)
     assert '>Гутлын хэмжээ</dt><dd><span class="text-slate-300">—</span></dd>' in empty
 
 
 def test_edit_mode_has_save_and_cancel(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
-    body = client.get(_url(hired, "identity") + "?edit=1").content.decode()
+    body = client.get(_url(hired, "identity")).content.decode()
     assert "Хадгалах" in body and "Болих" in body
-    assert f'hx-get="{_url(hired, "identity")}"' in body  # Болих returns to read mode
+    assert f'hx-get="{_url(hired, "identity")}?fields=1"' in body  # Болих redraws only the field block
 
 
 def test_edit_mode_shows_error_of_field_outside_section(client: Client, hired: Employee) -> None:
@@ -164,3 +187,38 @@ def test_edit_mode_shows_error_of_field_outside_section(client: Client, hired: E
     assert 'name="private_phone"' in body  # still in edit mode
     hired.refresh_from_db()
     assert hired.private_phone != "99001122"
+
+
+def test_section_save_swaps_only_its_fields(client: Client, hired: Employee) -> None:
+    """An on-the-spot save redraws only the field block (lists in the section stay as they are) and refreshes
+    the activity log out of band."""
+    login_as(client, "HR")
+    body = client.post(_url(hired), {"clan_name": "Ботгон", "loaded": _open(client, hired)}).content.decode()
+    assert 'id="fields-identity"' in body and 'id="sec-identity"' not in body
+    assert (
+        'id="activity-list" hx-swap-oob="innerHTML"' in body
+        and 'id="activity" hx-swap-oob' not in body
+        and "data-strip hidden" in body
+    )
+
+
+def test_section_save_error_keeps_strip_open(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    body = client.post(_url(hired), {"register_no": "", "loaded": _open(client, hired)}).content.decode()
+    assert 'id="fields-identity"' in body and "data-dirty" in body
+    assert "data-strip hidden" not in body and "hx-swap-oob" not in body
+
+
+def test_cancel_returns_only_fields(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    body = client.get(_url(hired) + "?fields=1").content.decode()
+    assert 'id="fields-identity"' in body and "data-strip hidden" in body and 'id="sec-identity"' not in body
+
+
+@pytest.mark.parametrize("name", ["identity", "contact", "education", "other"])
+def test_every_field_section_is_on_the_spot(client: Client, hired: Employee, name: str) -> None:
+    """UI_RULES §2f: every field section shows its soft boxes at once; «Засах» (?edit=1) is gone."""
+    login_as(client, "HR")
+    page = _page(client, hired)
+    assert f'id="fields-{name}"' in page and f'form="sec-{name}-form"' in page
+    assert "?edit=1" not in page

@@ -6,7 +6,7 @@ from accounts.models import User
 from macs.models import Branch, Command, EmployeeHistory
 
 from employees.models import Employee, Event, HrOrder, OrderState, OrderType, Position
-from employees.services import macs_writes
+from employees.services import events, macs_writes
 from employees.tests.test_events import rec
 
 HIRE_DAY = date(2026, 1, 5)
@@ -50,8 +50,12 @@ def order_for(
     )
     if event is None and "history_id" not in kw:
         values["history_id"] = existing.values_list("history_id", flat=True).first()
-    existing.delete()
     values.update(kw)
+    if event is not None and existing.exists():
+        # The change's own order is updated in place: its activity lines point at it, so it cannot be deleted.
+        existing.update(**values)
+        return HrOrder.objects.get(event=event)
+    existing.delete()
     return HrOrder.objects.create(**values)
 
 
@@ -134,7 +138,10 @@ def test_pointer_null_when_none_left(hired: Employee) -> None:
 def test_changes_without_order_are_ignored(hired: Employee, actor: User, lead: Position) -> None:
     hire = order_for(hired, number="1", history_id=macs_writes.snapshot_history(hired, HIRE_DAY))
     macs_writes.write_order(hire)
-    rec(hired, actor, "promotion", D1, changes={"position": lead})  # no order
+    # Recorded but not signed: its order is only pending, so it must not move the command row.
+    events.record(
+        hired, type="promotion", effective=D1, changes={"position": lead}, salary=None, reason="", note="", by=actor
+    )
     macs_writes.point_employee_to_latest_order(hired)
     assert reload(hired).command_id_value == hire.command_id
 

@@ -12,6 +12,7 @@ from employees.models import Employee, Event, Position
 from employees.services import events
 
 from .conftest import link_login, named
+from .helpers import record_signed
 from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -43,11 +44,11 @@ def schedule(emp: Employee, actor: User, **kw: object) -> Event:
     new = Position.objects.create(name="Ахлах")
     args: dict[str, object] = {"changes": {"position": new}, "salary": None, "reason": "", "note": "", "by": actor}
     args.update(kw)
-    return events.record(
+    return record_signed(
         emp,
         type="promotion",
         effective=timezone.localdate() + timedelta(days=30),
-        **args,  # type: ignore[arg-type]
+        **args,
     )
 
 
@@ -143,7 +144,7 @@ def test_cancel_scheduled(client: Client, hired: Employee, actor: User) -> None:
     cancel = f"/employees/{hired.pk}/event/{event.pk}/cancel/"
     assert client.get(cancel).status_code == 200
     assert client.post(cancel, {"reason": " "}).status_code == 200  # form re-renders, nothing cancelled
-    assert client.post(cancel, {"reason": "алдаа"}).status_code == 204
+    assert client.post(cancel, {"reason": "алдаа", "cancel_order_no": "А/60"}).status_code == 204
     event.refresh_from_db()
     assert event.cancelled_at is not None
 
@@ -227,7 +228,7 @@ def test_header_hides_scheduled_salary_change_without_view_salary(client: Client
 
 def test_cancel_of_effective_event_is_404(client: Client, hired: Employee, actor: User) -> None:
     new = Position.objects.create(name="Ахлах")
-    event = events.record(
+    event = record_signed(
         hired,
         type="promotion",
         effective=timezone.localdate() - timedelta(days=5),
@@ -274,7 +275,7 @@ def test_menu_matches_current_state(client: Client, hired: Employee, actor: User
     body = client.get(page).content.decode()
     assert "/event/rehire/" not in body and "/event/leave_return/" not in body
     assert "/event/leave_start/" in body and "/event/termination/" in body
-    events.record(
+    record_signed(
         hired,
         type="termination",
         effective=timezone.localdate(),
@@ -325,6 +326,19 @@ def test_placement_events_share_one_menu_item_and_a_type_choice(client: Client, 
     assert 'name="kind"' not in client.get(url(hired, "termination")).content.decode()
 
 
+def test_work_tab_shows_how_each_field_changes(client: Client, hired: Employee) -> None:
+    """UI_RULES §2e: soft boxes for on-the-spot fields, an «өөрчлөх» chip for fields changed by an event."""
+    login_as(client, "HR")
+    body = client.get(f"/employees/{hired.pk}/").content.decode()
+    assert body.count('title="Өөрчлөлт бүртгэж солино') == 4  # position, department, manager, contract
+    assert body.count(f'hx-get="{url(hired, "transfer")}" hx-target="#modal" title=') == 3
+    assert "f-soft" in body
+    login_as(client, "Accountant", name="accountant")
+    page = client.get(f"/employees/{hired.pk}/").content.decode()
+    body = page[page.index('id="tab-work"') : page.index('id="tab-salary"')]  # the accountant edits bank fields there
+    assert "f-soft" not in body and 'title="Өөрчлөлт бүртгэж солино' not in body
+
+
 def test_leave_form_has_expected_return_and_header_shows_it(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     assert 'name="expected_return"' in client.get(url(hired, "leave_start")).content.decode()
@@ -346,3 +360,16 @@ def test_open_period_shows_now_only_once_started_and_planned_return(client: Clie
     html = client.get(f"/employees/{hired.pk}/").content.decode()
     assert f'{start:%Y-%m-%d} – <span class="text-slate-500">({back:%Y-%m-%d} буцна)</span>' in html
     assert f"{start:%Y-%m-%d} – одоо" not in html
+
+
+def test_past_waiting_change_is_not_the_next_event(client: Client, hired: Employee, actor: User) -> None:
+    login_as(client, "HR")
+    past = timezone.localdate() - timedelta(days=10)
+    lead = Position.objects.create(name="Ахлах нягтлан")
+    event = events.record(
+        hired, type="promotion", effective=past, changes={"position": lead}, salary=None,
+        reason="", note="", by=actor,
+    )  # fmt: skip
+    assert event.applied_at is None
+    body = client.get(f"/employees/{hired.pk}/").content.decode()
+    assert "Ажлын түүхээс харах, цуцлах" not in body

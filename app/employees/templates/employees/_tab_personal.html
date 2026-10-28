@@ -1,33 +1,46 @@
 {% comment %}
-Personal tab (Task 13): a section menu on the left (lg and up) and the ten sections in анкет order.
+Personal tab: the sections grouped by topic, each group a [data-pgroup] block started by a violet divider (_group_divider.html, the same groups and keys as the menu).
+From lg up only the open group shows (a page of its own, sections.js); narrower screens show them all. Their menu lives in the page rail (_rail.html, _personal_menu.html).
 Each section saves on its own (views.personal_section); nothing here is bound to the page form emp-form.
 {% endcomment %}
 {% load hr %}
-<div class="lg:flex lg:items-start lg:gap-10">
-  <nav id="personal-nav" class="sticky top-20 hidden w-44 shrink-0 self-start lg:block" aria-label="Хувийн мэдээллийн хэсгүүд">
-    <ol class="space-y-0.5 text-sm">
-      <li><a href="#sec-identity" data-sec="identity" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">1.</span> Хувийн мэдээлэл</span></a></li>
-      <li><a href="#sec-contact" data-sec="contact" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">2.</span> Холбоо барих, хаяг</span><span class="text-xs text-slate-400">{{ section_counts.address }}</span></a></li>
-      <li><a href="#sec-family" data-sec="family" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">3.</span> Гэр бүл</span><span class="text-xs text-slate-400">{{ section_counts.family }}</span></a></li>
-      <li><a href="#sec-education" data-sec="education" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">4.</span> Боловсрол</span><span class="text-xs text-slate-400">{{ section_counts.education }}</span></a></li>
-      <li><a href="#sec-certificate" data-sec="certificate" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">5.</span> Мэргэшил, сертификат</span><span class="text-xs text-slate-400">{{ section_counts.certificate }}</span></a></li>
-      <li><a href="#sec-training" data-sec="training" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">6.</span> Сургалт</span><span class="text-xs text-slate-400">{{ section_counts.training }}</span></a></li>
-      <li><a href="#sec-language" data-sec="language" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">7.</span> Гадаад хэл</span><span class="text-xs text-slate-400">{{ section_counts.language }}</span></a></li>
-      <li><a href="#sec-talent" data-sec="talent" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">8.</span> Авьяас</span><span class="text-xs text-slate-400">{{ section_counts.talent }}</span></a></li>
-      <li><a href="#sec-gift" data-sec="gift" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">9.</span> Олгосон бэлэг</span><span class="text-xs text-slate-400">{{ section_counts.gift }}</span></a></li>
-      <li><a href="#sec-other" data-sec="other" class="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700"><span><span class="text-slate-400">10.</span> Бусад мэдээлэл</span><span class="text-xs text-slate-400">{{ section_counts.other }}</span></a></li>
-    </ol>
-  </nav>
-  <div class="min-w-0 flex-1">
-    {% with s=personal_sections.identity %}{% include "employees/_section_identity.html" with rows=s.rows number=s.number title=s.title %}{% endwith %}
-    {% with s=personal_sections.contact %}{% include "employees/_section_contact.html" with rows=s.rows number=s.number title=s.title %}{% endwith %}
-    {% include "employees/_section_family.html" %}
-    {% with s=personal_sections.education %}{% include "employees/_section_education.html" with rows=s.rows number=s.number title=s.title %}{% endwith %}
-    {% include "employees/_section_certificate.html" %}
-    {% include "employees/_section_training.html" %}
-    {% include "employees/_section_language.html" %}
-    {% include "employees/_section_talent.html" %}
-    {% include "employees/_section_gift.html" %}
-    {% with s=personal_sections.other %}{% include "employees/_section_other.html" with rows=s.rows number=s.number title=s.title %}{% endwith %}
+<div>
+  <div class="min-w-0">
+    <div data-pgroup="basic">
+      {% include "employees/_group_divider.html" with title="Үндсэн мэдээлэл" %}
+      {% with s=personal_sections.identity %}{% include "employees/_section_identity.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
+      {% with s=personal_sections.contact %}{% include "employees/_section_contact.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
+      {% include "employees/_section_family.html" %}
+      {% include "employees/_section_relative.html" %}
+    </div>
+    <div data-pgroup="edu" data-off>
+      {% include "employees/_group_divider.html" with title="Боловсрол, туршлага" %}
+      {% with s=personal_sections.education %}{% include "employees/_section_education.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
+      {% include "employees/_section_before_work.html" %}
+      {% include "employees/_section_certificate.html" %}
+      {% include "employees/_section_training.html" %}
+      {% include "employees/_section_language.html" %}
+      {% include "employees/_section_talent.html" %}
+      {% include "employees/_section_skill.html" %}
+    </div>
+    <div data-pgroup="award" data-off>
+      {% include "employees/_group_divider.html" with title="Шагнал, сахилга" %}
+      {% include "employees/_section_award.html" %}
+      {% include "employees/_section_discipline.html" %}
+      {% include "employees/_section_complaint.html" %}
+      {% include "employees/_section_gift.html" %}
+      {% include "employees/_section_material_help.html" %}
+    </div>
+    <div data-pgroup="health" data-off>
+      {% include "employees/_group_divider.html" with title="Эрүүл мэнд, цэрэг" %}
+      {% include "employees/_section_body.html" %}
+      {% include "employees/_section_driver.html" %}
+      {% include "employees/_section_military.html" %}
+      {% include "employees/_section_army_rank.html" %}
+    </div>
+    <div data-pgroup="other" data-off>
+      {% include "employees/_group_divider.html" with title="Бусад" %}
+      {% with s=personal_sections.other %}{% include "employees/_section_other.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
+    </div>
   </div>
 </div>

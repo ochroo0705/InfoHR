@@ -1,6 +1,5 @@
-{# Head of a personal-tab list section (Task 12): number, title with count, «+ нэмэх», and «бүртгэгдээгүй» when empty. The caller's table follows when items exist. #}
-<div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-1">
-  <h3 class="text-sm font-semibold text-slate-800">{% if number %}<span class="mr-1.5 text-slate-400">{{ number }}.</span>{% endif %}{{ title }}{% if items %} <span class="ml-1 font-normal text-slate-400">{{ items|length }}</span>{% endif %}</h3>
-  {% if can_manage %}<button type="button" hx-get="{% url 'employees:personal_add' employee.pk name %}" hx-target="body" hx-swap="beforeend" class="rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">+ нэмэх</button>{% endif %}
+{# Head of a personal-tab list edited in a pop-up: title, «бүртгэгдээгүй» on the same line when empty, «+ нэмэх» on the right (UI_RULES §8). The caller's table follows when items exist. #}
+<div class="flex items-baseline gap-3">
+  <h3 class="sec-title">{{ title }}{% if not items %} <span class="ml-1 text-sm font-normal text-slate-400">бүртгэгдээгүй</span>{% endif %}</h3>
+  {% if can_manage %}<button type="button" hx-get="{% url 'employees:personal_add' employee.pk name %}" hx-target="body" hx-swap="beforeend" class="ml-auto rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">+ нэмэх</button>{% endif %}
 </div>
-{% if not items %}<p class="py-2 text-sm text-slate-400">бүртгэгдээгүй</p>{% endif %}

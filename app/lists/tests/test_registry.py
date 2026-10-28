@@ -13,7 +13,16 @@ from lists.usage import usage_count
 
 @pytest.mark.django_db
 def test_personal_list_slugs_registered() -> None:
-    for slug in ("family_relation", "edu_type", "talent", "present_type", "contact_type"):
+    for slug in (
+        "family_relation",
+        "edu_type",
+        "talent",
+        "present_type",
+        "material_help_type",
+        "discipline_type",
+        "driver_type",
+        "contact_type",
+    ):
         assert slug in LISTS
 
 
@@ -49,3 +58,21 @@ def test_qualification_type_in_use_cannot_be_removed(admin_client: Client, hired
     assert usage_count(m.QualificationType, qtype.pk) == 1
     admin_client.post(f"/lists/qualification_type/{qtype.pk}/delete/")
     assert m.QualificationType.objects.filter(pk=qtype.pk).exists()
+
+
+@pytest.mark.django_db
+def test_material_help_type_listed_on_lists_screen() -> None:
+    assert LISTS["material_help_type"].model is m.MaterialHelpType
+    assert LISTS["material_help_type"].label == "Буцалтгүй тусламжийн үндэслэл"
+
+
+@pytest.mark.django_db
+def test_discipline_type_listed_on_lists_screen() -> None:
+    assert LISTS["discipline_type"].model is m.DisciplineType
+    assert LISTS["discipline_type"].label == "Шийтгэлийн төрөл"
+
+
+@pytest.mark.django_db
+def test_driver_type_listed_on_lists_screen() -> None:
+    assert LISTS["driver_type"].model is m.DriverType
+    assert LISTS["driver_type"].label == "Жолооны ангилал"

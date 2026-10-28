@@ -53,7 +53,7 @@ def test_role_editor_groups_permissions_into_cards() -> None:
     with translation.override("mn"):
         field = copy.deepcopy(permission_formfield())  # forms copy their fields; grouping must survive
         groups = [group for group, _options in field.widget.choices]
-    assert groups == ["Үйл ажиллагааны эрх", "Ажилтан", "Чөлөө, амралт", "Жагсаалтууд"]
+    assert groups == ["Үйл ажиллагааны эрх", "Ажилтан", "Чөлөө, амралт", "Жагсаалтууд", "Тайлан"]
     switches = {label for _value, label in field.widget.choices[0][1]}
     assert switches == {"Чөлөө, амралт батлах", "Тушаал гаргах / баталгаажуулах", "Жагсаалтыг Excel рүү гаргах"}
     employee_card = {label for _value, label in field.widget.choices[1][1]}
@@ -62,6 +62,20 @@ def test_role_editor_groups_permissions_into_cards() -> None:
     assert leave_card == {"Чөлөө харах", "Чөлөө бүртгэх", "Чөлөөний тохиргоо"}
     lists_card = {label for _value, label in field.widget.choices[3][1]}
     assert lists_card == {"Жагсаалт засах"}
+
+
+@pytest.mark.django_db
+def test_role_editor_skips_permissions_of_removed_apps() -> None:
+    """A removed app (payroll, D-038) leaves its permission rows behind; the role editor must not crash on them."""
+    from django.contrib.auth.models import Permission
+    from django.contrib.contenttypes.models import ContentType
+
+    from accounts.admin import permission_formfield, permission_queryset
+
+    gone = ContentType.objects.create(app_label="payroll", model="payrollrule")
+    stale = Permission.objects.create(content_type=gone, codename="manage_payroll_settings", name="Цалингийн тохиргоо")
+    assert stale not in permission_queryset()
+    assert permission_formfield().widget.choices  # building the cards does not raise
 
 
 def test_full_name_is_family_name_first() -> None:

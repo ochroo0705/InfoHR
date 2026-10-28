@@ -14,7 +14,7 @@ from employees.services import events, orders
 from employees.services.events import EventError
 from employees.services.orders import OrderError
 from employees.tests.conftest import named
-from employees.tests.test_events import future, rec
+from employees.tests.test_events import future
 
 pytestmark = pytest.mark.django_db
 
@@ -62,6 +62,12 @@ def test_hire_creates_pending_order(hired: Employee) -> None:
     assert order.state == OrderState.PENDING and order.order_type == OrderType.HIRED
     assert order.history_id is not None and EmployeeHistory.objects.filter(pk=order.history_id).exists()
     assert order.command_id is None
+
+
+def rec(employee: Employee, actor: User, type: str, effective: date, **kw: Any) -> Event:
+    """Record a change and leave its order pending: these tests register and sign the order themselves."""
+    args: dict[str, Any] = {"changes": {}, "salary": None, "reason": "", "note": "", "by": actor} | kw
+    return events.record(employee, type=type, effective=effective, **args)
 
 
 def promo(hired: Employee, actor: User, lead: Position, **kw: Any) -> Event:
@@ -179,12 +185,24 @@ def test_cancel_signed_requires_cancel_number(hired: Employee, actor: User, lead
     orders.attach_signed_file(order, SimpleUploadedFile("a.pdf", b"%PDF"), by=actor)
     with pytest.raises(EventError) as exc:
         events.cancel(event, reason="Буруу", by=actor)
-    assert exc.value.errors["cancel_order_no"] == "Гарын үсэгтэй тушаалыг цуцлахад цуцалсан тушаалын дугаар заавал."
+    assert exc.value.errors["cancel_order_no"] == "Гарын үсэгтэй тушаалыг цуцлахад цуцлах шинэ тушаалын дугаар заавал."
     event.refresh_from_db()
     assert event.cancelled_at is None
     events.cancel(event, reason="Буруу", by=actor, cancel_order_no="А/30")
     order.refresh_from_db()
     assert order.state == OrderState.CANCELLED and order.cancel_order_no == "А/30"
+
+
+def test_cancel_number_already_used_refused(hired: Employee, actor: User, lead: Position) -> None:
+    event = promo(hired, actor, lead, day=future())
+    order = reg(event.order, actor, "А/21", future())
+    orders.attach_signed_file(order, SimpleUploadedFile("a.pdf", b"%PDF"), by=actor)
+    reg(HrOrder.objects.get(employee=hired, is_hire=True), actor, "Б/5", date.today())
+    with pytest.raises(EventError) as exc:
+        events.cancel(event, reason="Буруу", by=actor, cancel_order_no="б/5")  # case-insensitive, like registering
+    assert exc.value.errors["cancel_order_no"] == f"Энэ дугаар {date.today().year} онд аль хэдийн ашиглагдсан."
+    event.refresh_from_db()
+    assert event.cancelled_at is None
 
 
 def test_legacy_number_clash_is_warning(hired: Employee, actor: User, lead: Position) -> None:

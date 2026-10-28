@@ -1,13 +1,13 @@
 {% load hr %}
 {# Personal-tab list «Олгосон бэлэг» (Task 12): a list section, each row opens its edit pop-up. Wrapper id sec-gift. #}
-<section id="sec-gift" class="scroll-mt-20 border-b border-slate-100 py-5">
-  {% include "employees/_list_section.html" with name="gift" title="Олгосон бэлэг" items=personal.gift number=9 %}
-  {% if personal.gift %}<div class="overflow-x-auto"><table class="w-full text-sm">
-  <thead><tr class="text-left text-xs uppercase tracking-wide whitespace-nowrap text-slate-500"><th class="py-2 pr-4 font-normal">Огноо</th><th class="py-2 pr-4 font-normal">Бэлгийн төрөл</th><th class="py-2 pr-4 font-normal">Бэлэглэсэн он</th><th class="py-2 pr-4 font-normal">Хүүхдийн тоо</th><th class="py-2 pr-4 font-normal">Хүүхдийн нас</th><th class="py-2 pr-4 text-right font-normal">Үнэ</th><th class="py-2 pl-6 font-normal">Өгсөн эсэх</th><th class="py-2 pr-4 font-normal">Тайлбар</th></tr></thead>
+<section id="sec-gift" class="scroll-mt-20 pt-7">
+  {% include "employees/_list_section.html" with name="gift" title="Олгосон бэлэг" items=personal.gift %}
+  {% if personal.gift %}<div class="ptable"><table>
+  <thead><tr><th>Огноо</th><th>Бэлгийн төрөл</th><th>Бэлэглэсэн он</th><th>Хүүхдийн тоо</th><th>Хүүхдийн нас</th><th class="text-right">Үнэ</th><th class="pl-6">Өгсөн эсэх</th><th>Тайлбар</th></tr></thead>
   <tbody>
   {% for r in personal.gift %}
-    <tr class="border-t border-slate-100{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'gift' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
-      <td class="py-2 pr-4">{{ r.values.pdate|date:"Y-m-d"|default:"—" }}</td><td class="py-2 pr-4">{{ r.values.present_type }}</td><td class="py-2 pr-4">{{ r.values.given_year }}</td><td class="py-2 pr-4">{{ r.values.childqty }}</td><td class="py-2 pr-4">{{ r.values.child_age }}</td><td class="py-2 pr-4 text-right">{{ r.values.price|mnt }}</td><td class="py-2 pl-6">{% if r.values.given == 1 %}Тийм{% else %}Үгүй{% endif %}</td><td class="py-2 pr-4">{{ r.ext.note|default:"—" }}</td>
+    <tr class="{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'gift' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
+      <td>{{ r.values.pdate|date:"Y-m-d"|default:"—" }}</td><td>{{ r.values.present_type }}</td><td>{{ r.values.given_year }}</td><td>{{ r.values.childqty }}</td><td>{{ r.values.child_age }}</td><td class="text-right">{{ r.values.price|mnt }}</td><td class="pl-6">{% if r.values.given == 1 %}Тийм{% else %}Үгүй{% endif %}</td><td>{{ r.ext.note|default:"—" }}</td>
     </tr>
   {% endfor %}
   </tbody>

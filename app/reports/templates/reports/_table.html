@@ -1,0 +1,30 @@
+{% load hr %}
+<div class="ptable">
+  <table>
+    <thead>
+      <tr>
+        {% for h in heads %}
+        <th{% if h.cls %} class="{{ h.cls }}"{% endif %}><a href="{{ h.href }}" hx-get="{{ h.href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="hover:text-violet-700">{{ h.label }}{% if h.arrow %} <span aria-hidden="true">{{ h.arrow }}</span>{% endif %}</a></th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% if table.count == 0 %}
+      <tr><td colspan="{{ heads|length }}" class="py-6 text-center text-slate-400">Олдсонгүй</td></tr>
+      {% else %}
+        {% for label, rows in table.groups %}
+          {% if filters.group %}
+          <tr><td colspan="{{ heads|length }}" class="font-semibold text-slate-900">{{ label }} · {{ rows|length }}</td></tr>
+          {% endif %}
+          {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+            <td{% if cell.cls %} class="{{ cell.cls }}"{% endif %}>{% if cell.href %}<a href="{{ cell.href }}" class="text-violet-700 hover:underline">{% endif %}{% include "reports/_cell.html" %}{% if cell.href %}</a>{% endif %}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+</div>

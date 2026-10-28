@@ -1,0 +1,14 @@
+{% load hr %}
+{# The open row of an inline list (_inline_list.html): soft boxes posting with #{{ form_id }}; ✓ / Enter saves, ✕ / Esc closes (sections.js). An existing row also offers «Устгах», asked once more in the row. #}
+<tr data-inline-row class="bg-violet-50/60 align-top">
+  {% for bound in open_fields %}<td class="py-1.5 pr-2">{% field bound "w-full min-w-20" form_id soft=True %}</td>{% endfor %}
+  <td class="py-1.5"><div class="flex items-center justify-end gap-1 whitespace-nowrap">
+    {% if not open_new %}<span><button type="button" onclick="this.parentNode.hidden=true;this.parentNode.nextElementSibling.hidden=false" class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50">Устгах</button></span>
+    <span hidden class="text-xs text-slate-700">Устгах уу?
+      <button type="button" hx-post="{% url 'employees:personal_delete' employee.pk kind open_key %}?inline=1" hx-include="#{{ form_id }}" hx-target="#list-{{ kind }}" hx-swap="outerHTML" class="rounded px-1.5 py-1 font-medium text-red-600 hover:bg-red-50">Тийм</button>
+      <button type="button" onclick="this.parentNode.hidden=true;this.parentNode.previousElementSibling.hidden=false" class="rounded px-1.5 py-1 hover:bg-slate-100">Үгүй</button>
+    </span>{% endif %}
+    <button type="submit" form="{{ form_id }}" title="Хадгалах (Enter)" aria-label="Хадгалах" class="rounded-md bg-violet-600 p-1.5 text-white hover:bg-violet-700"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></button>
+    <button type="button" data-inline-cancel hx-get="{% url 'employees:personal_list' employee.pk kind %}" hx-target="#list-{{ kind }}" hx-swap="outerHTML" title="Болих (Esc)" aria-label="Болих" class="rounded-md border border-slate-300 bg-white p-1.5 text-slate-600 hover:bg-slate-50"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+  </div></td>
+</tr>

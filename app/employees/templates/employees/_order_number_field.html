@@ -1,0 +1,3 @@
+{# The order number input with its «Санал болгох» button (static/js/order_suggest.js). Needs `field`. #}
+<span class="flex gap-2">{{ field }}<button type="button" data-order-suggest="{% url 'employees:order_suggest' %}" class="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Санал болгох</button></span>
+<span data-order-suggest-note class="hidden text-xs text-slate-500">Дугаарыг санал болгох боломжгүй, гараар оруулна уу.</span>

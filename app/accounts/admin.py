@@ -98,11 +98,12 @@ class PermissionField(forms.ModelMultipleChoiceField):  # type: ignore[type-arg]
 
 def permission_queryset() -> Any:
     """Business-action permissions only (COWORK T-002): Django's default add/change/delete/view
-    per model and internal apps are hidden."""
+    per model and internal apps are hidden, and so are leftovers of a removed app or model (payroll, D-038),
+    whose rows stay in the database but have no card to go in."""
     candidates = Permission.objects.exclude(content_type__app_label__in=HIDDEN_PERMISSION_APPS).select_related(
         "content_type"
     )
-    keep = [p.pk for p in candidates if not is_default_permission(p)]
+    keep = [p.pk for p in candidates if p.content_type.model_class() is not None and not is_default_permission(p)]
     return Permission.objects.filter(pk__in=keep).select_related("content_type").order_by("content_type", "id")
 
 

@@ -1,0 +1,5 @@
+{% comment %}
+Group link in the personal tab's section menu: opens that topic group as its own page (sections.js, UI_RULES §8).
+The open group gets aria-current (a darker heading, no box). Context: title, key (the group's data-pgroup in _tab_personal.html).
+{% endcomment %}
+<li class="menu-group" data-group="{{ key }}"><a href="#personal-{{ key }}" data-pgroup-link="{{ key }}" class="block rounded py-1 pr-2 pl-2 text-xs font-semibold text-slate-600 hover:text-slate-900 aria-[current=true]:text-slate-900">{{ title }}</a></li>

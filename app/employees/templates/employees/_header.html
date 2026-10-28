@@ -29,7 +29,7 @@
     {% else %}
     <p class="mt-1 text-sm text-slate-500">{{ employee.code }} · {{ employee.work_phone }}{% if employee.email %} · {{ employee.email }}{% endif %}</p>
     {% endif %}
-    <p id="activity-latest" class="mt-1 text-xs text-slate-400">{% include "employees/_activity_latest.html" %}</p>
+    <p id="activity-latest" class="mt-1 text-xs text-slate-500">{% include "employees/_activity_latest.html" %}</p>
   </div>
   <div class="flex flex-col items-end gap-3 self-start">
     <div class="flex flex-col items-end gap-1">
@@ -55,7 +55,7 @@
 <div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
   <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Ажилд орсон</div><div class="mt-0.5 font-bold">{{ employee.first_hire_date|date:"Y-m-d"|default:"—" }}</div></div>
   <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Ажилтны төрөл</div><div class="mt-0.5 truncate font-bold">{{ row.job.get_employee_type_display|default:"—" }}</div></div>
-  <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Гэрээ дуусах</div><div class="mt-0.5 truncate font-bold">{{ row.job.contract_end|date:"Y-m-d"|default:"—" }}</div></div>
+  <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Гэрээ дуусах</div><div class="mt-0.5 truncate font-bold">{% if row.job.contract_end %}{{ row.job.contract_end|date:"Y-m-d" }}{% elif row.job.contract_type == "open_ended" %}Хугацаагүй{% else %}—{% endif %}</div></div>
   <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Шууд удирдлага</div><div class="mt-0.5 truncate font-bold">{{ row.job.manager|default:"—" }}</div></div>
 </div>
 </div>{% endwith %}

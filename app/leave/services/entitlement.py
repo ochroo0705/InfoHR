@@ -26,7 +26,12 @@ class StartMissing(ValueError):
 def employment_start(employee: Employee) -> date | None:
     """Latest live rehire, else first hire date; None when both are empty. The contract start is not used: a
     renewal would move it and shift every leave year (user decision 2026-10-16)."""
-    rehire = employee.events.filter(type=EventType.REHIRE, cancelled_at__isnull=True).order_by("-effective").first()
+    rehire = (
+        employee.events.applied()
+        .filter(type=EventType.REHIRE, cancelled_at__isnull=True)
+        .order_by("-effective")
+        .first()
+    )
     if rehire is not None:
         return rehire.effective
     return cast(date | None, employee.first_hire_date)
@@ -72,9 +77,9 @@ def year_start_for(employee: Employee, day: date) -> date:
 
 def _childcare_starts(employee: Employee) -> set[date]:
     return set(
-        employee.events.filter(
-            type=EventType.LEAVE_START, reason=LeaveKind.CHILDCARE, cancelled_at__isnull=True
-        ).values_list("effective", flat=True)
+        employee.events.applied()
+        .filter(type=EventType.LEAVE_START, reason=LeaveKind.CHILDCARE, cancelled_at__isnull=True)
+        .values_list("effective", flat=True)
     )
 
 

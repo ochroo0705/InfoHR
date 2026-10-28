@@ -1,5 +1,6 @@
 # Mongolian translations: Info HR labels + django-unfold (which ships no Mongolian).
-# Django's own admin/auth text is already translated by Django itself.
+# Django's own admin/auth text is already translated by Django itself; the last section
+# replaces its wordings that read wrong or backwards (this file wins over Django's).
 # Edit here, then run: python scripts/compile_messages.py
 msgid ""
 msgstr ""
@@ -173,3 +174,115 @@ msgstr "Та удирдлагын хэсгээс амжилттай гарлаа
 
 msgid "After you’ve created a user, you’ll be able to edit more user options."
 msgstr "Хэрэглэгч үүсгэсний дараа бусад тохиргоог засах боломжтой болно."
+
+# --- Django admin/auth: replaces Django's Mongolian where it reads wrong ---
+msgid "View site"
+msgstr "Info HR руу очих"
+
+msgid "Site administration"
+msgstr "Удирдлагын хэсэг"
+
+msgid "Django site admin"
+msgstr "Удирдлагын хэсэг"
+
+msgid "Authentication and Authorization"
+msgstr "Хандалт"
+
+msgid "Models in the %(name)s application"
+msgstr "%(name)s хэсгийн жагсаалтууд"
+
+msgid "Add %s"
+msgstr "%s нэмэх"
+
+msgid "Change %s"
+msgstr "%s засах"
+
+msgid "View %s"
+msgstr "%s харах"
+
+msgid "Select %s to change"
+msgstr "%s: засах мөрөө сонгоно уу"
+
+msgid "Select %s to view"
+msgstr "%s: харах мөрөө сонгоно уу"
+
+msgid "Add another %(model)s"
+msgstr "%(model)s нэмэх"
+
+msgid "Change selected %(model)s"
+msgstr "Сонгосныг засах"
+
+msgid "Delete selected %(model)s"
+msgstr "Сонгосныг устгах"
+
+msgid "View selected %(model)s"
+msgstr "Сонгосныг харах"
+
+msgid "Save and add another"
+msgstr "Хадгалаад дахин нэмэх"
+
+msgid "Save and continue editing"
+msgstr "Хадгалаад үргэлжлүүлэн засах"
+
+msgid "Save and view"
+msgstr "Хадгалаад харах"
+
+msgid "Remove from sorting"
+msgstr "Эрэмбэлэхээс хасах"
+
+msgid "Sorting priority: %(priority_number)s"
+msgstr "Эрэмбэлэх дараалал: %(priority_number)s"
+
+msgid "Toggle sorting"
+msgstr "Эрэмбийн чиглэл солих"
+
+msgid " By %(filter_title)s "
+msgstr " %(filter_title)s "
+
+msgid "Delete selected %(verbose_name_plural)s"
+msgstr "Сонгосон мөрүүдийг устгах"
+
+msgid "Run the selected action"
+msgstr "Сонгосон үйлдлийг ажиллуулах"
+
+msgid "Select all objects on this page for an action"
+msgstr "Энэ хуудсан дээрх бүх мөрийг сонгох"
+
+msgid "Yes, I’m sure"
+msgstr "Тийм, устгах"
+
+msgid "No, take me back"
+msgstr "Үгүй, буцах"
+
+msgid "Password change"
+msgstr "Нууц үг солих"
+
+msgid "Password confirmation"
+msgstr "Нууц үгээ давтах"
+
+msgid "New password confirmation"
+msgstr "Шинэ нууц үгээ давтах"
+
+msgid "user"
+msgstr "Хэрэглэгч"
+
+msgid "users"
+msgstr "Хэрэглэгчид"
+
+msgid "group"
+msgstr "Эрхийн бүлэг"
+
+msgid "groups"
+msgstr "Эрхийн бүлгүүд"
+
+msgid "permissions"
+msgstr "Эрхүүд"
+
+msgid "active"
+msgstr "Идэвхтэй"
+
+msgid "staff status"
+msgstr "Удирдлагын хэсэгт нэвтрэх"
+
+msgid "superuser status"
+msgstr "Бүх эрхтэй (супер админ)"

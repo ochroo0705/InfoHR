@@ -29,7 +29,9 @@ from macs.models import (
     City,
     ContactType,
     Country,
+    DisciplineType,
     District,
+    DriverType,
     EducRow,
     EduType,
     FamilyRelation,
@@ -39,6 +41,7 @@ from macs.models import (
     LeaveAssign,
     LeaveTypeRow,
     MaritalStatus,
+    MaterialHelpType,
     PresentRow,
     PresentType,
     Shift,
@@ -46,7 +49,7 @@ from macs.models import (
 )
 
 from employees.models import Employee, EmployeeExt, ensure_ext
-from employees.services import history, macs_writes, records
+from employees.services import history, macs_writes, personal_writes, records
 
 DEMO_PASSWORD = "Demo-InfoHR-2026"  # noqa: S105 — local demo database only (DEBUG-gated)
 
@@ -546,7 +549,114 @@ class Command(BaseCommand):
             },
         )
 
+        self._seed_new_personal_lists(people["Энхбаяр"], hr)
         self._seed_leave(people, today, hr)
+
+    def _seed_new_personal_lists(self, director: Employee, by: User) -> None:
+        """One dropdown entry per new list table, then one row of each new personal kind for the director."""
+        material_type = _list_entry(MaterialHelpType, "Эмчилгээний зардал")
+        discipline_type = _list_entry(DisciplineType, "Анхааруулга")
+        driver_type = _list_entry(DriverType, "B ангилал")
+        rows: list[tuple[str, dict[str, Any]]] = [
+            (
+                "relative",
+                {
+                    "given_name": "Отгонбаяр",
+                    "father_name": "Баатар",
+                    "job": "Багш",
+                    "phone": "99001122",
+                    "description": "Эхнэр",
+                },
+            ),
+            (
+                "before_work",
+                {
+                    "worked_place": "Монгол Алт ХХК",
+                    "start_text": "2005-09",
+                    "end_text": "2014-12",
+                    "profession": "Нягтлан бодогч",
+                    "shaltgaan": "Өөрийн хүсэлтээр",
+                    "start_year": 2005,
+                    "end_year": 2014,
+                },
+            ),
+            (
+                "skill",
+                {
+                    "description": "Жилийн санхүүгийн тайлан бэлтгэх",
+                    "norm": Decimal("12"),
+                    "sdate": date(2026, 1, 1),
+                    "comment": "Жилд 12 удаа",
+                },
+            ),
+            (
+                "material_help",
+                {
+                    "amount": Decimal("500000"),
+                    "help_date": date(2026, 3, 15),
+                    "material_type": material_type,
+                    "description": "Эмнэлгийн зардалд",
+                },
+            ),
+            (
+                "award",
+                {
+                    "give_org": "Засгийн газар",
+                    "award_name": "Үнэнч алба хаагч",
+                    "award_date": date(2024, 12, 20),
+                    "description": "Жилийн шагнал",
+                },
+            ),
+            (
+                "discipline",
+                {
+                    "from_discipline": "Захирал",
+                    "discipline_type": discipline_type,
+                    "discipline_date": date(2025, 6, 10),
+                    "description": "Хугацаа хойшлуулсан",
+                },
+            ),
+            (
+                "complaint",
+                {"cdate": date(2025, 11, 5), "ctype": 1, "complaint_name": 1, "comment": "Санал хүсэлт"},
+            ),
+            (
+                "body",
+                {
+                    "inserted_ognoo": date(2026, 2, 10),
+                    "term_type": "Жил бүр",
+                    "end_date": date(2027, 2, 10),
+                    "own_letter": "Эрүүл",
+                    "ear": "Хэвийн",
+                    "dotor": "Хэвийн",
+                    "medrel": "Хэвийн",
+                    "nud": "Хэвийн",
+                    "conclusion": "Ажилд тохиромжтой",
+                    "sign": "Эмч Д.Сарантуяа",
+                },
+            ),
+            (
+                "driver",
+                {
+                    "number_driver": "ЖМ-2026-0148",
+                    "inserted_ognoo": date(2020, 5, 1),
+                    "driver_type": driver_type,
+                },
+            ),
+            (
+                "military",
+                {
+                    "army_rank": "Ахлагч",
+                    "mil_rank": "Харуул",
+                    "study_type": "2001-2002",
+                    "sacking_date": date(2002, 12, 1),
+                    "sacking_reason": "Цэргийн алба дууссан",
+                },
+            ),
+            ("army_rank", {"rank_date": date(2002, 12, 1), "rank": "Ахлагч"}),
+        ]
+        for kind, values in rows:
+            personal_writes.add(kind, director, values, {}, by)
 
     def _seed_leave(self, people: dict[str, Employee], today: date, by: User) -> None:
         """Leave types, holidays and leaves: production rows, plus a few old-style rows written without an ext row."""

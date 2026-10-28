@@ -10,22 +10,31 @@ def fast_password_hasher(settings: SettingsWrapper) -> None:
 
 from pathlib import Path  # noqa: E402
 
-from django.db import connections  # noqa: E402
+from django.db import connections, transaction  # noqa: E402
 from django.db.models.signals import pre_migrate  # noqa: E402
-
-STRUCTURE_SQL = Path(__file__).resolve().parent.parent / "db" / "schema" / "macs_public.sql"
+from tests_guard.structure_load import STRUCTURE_SQL, chunked, chunks_left, is_complete, loaded_note  # noqa: E402
 
 
 def _load_production_structure(sender: object, using: str = "default", **kwargs: object) -> None:
     """Test databases get the real production tables (D-018) and an empty `hr` schema before
-    Django migrates. Never runs against a non-test database."""
+    Django migrates, loaded in committed chunks (tests_guard/structure_load.py). Never runs
+    against a non-test database."""
     conn = connections[using]
     if not str(conn.settings_dict["NAME"]).startswith("test_"):
         return
     with conn.cursor() as c:
-        c.execute("select to_regclass('public.employee')")
-        if c.fetchone()[0] is None:
-            c.execute(STRUCTURE_SQL.read_text(encoding="utf-8"))
+        c.execute(
+            "select to_regclass('public.employee') is not null, obj_description('public'::regnamespace, 'pg_namespace')"
+        )
+        loaded_whole, note = c.fetchone()
+        if not is_complete(note):  # the hook runs once per app; only the first call loads
+            digest, chunks = chunked(STRUCTURE_SQL.read_text(encoding="utf-8"))
+            for n in chunks_left(note, loaded_whole, digest, len(chunks)):
+                with transaction.atomic(using=using):
+                    c.execute(chunks[n])
+                    c.execute(f"comment on schema public is '{loaded_note(digest, n + 1, len(chunks))}'")
+            c.execute(f"comment on schema public is '{loaded_note(digest, len(chunks), len(chunks))}'")
+        # Only after the load: the search path is hr,public, so unqualified tables would land in hr.
         c.execute("create schema if not exists hr")
 
 

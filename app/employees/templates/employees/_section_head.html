@@ -1,5 +1,2 @@
-{# Heading row of a personal-tab section: number, title, and «Засах» (read mode, managers only). #}
-<div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-1">
-  <h3 class="text-sm font-semibold text-slate-800"><span class="mr-1.5 text-slate-400">{{ number }}.</span>{{ title }}</h3>
-  {% if can_manage and not editing %}<button type="button" hx-get="{% url 'employees:personal_section' employee.pk name %}?edit=1" hx-target="#sec-{{ name }}" hx-swap="outerHTML" class="rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">Засах</button>{% endif %}
-</div>
+{# Heading row of a personal-tab field section: its title (UI_RULES §8). Its fields are edited on the spot (_on_spot_fields.html, §2f). #}
+<h3 class="sec-title">{{ title }}</h3>

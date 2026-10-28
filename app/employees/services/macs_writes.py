@@ -55,7 +55,7 @@ def emptype_for(job: JobRecord | None, ext: EmployeeExt, today: date) -> int:
     if job is None:
         return 3
     if job.status == JobStatus.LEFT:
-        event = job.event if job.event_id else None
+        event = job.event  # Django returns None without a query when there is no event; a candidate keeps its object
         return 6 if event is not None and event.pension else 3
     if job.emptype is not None:
         return int(job.emptype)
@@ -97,7 +97,12 @@ def _fill_hire_dates(employee: Employee) -> None:
 def hr_employment_start(employee: Employee) -> date | None:
     """Start of the current employment as recorded in HR: the latest live rehire event, else the HR hire job's
     start. None for a MACS-only (legacy) employee that has neither."""
-    rehire = employee.events.filter(type=EventType.REHIRE, cancelled_at__isnull=True).order_by("-effective").first()
+    rehire = (
+        employee.events.applied()
+        .filter(type=EventType.REHIRE, cancelled_at__isnull=True)
+        .order_by("-effective")
+        .first()
+    )
     if rehire is not None:
         return rehire.effective
     hire = employee.job_records.filter(change_type="hire").order_by("period").first()
@@ -222,7 +227,7 @@ LEAVE_TYPE_CODES = {"unpaid": 1, "childcare": 2, "maternity": 3}
 def _flags(employee: Employee, job: JobRecord, today: date) -> dict[str, Any]:
     """Production leave/leaving flags for the job valid today (spec §6)."""
     flags: dict[str, Any] = {"taken_leave": 0, "leave_type": None, "fired_reason_id": None, "died": "no"}
-    live = employee.events.filter(cancelled_at__isnull=True, effective__lte=today)
+    live = employee.events.applied().filter(cancelled_at__isnull=True, effective__lte=today)
     if job.status == JobStatus.LONG_LEAVE:
         start = live.filter(type=EventType.LEAVE_START).order_by("-effective", "-id").first()
         flags["taken_leave"] = 1
@@ -366,6 +371,20 @@ def snapshot_history(
         register_no=employee.register_no,
         gender=employee.gender,
         birth_date=employee.birth_date,
+        work_phone=employee.work_phone,
+        private_phone=employee.private_phone,
+        email=employee.email,
+        passport_no=employee.passport_no,
+        account_no=employee.account_no,
+        social_insurance_no=employee.social_insurance_no,
+        health_insurance_no=employee.health_insurance_no,
+        prior_service_years=employee.prior_service_years,
+        foreign_emp=employee.foreign_emp,
+        citizenship_id_value=employee.citizenship_id,
+        education_level_id_value=employee.education_level_id,
+        academic_degree_id_value=employee.academic_degree_id,
+        insured_category_id_value=employee.insured_category_id,
+        last_order_text=employee.last_order_text,
         is_default=0,
         **state,
         **extra,
@@ -380,7 +399,15 @@ def _state_on(employee: Employee, day: date) -> dict[str, Any] | None:
     job = job_on(employee, day)
     if job is None:
         return None
-    ext = EmployeeExt.objects.get_or_create(employee=employee)[0]
+    EmployeeExt.objects.get_or_create(employee=employee)
+    return state_of(employee, job, day)
+
+
+def state_of(employee: Employee, job: JobRecord, day: date) -> dict[str, Any]:
+    """Department, position and employee type that `job` gives on `day`. Reads only, so `job` may be an unsaved
+    copy. `_state_on` calls it with the stored job."""
+    # emptype_for and keeps_emptype do not read the HR row, so an unsaved one is passed (nothing is written).
+    ext = EmployeeExt(employee=employee)
     emptype = employee.emptype if keeps_emptype(employee, job, ext) else emptype_for(job, ext, day)
     return {"department_id": job.department_id, "position_id": job.position_id, "emptype": emptype}
 

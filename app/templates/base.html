@@ -10,26 +10,44 @@
   <script src="{% static 'js/sections.js' %}" defer></script>
   <script src="{% static 'js/contract.js' %}" defer></script>
   <script src="{% static 'js/money.js' %}" defer></script>
+  <script src="{% static 'js/order_suggest.js' %}" defer></script>
+  <script src="{% static 'js/modal.js' %}" defer></script>
+  {% if user.is_authenticated %}<script src="{% static 'js/palette.js' %}" defer></script>{% endif %}
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800"{% if perms.lists.manage_lists %} data-can-add-lists{% endif %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}
   <header class="sticky top-0 z-40 bg-slate-800 text-white shadow-sm">
     <nav class="mx-auto max-w-6xl flex items-stretch gap-1 px-4 h-14 text-sm">
       {% with app=request.resolver_match.app_name %}
-      <a href="{% url 'home' %}" class="mr-4 flex items-center text-lg font-extrabold tracking-tight">Info<span class="text-amber-300">HR</span></a>
-      <a href="{% url 'employees:list' %}" class="flex items-center border-b-2 px-3 hover:bg-white/10 hover:text-white {% if app == 'employees' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Ажилтнууд</a>
-      {% if perms.macs.view_employees %}<a href="{% url 'employees:orders' %}" class="flex items-center border-b-2 px-3 hover:bg-white/10 hover:text-white {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'orders_print' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Тушаалын бүртгэл</a>{% endif %}
-      {% if perms.leave.view_leave %}<a href="{% url 'leave:list' %}" class="flex items-center border-b-2 px-3 hover:bg-white/10 hover:text-white {% if app == 'leave' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Чөлөө, амралт</a>{% endif %}
-      {% if perms.lists.manage_lists %}<a href="{% url 'lists:index' %}" class="flex items-center border-b-2 px-3 hover:bg-white/10 hover:text-white {% if app == 'lists' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Жагсаалтууд</a>{% endif %}
+      <a href="{% url 'home' %}" class="mr-2 flex shrink-0 items-center text-lg font-extrabold tracking-tight sm:mr-4">Info<span class="text-amber-300">HR</span></a>
+      <div data-nav class="flex min-w-0 flex-1 items-stretch gap-1 overflow-x-auto [scrollbar-width:none]">
+      <a href="{% url 'employees:today' %}" class="flex shrink-0 items-center whitespace-nowrap border-b-2 px-3 hover:bg-white/10 hover:text-white {% if request.resolver_match.url_name == 'today' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Өнөөдөр</a>
+      <a href="{% url 'employees:list' %}" class="flex shrink-0 items-center whitespace-nowrap border-b-2 px-3 hover:bg-white/10 hover:text-white {% if app == 'employees' and request.resolver_match.url_name != 'today' and request.resolver_match.url_name != 'orders' and request.resolver_match.url_name != 'orders_print' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Ажилтнууд</a>
+      {% if perms.macs.view_employees %}<a href="{% url 'employees:orders' %}" class="flex shrink-0 items-center whitespace-nowrap border-b-2 px-3 hover:bg-white/10 hover:text-white {% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'orders_print' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Тушаалын бүртгэл</a>{% endif %}
+      {% if perms.leave.view_leave %}<a href="{% url 'leave:list' %}" class="flex shrink-0 items-center whitespace-nowrap border-b-2 px-3 hover:bg-white/10 hover:text-white {% if app == 'leave' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Чөлөө, амралт</a>{% endif %}
+      {% if perms.reports.view_reports %}<a href="{% url 'reports:catalogue' %}" class="flex shrink-0 items-center whitespace-nowrap border-b-2 px-3 hover:bg-white/10 hover:text-white {% if app == 'reports' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Тайлан</a>{% endif %}
+      {% if perms.lists.manage_lists %}<a href="{% url 'lists:index' %}" class="flex shrink-0 items-center whitespace-nowrap border-b-2 px-3 hover:bg-white/10 hover:text-white {% if app == 'lists' %}border-amber-400 font-semibold text-white{% else %}border-transparent text-white/70{% endif %}">Жагсаалтууд</a>{% endif %}
+      </div>
       {% endwith %}
-      <span class="ml-auto flex items-center px-3 text-white/70">{{ user.get_full_name|default:user.username }}</span>
+      <button type="button" data-palette-open aria-label="Хайх" class="flex shrink-0 items-center gap-2 px-3 text-white/70 hover:bg-white/10 hover:text-white"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg><span class="hidden lg:inline">Хайх</span><kbd class="hidden text-xs text-white/50 lg:inline">Ctrl K</kbd></button>
+      <span class="hidden shrink-0 items-center px-3 text-white/70 md:flex">{{ user.get_full_name|default:user.username }}</span>
       <form method="post" action="{% url 'logout' %}" class="flex">{% csrf_token %}
-        <button class="flex items-center px-3 text-white/70 hover:bg-white/10 hover:text-white">Гарах</button>
+        <button class="flex shrink-0 items-center px-3 text-white/70 hover:bg-white/10 hover:text-white">Гарах</button>
       </form>
     </nav>
   </header>
+  <template id="palette-template" data-url="{% url 'employees:palette' %}" data-user="{{ user.pk }}">
+    <div class="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 p-4 pt-4 sm:pt-24" data-palette>
+      <div class="w-full max-w-xl overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-slate-900/5">
+        <div class="relative border-b border-slate-200 p-3"><svg class="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2L17 17"/></svg><input type="text" data-palette-input role="combobox" aria-label="Хайх" aria-controls="palette-results" aria-expanded="true" placeholder="Ажилтан, хуудас хайх…" autocomplete="off" class="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-base focus:border-transparent focus:outline-2 focus:-outline-offset-1 focus:outline-violet-500"></div>
+        <div id="palette-results" data-palette-results role="listbox" class="max-h-[70vh] sm:max-h-80 overflow-y-auto overscroll-contain px-2 pb-2"><p data-palette-failed hidden class="px-3 py-2 text-sm text-red-600">Хайлт амжилтгүй боллоо</p></div>
+        <div data-palette-hint class="hidden items-center border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 sm:flex"><span><kbd class="rounded border border-slate-300 bg-white px-1.5 text-xs">↑↓</kbd> сонгох · <kbd class="rounded border border-slate-300 bg-white px-1.5 text-xs">Enter</kbd> нээх · <kbd class="rounded border border-slate-300 bg-white px-1.5 text-xs">Esc</kbd> хаах</span></div>
+      </div>
+    </div>
+  </template>
   {% endif %}
-  <div id="page"><main class="mx-auto max-w-6xl px-4 py-6">{% block content %}{% endblock %}</main></div>
+  <div id="page"><main class="mx-auto {% block main_width %}max-w-6xl px-4{% endblock %} py-6">{% block content %}{% endblock %}</main></div>
   <div id="modal"></div>
+  <script>(function(){var n=document.querySelector('[data-nav] .border-amber-400');if(n&&n.scrollIntoView)n.scrollIntoView({inline:'nearest',block:'nearest'});})();</script>
 </body>
 </html>

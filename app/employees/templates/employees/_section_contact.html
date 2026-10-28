@@ -1,56 +1,27 @@
 {% load hr %}
-{# Personal-tab section «Холбоо барих, хаяг» (Task 10): read mode, or edit mode with its own form. Wrapper id sec-contact; form id sec-contact-form. #}
-<section id="sec-contact" class="scroll-mt-20 border-b border-slate-100 py-5">
+{# Personal-tab section «Холбоо барих, хаяг» (Task 10): edited on the spot by managers (_on_spot_fields.html, UI_RULES §2f), plain text for others. Wrapper id sec-contact. #}
+<section id="sec-contact" class="scroll-mt-20 pt-7">
   {% include "employees/_section_head.html" with name="contact" %}
-  {% if editing %}
-  <form id="sec-contact-form" hx-post="{% url 'employees:personal_section' employee.pk 'contact' %}" hx-target="#sec-contact" hx-swap="outerHTML" method="post" action="{% url 'employees:personal_section' employee.pk 'contact' %}" class="mt-4">
-    {% csrf_token %}
-    <input type="hidden" name="loaded" value="{{ form|loaded_snapshot }}">
-    {% if form_errors %}<div class="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{% for e in form_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
-    <dl class="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-      {% for bound in fields %}<div><dt class="text-xs text-slate-500">{{ bound.label }}{% if bound.field.required %} *{% endif %}</dt><dd>{% field bound "w-full" "sec-contact-form" boxed=True %}</dd></div>{% endfor %}
-    </dl>
-    <div class="mt-4 flex justify-end gap-2">
-      <button type="button" hx-get="{% url 'employees:personal_section' employee.pk 'contact' %}" hx-target="#sec-contact" hx-swap="outerHTML" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
-      <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
-    </div>
-  </form>
+  {% if can_manage %}
+  {% include "employees/_on_spot_fields.html" with name="contact" %}
   {% else %}
   <dl class="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
     {% for label, value in rows %}<div><dt class="text-xs text-slate-500">{{ label }}</dt><dd>{% if value %}{{ value }}{% else %}<span class="text-slate-300">—</span>{% endif %}</dd></div>{% endfor %}
   </dl>
   {% endif %}
   <section class="mt-6">
-  <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-1">
-    <h3 class="text-sm font-semibold text-slate-800">Хаяг{% if personal.address %} <span class="ml-1 font-normal text-slate-400">{{ personal.address|length }}</span>{% endif %}</h3>
-    {% if can_manage %}<button type="button" hx-get="{% url 'employees:personal_add' employee.pk 'address' %}" hx-target="body" hx-swap="beforeend" class="rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">+ нэмэх</button>{% endif %}
-  </div>
-  {% if personal.address %}<div class="overflow-x-auto"><table class="w-full text-sm">
-    <thead><tr class="text-left text-xs uppercase tracking-wide whitespace-nowrap text-slate-500"><th class="py-2 pr-4 font-normal">Аймаг, хот</th><th class="py-2 pr-4 font-normal">Сум, дүүрэг</th><th class="py-2 pr-4 font-normal">Хаяг</th></tr></thead>
+  {% include "employees/_list_section.html" with name="address" title="Хаяг" items=personal.address %}
+  {% if personal.address %}<div class="ptable"><table>
+    <thead><tr><th>Аймаг, хот</th><th>Сум, дүүрэг</th><th>Хаяг</th></tr></thead>
     <tbody>
     {% for r in personal.address %}
-      <tr class="border-t border-slate-100{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'address' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
-        <td class="py-2 pr-4">{{ r.values.city }}</td><td class="py-2 pr-4">{{ r.values.district }}</td><td class="py-2 pr-4">{{ r.values.street|default:"—" }}</td>
+      <tr class="{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'address' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
+        <td>{{ r.values.city }}</td><td>{{ r.values.district }}</td><td>{{ r.values.street|default:"—" }}</td>
       </tr>
     {% endfor %}
     </tbody>
-  </table></div>{% else %}<p class="py-2 text-sm text-slate-400">бүртгэгдээгүй</p>{% endif %}
+  </table></div>{% endif %}
   </section>
-  <section class="mt-6">
-  <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-1">
-    <h3 class="text-sm font-semibold text-slate-800">Яаралтай үед холбогдох{% if personal.contact %} <span class="ml-1 font-normal text-slate-400">{{ personal.contact|length }}</span>{% endif %}</h3>
-    {% if can_manage %}<button type="button" hx-get="{% url 'employees:personal_add' employee.pk 'contact' %}" hx-target="body" hx-swap="beforeend" class="rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">+ нэмэх</button>{% endif %}
-  </div>
-  {% if personal.contact %}<div class="overflow-x-auto"><table class="w-full text-sm">
-    <thead><tr class="text-left text-xs uppercase tracking-wide whitespace-nowrap text-slate-500"><th class="py-2 pr-4 font-normal">Төрөл</th><th class="py-2 pr-4 font-normal">Нэр</th><th class="py-2 pr-4 font-normal">Хамаарал</th><th class="py-2 pr-4 font-normal">Утас, имэйл</th></tr></thead>
-    <tbody>
-    {% for r in personal.contact %}
-      <tr class="border-t border-slate-100{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'contact' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
-        <td class="py-2 pr-4">{{ r.values.contact_type }}</td><td class="py-2 pr-4">{{ r.values.name }}</td><td class="py-2 pr-4">{{ r.values.relative }}</td><td class="py-2 pr-4">{{ r.values.value|default:"—" }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table></div>{% else %}<p class="py-2 text-sm text-slate-400">бүртгэгдээгүй</p>{% endif %}
-  </section>
+  <div class="mt-6">{% inline_list "contact" %}</div>
 
 </section>

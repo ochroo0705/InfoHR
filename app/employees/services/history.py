@@ -12,6 +12,7 @@ from psycopg.types.range import DateRange
 from employees.models import (
     ActivityEntry,
     ActivityKind,
+    ChangeType,
     ContractType,
     Department,
     Employee,
@@ -274,6 +275,33 @@ def change_job(
     return record
 
 
+def _write_salary(
+    employee: Employee,
+    *,
+    effective: date,
+    amount: Decimal,
+    change_type: str,
+    note: str,
+    by: User,
+    event: Event | None,
+) -> tuple[SalaryRecord, str]:
+    """Split or create the salary period at `effective` and write the new amount. Returns the record and the old
+    amount as shown in the log. The caller holds the employee lock."""
+    current = _containing(employee.salary_records.select_for_update(), effective)
+    if current is None:
+        if employee.salary_records.filter(period__startswith__gt=effective).exists():
+            raise HistoryError("Энэ өдрөөс хойш цалингийн түүх байна. Засвар ашиглана уу.")
+        record = SalaryRecord(employee=employee, period=DateRange(effective, None, "[)"))
+        old = ""
+    else:
+        old = group(current.base_salary)
+        record = _split(current, effective)
+    record.base_salary, record.change_type, record.note, record.created_by = amount, change_type, note, by
+    record.event = event
+    record.save()
+    return record, old
+
+
 @transaction.atomic
 def change_salary(
     employee: Employee,
@@ -290,18 +318,9 @@ def change_salary(
     Employee.objects.select_for_update().get(pk=employee.pk)
     if first_only and employee.salary_records.exists():
         raise HistoryError("Цалин аль хэдийн тогтоогдсон байна.")
-    current = _containing(employee.salary_records.select_for_update(), effective)
-    if current is None:
-        if employee.salary_records.filter(period__startswith__gt=effective).exists():
-            raise HistoryError("Энэ өдрөөс хойш цалингийн түүх байна. Засвар ашиглана уу.")
-        record = SalaryRecord(employee=employee, period=DateRange(effective, None, "[)"))
-        old = ""
-    else:
-        old = group(current.base_salary)
-        record = _split(current, effective)
-    record.base_salary, record.change_type, record.note, record.created_by = amount, change_type, note, by
-    record.event = event
-    record.save()
+    record, old = _write_salary(
+        employee, effective=effective, amount=amount, change_type=change_type, note=note, by=by, event=event
+    )
     if log:
         ActivityEntry.objects.create(
             employee=employee,
@@ -312,6 +331,87 @@ def change_salary(
             changes=[{"field": "Үндсэн цалин", "old": old, "new": group(amount)}],
         )
     macs_writes.sync_current(employee, timezone.localdate())
+    return record
+
+
+def _change_type_label(value: str) -> str:
+    try:
+        return str(ChangeType(value).label)
+    except ValueError:
+        return value
+
+
+def _later_change_text(record: JobRecord | SalaryRecord) -> str:
+    return f'{record.period.lower:%Y-%m-%d}-аас эхлэх "{_change_type_label(record.change_type)}" өөрчлөлт'
+
+
+@transaction.atomic
+def insert_job(
+    employee: Employee,
+    *,
+    effective: date,
+    changes: dict[str, Any],
+    change_type: str,
+    note: str,
+    by: User,
+    event: Event | None,
+) -> JobRecord:
+    """Record a change effective before later job periods already exist (a change signed late). The containing
+    period is split at `effective`; each changed field must still hold its old value in every later period, and
+    then the new value is carried through those periods too. Refused otherwise. No log, no sync (the caller)."""
+    if not changes:
+        raise HistoryError("Өөрчлөх талбар алга.")
+    for field in changes:
+        if field not in JobRecord.JOB_FIELDS:
+            raise HistoryError(f"'{field}' талбарыг засах боломжгүй.")
+    Employee.objects.select_for_update().get(pk=employee.pk)
+    current = _containing(employee.job_records.select_for_update(), effective)
+    if current is None:
+        raise HistoryError("Энэ өдөр ажилтанд ажлын түүх байхгүй байна.")
+    old = {field: getattr(current, field) for field in changes}
+    later = list(employee.job_records.select_for_update().filter(period__startswith__gt=effective).order_by("period"))
+    for field in changes:
+        for later_record in later:
+            if getattr(later_record, field) != old[field]:
+                raise HistoryError(
+                    f"{_label(JobRecord, field)}: {_later_change_text(later_record)} энэ талбарыг аль хэдийн өөрчилсөн "
+                    "байна. Хүлээгдэж буй өөрчлөлтийг цуцалж, дахин бүртгэнэ үү."
+                )
+    record: JobRecord = _split(current, effective)
+    for field, value in changes.items():
+        setattr(record, field, value)
+    record.change_type, record.note, record.created_by = change_type, note, by
+    record.event = event
+    record.save()
+    for later_record in later:
+        for field, value in changes.items():
+            setattr(later_record, field, value)
+        later_record.save(update_fields=list(changes))
+    return record
+
+
+@transaction.atomic
+def insert_salary(
+    employee: Employee,
+    *,
+    effective: date,
+    amount: Decimal,
+    change_type: str,
+    note: str,
+    by: User,
+    event: Event | None,
+) -> SalaryRecord:
+    """Salary counterpart of insert_job: refused when a later salary period exists. No log, no sync (the caller)."""
+    Employee.objects.select_for_update().get(pk=employee.pk)
+    later = employee.salary_records.select_for_update().filter(period__startswith__gt=effective).order_by("period")
+    if (blocking := later.first()) is not None:
+        raise HistoryError(
+            f"Үндсэн цалин: {_later_change_text(blocking)} аль хэдийн өөрчилсөн байна. "
+            "Хүлээгдэж буй өөрчлөлтийг цуцалж, дахин бүртгэнэ үү."
+        )
+    record, _ = _write_salary(
+        employee, effective=effective, amount=amount, change_type=change_type, note=note, by=by, event=event
+    )
     return record
 
 

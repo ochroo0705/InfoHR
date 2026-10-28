@@ -7,19 +7,23 @@ from accounts.models import User
 from macs.models import (
     AcademicDegree,
     AddressRow,
+    Branch,
     CertificateRow,
     City,
     ContactRow,
     ContactType,
     Country,
+    Department,
     District,
     FamilyRelation,
     FamilyRow,
     ForeignLanguage,
     LanguageRow,
+    Position,
     PresentRow,
     PresentType,
     QualificationRow,
+    RelativeRow,
     SpecEduType,
     TalentKind,
     TrainingRow,
@@ -222,3 +226,29 @@ def test_dangling_list_id_shows_dash(
     assert found is not None
     assert found.values["relation"] == "—"
     assert "FamilyRelation" in caplog.text
+
+
+@pytest.mark.django_db
+def test_relative_row_resolves_branch_department_position(emp: Employee) -> None:
+    RelativeRow.objects.create(
+        employee=emp,
+        given_name="Дорж",
+        description="Эхнэр",
+        branch=Branch.objects.create(name="Төв салбар"),
+        department=Department.objects.create(name="Санхүү"),
+        position=Position.objects.create(name="Нярав"),
+    )
+    [row] = pr.rows("relative", emp)
+    assert row.values["given_name"] == "Дорж"
+    assert row.values["branch"] == "Төв салбар"
+    assert row.values["department"] == "Санхүү"
+    assert row.values["position"] == "Нярав"
+
+
+@pytest.mark.django_db
+def test_relative_row_missing_branch_shows_dash(emp: Employee, monkeypatch: pytest.MonkeyPatch) -> None:
+    branch = Branch.objects.create(name="Төв салбар")
+    RelativeRow.objects.create(employee=emp, given_name="Дорж", description="Эхнэр", branch=branch)
+    monkeypatch.setattr(pr, "_list_names", lambda model, ids: {})  # the branch id no longer names a branch
+    [row] = pr.rows("relative", emp)
+    assert row.values["branch"] == "—"

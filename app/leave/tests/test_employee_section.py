@@ -1,3 +1,4 @@
+import re
 from datetime import date, timedelta
 
 import pytest
@@ -101,3 +102,16 @@ def test_user_without_leave_permission_sees_no_section(employee: Employee) -> No
     c = Client()
     c.force_login(u)
     assert "Ээлжийн амралт" not in c.get(reverse("employees:detail", args=[employee.pk])).content.decode()
+
+
+def test_section_uses_the_page_title_and_framed_table(employee: Employee, annual: LeaveTypeRow) -> None:
+    """The leave block looks like the rest of the employee page (UI_RULES §4, §8)."""
+    start, end = _current_year(employee)
+    writes.add_grant(employee, annual, start, end, 15, "", GrantKind.AUTO, None)
+    body = _hr().get(reverse("employees:detail", args=[employee.pk])).content.decode()
+    title = body.index(">Ээлжийн амралт<")
+    section = body[body.rindex("<section", 0, title) : body.index("</section>", title)]
+    assert re.search(r'<h3 class="sec-title[^"]*">Ээлжийн амралт</h3>', section)
+    assert '<div class="ptable"><table>' in section and "uppercase" not in section
+    assert ">Ажлын жил</th>" in section and ">15</td>" in section
+    assert body.index('id="tab-work"') < title < body.index('id="tab-personal"')  # inside the Work tab only

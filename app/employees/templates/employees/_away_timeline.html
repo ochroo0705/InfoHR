@@ -1,0 +1,70 @@
+<section class="card-soft mb-5 p-4" data-timeline aria-labelledby="timeline-title">
+  <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <h2 id="timeline-title" class="sec-title">Ойрын 14 хоногт юу болох вэ</h2>
+    <span class="text-xs text-slate-500">{{ timeline.days.0.day|date:"Y-m-d" }} – {{ timeline.days.13.day|date:"Y-m-d" }}</span>
+    {% if timeline.show_leave %}
+    <a href="{% url 'leave:calendar' %}" class="ml-auto text-xs text-violet-700 hover:underline">Бүтэн хуанли →</a>
+    {% endif %}
+  </div>
+  {% if timeline.lines %}
+  <div class="overflow-x-auto overscroll-contain">
+    <div class="grid grid-cols-[8rem_repeat(14,minmax(1.75rem,1fr))] text-center text-xs">
+      <div class="sticky left-0 z-20 bg-white pb-1 text-left text-slate-500" style="grid-column: 1">Ажилтан</div>
+      {% for d in timeline.days %}
+      <div class="rounded py-1 leading-tight {% if d.is_today %}bg-violet-600 text-white{% elif d.off %}bg-slate-100 text-slate-400{% else %}text-slate-600{% endif %}" {% if d.holiday %}title="{{ d.holiday }}"{% endif %} {% if d.is_today %}data-today-col{% endif %}>
+        <span class="block font-semibold">{{ d.day.day }}</span>
+        <span class="block">{{ d.day|date:"D" }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% for line in timeline.lines %}
+    <div class="grid grid-cols-[8rem_repeat(14,minmax(1.75rem,1fr))] border-t border-slate-100">
+      <div class="sticky left-0 z-20 flex items-center bg-white py-1 pr-2 text-sm" style="grid-column: 1; grid-row: 1">
+        <a href="{% url 'employees:detail' line.row.employee.pk %}" class="truncate text-violet-700 hover:underline">{{ line.row.employee.full_name }}</a>
+      </div>
+      {% for d in timeline.days %}
+      <div class="h-9 {% if d.is_today %}bg-violet-50{% elif d.off %}bg-slate-100{% endif %}" style="grid-column: {{ forloop.counter|add:1 }}; grid-row: 1"></div>
+      {% endfor %}
+      {% for bar in line.bars %}
+        {% if can_open_leave %}
+        <button type="button" data-leave-bar="{{ bar.leave_id }}" hx-get="{% url 'leave:edit' bar.leave_id %}" hx-target="body" hx-swap="beforeend" title="{{ bar.label }}: {{ bar.start|date:'Y-m-d' }} – {{ bar.end|date:'Y-m-d' }}" aria-label="{{ bar.label }}: {{ bar.start|date:'Y-m-d' }} – {{ bar.end|date:'Y-m-d' }}" class="z-10 m-1 h-7 rounded {% if bar.cut_left %}rounded-l-none{% endif %} {% if bar.cut_right %}rounded-r-none{% endif %} {% if bar.annual %}bg-violet-200{% else %}bg-amber-200{% endif %}" style="grid-column: {{ bar.column|add:1 }} / span {{ bar.span }}; grid-row: 1"></button>
+        {% else %}
+        <span data-leave-bar="{{ bar.leave_id }}" title="{{ bar.label }}: {{ bar.start|date:'Y-m-d' }} – {{ bar.end|date:'Y-m-d' }}" class="z-10 m-1 h-7 rounded {% if bar.cut_left %}rounded-l-none{% endif %} {% if bar.cut_right %}rounded-r-none{% endif %} {% if bar.annual %}bg-violet-200{% else %}bg-amber-200{% endif %}" style="grid-column: {{ bar.column|add:1 }} / span {{ bar.span }}; grid-row: 1"></span>
+        {% endif %}
+      {% endfor %}
+      {% for m in line.markers %}
+        {% with first=m.items.0 %}
+        <a href="{% url 'employees:detail' line.row.employee.pk %}" data-marker="{{ first.kind }}" {% if m.waiting %}data-marker-waiting{% endif %} title="{% for item in m.items %}{{ item.label }}: {{ item.on|date:'Y-m-d' }}{% if item.waiting %} — гарын үсэг хүлээж байна{% endif %}&#10;{% endfor %}" aria-label="{{ first.label }}: {{ first.on|date:'Y-m-d' }}" class="relative z-20 m-auto flex h-5 w-5 items-center justify-center rounded-full border-2 text-[10px] font-semibold leading-none {% if m.waiting %}{{ first.look.line }} border-dashed{% else %}{{ first.look.fill }} border-white{% endif %}" style="grid-column: {{ m.column|add:1 }}; grid-row: 1">{{ first.look.glyph }}{% if m.items|length > 1 %}<span class="absolute -right-1.5 -top-1.5 rounded-full bg-white px-1 text-[9px] text-slate-700 ring-1 ring-slate-300">+{{ m.items|length|add:"-1" }}</span>{% endif %}</a>
+        {% endwith %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% if timeline.show_leave %}
+    <div class="grid grid-cols-[8rem_repeat(14,minmax(1.75rem,1fr))] border-t border-slate-200 text-center text-xs">
+      <div class="sticky left-0 z-20 bg-white py-1 pr-2 text-left text-slate-500" style="grid-column: 1">Нийт чөлөөтэй</div>
+      {% comment %}today is always the first day of the window{% endcomment %}
+      {% for n in timeline.away_counts %}
+      <div data-away-count class="py-1 tabular-nums {% if n is None %}bg-slate-100{% elif n >= 2 %}bg-amber-100{% elif forloop.first %}bg-violet-50{% endif %}" style="grid-column: {{ forloop.counter|add:1 }}">{% if n is not None %}{{ n }}{% endif %}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div data-legend class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600">
+    {% for look in timeline.legend %}
+    <span class="inline-flex items-center gap-1.5"><i class="inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-white text-[9px] font-semibold leading-none {{ look.fill }}">{{ look.glyph }}</i> {{ look.name }}</span>
+    {% endfor %}
+    {% if timeline.any_waiting %}
+    <span data-legend-waiting class="inline-flex items-center gap-1.5"><i class="inline-flex h-4 w-4 rounded-full border-2 border-dashed border-slate-500 bg-white"></i> Гарын үсэг хүлээж байна</span>
+    {% endif %}
+    {% if timeline.show_leave %}
+    <span><i class="inline-block h-3 w-3 rounded bg-violet-200"></i> Ээлжийн</span>
+    <span><i class="inline-block h-3 w-3 rounded bg-amber-200"></i> Бусад</span>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-400">Дараагийн 14 хоногт товлогдсон зүйл алга</p>
+  {% endif %}
+</section>

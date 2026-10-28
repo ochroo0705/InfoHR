@@ -405,3 +405,8 @@ def test_huge_days_refused_not_500(employee: Employee, annual: LeaveTypeRow) -> 
     assert grant.status_code == 200
     assert adjust.status_code == 200
     assert not Entitlement.objects.filter(employee=employee).exists()
+
+
+def test_leave_list_links_to_the_annual_leave_report() -> None:
+    body = _client(_in_group("HR")).get(reverse("leave:list")).content.decode()
+    assert 'href="/reports/annual-leave/"' in body and "Тайлан гаргах" in body

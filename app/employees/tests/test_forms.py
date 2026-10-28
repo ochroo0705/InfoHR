@@ -6,16 +6,31 @@ from typing import Any, cast
 import pytest
 from accounts.models import User
 from django import forms
-from macs.models import Country, ForeignLanguage, LanguageLevel, SpecEduType
+from macs.models import (
+    Country,
+    DisciplineType,
+    DriverType,
+    ForeignLanguage,
+    LanguageLevel,
+    MaterialHelpType,
+    SpecEduType,
+)
 
 from employees.forms import (
     FORMS,
+    ArmyRankRowForm,
+    BodyRowForm,
     CertificateRowForm,
+    ComplaintRowForm,
+    DisciplineRowForm,
+    DriverRowForm,
     EducationRowForm,
     EmployeeForm,
     HireJobForm,
     JobCorrectionForm,
     LanguageRowForm,
+    MaterialHelpRowForm,
+    MilitaryRowForm,
     TrainingRowForm,
 )
 from employees.models import DepartmentExt, Employee
@@ -382,6 +397,13 @@ def test_row_forms_registered() -> None:
     assert FORMS["certificate"] is CertificateRowForm
     assert FORMS["training"] is TrainingRowForm
     assert FORMS["language"] is LanguageRowForm
+    assert FORMS["material_help"] is MaterialHelpRowForm
+    assert FORMS["discipline"] is DisciplineRowForm
+    assert FORMS["complaint"] is ComplaintRowForm
+    assert FORMS["body"] is BodyRowForm
+    assert FORMS["driver"] is DriverRowForm
+    assert FORMS["military"] is MilitaryRowForm
+    assert FORMS["army_rank"] is ArmyRankRowForm
 
 
 def test_no_dashes_empty_label(hired: Employee) -> None:
@@ -389,3 +411,117 @@ def test_no_dashes_empty_label(hired: Employee) -> None:
     form = EmployeeForm(employee=hired)
     for name in ("blood_type", "social_origin"):
         assert "---------" not in str(form[name]), name
+
+
+@pytest.mark.django_db
+def test_material_help_amount_comma_input() -> None:
+    material_type = MaterialHelpType.objects.create(name="Эмчилгээ")
+    form = MaterialHelpRowForm(
+        {
+            "material_type": str(material_type.pk),
+            "help_date": "2026-01-15",
+            "amount": "1,250,000",
+            "description": "",
+        }
+    )
+    assert form.is_valid(), form.errors
+    columns, _ = form.values()
+    assert columns["amount"] == Decimal("1250000")
+    assert columns["material_type_id"] == material_type.pk
+    assert columns["description"] is None
+
+
+@pytest.mark.django_db
+def test_material_help_form_warns_when_no_types() -> None:
+    assert ("material_help_type", "Үндэслэл") in MaterialHelpRowForm().empty_lists()
+    MaterialHelpType.objects.create(name="Эмчилгээ")
+    assert ("material_help_type", "Үндэслэл") not in MaterialHelpRowForm().empty_lists()
+
+
+@pytest.mark.django_db
+def test_discipline_empty_type_list_shows_notice() -> None:
+    assert ("discipline_type", "Шийтгэлийн нэр") in DisciplineRowForm().empty_lists()
+    DisciplineType.objects.create(name="Анхааруулга")
+    assert ("discipline_type", "Шийтгэлийн нэр") not in DisciplineRowForm().empty_lists()
+
+
+@pytest.mark.django_db
+def test_driver_requires_type() -> None:
+    form = DriverRowForm({"number_driver": "1234567", "inserted_ognoo": "2026-03-01"})
+    assert not form.is_valid()
+    assert "driver_type" in form.errors
+
+
+@pytest.mark.django_db
+def test_driver_empty_type_list_shows_notice() -> None:
+    assert ("driver_type", "Жолооны ангилал") in DriverRowForm().empty_lists()
+    DriverType.objects.create(name="B ангилал")
+    assert ("driver_type", "Жолооны ангилал") not in DriverRowForm().empty_lists()
+
+
+def test_military_form_every_field_optional() -> None:
+    form = MilitaryRowForm({})
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["army_rank"] is None
+    assert form.cleaned_data["sacking_date"] is None
+
+
+def test_army_rank_form_every_field_optional() -> None:
+    form = ArmyRankRowForm({})
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["rank"] is None
+    assert form.cleaned_data["rank_date"] is None
+    assert form.cleaned_data["addition_r"] is None
+
+
+def test_body_form_has_all_fields() -> None:
+    form = BodyRowForm()
+    names = [name for name in form.fields if not name.startswith("loaded_")]
+    assert names == [
+        "inserted_ognoo",
+        "term_type",
+        "end_date",
+        "own_letter",
+        "ear",
+        "dotor",
+        "medrel",
+        "setgel_medrel",
+        "mes_zasal",
+        "nud",
+        "female",
+        "rentgen",
+        "skin",
+        "conclusion",
+        "sign",
+    ]
+    labels = {name: form.fields[name].label for name in names}
+    assert labels == {
+        "inserted_ognoo": "Үзлэгийн огноо",
+        "term_type": "Үзлэгийн төрөл",
+        "end_date": "Дуусах хугацаа",
+        "own_letter": "Өөрийн мэдүүлэгээр",
+        "ear": "Чих хамар хоолой",
+        "dotor": "Дотор",
+        "medrel": "Мэдрэл",
+        "setgel_medrel": "Сэтгэл мэдрэл",
+        "mes_zasal": "Мэс засал",
+        "nud": "Нүд",
+        "female": "Эмэгтэйчүүд",
+        "rentgen": "Рентген",
+        "skin": "Арьс",
+        "conclusion": "Дүгнэлт",
+        "sign": "Гарын үсэг",
+    }
+    for name in (
+        "ear",
+        "dotor",
+        "medrel",
+        "setgel_medrel",
+        "mes_zasal",
+        "nud",
+        "female",
+        "rentgen",
+        "skin",
+        "conclusion",
+    ):
+        assert form.fields[name].widget.attrs.get("rows") == 2, name

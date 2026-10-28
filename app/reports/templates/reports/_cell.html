@@ -1,0 +1,1 @@
+{% load hr %}{% if cell.money %}{% if cell.value is not None %}{{ cell.value|mnt }}{% endif %}{% elif cell.value.isoformat %}{{ cell.value|date:"Y-m-d" }}{% else %}{{ cell.value|default_if_none:"" }}{% endif %}

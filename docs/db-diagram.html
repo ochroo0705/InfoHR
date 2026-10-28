@@ -12,11 +12,12 @@ label.f{display:flex;gap:4px;align-items:center;cursor:pointer;user-select:none}
 .sw{width:12px;height:12px;border-radius:3px;display:inline-block;border:2px solid}
 button{padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);cursor:pointer}
 .hint{color:var(--mute);font-size:12px;margin-left:auto}
-#vp{position:absolute;inset:0;top:46px;cursor:grab}#vp.pan{cursor:grabbing}
+#vp{position:absolute;inset:0;top:46px;cursor:grab;user-select:none;-webkit-user-select:none}#vp.pan{cursor:grabbing}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
 svg#links{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 svg path{fill:none;stroke:var(--mute);stroke-opacity:.35;stroke-width:1.3}
 svg path.on{stroke:var(--hl);stroke-opacity:1;stroke-width:2.2}
+svg path[data-i]:not(.on){display:none}
 .t{position:absolute;width:250px;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 3px #0001;cursor:move}
 .t.dim{opacity:.18}.t.sel{outline:2.5px solid var(--hl)}
 .t .h{padding:6px 9px;border-radius:7px 7px 0 0;border-bottom:1px solid var(--line)}
@@ -58,13 +59,13 @@ svg path.on{stroke:var(--hl);stroke-opacity:1;stroke-width:2.2}
  <label class="f"><input type="checkbox" data-o="new" checked><span class="sw" style="border-color:var(--new);background:var(--newbg)"></span>New for Info HR (<span id="cn"></span>)</label>
  <label class="f"><input type="checkbox" data-o="auth" checked><span class="sw" style="border-color:var(--auth);background:var(--authbg)"></span>New — users &amp; permissions (<span id="ca"></span>)</label>
  <button id="fit">Fit</button><button id="exp">Expand all</button><button id="btnRules">Дүрэм, триггер, процедур</button>
- <span class="hint">Drag cards · drag background to pan · wheel to zoom · click a card to trace its links</span>
+ <span class="hint">Drag cards · drag background to pan · wheel to zoom · click a card to show its links</span>
 </header>
 <div id="vp"><div id="world"><svg id="links"></svg></div></div>
 <div id="rules"><h2>Хуучин сангийн дүрэм, триггер, процедур → Info HR</h2>
 <p>Хуучин Firebird санд логик триггер, процедурт байсан. Шинэ чиглэл: логик Python backend-д. PostgreSQL-д зөвхөн ID тоолуур (sequence), CHECK, DEFAULT үлдсэн; триггер байхгүй. Эх сурвалж: <code>docs/migration/trigger-parity.md</code>, SQL trace, <code>HumanCapitalXE4.exe</code> (2026-10-20).</p>
 <div class="wrap"><table><thead><tr><th>Төрөл</th><th>Хуучин нэр (Firebird)</th><th>Хүснэгт</th><th>Юу хийдэг байсан</th><th>Шинэ нэр (Info HR)</th><th>Хэрхэн шилжүүлсэн</th></tr></thead><tbody>
-<tr class="g"><td colspan="6">ID үүсгэх (generator)</td></tr><tr><td>Generator</td><td><code>GEN_* (385)</code></td><td><code>бүх хүснэгт</code></td><td>Шинэ мөрийн дугаарыг өгнө</td><td>PostgreSQL sequence <code>gen_*</code>, баганын <code>DEFAULT nextval(...)</code>; Django <code>AutoField</code></td><td><span class="st db">DB-д үлдсэн</span> Хуучин програм ба Info HR нэг тоолуурыг хуваалцана</td></tr><tr><td>Процедур</td><td><code>GETNEWEMPLOYEE, SP_GEN_*_ID</code></td><td><code>employee, бусад</code></td><td>Хуучин програм insert хийхээс өмнө дугаар авдаг</td><td>Баганын <code>DEFAULT nextval</code>; түүх: <code>snapshot_history</code> дотор <code>nextval('gen_employee_history_id')</code></td><td><span class="st db">DB-д үлдсэн</span> Ижил sequence. Хоосон маягт нээх бүрт дугаар зарцуулагддаг тул дугаар алгасах нь хэвийн</td></tr><tr><td>Триггер</td><td><code>HR_LEGALHOLIDAYS_BI, INSUR_TYPE_BI гэх мэт (94)</code></td><td><code>жагсаалт, хаяг…</code></td><td>Хоосон ID-г generator-оос бөглөнө</td><td>Баганын <code>DEFAULT nextval</code></td><td><span class="st db">DB-д үлдсэн</span> Триггер шаардлагагүй болсон</td></tr><tr class="g"><td colspan="6">Ажилтан</td></tr><tr><td>Триггер</td><td><code>TR_EMPLOYEEID</code></td><td><code>employee (insert)</code></td><td>ID; <code>loginpass = ID</code>; <code>birthyear</code>; emptype → status / contract_emp / wagetest_emp</td><td><code>macs_writes.create_employee</code>, <code>EMPTYPE_FLAGS</code></td><td><span class="st ok">Шилжүүлсэн</span> Python руу шилжүүлсэн. Шинэ ажилтан emptype 1; 2/4/6/8-ыг зөвхөн хадгална</td></tr><tr><td>Триггер</td><td><code>EMPLOYEE_BU0</code></td><td><code>employee (update)</code></td><td>emptype солигдоход status / contract_emp / wagetest_emp-ийг дахин тооцно</td><td><code>macs_writes.sync_current</code>, <code>_set_emptype</code></td><td><span class="st ok">Шилжүүлсэн</span> Python руу шилжүүлсэн</td></tr><tr><td>Триггер</td><td><code>TR_EMPCUST</code></td><td><code>employee → customer</code></td><td>Ажилд авахад ERP-ийн харилцагчийн мөр үүсгэнэ</td><td><code>macs_writes.create_customer_row</code> (D-024)</td><td><span class="st ok">Шилжүүлсэн</span> Код = <code>empno</code>; нэр давхцвал л код нэмнэ. Цалингийн дэлгэц ажилтнаа <code>customer</code>-оор олдог</td></tr><tr><td>Триггер</td><td><code>TR_DELEMPLOYEE</code></td><td><code>employee (delete)</code></td><td>Ажилтны ~28 хүснэгтийн мөрийг устгана</td><td>—</td><td><span class="st ban">Хориглосон</span> Info HR ажилтан устгадаггүй (эрх олгоогүй, хамгаалалтын тест)</td></tr><tr class="g"><td colspan="6">Хаяг, холбоо барих</td></tr><tr><td>Триггер</td><td><code>ADDRESS_BI</code></td><td><code>address → customer</code></td><td>Хаяг нэмэхэд гудамжийг <code>customer.address</code> руу хуулна</td><td><code>macs_writes.copy_address_to_customer</code> (<code>personal_writes</code>-оос)</td><td><span class="st ok">Шилжүүлсэн</span> Нэмэх ба засах үед хуулна (хуучин нь зөвхөн нэмэхэд), 90 тэмдэгт</td></tr><tr><td>Триггер</td><td><code>CONTACTING_AI0, CONTACTING_AU0</code></td><td><code>contacting → employee</code></td><td>Төрөл 2 → <code>homephone</code>, төрөл 4 → <code>email</code></td><td>—</td><td><span class="st no">Шийдвэрээр үгүй</span> <code>contact_type</code> хэрэглэгчийн жагсаалт тул 2/4 тогтмол утгагүй. Имэйл, утас шууд <code>employee</code>-д бичигдэнэ</td></tr><tr class="g"><td colspan="6">Шилжилт, түүх</td></tr><tr><td>Триггер</td><td><code>MOVEMENT_AI0</code></td><td><code>movement → employee</code></td><td>dep/occ мөр нэмэхэд хэлтэс, албан тушаал, салбарыг ажилтанд хуулна</td><td><code>sync_current</code> + <code>record_movement</code></td><td><span class="st part">Хэсэгчлэн</span> Салбар (<code>branch_ident</code>) хуулахгүй. Хуучин програм <code>movement</code> бичдэггүй (SQL trace)</td></tr><tr><td>Процедур</td><td><code>INS_EMPHISTORY</code></td><td><code>employee_history</code></td><td>Ажилтны мөрийг бүтнээр түүх рүү хуулна</td><td><code>macs_writes.snapshot_history</code></td><td><span class="st part">Хэсэгчлэн</span> <code>branch_ident</code>, <code>move_type</code>, <code>command_ident</code> 2026-10-20-нд нэмсэн; бусад зарим багана хоосон</td></tr><tr><td>Процедур</td><td><code>INS_FRSTEMPHISTORY</code></td><td><code>employee_history</code></td><td>Анхны (isdefault=1) түүхийн мөр</td><td>—</td><td><span class="st no">Шаардлагагүй</span> Хуучин програм ажилд авахдаа дууддаггүй</td></tr><tr><td>Триггер</td><td><code>EMPLOYEE_HISTORY_BD0</code></td><td><code>employee_history (delete)</code></td><td>Сүүлийн түүхийг устгахад ажилтныг өмнөх төлөвт буцаана</td><td><code>events.cancel</code> → <code>delete_event_rows</code> + <code>sync_current</code></td><td><span class="st ok">Орлуулсан</span> Info HR дахин тооцоолно</td></tr><tr><td>Процедур</td><td><code>EMP_MOVEMENT</code></td><td><code>employee</code></td><td>status эсвэл contract_emp-ийг шууд тохируулна</td><td><code>sync_current</code></td><td><span class="st ok">Орлуулсан</span> emptype-аас тооцдог тул тусад нь шаардлагагүй</td></tr><tr><td>Дэлгэц</td><td><code>Тушаалын бүртгэл (command)</code></td><td><code>command → employee, employee_history</code></td><td>Тушаал нэмэхэд <code>command</code> мөр, ажилтны <code>command_ident</code>, <code>move_type</code>, <code>changed_date</code>, дараа нь INS_EMPHISTORY</td><td><code>macs_writes.write_order</code>, <code>point_employee_to_latest_order</code>, <code>services/orders.py</code></td><td><span class="st ok">Шилжүүлсэн</span> Дугаар оруулахад бичнэ; <code>path</code> үргэлж хоосон; цуцлахад мөр устгахгүй (D-025…D-030)</td></tr><tr class="g"><td colspan="6">Хэлтэс</td></tr><tr><td>Триггер</td><td><code>DEPS_AI0, DEPS_BU0, TR_UPDDEPS</code></td><td><code>deps → employee</code></td><td>Хэлтсийн цагийн хуваарийг ажилтнууд руу хуулна</td><td>—</td><td><span class="st no">Шаардлагагүй</span> Info HR хэлтсийн хуваарь засдаггүй; ажилтан тус бүрд тохируулна</td></tr><tr class="g"><td colspan="6">Чөлөө</td></tr><tr><td>Процедур</td><td><code>INSERT_VACATION</code></td><td><code>emp_vacation</code></td><td>Ажилтан бүрд жил бүр нэг мөр</td><td><code>leave/services/writes.py</code></td><td><span class="st part">Хэсэгчлэн</span> Ээлжийн амралтад жилд нэг нийт мөр</td></tr><tr><td>Процедур</td><td><code>CALC_LEAVEBAL, CALC_ENTITBAL</code></td><td><code>entitlement, leave_assign</code></td><td>Үлдэгдэл = олгосон − батлагдсан</td><td><code>leave/services/ledger.py</code></td><td><span class="st ok">Шилжүүлсэн</span> Python руу шилжүүлсэн</td></tr><tr class="g"><td colspan="6">Бусад</td></tr><tr><td>Процедур</td><td><code>CALC_EMPNAME</code></td><td><code>employee</code></td><td>Богино нэр: нэр + ". " + овгийн 2 үсэг</td><td>—</td><td><span class="st no">Шилжүүлээгүй</span> Тайлан, дэлгэцийн ажил</td></tr><tr><td>Процедур</td><td><code>UPDATE_REGISTER</code></td><td><code>customer → employee</code></td><td>Регистрийг customer-оос employee руу хуулна</td><td>—</td><td><span class="st no">Шилжүүлээгүй</span> ERP талын ажил</td></tr><tr><td>Триггер</td><td><code>FAMILY_MEMBERS_AI0, *_BU0</code></td><td><code>жагсаалт</code></td><td>Тайлбарыг том үсгээр, өөрчилсөн огноо</td><td>—</td><td><span class="st no">Шилжүүлээгүй</span> Зөвхөн харагдах байдал</td></tr><tr><td>Процедур</td><td><code>CALC_SAL, CALC_TAX… (цалин)</code></td><td><code>monthsalary, journal</code></td><td>Цалин бодож журналд бичнэ</td><td>—</td><td><span class="st no">Хойшлуулсан</span> Цалингийн модуль (D-006)</td></tr><tr class="g"><td colspan="6">Дүрэм (CHECK, UNIQUE, DEFAULT)</td></tr><tr><td>CHECK</td><td><code>integ_1490 (gender), status, movement, integ_1479</code></td><td><code>employee, movement, customer</code></td><td>Зөвшөөрөгдөх утгууд</td><td>Өгөгдлийн санд хэвээр; Info HR зөв утга бичнэ</td><td><span class="st db">DB-д үлдсэн</span> PostgreSQL-д хуулсан (<code>macs_public.sql</code>)</td></tr><tr><td>UNIQUE</td><td><code>cust_dscx</code></td><td><code>customer.description</code></td><td>Харилцагчийн нэр давхцахгүй</td><td><code>create_customer_row</code> давхцлыг тойрно</td><td><span class="st db">DB-д үлдсэн</span> Нэр давхцвал код, дараа нь тоолуур нэмнэ</td></tr><tr><td>DEFAULT</td><td><code>status 'active', job_figure 'Main', hr 'no', tax 0…</code></td><td><code>employee, customer</code></td><td>Анхдагч утга</td><td>Өгөгдлийн санд хэвээр</td><td><span class="st db">DB-д үлдсэн</span> PostgreSQL-д хуулсан</td></tr>
+<tr class="g"><td colspan="6">ID үүсгэх (generator)</td></tr><tr><td>Generator</td><td><code>GEN_* (385)</code></td><td><code>бүх хүснэгт</code></td><td>Шинэ мөрийн дугаарыг өгнө</td><td>PostgreSQL sequence <code>gen_*</code>, баганын <code>DEFAULT nextval(...)</code>; Django <code>AutoField</code></td><td><span class="st db">DB-д үлдсэн</span> Хуучин програм ба Info HR нэг тоолуурыг хуваалцана</td></tr><tr><td>Процедур</td><td><code>GETNEWEMPLOYEE, SP_GEN_*_ID</code></td><td><code>employee, бусад</code></td><td>Хуучин програм insert хийхээс өмнө дугаар авдаг</td><td>Баганын <code>DEFAULT nextval</code>; түүх: <code>snapshot_history</code> дотор <code>nextval('gen_employee_history_id')</code></td><td><span class="st db">DB-д үлдсэн</span> Ижил sequence. Хоосон маягт нээх бүрт дугаар зарцуулагддаг тул дугаар алгасах нь хэвийн</td></tr><tr><td>Триггер</td><td><code>HR_LEGALHOLIDAYS_BI, INSUR_TYPE_BI гэх мэт (94)</code></td><td><code>жагсаалт, хаяг…</code></td><td>Хоосон ID-г generator-оос бөглөнө</td><td>Баганын <code>DEFAULT nextval</code></td><td><span class="st db">DB-д үлдсэн</span> Триггер шаардлагагүй болсон</td></tr><tr class="g"><td colspan="6">Ажилтан</td></tr><tr><td>Триггер</td><td><code>TR_EMPLOYEEID</code></td><td><code>employee (insert)</code></td><td>ID; <code>loginpass = ID</code>; <code>birthyear</code>; emptype → status / contract_emp / wagetest_emp</td><td><code>macs_writes.create_employee</code>, <code>EMPTYPE_FLAGS</code></td><td><span class="st ok">Шилжүүлсэн</span> Python руу шилжүүлсэн. Шинэ ажилтан emptype 1; 2/4/6/8-ыг зөвхөн хадгална</td></tr><tr><td>Триггер</td><td><code>EMPLOYEE_BU0</code></td><td><code>employee (update)</code></td><td>emptype солигдоход status / contract_emp / wagetest_emp-ийг дахин тооцно</td><td><code>macs_writes.sync_current</code>, <code>_set_emptype</code></td><td><span class="st ok">Шилжүүлсэн</span> Python руу шилжүүлсэн</td></tr><tr><td>Триггер</td><td><code>TR_EMPCUST</code></td><td><code>employee → customer</code></td><td>Ажилд авахад ERP-ийн харилцагчийн мөр үүсгэнэ</td><td><code>macs_writes.create_customer_row</code> (D-024)</td><td><span class="st ok">Шилжүүлсэн</span> Код = <code>empno</code>; нэр давхцвал л код нэмнэ. Цалингийн дэлгэц ажилтнаа <code>customer</code>-оор олдог</td></tr><tr><td>Триггер</td><td><code>TR_DELEMPLOYEE</code></td><td><code>employee (delete)</code></td><td>Ажилтны ~28 хүснэгтийн мөрийг устгана</td><td>—</td><td><span class="st ban">Хориглосон</span> Info HR ажилтан устгадаггүй (эрх олгоогүй, хамгаалалтын тест)</td></tr><tr class="g"><td colspan="6">Хаяг, холбоо барих</td></tr><tr><td>Триггер</td><td><code>ADDRESS_BI</code></td><td><code>address → customer</code></td><td>Хаяг нэмэхэд гудамжийг <code>customer.address</code> руу хуулна</td><td><code>macs_writes.copy_address_to_customer</code> (<code>personal_writes</code>-оос)</td><td><span class="st ok">Шилжүүлсэн</span> Нэмэх ба засах үед хуулна (хуучин нь зөвхөн нэмэхэд), 90 тэмдэгт</td></tr><tr><td>Триггер</td><td><code>CONTACTING_AI0, CONTACTING_AU0</code></td><td><code>contacting → employee</code></td><td>Төрөл 2 → <code>homephone</code>, төрөл 4 → <code>email</code></td><td>—</td><td><span class="st no">Шийдвэрээр үгүй</span> <code>contact_type</code> хэрэглэгчийн жагсаалт тул 2/4 тогтмол утгагүй. Имэйл, утас шууд <code>employee</code>-д бичигдэнэ</td></tr><tr class="g"><td colspan="6">Шилжилт, түүх</td></tr><tr><td>Триггер</td><td><code>MOVEMENT_AI0</code></td><td><code>movement → employee</code></td><td>dep/occ мөр нэмэхэд хэлтэс, албан тушаал, салбарыг ажилтанд хуулна</td><td><code>sync_current</code> + <code>record_movement</code></td><td><span class="st ok">Шилжүүлсэн</span> Салбар (<code>branch_ident</code>) энгийн талбар: Ажлын табаас шууд засагдана, <code>snapshot_history</code> түүх рүү хуулна. Хуулах код шаардлагагүй (OQ-041). Салбар, хэсгийн шилжилтэд тушаал шаардах эсэх нь OQ-053. Хуучин програм <code>movement</code> бичдэггүй (SQL trace). Тушаал шаардсан өөрчлөлт гарын үсэг зурагдтал хүлээнэ: <code>events.apply_waiting</code> ажиллах хүртэл юу ч бичигдэхгүй</td></tr><tr><td>Процедур</td><td><code>INS_EMPHISTORY</code></td><td><code>employee_history</code></td><td>Ажилтны мөрийг бүтнээр түүх рүү хуулна</td><td><code>macs_writes.snapshot_history</code></td><td><span class="st ok">Шилжүүлсэн</span> Ажилтны мөрийн холбогдох бүх багана хуулагдана (утас, имэйл, паспорт, дансны дугаар, НДД/ЭМДД, өмнөх ажилласан жил, иргэншил, боловсрол, зэрэг, даатгал, сүүлийн тушаалын агуулга; <code>branch_ident</code>, <code>move_type</code>, <code>command_ident</code>). Түүхийн хүснэгтэд байгаа боловч ажилтны мөрөнд эх үүсвэргүй 14 багана (<code>address</code>, <code>bonus</code>, <code>post</code> г.м.) хоосон үлдэнэ. Тушаал шаардсан өөрчлөлтөд гарын үсэг зурагдсан үед бичигдэнэ (<code>employees_event.applied_at</code>)</td></tr><tr><td>Процедур</td><td><code>INS_FRSTEMPHISTORY</code></td><td><code>employee_history</code></td><td>Анхны (isdefault=1) түүхийн мөр</td><td>—</td><td><span class="st no">Шаардлагагүй</span> Хуучин програм ажилд авахдаа дууддаггүй</td></tr><tr><td>Триггер</td><td><code>EMPLOYEE_HISTORY_BD0</code></td><td><code>employee_history (delete)</code></td><td>Сүүлийн түүхийг устгахад ажилтныг өмнөх төлөвт буцаана</td><td><code>events.cancel</code> → <code>delete_event_rows</code> + <code>sync_current</code></td><td><span class="st ok">Орлуулсан</span> Info HR дахин тооцоолно. Гарын үсэг хүлээж буй өөрчлөлтийг цуцлахад юу ч бичигдээгүй тул устгах зүйл байхгүй</td></tr><tr><td>Процедур</td><td><code>EMP_MOVEMENT</code></td><td><code>employee</code></td><td>status эсвэл contract_emp-ийг шууд тохируулна</td><td><code>sync_current</code></td><td><span class="st ok">Орлуулсан</span> emptype-аас тооцдог тул тусад нь шаардлагагүй</td></tr><tr><td>Дэлгэц</td><td><code>Тушаалын бүртгэл (command)</code></td><td><code>command → employee, employee_history</code></td><td>Тушаал нэмэхэд <code>command</code> мөр, ажилтны <code>command_ident</code>, <code>move_type</code>, <code>changed_date</code>, дараа нь INS_EMPHISTORY</td><td><code>macs_writes.write_order</code>, <code>point_employee_to_latest_order</code>, <code>services/orders.py</code></td><td><span class="st ok">Шилжүүлсэн</span> Дугаар оруулахад бичнэ; <code>path</code> үргэлж хоосон; цуцлахад мөр устгахгүй (D-025…D-030). Өөрчлөлтийн <code>employee_history</code> мөр гарын үсэгтэй файл хавсаргахад бичигдэж тушаалтай холбогдоно</td></tr><tr class="g"><td colspan="6">Хэлтэс</td></tr><tr><td>Триггер</td><td><code>DEPS_AI0, DEPS_BU0, TR_UPDDEPS</code></td><td><code>deps → employee</code></td><td>Хэлтсийн цагийн хуваарийг ажилтнууд руу хуулна</td><td>—</td><td><span class="st no">Шаардлагагүй</span> Info HR хэлтсийн хуваарь засдаггүй; ажилтан тус бүрд тохируулна</td></tr><tr class="g"><td colspan="6">Чөлөө</td></tr><tr><td>Процедур</td><td><code>INSERT_VACATION</code></td><td><code>emp_vacation</code></td><td>Ажилтан бүрд жил бүр нэг мөр</td><td><code>leave/services/writes.py</code></td><td><span class="st ok">Шилжүүлсэн</span> Шийдвэрээр: жилд нэг нийт мөр, зөвхөн ээлжийн амралт (2026-10-19). Хуучин процедур зөвхөн хоосон 1-р сарын мөр үүсгэдэг байсан, <code>mmonth</code> = амралтын сар. <code>xmonth</code>-ийн утга тодорхойгүй (үргэлж 0)</td></tr><tr><td>Процедур</td><td><code>CALC_LEAVEBAL, CALC_ENTITBAL</code></td><td><code>entitlement, leave_assign</code></td><td>Үлдэгдэл = олгосон − батлагдсан</td><td><code>leave/services/ledger.py</code></td><td><span class="st ok">Шилжүүлсэн</span> Python руу шилжүүлсэн</td></tr><tr class="g"><td colspan="6">Бусад</td></tr><tr><td>Процедур</td><td><code>CALC_EMPNAME</code></td><td><code>employee</code></td><td>Богино нэр: нэр + ". " + овгийн 2 үсэг</td><td><code>Employee.short_name</code></td><td><span class="st ok">Орлуулсан</span> Хадгалахгүй, харуулахдаа бодно (жагсаалт, тушаалын баримт). Хэлбэр нь хуучнаас өөр: «Х. Нэр» (хуучин «Нэр. Су»)</td></tr><tr><td>Процедур</td><td><code>UPDATE_REGISTER</code></td><td><code>customer → employee</code></td><td>Регистрийг customer-оос employee руу хуулна</td><td>—</td><td><span class="st no">Шилжүүлээгүй</span> ERP талын ажил</td></tr><tr><td>Триггер</td><td><code>FAMILY_MEMBERS_AI0, *_BU0</code></td><td><code>жагсаалт</code></td><td>Тайлбарыг том үсгээр, өөрчилсөн огноо</td><td>—</td><td><span class="st no">Шилжүүлээгүй</span> Зөвхөн харагдах байдал</td></tr><tr><td>Процедур</td><td><code>CALC_SAL, CALC_TAX… (цалин)</code></td><td><code>monthsalary, journal</code></td><td>Цалин бодож журналд бичнэ</td><td>—</td><td><span class="st no">Хойшлуулсан</span> Цалингийн модуль (D-006)</td></tr><tr class="g"><td colspan="6">Дүрэм (CHECK, UNIQUE, DEFAULT)</td></tr><tr><td>CHECK</td><td><code>integ_1490 (gender), status, movement, integ_1479</code></td><td><code>employee, movement, customer</code></td><td>Зөвшөөрөгдөх утгууд</td><td>Өгөгдлийн санд хэвээр; Info HR зөв утга бичнэ</td><td><span class="st db">DB-д үлдсэн</span> PostgreSQL-д хуулсан (<code>macs_public.sql</code>)</td></tr><tr><td>UNIQUE</td><td><code>cust_dscx</code></td><td><code>customer.description</code></td><td>Харилцагчийн нэр давхцахгүй</td><td><code>create_customer_row</code> давхцлыг тойрно</td><td><span class="st db">DB-д үлдсэн</span> Нэр давхцвал код, дараа нь тоолуур нэмнэ</td></tr><tr><td>DEFAULT</td><td><code>status 'active', job_figure 'Main', hr 'no', tax 0…</code></td><td><code>employee, customer</code></td><td>Анхдагч утга</td><td>Өгөгдлийн санд хэвээр</td><td><span class="st db">DB-д үлдсэн</span> PostgreSQL-д хуулсан</td></tr>
 </tbody></table></div></div>
 <script>
 document.getElementById('btnRules').onclick=e=>{document.getElementById('rules').classList.toggle('on');e.currentTarget.classList.toggle('on')};
@@ -802,6 +803,12 @@ const DATA = [
     "type": "varchar(100)",
     "pk": false,
     "null": false
+   },
+   {
+    "name": "occupation_character",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
    }
   ],
   "why": "Production positions (Албан тушаал). Job history and the employee row point here."
@@ -1235,9 +1242,86 @@ const DATA = [
     "type": "varchar(12)",
     "pk": false,
     "null": false
+   },
+   {
+    "name": "command_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "move_type",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "grade_perc",
+    "type": "numeric(7,2)",
+    "pk": false,
+    "null": false
    }
   ],
   "why": "Production employee row (D-017: production tables are the home of HR data). HR reads and writes it; current job and salary are copied here on every change."
+ },
+ {
+  "table": "command",
+  "model": "macs.Command",
+  "app": "macs",
+  "managed": false,
+  "label": "Тушаал",
+  "cols": [
+   {
+    "name": "command_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "command",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "outdate",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "human_command",
+    "type": "varchar(25)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "commandno",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "path",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "command_type",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production HR order register (тушаал). Info HR writes a row when an order gets its number; employee.command_ident points to the latest one (D-025…D-030)."
  },
  {
   "table": "birth_place",
@@ -1452,6 +1536,24 @@ const DATA = [
    },
    {
     "name": "firedreason_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "branch_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "move_type",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "command_ident",
     "type": "integer",
     "pk": false,
     "null": true
@@ -1673,6 +1775,76 @@ const DATA = [
   "why": "Production leave grants (days per leave year). Annual leave balances are built from these (sub-project 3, Q-12)."
  },
  {
+  "table": "holiday_type",
+  "model": "macs.AbsenceType",
+  "app": "macs",
+  "managed": false,
+  "label": "Амралтын бүртгэлийн төрөл",
+  "cols": [
+   {
+    "name": "holidaytype_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production list of types for the old program's «Амралт» log. Read only."
+ },
+ {
+  "table": "holiday",
+  "model": "macs.Absence",
+  "app": "macs",
+  "managed": false,
+  "label": "Амралтын бүртгэл",
+  "cols": [
+   {
+    "name": "holiday_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "holidaytype_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "holiday_type"
+   },
+   {
+    "name": "from_date",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "to_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "note",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production «Амралт» side log of the old program (no status, no days, no balance). Info HR only shows it; leave itself lives in leave_assign."
+ },
+ {
   "table": "hr_legalholidays",
   "model": "macs.LegalHoliday",
   "app": "macs",
@@ -1763,6 +1935,116 @@ const DATA = [
   "why": "Production list of education types (bachelor, master...). Used by the Боловсрол history (sub-project 4)."
  },
  {
+  "table": "qualification_type",
+  "model": "macs.QualificationType",
+  "app": "macs",
+  "managed": false,
+  "label": "Мэргэшлийн төрөл",
+  "cols": [
+   {
+    "name": "qualificationtype_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production list. Used by the Мэргэшил list (personal tab)."
+ },
+ {
+  "table": "profession_type",
+  "model": "macs.ProfessionType",
+  "app": "macs",
+  "managed": false,
+  "label": "Мэргэжлийн төрөл",
+  "cols": [
+   {
+    "name": "professiontype_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production list. Used by the Мэргэшил list (personal tab)."
+ },
+ {
+  "table": "spec_edu_type",
+  "model": "macs.SpecEduType",
+  "app": "macs",
+  "managed": false,
+  "label": "Тусгай боловсролын төрөл",
+  "cols": [
+   {
+    "name": "spec_edu_type_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(30)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production list. Used by the Тусгай боловсрол, сертификат list (personal tab)."
+ },
+ {
+  "table": "flanguages",
+  "model": "macs.ForeignLanguage",
+  "app": "macs",
+  "managed": false,
+  "label": "Гадаад хэл",
+  "cols": [
+   {
+    "name": "flanguage_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(30)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production list. Used by the Гадаад хэл list (personal tab)."
+ },
+ {
+  "table": "lang_level",
+  "model": "macs.LanguageLevel",
+  "app": "macs",
+  "managed": false,
+  "label": "Хэлний түвшин",
+  "cols": [
+   {
+    "name": "langlevel_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "level_name",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production list of language levels. The Гадаад хэл list stores the level name as text."
+ },
+ {
   "table": "talents",
   "model": "macs.TalentKind",
   "app": "macs",
@@ -1805,6 +2087,72 @@ const DATA = [
    }
   ],
   "why": "Production list of gift types. Used by the Олгосон бэлэг list (sub-project 4)."
+ },
+ {
+  "table": "material_help_type",
+  "model": "macs.MaterialHelpType",
+  "app": "macs",
+  "managed": false,
+  "label": "Буцалтгүй тусламжийн үндэслэл",
+  "cols": [
+   {
+    "name": "material_help_type_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production list. Used by the Буцалтгүй тусламж list (personal tab)."
+ },
+ {
+  "table": "discipline_type",
+  "model": "macs.DisciplineType",
+  "app": "macs",
+  "managed": false,
+  "label": "Шийтгэлийн төрөл",
+  "cols": [
+   {
+    "name": "disctype_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production list. Used by the Сахилгын шийтгэл list (personal tab)."
+ },
+ {
+  "table": "driver_type",
+  "model": "macs.DriverType",
+  "app": "macs",
+  "managed": false,
+  "label": "Жолооны ангилал",
+  "cols": [
+   {
+    "name": "driver_type_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(30)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production list. Used by the Жолоо list (personal tab)."
  },
  {
   "table": "contact_type",
@@ -1889,6 +2237,199 @@ const DATA = [
   "why": "Production family members. The Гэр бүл list reads and writes here (sub-project 4)."
  },
  {
+  "table": "relative",
+  "model": "macs.RelativeRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Хамаатан садан",
+  "cols": [
+   {
+    "name": "relative_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "given_name",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "father_name",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "job",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "phone",
+    "type": "varchar(14)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "branch_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "branch"
+   },
+   {
+    "name": "dep_ident",
+    "type": "smallint",
+    "pk": false,
+    "null": true,
+    "fk": "deps"
+   },
+   {
+    "name": "occup_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "occupation"
+   }
+  ],
+  "why": "Production relatives (not immediate family). The Хамаатан садан list reads and writes here."
+ },
+ {
+  "table": "before_work",
+  "model": "macs.BeforeWorkRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Өмнө ажилласан газар",
+  "cols": [
+   {
+    "name": "id_before",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "worked_place",
+    "type": "varchar(40)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "start_date",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "end_date",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "profession",
+    "type": "varchar(30)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "shaltgaan",
+    "type": "varchar(30)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "start_year",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "end_year",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production previous workplaces. The Өмнө ажилласан газар list reads and writes here."
+ },
+ {
+  "table": "hr_skillwork",
+  "model": "macs.SkillWorkRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Ур чадварын даалгавар",
+  "cols": [
+   {
+    "name": "skillwork_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "emp_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "norm",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "dep_ident",
+    "type": "smallint",
+    "pk": false,
+    "null": true,
+    "fk": "deps"
+   },
+   {
+    "name": "sdate",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "comment",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production skill tasks / norms. The Ур чадварын даалгавар list reads and writes here."
+ },
+ {
   "table": "educ",
   "model": "macs.EducRow",
   "app": "macs",
@@ -1929,6 +2470,308 @@ const DATA = [
    }
   ],
   "why": "Production education history rows. The Боловсрол list reads and writes here; school/field go to employees_educationext."
+ },
+ {
+  "table": "qualification",
+  "model": "macs.QualificationRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Мэргэшил",
+  "cols": [
+   {
+    "name": "qualification_id",
+    "type": "smallint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "qualificationtype_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "qualification_type"
+   },
+   {
+    "name": "professiontype_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "profession_type"
+   },
+   {
+    "name": "org_name",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "diplom_number",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "start_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "ending_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "credit_score",
+    "type": "numeric(6, 2)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "country",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "edu_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "education"
+   },
+   {
+    "name": "grade",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "graduate"
+   },
+   {
+    "name": "start_year",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "end_year",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production qualifications and diplomas. The Мэргэшил list reads and writes here."
+ },
+ {
+  "table": "spec_edu",
+  "model": "macs.CertificateRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Тусгай боловсрол, сертификат",
+  "cols": [
+   {
+    "name": "spec_edu_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "spec_edu_type_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "spec_edu_type"
+   },
+   {
+    "name": "org_edu",
+    "type": "varchar(30)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "certify_number",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "certify_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "profession",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "end_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "spec_profession",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "certify_year",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production special education and certificates. The Тусгай боловсрол, сертификат list."
+ },
+ {
+  "table": "hr_training",
+  "model": "macs.TrainingRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Сургалт",
+  "cols": [
+   {
+    "name": "training_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "emp_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "tr_type",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "start_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "days",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "amount",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "pay_type",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "training_center",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "start_year",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production trainings attended. The Сургалт list reads and writes here."
+ },
+ {
+  "table": "foreign_lang",
+  "model": "macs.LanguageRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Гадаад хэл",
+  "cols": [
+   {
+    "name": "foreignlang_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "flanguage_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "flanguages"
+   },
+   {
+    "name": "understand_lvl",
+    "type": "varchar(15)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "speaking_lvl",
+    "type": "varchar(15)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "reading_lvl",
+    "type": "varchar(15)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "writing_lvl",
+    "type": "varchar(15)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production foreign language skills (four levels as text). The Гадаад хэл list."
  },
  {
   "table": "given_present",
@@ -1995,6 +2838,457 @@ const DATA = [
    }
   ],
   "why": "Production gifts given. The Олгосон бэлэг list (sub-project 4); the note goes to employees_giftext."
+ },
+ {
+  "table": "material_help",
+  "model": "macs.MaterialHelpRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Буцалтгүй тусламж",
+  "cols": [
+   {
+    "name": "material_help_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "amount",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "help_date",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "material_type",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "material_help_type"
+   },
+   {
+    "name": "description",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production non-repayable help given. The Буцалтгүй тусламж list."
+ },
+ {
+  "table": "awards",
+  "model": "macs.AwardRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Шагнал урамшил",
+  "cols": [
+   {
+    "name": "award_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "give_org",
+    "type": "varchar(40)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "award_name",
+    "type": "varchar(40)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "award_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Production awards given. The Шагнал урамшил list and the awards report."
+ },
+ {
+  "table": "discipline",
+  "model": "macs.DisciplineRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Сахилгын шийтгэл",
+  "cols": [
+   {
+    "name": "discipline_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "from_discipline",
+    "type": "varchar(40)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "discipline_name",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "discipline_type"
+   },
+   {
+    "name": "discipline_date",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "discipline_sal_percent",
+    "type": "numeric(7, 2)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "discipline_enddate",
+    "type": "date",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production disciplinary penalties. The Сахилгын шийтгэл list and the discipline report."
+ },
+ {
+  "table": "hr_complaints",
+  "model": "macs.ComplaintRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Үйлчлүүлэгчийн гомдол",
+  "cols": [
+   {
+    "name": "complaint_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "emp_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "cdate",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "ctype",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "complaint_name",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "comment",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production customer complaints against an employee. Type and kind are fixed code lists in Info HR."
+ },
+ {
+  "table": "body",
+  "model": "macs.BodyRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Эрүүл мэндийн үзлэг",
+  "cols": [
+   {
+    "name": "body_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "inserted_ognoo",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "term_type",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "end_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "own_letter",
+    "type": "varchar(80)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "ear",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "dotor",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "medrel",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "setgel_medrel",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "mes_zasal",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "nud",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "female",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "rentgen",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "skin",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "finally",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "sign",
+    "type": "varchar(40)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production medical check-ups (conclusion is in the column «finally»). The Эрүүл мэндийн үзлэг list."
+ },
+ {
+  "table": "driver",
+  "model": "macs.DriverRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Жолоо",
+  "cols": [
+   {
+    "name": "id_driver",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "number_driver",
+    "type": "varchar(15)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "inserted_ognoo",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "drivertype",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "driver_type"
+   }
+  ],
+  "why": "Production driving licences. The Жолоо list reads and writes here."
+ },
+ {
+  "table": "military",
+  "model": "macs.MilitaryRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Цэргийн алба",
+  "cols": [
+   {
+    "name": "military_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "army_rank",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "mil_rank",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "study_type",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "sacking_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "sacking_reason",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production military service. The Цэргийн алба list reads and writes here."
+ },
+ {
+  "table": "army_rank",
+  "model": "macs.ArmyRankRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Цэргийн цол",
+  "cols": [
+   {
+    "name": "rank_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "rank_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "rank",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "addition_r",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Production military ranks. The Цэргийн цол list reads and writes here."
  },
  {
   "table": "address",
@@ -2233,6 +3527,12 @@ const DATA = [
     "null": false
    },
    {
+    "name": "is_pensioner",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
     "name": "user_id",
     "type": "bigint",
     "pk": false,
@@ -2460,9 +3760,154 @@ const DATA = [
     "type": "varchar(200)",
     "pk": false,
     "null": false
+   },
+   {
+    "name": "pension",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "applied_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "proposed",
+    "type": "jsonb",
+    "pk": false,
+    "null": true
    }
   ],
   "why": "Created to record each HR change (transfer, promotion, termination...) with a reason and the option to cancel it. movement only knows 4 kinds and cannot be cancelled cleanly."
+ },
+ {
+  "table": "employees_hrorder",
+  "model": "employees.HrOrder",
+  "app": "employees",
+  "managed": true,
+  "label": "Тушаал",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_id",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "event_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "employees_event"
+   },
+   {
+    "name": "is_hire",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "order_type",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "state",
+    "type": "varchar(12)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "number",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "number_key",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "summary",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "issued_by",
+    "type": "varchar(25)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "file",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "command_id",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "history_id",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "cancel_reason",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "cancel_order_no",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "created_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created for HR orders (тушаал) tied to a change or the hire: draft → numbered → cancelled, file, who/when. Writes command and employee_history when numbered."
  },
  {
   "table": "employees_eventprodrow",
@@ -2551,6 +3996,12 @@ const DATA = [
     "type": "varchar(20)",
     "pk": false,
     "null": false
+   },
+   {
+    "name": "emptype",
+    "type": "smallint",
+    "pk": false,
+    "null": true
    },
    {
     "name": "status",
@@ -2788,6 +4239,13 @@ const DATA = [
     "type": "boolean",
     "pk": false,
     "null": false
+   },
+   {
+    "name": "order_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "employees_hrorder"
    }
   ],
   "why": "Created for the Түүх side panel: who changed what and when, plus notes. Append-only; MACS has no change log."
@@ -2855,6 +4313,34 @@ const DATA = [
    }
   ],
   "why": "Created to remember the last day the daily MACS sync ran, so it runs once a day."
+ },
+ {
+  "table": "employees_companysettings",
+  "model": "employees.CompanySettings",
+  "app": "employees",
+  "managed": true,
+  "label": "Байгууллагын тохиргоо",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "name",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "director_name",
+    "type": "varchar(25)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created for company details printed on HR orders (name, director). One row, edited in admin."
  },
  {
   "table": "leave_leavetypeext",
@@ -3094,6 +4580,59 @@ const DATA = [
    }
   ],
   "why": "Created so HR admins can say which list entry the code relies on (which country is Mongolia, which reason is death)."
+ },
+ {
+  "table": "reports_savedview",
+  "model": "reports.SavedView",
+  "app": "reports",
+  "managed": true,
+  "label": "Хадгалсан харагдац",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "report",
+    "type": "varchar(40)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "name",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "query",
+    "type": "varchar(2000)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "author_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created so a user can save a report's filters, columns and sort under a name and open it again."
  }
 ];
 const LIMIT = 14;
@@ -3106,12 +4645,12 @@ links.forEach(l=>{l.from.refs.push(l);l.to.inc.push(l)});
 cp.textContent=DATA.filter(t=>t.o==='prod').length;cn.textContent=DATA.filter(t=>t.o==='new').length;ca.textContent=DATA.filter(t=>t.o==='auth').length;
 
 // layout groups -> columns
-const isLookup = t => t.o==='prod' && t.cols.length<=5 && !['birth_place','emp_photo'].includes(t.table);
+const isLookup = t => t.o==='prod' && !t.cols.some(c=>c.fk==='employee');
 const groups=[
- {title:'Production · code lists', f:isLookup, cols:2},
- {title:'Production · employee core', f:t=>t.o==='prod'&&!isLookup(t), cols:2},
+ {title:'Production · code lists', f:isLookup, cols:3},
+ {title:'Production · employee data', f:t=>t.o==='prod'&&!isLookup(t), cols:4},
  {title:'New · employee record', f:t=>t.app==='employees', cols:3},
- {title:'New · leave', f:t=>t.app==='leave'||t.app==='lists', cols:1},
+ {title:'New · leave, lists, reports', f:t=>['leave','lists','reports'].includes(t.app), cols:1},
  {title:'New · users & permissions', f:t=>t.o==='auth', cols:1},
 ];
 const world=document.getElementById('world'), svg=document.getElementById('links');
@@ -3197,11 +4736,11 @@ exp.onclick=()=>{const open=exp.textContent==='Expand all';DATA.forEach(t=>{t.op
 let tx=0,ty=0,k=.6;const vp=document.getElementById('vp');
 const apply=()=>world.style.transform=`translate(${tx}px,${ty}px) scale(${k})`;
 vp.addEventListener('wheel',e=>{e.preventDefault();const r=vp.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;const nk=Math.min(2.5,Math.max(.15,k*Math.exp(-e.deltaY*.0015)));tx=mx-(mx-tx)*nk/k;ty=my-(my-ty)*nk/k;k=nk;apply()},{passive:false});
-vp.addEventListener('pointerdown',e=>{if(e.target.closest('.t'))return;vp.classList.add('pan');const sx=e.clientX-tx,sy=e.clientY-ty;let moved=false;
+vp.addEventListener('pointerdown',e=>{if(e.target.closest('.t'))return;e.preventDefault();vp.classList.add('pan');const sx=e.clientX-tx,sy=e.clientY-ty;let moved=false;
  const mv=ev=>{moved=true;tx=ev.clientX-sx;ty=ev.clientY-sy;apply()};
  const up=()=>{vp.classList.remove('pan');removeEventListener('pointermove',mv);removeEventListener('pointerup',up);if(!moved){sel=null;highlight()}};
  addEventListener('pointermove',mv);addEventListener('pointerup',up)});
-function startDrag(e,t){e.stopPropagation();const sx=e.clientX,sy=e.clientY,ox=t.x,oy=t.y;let moved=false;
+function startDrag(e,t){e.stopPropagation();e.preventDefault();getSelection().removeAllRanges();const sx=e.clientX,sy=e.clientY,ox=t.x,oy=t.y;let moved=false;
  const mv=ev=>{const dx=(ev.clientX-sx)/k,dy=(ev.clientY-sy)/k;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;t.x=ox+dx;t.y=oy+dy;t.el.style.left=t.x+'px';t.el.style.top=t.y+'px';draw()};
  const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);if(!moved){sel=sel===t?null:t;highlight()}};
  addEventListener('pointermove',mv);addEventListener('pointerup',up)}

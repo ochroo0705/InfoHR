@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Өнөөдөр{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-baseline gap-3">
+  <h1 class="text-xl font-semibold">Өнөөдөр</h1>
+  <span class="ml-auto text-sm text-slate-500">{{ today|date:"Y-m-d" }}</span>
+</div>
+
+<div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <a href="{% url 'employees:list' %}" class="card-soft flex items-center gap-3 p-4">
+    <span class="tile-icon bg-violet-100 text-violet-700"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm6 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1 16a6 6 0 0 1 12 0v1H1v-1Zm13 1v-1a7.9 7.9 0 0 0-1.3-4.4A5 5 0 0 1 19 16v1h-5Z"/></svg></span>
+    <span><span class="block text-xs text-slate-500">Ажилтан</span><span class="block text-2xl font-semibold leading-tight" data-tile="headcount">{{ headcount }}</span></span>
+  </a>
+  <div class="card-soft flex items-center gap-3 p-4">
+    <span class="tile-icon bg-sky-100 text-sky-700"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6 2a1 1 0 0 1 1 1v1h6V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1Zm-2 6v8h12V8H4Z"/></svg></span>
+    <span><span class="block text-xs text-slate-500">Өнөөдөр чөлөөтэй</span><span class="block text-2xl font-semibold leading-tight" data-tile="away">{{ away|length }}</span></span>
+  </div>
+  {% if pending_orders is not None %}
+  <a href="{% url 'employees:orders' %}" class="card-soft flex items-center gap-3 p-4">
+    <span class="tile-icon bg-amber-100 text-amber-700"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M4 3a2 2 0 0 1 2-2h5.6a2 2 0 0 1 1.4.6L16.4 5A2 2 0 0 1 17 6.4V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V3Zm3 7a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H7Zm0 3a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2H7Z"/></svg></span>
+    <span><span class="block text-xs text-slate-500">Дугаар хүлээж буй тушаал</span><span class="block text-2xl font-semibold leading-tight" data-tile="orders">{{ pending_orders }}</span></span>
+  </a>
+  {% endif %}
+  <a href="#attention" class="card-soft flex items-center gap-3 p-4">
+    <span class="tile-icon {% if attention_count %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm1-11a1 1 0 1 0-2 0v4a1 1 0 1 0 2 0V7Zm-1 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg></span>
+    <span><span class="block text-xs text-slate-500">Анхаарах зүйл</span><span class="block text-2xl font-semibold leading-tight {% if attention_count %}text-red-700{% endif %}" data-tile="attention">{{ attention_count }}</span></span>
+  </a>
+</div>
+
+{% include "employees/_away_timeline.html" %}
+
+<div class="grid gap-5 lg:grid-cols-[3fr_2fr]">
+  <div>{% include "employees/_attention.html" %}</div>
+
+  <div class="space-y-5">
+    <section class="card-soft p-4" aria-labelledby="away-title">
+      <h2 id="away-title" class="sec-title mb-2">Өнөөдөр чөлөөтэй</h2>
+      {% for a in away %}
+      <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm last:border-0">
+        <a href="{% url 'employees:detail' a.row.employee.pk %}" class="text-violet-700 hover:underline">{{ a.row.employee.full_name }}</a>
+        <span class="text-right text-slate-500">{{ a.label }} · {{ a.until|date:"Y-m-d" }} хүртэл</span>
+      </div>
+      {% empty %}<p class="text-sm text-slate-400">Өнөөдөр чөлөөтэй хүн алга.</p>{% endfor %}
+      {% if perms.leave.view_leave %}<a href="{% url 'leave:calendar' %}" class="mt-2 inline-block text-xs text-violet-700 hover:underline">Багийн хуанли →</a>{% endif %}
+    </section>
+
+    <section class="card-soft p-4" aria-labelledby="upcoming-title">
+      <h2 id="upcoming-title" class="sec-title mb-2">Ойрын 30 хоног</h2>
+      {% for u in upcoming %}
+      <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm last:border-0">
+        <span>{% if u.kind == "birthday" %}Төрсөн өдөр{% else %}{{ u.years }} жилийн ой{% endif %} · <a href="{% url 'employees:detail' u.row.employee.pk %}" class="text-violet-700 hover:underline">{{ u.row.employee.full_name }}</a></span>
+        <span class="text-slate-500">{{ u.on|date:"Y-m-d" }}</span>
+      </div>
+      {% empty %}<p class="text-sm text-slate-400">Ойрын 30 хоногт төрсөн өдөр, ойн огноо алга.</p>{% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

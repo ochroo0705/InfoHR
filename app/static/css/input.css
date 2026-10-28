@@ -1,47 +1,64 @@
 @import "tailwindcss";
 
-/* Inter, self-hosted (static/vendor/inter, SIL OFL). Each subset loads only when a page uses its letters;
+/* Golos Text, self-hosted (static/vendor/golos, SIL OFL). Each subset loads only when a page uses its letters;
    Mongolian Ө ө Ү ү live in cyrillic-ext. */
 @font-face {
-  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
-  src: url("../vendor/inter/inter-cyrillic-ext-wght-normal.woff2") format("woff2");
+  font-family: "Golos Text"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("../vendor/golos/golos-cyrillic-ext-wght-normal.woff2") format("woff2");
   unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
 }
 @font-face {
-  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
-  src: url("../vendor/inter/inter-cyrillic-wght-normal.woff2") format("woff2");
+  font-family: "Golos Text"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("../vendor/golos/golos-cyrillic-wght-normal.woff2") format("woff2");
   unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }
 @font-face {
-  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
-  src: url("../vendor/inter/inter-latin-wght-normal.woff2") format("woff2");
+  font-family: "Golos Text"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("../vendor/golos/golos-latin-wght-normal.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  /* Warm theme (user choice 2026-10-19, mockup docs/mockups/employee-page.html variant B).
-     The "slate" greys are remapped to warm neutrals so every template warms up without class changes;
-     violet stays the brand colour, amber is the accent. */
-  --color-slate-50: #faf7f2;
-  --color-slate-100: #f3eee6;
-  --color-slate-200: #e8e0d4;
-  --color-slate-300: #d6cbbb;
-  --color-slate-400: #a89a87;
-  --color-slate-500: #7c6f60;
-  --color-slate-600: #5f5347;
-  --color-slate-700: #4a4037;
-  --color-slate-800: #2a2118;
-  --color-slate-900: #1f1811;
-  --color-slate-950: #140f0a;
+  --font-sans: "Golos Text", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  /* Turquoise theme (user choice 2026-10-26, mockup docs/mockups/theme-turquoise-seal.html, option A).
+     Class names stay the same: the "slate" greys are remapped to cool frost neutrals, "violet" is remapped to
+     turquoise (keep writing violet-* classes, never teal-*), "amber" is remapped to brass. Red stays red. */
+  --color-slate-50: #f1f5f3;
+  --color-slate-100: #e6edea;
+  --color-slate-200: #d9e1de;
+  --color-slate-300: #c3cfca;
+  --color-slate-400: #8fa09b;
+  --color-slate-500: #5f716c;
+  --color-slate-600: #4a5b57;
+  --color-slate-700: #34433f;
+  --color-slate-800: #10303a;
+  --color-slate-900: #12202a;
+  --color-slate-950: #0a141b;
+  --color-violet-50: #eef8f8;
+  --color-violet-100: #dcefef;
+  --color-violet-200: #bfe0e1;
+  --color-violet-300: #93cbce;
+  --color-violet-400: #54aab0;
+  --color-violet-500: #2b8d96;
+  --color-violet-600: #0f7c86;
+  --color-violet-700: #0b656e;
+  --color-violet-800: #0a4f56;
+  --color-violet-900: #0a3d43;
+  --color-violet-950: #052a2f;
+  --color-amber-300: #e6bd62;
+  --color-amber-400: #d9a63a;
+  --color-amber-500: #b8892b;
+  --color-seal: #c0332a;
 }
 @source "../../templates";
 @source "../../employees/templates";
 @source "../../accounts/templates";
 @source "../../leave/templates";
 @source "../../lists/templates";
+@source "../../reports/templates";
 @source "../../employees/templatetags";
+@source "../js/modal.js";
 
 /* Date picker (static/js/datepicker.js) */
 @layer components {
@@ -98,6 +115,8 @@
 @layer base {
   button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary, label:has(input[type="checkbox"]), select { cursor: pointer; }
   button:disabled { cursor: not-allowed; }
+  /* A quick second click on a button or menu summary would otherwise select its label (browser default). */
+  button, [role="button"], summary { -webkit-user-select: none; user-select: none; }
 }
 
 /* Always reserve the scrollbar's space so pages don't shift sideways when one appears. */
@@ -120,7 +139,42 @@
 @layer components {
   /* Thin bar at the top while any htmx request runs. */
   body::before { content: ""; position: fixed; inset: 0 0 auto 0; z-index: 70; height: 3px; background: linear-gradient(90deg, var(--color-violet-600), var(--color-amber-500)); transform: scaleX(0); transform-origin: left; opacity: 0; pointer-events: none; }
+  /* Personal tab: the section a menu link jumped to is tinted and outlined (a ring, so nothing shifts) for a moment, then fades. */
+  @keyframes sec-flash { from { background-color: var(--color-violet-100); box-shadow: 0 0 0 2px var(--color-violet-400); } to { background-color: transparent; box-shadow: 0 0 0 2px transparent; } }
+  .sec-flash { animation: sec-flash 1.4s ease-out; border-radius: .5rem; }
+  /* Employee page headings (UI_RULES §8): one section title style, and a violet divider that starts a topic group
+     (the only line between sections). */
+  .sec-title { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 600; color: var(--color-slate-900); }
+  .grp-divider { display: flex; align-items: center; gap: .625rem; margin-top: 2.75rem; font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-violet-700); }
+  [data-pgroup]:first-child > .grp-divider { margin-top: 0; }
+  /* Personal-tab groups are pages from lg up (UI_RULES §8): only the open one shows, its divider at the top. */
+  @media (min-width: 64rem) {
+    [data-pgroup][data-off] { display: none; }
+    [data-pgroup] > .grp-divider { margin-top: 0; }
+  }
+  /* Personal-tab menu: a wider gap and a hairline (drawn in the middle of the gap) set each topic group apart from the one above. */
+  #personal-nav li.menu-group:not(:first-child) { position: relative; margin-top: 1.5rem !important; } /* !important: the space-y utility outranks a layered rule */
+  #personal-nav li.menu-group:not(:first-child)::before { content: ""; position: absolute; inset-inline: 1rem; top: -.75rem; border-top: 1px solid var(--color-slate-200); }
+  .grp-divider::after { content: ""; flex: 1; border-top: 1px solid var(--color-violet-300); }
+  /* Personal-tab tables (UI_RULES §4): a light frame per table and a tinted header row in normal case. */
+  .ptable { margin-top: .5rem; overflow-x: auto; border: 1px solid var(--color-slate-200); border-radius: .5rem; }
+  .ptable > table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+  .ptable th { padding: .5rem .75rem; text-align: left; white-space: nowrap; font-size: var(--text-xs); font-weight: 500; color: var(--color-slate-600); background: var(--color-slate-50); border-bottom: 1px solid var(--color-slate-200); }
+  .ptable td { padding: .5rem .75rem; border-top: 1px solid var(--color-slate-100); }
+  .ptable tbody tr:first-child td { border-top: 0; }
+  /* Alignment and spacing utilities must win over the cell rules above (numbers right, the column after one spaced). */
+  .ptable .text-right { text-align: right; }
+  .ptable .pl-6 { padding-left: 1.5rem; }
+  /* The tinted header keeps inside the rounded frame even when a frame must not clip (overflow-visible, row menus). */
+  .ptable thead th:first-child { border-top-left-radius: calc(.5rem - 1px); }
+  .ptable thead th:last-child { border-top-right-radius: calc(.5rem - 1px); }
+  /* Field grid soft box (UI_RULES §2e) edited since the page loaded: a violet left edge until Save or Cancel. */
+  .f-changed .f-soft { box-shadow: inset 3px 0 0 var(--color-violet-500); }
+  @media (prefers-reduced-motion: reduce) { .sec-flash { animation: none; } }
   body:has(.htmx-request)::before { opacity: 1; animation: hr-load 1.2s ease-out forwards; }
+  /* An open pop-up (fixed full-screen overlay) locks the page behind it; its panel keeps its own scroll. */
+  body:has(.fixed.inset-0.z-50) { overflow: hidden; }
+  .fixed.inset-0.z-50, .fixed.inset-0.z-50 > div { overscroll-behavior: contain; }
   @keyframes hr-load { from { transform: scaleX(0); } to { transform: scaleX(.85); } }
   /* Pop-up forms fade and lift in. */
   .fixed.inset-0.z-50 { animation: hr-fade .15s ease-out; }
@@ -129,9 +183,19 @@
   .fixed.inset-0.z-50.no-anim, .fixed.inset-0.z-50.no-anim > div { animation: none; }
   @keyframes hr-fade { from { opacity: 0; } }
   @keyframes hr-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+  /* Ctrl+K palette: a quicker open (120 ms, slight scale-in). Closing is instant (the shell is removed). Reduced motion
+     is off through the global rule at the end of this file. */
+  .fixed.inset-0.z-50[data-palette] { animation: hr-fade .12s ease-out; }
+  .fixed.inset-0.z-50[data-palette] > div { animation: pal-in .12s ease-out; }
+  @keyframes pal-in { from { opacity: 0; transform: scale(.97); } }
   /* Cards that hold content lift slightly on hover. */
   .card-hover { transition: box-shadow .15s, border-color .15s, transform .15s; }
-  .card-hover:hover { border-color: var(--color-slate-300); box-shadow: 0 6px 18px rgb(42 33 24 / .08); }
+  .card-hover:hover { border-color: var(--color-slate-300); box-shadow: 0 6px 18px rgb(16 48 58 / .08); }
+  /* Soft-lift card (Today page): white, no border line, two-layer cool shadow; links lift on hover. */
+  .card-soft { background: #fff; border-radius: .875rem; box-shadow: 0 1px 2px rgb(16 48 58 / .06), 0 6px 16px rgb(16 48 58 / .08); transition: box-shadow .15s, transform .15s; }
+  a.card-soft:hover { box-shadow: 0 1px 2px rgb(16 48 58 / .08), 0 10px 24px rgb(16 48 58 / .13); transform: translateY(-1px); }
+  .ptable.card-soft { border-color: transparent; }
+  .tile-icon { display: flex; height: 2.5rem; width: 2.5rem; flex: none; align-items: center; justify-content: center; border-radius: .75rem; }
   /* Employee page tabs: flat, icon + label, thin violet underline that slides in on the active tab. */
   .tab { position: relative; display: flex; align-items: center; gap: .375rem; padding: .875rem 0 .75rem; font-size: .875rem; font-weight: 500; color: var(--color-slate-500); }
   .tab svg { color: var(--color-slate-400); transition: color .15s; }
@@ -140,5 +204,7 @@
   .tab.tab-on { color: var(--color-slate-900); font-weight: 600; }
   .tab.tab-on svg { color: var(--color-violet-600); }
   .tab.tab-on::after { transform: scaleX(1); }
+  /* Signed order (UI_RULES §8a): the one place the office-seal red is used. A double-ruled stamp, tilted a little. */
+  .seal { display: inline-block; padding: .125rem .6875rem; border: 2px solid var(--color-seal); border-radius: .4375rem; background: rgb(192 51 42 / .05); box-shadow: inset 0 0 0 2px var(--color-white), inset 0 0 0 3px var(--color-seal); color: var(--color-seal); font-size: var(--text-xs); font-weight: 600; letter-spacing: .02em; line-height: 1.25; rotate: -2deg; mix-blend-mode: multiply; white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

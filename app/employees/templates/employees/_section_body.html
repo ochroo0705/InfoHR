@@ -1,0 +1,15 @@
+{% load hr %}
+{# Personal-tab list «Эрүүл мэндийн үзлэг». Each row opens its edit pop-up. Wrapper id sec-body. #}
+<section id="sec-body" class="scroll-mt-20 pt-7">
+  {% include "employees/_list_section.html" with name="body" title="Эрүүл мэндийн үзлэг" items=personal.body %}
+  {% if personal.body %}<div class="ptable"><table>
+  <thead><tr><th>Үзлэгийн огноо</th><th>Үзлэгийн төрөл</th><th>Дуусах хугацаа</th><th class="pl-6">Дүгнэлт</th></tr></thead>
+  <tbody>
+  {% for r in personal.body %}
+    <tr class="{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'body' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
+      <td>{{ r.values.inserted_ognoo|date:"Y-m-d"|default:"—" }}</td><td>{{ r.values.term_type|default:"—" }}</td><td>{{ r.values.end_date|date:"Y-m-d"|default:"—" }}</td><td class="pl-6">{{ r.values.conclusion|default:"—" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>{% endif %}
+</section>

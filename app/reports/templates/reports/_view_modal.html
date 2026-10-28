@@ -1,0 +1,30 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-6 shadow-xl">
+    <h2 class="mb-4 text-lg font-semibold">{{ title }}</h2>
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+      {% for field in form.visible_fields %}
+      <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
+        {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}
+      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
+      </div>
+    </form>
+    {% if view %}
+    {# Delete is at the bottom left, away from the primary button. Its own confirm step asks first (UI_RULES §6). #}
+    <div class="mt-4 border-t border-slate-100 pt-3 text-sm">
+      <button type="button" onclick="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden')" class="rounded px-2 py-1 text-red-600 hover:bg-red-50">Устгах</button>
+      <div class="hidden">
+        <form hx-post="{% url 'reports:view_delete' view.pk %}" hx-target="closest div.fixed" hx-swap="outerHTML" class="flex items-center gap-3">
+          {% csrf_token %}
+          <span class="text-slate-700">Энэ харагдацыг устгах уу?</span>
+          <button class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">Устгах</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>

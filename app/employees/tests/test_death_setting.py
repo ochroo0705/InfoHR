@@ -107,7 +107,7 @@ def test_attention_item_absent_without_lists_permission() -> None:
 def test_attention_box_shows_link_to_lists_meaning(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     set_death(None)
-    body = client.get(reverse("employees:list")).content.decode()
+    body = client.get(reverse("employees:today")).content.decode()
     assert "Жагсаалтын утга дутуу" in body
     assert f'href="{reverse("lists:meaning")}"' in body
 

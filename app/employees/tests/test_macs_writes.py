@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 from accounts.models import User
+from django.utils import timezone
 from macs.models import EmployeeHistory, Movement
 from psycopg.types.range import DateRange
 
@@ -193,7 +194,8 @@ def test_departments_and_positions_get_ext_rows() -> None:
 def _event(e: Employee, type_: str, day: date, **extra: object) -> None:
     from employees.models import Event
 
-    Event.objects.create(employee=e, type=type_, effective=day, **extra)
+    # An in-force change: an unapplied (waiting) event is ignored by the MACS flags.
+    Event.objects.create(employee=e, type=type_, effective=day, applied_at=timezone.now(), **extra)
 
 
 def _reason(name: str = "Өөрийн хүсэлтээр"):  # type: ignore[no-untyped-def]

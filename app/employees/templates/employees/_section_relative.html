@@ -1,0 +1,14 @@
+{# Personal-tab list «Хамаатан садан». Each row opens its edit pop-up. Wrapper id sec-relative. #}
+<section id="sec-relative" class="scroll-mt-20 pt-7">
+  {% include "employees/_list_section.html" with name="relative" title="Хамаатан садан" items=personal.relative %}
+  {% if personal.relative %}<div class="ptable"><table>
+  <thead><tr><th>Нэр</th><th>Эцэг/эхийн нэр</th><th>Ажилтны хэн болох</th><th>Утас</th><th>Ажилладаг салбар</th><th>Хэлтэс</th><th>Албан тушаал</th></tr></thead>
+  <tbody>
+  {% for r in personal.relative %}
+    <tr class="{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'relative' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
+      <td>{{ r.values.given_name|default:"—" }}</td><td>{{ r.values.father_name|default:"—" }}</td><td>{{ r.values.description|default:"—" }}</td><td>{{ r.values.phone|default:"—" }}</td><td>{{ r.values.branch }}</td><td>{{ r.values.department }}</td><td>{{ r.values.position }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>{% endif %}
+</section>

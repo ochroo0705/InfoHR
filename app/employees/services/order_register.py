@@ -18,6 +18,7 @@ class RegisterRow:
     number: str
     date: date | None
     employee_id: int
+    employee_code: str
     employee_name: str
     department: str
     department_id: int | None
@@ -32,6 +33,7 @@ class RegisterRow:
     order_type: int | None
     order_id: int | None = None
     command_id: int | None = None
+    awaiting: bool = False  # the change behind the order waits for the signed order (shown as a chip)
 
 
 def age_on(birth: date | None, today: date) -> int | None:
@@ -43,6 +45,7 @@ def age_on(birth: date | None, today: date) -> int | None:
 def _row(emp: Any, today: date, **own: Any) -> RegisterRow:
     return RegisterRow(
         employee_id=emp.pk,
+        employee_code=emp.code or "",
         employee_name=f"{emp.family_name or ''} {emp.given_name or ''}".strip(),
         department=emp.department.name if emp.department and emp.department.name else "",
         department_id=emp.department_id,
@@ -62,6 +65,7 @@ def register_rows(
     department_id: int | None,
     state: str | None,
     today: date | None = None,
+    q: str = "",
 ) -> list[RegisterRow]:
     today = today or date.today()
     people = access.visible_employees(user).select_related("department", "position")
@@ -69,7 +73,7 @@ def register_rows(
         people = people.filter(department_id=department_id)
     by_id = {e.pk: e for e in people}
     rows: list[RegisterRow] = []
-    ours = HrOrder.objects.filter(employee_id__in=by_id)
+    ours = HrOrder.objects.filter(employee_id__in=by_id).select_related("event")
     taken = set(HrOrder.objects.exclude(command_id=None).values_list("command_id", flat=True))
     if state != LEGACY:
         if year is not None:
@@ -91,6 +95,7 @@ def register_rows(
                     state_label=o.get_state_display(),
                     order_type=o.order_type,
                     order_id=o.pk,
+                    awaiting=o.event is not None and o.event.applied_at is None and o.event.cancelled_at is None,
                 )
             )
     if not state or state == LEGACY:
@@ -116,5 +121,10 @@ def register_rows(
                     command_id=c.pk,
                 )
             )
+    words = q.casefold().split()
+    if words:  # every word must be part of the order number or the employee's name or code
+        rows = [
+            r for r in rows if all(w in f"{r.number} {r.employee_name} {r.employee_code}".casefold() for w in words)
+        ]
     rows.sort(key=lambda r: r.date or date.min, reverse=True)
     return rows

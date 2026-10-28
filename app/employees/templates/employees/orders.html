@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Тушаалын бүртгэл{% endblock %}
 {% block content %}
-<div class="flex items-center gap-3 mb-4">
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4">
   <h1 class="text-xl font-semibold">Тушаалын бүртгэл</h1>
-  <div class="ml-auto flex items-center gap-3">
+  <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+    {% if perms.reports.view_reports and perms.macs.view_employees %}<a href="{% url 'reports:report' 'orders' %}" class="text-sm text-violet-700 hover:underline">Тайлан гаргах</a>{% endif %}
     <a id="print-link" href="{% url 'employees:orders_print' %}{% if querystring %}?{{ querystring }}{% endif %}" target="_blank" rel="noopener" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Хэвлэх</a>
   </div>
 </div>
-<form id="order-filters" class="mt-4 mb-4 flex flex-wrap items-center gap-2 text-sm" hx-get="{% url 'employees:orders' %}" hx-target="#rows" hx-push-url="true" hx-trigger="change">
-  <select name="year" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх он</option>
+<form id="order-filters" class="mt-4 mb-4 flex flex-wrap items-center gap-2 text-sm" hx-get="{% url 'employees:orders' %}" hx-target="#rows" hx-push-url="true" hx-trigger="input changed delay:300ms from:input[name=q], change from:select">
+  <input type="search" name="q" value="{{ q }}" placeholder="Дугаар, ажилтны нэр, кодоор хайх" autocomplete="off" class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <select name="year" data-search="off" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх он</option>
     {% for y in years %}<option value="{{ y }}"{% if year == y %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
   <select name="order_type" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх төрөл</option>
     {% for key, label in types %}<option value="{{ key }}"{% if order_type == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
@@ -18,11 +20,13 @@
     {% for key, label in states %}<option value="{{ key }}"{% if state == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   <a href="{% url 'employees:orders' %}" class="text-sm text-slate-500 hover:text-violet-700">Цэвэрлэх</a>
 </form>
-<div id="rows">{% include "employees/_order_register_rows.html" %}</div>
+<div id="rows" class="overflow-x-auto">{% include "employees/_order_register_rows.html" %}</div>
 <script>
-document.getElementById("order-filters").addEventListener("change", function () {
-  var qs = new URLSearchParams(new FormData(this)).toString();
-  document.getElementById("print-link").href = "{% url 'employees:orders_print' %}" + (qs ? "?" + qs : "");
+["input", "change"].forEach(function (name) {
+  document.getElementById("order-filters").addEventListener(name, function () {
+    var qs = new URLSearchParams(new FormData(this)).toString();
+    document.getElementById("print-link").href = "{% url 'employees:orders_print' %}" + (qs ? "?" + qs : "");
+  });
 });
 </script>
 {% endblock %}

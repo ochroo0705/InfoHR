@@ -30,6 +30,14 @@ DEFAULT_LIST_PERMS: dict[str, tuple[str, ...]] = {
     EMPLOYEE: (),
 }
 
+# Reports-module permissions per role (reports app, docs/superpowers/specs/2026-10-23-reports-design.md §8).
+DEFAULT_REPORT_PERMS: dict[str, tuple[str, ...]] = {
+    ADMIN: ("view_reports", "manage_saved_views"),
+    HR: ("view_reports",),
+    ACCOUNTANT: ("view_reports",),
+    EMPLOYEE: (),
+}
+
 # Leave-module permissions per role (leave app, spec §6).
 DEFAULT_LEAVE_PERMS: dict[str, tuple[str, ...]] = {
     ADMIN: ("view_leave", "record_leave", "manage_leave_settings"),

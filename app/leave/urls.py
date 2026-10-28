@@ -14,6 +14,7 @@ urlpatterns = [
     path("employee/<int:pk>/adjust/<str:start>/<str:end>/", views.grant_adjust, name="adjust"),
     path("employee/<int:pk>/carry/<str:start>/<str:end>/", views.grant_carry, name="carry"),
     path("calendar/", views.team_calendar, name="calendar"),
+    path("balances/", views.balances, name="balances"),
     path("holidays/", views.holidays, name="holidays"),
     path("settings/", views.leave_settings, name="settings"),
     path("settings/type/", views.leave_type_add, name="type_add"),

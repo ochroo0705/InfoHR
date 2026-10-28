@@ -1,6 +1,8 @@
 """The personal tab's sections: each is one form that saves only its own fields (views.personal_section)."""
 
 import json
+from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from django.db.models import Model
@@ -8,7 +10,7 @@ from django.forms import CheckboxInput, Form
 from django.http import QueryDict
 from macs.models import Employee
 
-from employees.forms import BIRTH_FIELDS, EmployeeForm
+from employees.forms import BIRTH_FIELDS, EmployeeForm, PersonalRowForm
 from employees.models import ext_of
 
 SECTIONS: dict[str, tuple[str, ...]] = {
@@ -48,9 +50,155 @@ TITLES = {
     "education": "Боловсрол",
     "other": "Бусад мэдээлэл",
 }
-# Numbers of the personal tab menu (анкет order): identity 1, contact 2, education 4, other 10.
-NUMBERS = {"identity": 1, "contact": 2, "education": 4, "other": 10}
 SKIP = frozenset({"photo", "photo_clear"})
+
+
+@dataclass(frozen=True)
+class InlineColumn:
+    """One column of an inline list: its header, the form field its box edits, and how its cell is shown."""
+
+    header: str
+    field: str
+    value: str = ""  # key in PersonalRow.values when it differs from `field` (e.g. a choice label)
+    fmt: str = ""  # "" as text, "date" as YYYY-MM-DD, "money" with the mnt filter
+
+
+@dataclass(frozen=True)
+class InlineList:
+    """A personal list edited in its own table rows (UI_RULES §2f pilot) instead of a pop-up."""
+
+    title: str
+    columns: tuple[InlineColumn, ...]
+    menu_count: bool  # the personal menu shows this list's row count (refreshed after a write)
+
+
+INLINE_LISTS: dict[str, InlineList] = {
+    "language": InlineList(
+        "Гадаад хэл",
+        (
+            InlineColumn("Хэл", "language"),
+            InlineColumn("Сонсох", "understand_lvl"),
+            InlineColumn("Ярих", "speaking_lvl"),
+            InlineColumn("Унших", "reading_lvl"),
+            InlineColumn("Бичих", "writing_lvl"),
+            InlineColumn("Тайлбар", "description"),
+        ),
+        menu_count=True,
+    ),
+    "family": InlineList(
+        "Гэр бүл",
+        (
+            InlineColumn("Хамаарал", "relation"),
+            InlineColumn("Овог", "surname"),
+            InlineColumn("Нэр", "given_name"),
+            InlineColumn("Төрсөн огноо", "birth_date", fmt="date"),
+            InlineColumn("Ажил, албан тушаал", "job"),
+            InlineColumn("Утас", "phone"),
+        ),
+        menu_count=True,
+    ),
+    "talent": InlineList(
+        "Авьяас",
+        (
+            InlineColumn("Авьяас", "talent"),
+            InlineColumn("Сургасан он", "trained_year"),
+            InlineColumn("Тайлбар", "description"),
+        ),
+        menu_count=True,
+    ),
+    "award": InlineList(
+        "Шагнал урамшил",
+        (
+            InlineColumn("Шагналын нэр", "award_name"),
+            InlineColumn("Хаанаас", "give_org"),
+            InlineColumn("Огноо", "award_date", fmt="date"),
+            InlineColumn("Тайлбар", "description"),
+        ),
+        menu_count=True,
+    ),
+    "complaint": InlineList(
+        "Үйлчлүүлэгчийн гомдол",
+        (
+            InlineColumn("Огноо", "cdate", fmt="date"),
+            InlineColumn("Төрөл", "ctype", value="ctype_label"),
+            InlineColumn("Гомдол", "complaint_name", value="complaint_label"),
+            InlineColumn("Тайлбар", "comment"),
+        ),
+        menu_count=True,
+    ),
+    "driver": InlineList(
+        "Жолоо",
+        (
+            InlineColumn("Жолооны ангилал", "driver_type"),
+            InlineColumn("Үнэмлэхний дугаар", "number_driver"),
+            InlineColumn("Үнэмлэх авсан огноо", "inserted_ognoo", fmt="date"),
+        ),
+        menu_count=True,
+    ),
+    "army_rank": InlineList(
+        "Цэргийн цол",
+        (
+            InlineColumn("Цэргийн цол", "rank"),
+            InlineColumn("Цол олгосон огноо", "rank_date", fmt="date"),
+            InlineColumn("Нэмэгдлийн хэмжээ", "addition_r"),
+        ),
+        menu_count=True,
+    ),
+    "skill": InlineList(
+        "Ур чадварын даалгавар",
+        (
+            InlineColumn("Огноо", "sdate", fmt="date"),
+            InlineColumn("Даалгавар", "description"),
+            InlineColumn("Нормын тоо", "norm"),
+            InlineColumn("Хэлтэс", "department"),
+            InlineColumn("Тайлбар", "comment"),
+        ),
+        menu_count=True,
+    ),
+    "material_help": InlineList(
+        "Буцалтгүй тусламж",
+        (
+            InlineColumn("Огноо", "help_date", fmt="date"),
+            InlineColumn("Үндэслэл", "material_type"),
+            InlineColumn("Мөнгөний дүн", "amount", fmt="money"),
+            InlineColumn("Тайлбар", "description"),
+        ),
+        menu_count=True,
+    ),
+    "discipline": InlineList(
+        "Сахилгын шийтгэл",
+        (
+            InlineColumn("Огноо", "discipline_date", fmt="date"),
+            InlineColumn("Шийтгэлийн нэр", "discipline_type"),
+            InlineColumn("Хаанаас", "from_discipline"),
+            InlineColumn("Шийтгэлийн хувь", "discipline_sal_percent"),
+            InlineColumn("Дуусах огноо", "discipline_enddate", fmt="date"),
+            InlineColumn("Тайлбар", "description"),
+        ),
+        menu_count=True,
+    ),
+    "military": InlineList(
+        "Цэргийн алба",
+        (
+            InlineColumn("Цэргийн цол", "army_rank"),
+            InlineColumn("Бэлтгэл зэрэг", "mil_rank"),
+            InlineColumn("Алба хаасан жил", "study_type"),
+            InlineColumn("Халагдсан огноо", "sacking_date", fmt="date"),
+            InlineColumn("Халагдсан шалтгаан", "sacking_reason"),
+        ),
+        menu_count=True,
+    ),
+    "contact": InlineList(
+        "Яаралтай үед холбогдох",
+        (
+            InlineColumn("Төрөл", "contact_type"),
+            InlineColumn("Нэр", "name"),
+            InlineColumn("Хамаарал", "relative"),
+            InlineColumn("Утас, имэйл", "value"),
+        ),
+        menu_count=False,
+    ),
+}
 
 
 def _as_posted(value: Any) -> str:
@@ -202,3 +350,56 @@ def read_rows(employee: Employee, section: str, birth_place: str) -> list[tuple[
         ("Гутлын хэмжээ", _display(employee.shoe_size)),
         ("Сонгуульт ажил", _display(employee.elected_position)),
     ]
+
+
+def _cell(value: object, fmt: str) -> str:
+    """The shown text of an inline list cell, "" when empty (the template shows «—»)."""
+    if value is None or value == "":
+        return ""
+    if fmt == "date" and isinstance(value, date):
+        return value.isoformat()
+    if fmt == "money":
+        from employees.templatetags.hr import mnt
+
+        return mnt(value)  # type: ignore[arg-type]
+    return str(value)
+
+
+def inline_context(
+    employee: Employee,
+    kind: str,
+    rows: list[Any],
+    can_manage: bool,
+    open_key: object = None,
+    form: PersonalRowForm | None = None,
+    error: str = "",
+) -> dict[str, object]:
+    """Context of employees/_inline_list.html: the list's rows, and the open row (`open_key` = a row key, or
+    "new" for the empty row at the bottom) with its form, errors and empty-list notices."""
+    spec = INLINE_LISTS[kind]
+    names = [col.field for col in spec.columns]
+    errors = [*form.non_field_errors(), *([error] if error else [])] if form is not None else []
+    if open_key not in (None, "new") and all(r.key != open_key for r in rows):
+        open_key, form = None, None  # the row is gone (deleted elsewhere): show the list closed, with the message
+    return {
+        "employee": employee,
+        "kind": kind,
+        "spec": spec,
+        "can_manage": can_manage,
+        "count": len(rows),
+        "items": [
+            {
+                "key": r.key,
+                "cells": [_cell(r.values.get(c.value or c.field), c.fmt) for c in spec.columns],
+                "open": r.key == open_key,
+            }
+            for r in rows
+        ],
+        "open_key": open_key,
+        "open_new": open_key == "new",
+        "form": form,
+        "form_id": f"inline-{kind}-form",
+        "open_fields": [form[name] for name in names] if form is not None else [],
+        "errors": errors,
+        "empty_lists": form.empty_lists() if form is not None else [],
+    }

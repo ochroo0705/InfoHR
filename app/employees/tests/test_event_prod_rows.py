@@ -131,7 +131,7 @@ def test_cancel_transfer_deletes_rows(hired: Employee, actor: User, other_dept: 
     ev = rec(hired, actor, "transfer", future(), changes={"department": other_dept})
     link = ev.prod_rows.get()
     mv_id, hist_id = link.movement_id, link.history_id
-    events.cancel(ev, reason="алдаа", by=actor)
+    events.cancel(ev, reason="алдаа", by=actor, cancel_order_no="А/50")
     assert not Movement.objects.filter(pk=mv_id or 0).exists()
     assert not EmployeeHistory.objects.filter(pk=hist_id or 0).exists()
     assert not EventProdRow.objects.filter(event=ev).exists()
@@ -139,7 +139,7 @@ def test_cancel_transfer_deletes_rows(hired: Employee, actor: User, other_dept: 
 
 def test_cancel_scheduled_termination_restores_flags(hired: Employee, actor: User) -> None:
     ev = rec(hired, actor, "termination", future(), fired_reason=named(FiredReason, "Өөрийн хүслээр"))
-    events.cancel(ev, reason="алдаа", by=actor)
+    events.cancel(ev, reason="алдаа", by=actor, cancel_order_no="А/51")
     hired.refresh_from_db()
     assert hired.fired_reason_id is None and hired.died != "yes"
     assert not Movement.objects.filter(employee=hired, kind="out").exists()
@@ -179,14 +179,33 @@ def test_cancel_when_rows_already_gone(hired: Employee, actor: User, other_dept:
     ev = rec(hired, actor, "transfer", future(), changes={"department": other_dept})
     Movement.objects.filter(employee=hired, kind="dep").delete()
     EmployeeHistory.objects.filter(pk=ev.prod_rows.get().history_id or 0).delete()
-    events.cancel(ev, reason="алдаа", by=actor)
+    events.cancel(ev, reason="алдаа", by=actor, cancel_order_no="А/53")
     assert not EventProdRow.objects.filter(event=ev).exists()
 
 
 def test_cancel_leaves_other_events_rows(hired: Employee, actor: User, other_dept: Department, lead: Position) -> None:
     first = rec(hired, actor, "transfer", date.today() + timedelta(days=10), changes={"department": other_dept})
     second = rec(hired, actor, "promotion", future(), changes={"position": lead})
-    events.cancel(second, reason="алдаа", by=actor)
+    events.cancel(second, reason="алдаа", by=actor, cancel_order_no="А/54")
     assert first.prod_rows.count() == 1
     mv, snap = rows(first)
     assert mv is not None and snap is not None
+
+
+def test_snapshot_copies_contact_and_insurance_columns(hired: Employee) -> None:
+    Employee.objects.filter(pk=hired.pk).update(
+        work_phone="99112233",
+        private_phone="88112233",
+        email="a@b.mn",
+        passport_no="P123",
+        account_no="5000",
+        social_insurance_no="ND1",
+        health_insurance_no="EM1",
+        prior_service_years=3,
+    )
+    hired.refresh_from_db()
+    snap = EmployeeHistory.objects.get(pk=macs_writes.snapshot_history(hired))
+    assert (snap.work_phone, snap.private_phone) == ("99112233", "88112233")
+    assert (snap.email, snap.passport_no) == ("a@b.mn", "P123")
+    assert (snap.account_no, snap.social_insurance_no, snap.health_insurance_no) == ("5000", "ND1", "EM1")
+    assert snap.prior_service_years == 3

@@ -1,0 +1,15 @@
+{# Leave pages switch: three views as one segmented switch, setup pages in one menu. `current` = list | balances | calendar. #}
+<nav class="inline-flex shrink-0 overflow-hidden rounded-lg border border-slate-300 text-sm" aria-label="Чөлөө, амралтын харагдац">
+  <a href="{% url 'leave:list' %}" {% if current == 'list' %}aria-current="page"{% endif %} class="px-3 py-2 {% if current == 'list' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}">Бүртгэл</a>
+  <a href="{% url 'leave:balances' %}" {% if current == 'balances' %}aria-current="page"{% endif %} class="px-3 py-2 {% if current == 'balances' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}">Үлдэгдэл</a>
+  <a href="{% url 'leave:calendar' %}" {% if current == 'calendar' %}aria-current="page"{% endif %} class="px-3 py-2 {% if current == 'calendar' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}">Багийн хуанли</a>
+</nav>
+{% if perms.leave.manage_leave_settings %}
+<details class="relative">
+  <summary class="flex cursor-pointer list-none items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Тохиргоо ▾</summary>
+  <div class="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+    <a href="{% url 'leave:holidays' %}" class="block px-3 py-2 text-sm hover:bg-slate-50">Баярын өдрүүд</a>
+    <a href="{% url 'leave:settings' %}" class="block px-3 py-2 text-sm hover:bg-slate-50">Амралтын төрөл, тохиргоо</a>
+  </div>
+</details>
+{% endif %}

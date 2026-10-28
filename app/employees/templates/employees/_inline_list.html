@@ -1,0 +1,24 @@
+{% load hr %}
+{# A personal list edited in its own table rows (UI_RULES §2f pilot). Context: sections.inline_context. Swapped as a whole (#list-<kind>) by «+ нэмэх», a row click, ✓, ✕ and «Устгах»; after a write `oob` also refreshes the activity log and the menu count. #}
+<div id="list-{{ kind }}">
+  <div class="flex items-baseline gap-3">
+    <h3 class="sec-title">{{ spec.title }}{% if not items and not open_new %} <span class="ml-1 text-sm font-normal text-slate-400">бүртгэгдээгүй</span>{% endif %}</h3>
+    {% if can_manage and open_key is None %}<button type="button" hx-get="{% url 'employees:personal_add' employee.pk kind %}?inline=1" hx-target="#list-{{ kind }}" hx-swap="outerHTML" class="ml-auto rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">+ нэмэх</button>{% endif %}
+  </div>
+  {% if form %}
+  <form id="{{ form_id }}"{% if form.is_bound %} data-dirty{% endif %} novalidate hx-post="{% if open_new %}{% url 'employees:personal_add' employee.pk kind %}{% else %}{% url 'employees:personal_edit' employee.pk kind open_key %}{% endif %}?inline=1" hx-target="#list-{{ kind }}" hx-swap="outerHTML">{% csrf_token %}{% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}</form>
+  {% for slug, label in empty_lists %}<p class="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ label }} жагсаалт хоосон байна. <a href="{% url 'lists:list' slug %}" class="text-violet-700 hover:underline">Жагсаалт</a> хэсэгт нэмнэ үү.</p>{% endfor %}
+  {% endif %}
+  {% if errors %}<div class="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">{% for e in errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+  {% if items or open_new %}<div class="ptable"><table>
+    <thead><tr>{% for col in spec.columns %}<th>{{ col.header }}</th>{% endfor %}{% if can_manage %}<th class="w-px"></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for it in items %}{% if it.open %}{% include "employees/_inline_row.html" %}{% else %}
+      <tr class="{% if can_manage and open_key is None %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage and open_key is None %} hx-get="{% url 'employees:personal_edit' employee.pk kind it.key %}?inline=1" hx-target="#list-{{ kind }}" hx-swap="outerHTML"{% endif %}>
+        {% for cell in it.cells %}<td>{{ cell|default:"—" }}</td>{% endfor %}{% if can_manage %}<td></td>{% endif %}
+      </tr>{% endif %}{% endfor %}
+    {% if open_new %}{% include "employees/_inline_row.html" %}{% endif %}
+    </tbody>
+  </table></div>{% endif %}
+</div>
+{% if oob %}{% if spec.menu_count %}{% include "employees/_page_refresh.html" with menu_sec=kind menu_count=count %}{% else %}{% include "employees/_page_refresh.html" %}{% endif %}{% endif %}

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Info HR — theme mock-up (throwaway)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --frost: #edf1ef;
+    --paper: #fbfcfb;
+    --line: #d9e1de;
+    --ink: #17212b;
+    --ink-2: #4b5a63;
+    --ink-3: #7d8c92;
+    --teal: #0f7c86;
+    --teal-dark: #0a5a62;
+    --teal-tint: #dcefef;
+    --bar: #10303a;
+    --seal: #c0332a;
+    --brass: #b8892b;
+    --brass-tint: #f6ecd2;
+    --green-tint: #dcefe3;
+    --green-ink: #1f5a36;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--frost); color: var(--ink); font: 400 15px/1.55 "Golos Text", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+  .bar { background: var(--bar); color: #e8f1f0; height: 56px; display: flex; align-items: stretch; padding: 0 24px; gap: 4px; }
+  .logo { display: flex; align-items: center; font-weight: 700; font-size: 17px; letter-spacing: .01em; margin-right: 20px; color: #fff; }
+  .logo i { width: 10px; height: 10px; background: var(--brass); border-radius: 2px; margin-right: 9px; rotate: 45deg; }
+  .bar a { display: flex; align-items: center; padding: 0 14px; color: #b9ccca; text-decoration: none; font-size: 14px; border-bottom: 3px solid transparent; }
+  .bar a:hover { background: rgb(255 255 255 / .06); color: #fff; }
+  .bar a[aria-current] { color: #fff; border-bottom-color: var(--brass); }
+  .bar .who { margin-left: auto; align-self: center; font-size: 13px; color: #b9ccca; }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
+  .head { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; }
+  .head-top { display: flex; gap: 18px; align-items: center; }
+  .avatar { width: 80px; height: 80px; border-radius: 18px; background: var(--teal-tint); color: var(--teal-dark); display: grid; place-items: center; font-size: 28px; font-weight: 600; flex: none; }
+  h1 { margin: 0; font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; }
+  .sub { color: var(--ink-2); margin-top: 2px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px; }
+  .tile { background: var(--frost); border-radius: 10px; padding: 10px 14px; }
+  .tile small { display: block; color: var(--ink-3); font-size: 12.5px; }
+  .tile b { font-weight: 600; }
+
+  .tabs { display: flex; gap: 6px; margin: 22px 0 6px; border-bottom: 1px solid var(--line); }
+  .tab { padding: 9px 14px; color: var(--ink-2); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab[aria-current] { color: var(--teal-dark); border-bottom-color: var(--teal); font-weight: 600; }
+
+  h2 { font-size: 16px; font-weight: 650; margin: 28px 0 10px; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 18px; }
+  label { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
+  .soft { width: 100%; padding: 9px 12px; border: 1px solid var(--line); background: #f3f6f5; border-radius: 9px; font: inherit; color: var(--ink); }
+  .soft:hover { border-color: #b7c6c2; background: #fff; }
+  .soft:focus { background: #fff; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-tint); outline: none; }
+
+  .btns { display: flex; gap: 10px; margin-top: 18px; }
+  .btn { font: inherit; padding: 9px 18px; border-radius: 9px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 500; }
+  .btn.primary:hover { background: var(--teal-dark); }
+
+  .ptable { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 14px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); background: #f1f5f3; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 12px 14px; border-top: 1px solid #e9efec; vertical-align: middle; }
+  tbody tr:first-child td { border-top: 0; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #eef6f6; }
+  .num { font-weight: 600; }
+  .wait { font-style: italic; color: var(--brass); }
+  tr.void td { color: var(--ink-3); text-decoration: line-through; }
+
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12.5px; }
+  .chip.pending { border: 1px dashed var(--brass); background: var(--brass-tint); color: #7a5a14; }
+  .chip.reg { background: var(--teal-tint); color: var(--teal-dark); }
+  .chip.void { background: #e6ebea; color: var(--ink-3); text-decoration: none; }
+
+  /* The one bold thing: a signed order carries the office seal. */
+  .seal { display: inline-block; padding: 2px 11px; color: var(--seal); font-weight: 650; font-size: 12.5px; letter-spacing: .02em; border: 2px solid var(--seal); border-radius: 7px; box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--seal); rotate: -2deg; background: rgb(192 51 42 / .05); mix-blend-mode: multiply; }
+
+  .note { margin-top: 26px; font-size: 13px; color: var(--ink-3); }
+  @media (max-width: 640px) { .bar a:not([aria-current]) { display: none; } main { padding: 18px 16px 48px; } .head-top { flex-direction: column; align-items: flex-start; } }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="logo"><i></i>Info HR</div>
+  <a href="#" aria-current="page">Ажилтан</a><a href="#">Чөлөө</a><a href="#">Тушаал</a><a href="#">Тайлан</a>
+  <span class="who">Хүний нөөцийн мэргэжилтэн</span>
+</header>
+<main>
+  <section class="head">
+    <div class="head-top">
+      <div class="avatar" aria-hidden="true">ОД</div>
+      <div>
+        <h1>Д. Оюунчимэг</h1>
+        <div class="sub">Ахлах мэргэжилтэн · Хүний нөөцийн хэлтэс</div>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><small>Ажилд орсон</small><b>2019-03-04</b></div>
+      <div class="tile"><small>Ажилтны төрөл</small><b>Үндсэн</b></div>
+      <div class="tile"><small>Гэрээ дуусах</small><b>Хугацаагүй</b></div>
+      <div class="tile"><small>Шууд удирдлага</small><b>Б. Гантулга</b></div>
+    </div>
+  </section>
+
+  <nav class="tabs" aria-label="Ажилтны хуудас">
+    <a class="tab" href="#" aria-current="page">Ажил</a><a class="tab" href="#">Цалин даатгал</a><a class="tab" href="#">Хувийн</a>
+  </nav>
+
+  <h2>Ажлын байр</h2>
+  <div class="fields">
+    <div><label for="f1">Албан тушаал</label><input id="f1" class="soft" value="Ахлах мэргэжилтэн"></div>
+    <div><label for="f2">Хэлтэс</label><input id="f2" class="soft" value="Хүний нөөцийн хэлтэс"></div>
+    <div><label for="f3">Утас</label><input id="f3" class="soft" value="9911 2233"></div>
+  </div>
+  <div class="btns"><button class="btn">Болих</button><button class="btn primary">Хадгалах</button></div>
+
+  <h2>Ажлын түүх</h2>
+  <div class="ptable">
+    <table>
+      <thead><tr><th>Дугаар</th><th>Өөрчлөлт</th><th>Төлөв</th><th>Огноо</th></tr></thead>
+      <tbody>
+        <tr><td class="wait">дугаар хүлээгдэж байна</td><td>Албан тушаал ахиулах</td><td><span class="chip pending">Дугаар оруулаагүй</span></td><td>2026-10-20</td></tr>
+        <tr><td class="num">№ 15</td><td>Цалин өөрчлөх</td><td><span class="chip reg">Бүртгэсэн</span></td><td>2026-07-01</td></tr>
+        <tr><td class="num">№ 08</td><td>Хэлтэс шилжих</td><td><span class="seal">Гарын үсэгтэй</span></td><td>2024-02-12</td></tr>
+        <tr class="void"><td class="num">№ 03</td><td>Гэрээ сунгах</td><td><span class="chip void">Цуцалсан</span></td><td>2023-05-09</td></tr>
+        <tr><td class="num">№ 01</td><td>Ажилд авах</td><td><span class="seal">Гарын үсэгтэй</span></td><td>2019-03-04</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Throwaway mock-up. Only the signed order carries the red seal; every other state stays a quiet chip.</p>
+</main>
+</body>
+</html>

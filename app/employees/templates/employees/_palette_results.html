@@ -1,0 +1,49 @@
+{% comment %}Ctrl+K palette answers: people, then screens, then quick actions. Fetched by the palette script (palette_search view).{% endcomment %}{% load palette_extras %}
+{% if current_actions %}{% include "employees/_palette_person_actions.html" with hit=current actions=current_actions %}{% endif %}
+{% if recent %}
+<div class="border-t border-slate-100 first:border-t-0">
+{% include "employees/_palette_group.html" with title="Сүүлд нээсэн" count=recent|length %}
+{% for item in recent %}
+{% if item.person %}{% include "employees/_palette_person.html" with hit=item.person words=None %}{% else %}<a href="{{ item.url }}" data-palette-item data-palette-ref="{{ item.ref }}" role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind=item.kind %}<span class="min-w-0 truncate">{{ item.title }}</span></a>{% endif %}
+{% endfor %}
+</div>
+{% endif %}
+{% if people %}
+<div class="border-t border-slate-100 first:border-t-0">
+{% include "employees/_palette_group.html" with title="Хүмүүс" count=people|length %}
+{% for hit in people %}
+{% include "employees/_palette_person.html" %}
+{% endfor %}
+</div>
+{% endif %}
+{% if person_actions %}{% include "employees/_palette_person_actions.html" with hit=person actions=person_actions %}{% endif %}
+{% if orders %}
+<div class="border-t border-slate-100 first:border-t-0">
+{% include "employees/_palette_group.html" with title="Тушаал" count=orders|length %}
+{% for order in orders %}
+<a href="{{ order.url }}" data-palette-item data-palette-modal role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="order" %}<span class="min-w-0"><span class="block truncate">{{ order.title|hl:words }}</span>{% if order.day %}<span class="block text-xs text-slate-500">{{ order.day }}</span>{% endif %}</span></a>
+{% endfor %}
+</div>
+{% endif %}
+{% if screens %}
+<div class="border-t border-slate-100 first:border-t-0">
+{% include "employees/_palette_group.html" with title="Хуудас" count=screens|length %}
+{% for screen in screens %}
+<a href="{{ screen.url }}" data-palette-item{% if screen.url in fixed_urls %} data-palette-ref="s:{{ screen.url }}"{% endif %} role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind=screen.kind %}<span class="min-w-0 truncate">{{ screen.title|hl:words }}</span></a>
+{% endfor %}
+</div>
+{% endif %}
+{% if actions %}
+<div class="border-t border-slate-100 first:border-t-0">
+{% include "employees/_palette_group.html" with title="Үйлдэл" count=actions|length %}
+{% for action in actions %}
+<a href="{{ action.url }}" data-palette-item role="option"{% if action.modal %} data-palette-modal{% endif %} class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="action" %}<span class="min-w-0 truncate">{{ action.title|hl:words }}</span></a>
+{% endfor %}
+</div>
+{% endif %}
+{% if not current_actions and not recent and not people and not orders and not screens and not actions %}
+<p data-palette-empty class="px-3 py-2 text-sm text-slate-500">Юу ч олдсонгүй</p>
+<p class="px-3 pt-2 text-xs text-slate-500">Эсвэл нээх:</p>
+<a href="{% url 'employees:list' %}" data-palette-item role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="page" %}<span class="min-w-0 truncate">Ажилтнууд</span></a>
+{% if perms.macs.manage_employees %}<a href="{% url 'employees:add' %}" data-palette-item role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="action" %}<span class="min-w-0 truncate">Ажилтан нэмэх</span></a>{% endif %}
+{% endif %}

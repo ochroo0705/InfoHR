@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option D — Flag stripe (throwaway)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --blue:#0f4c8a; --blue-d:#0a3562; --blue-t:#e2ecf7; --red:#c4272f; --gold:#f2c230; --gold-t:#fdf3cc; --ink:#14202e; --ink-2:#4d5b6b; --ink-3:#8793a1; --bg:#f6f4ef; --card:#fff; --line:#e1ddd2; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:400 15px/1.55 "Fira Sans",system-ui,sans-serif; }
+  :focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  .stripe { height:6px; background:linear-gradient(90deg,var(--red) 0 25%,var(--blue) 25% 75%,var(--red) 75% 100%); }
+  .bar { background:#fff; border-bottom:1px solid var(--line); height:54px; display:flex; padding:0 24px; align-items:stretch; }
+  .logo { display:flex; align-items:center; font-weight:700; font-size:18px; color:var(--blue); margin-right:22px; gap:9px; }
+  .logo i { width:12px; height:18px; background:var(--gold); border-radius:6px 6px 2px 2px; }
+  .bar a { display:flex; align-items:center; padding:0 14px; color:var(--ink-2); text-decoration:none; border-bottom:3px solid transparent; }
+  .bar a:hover { color:var(--blue); background:var(--blue-t); }
+  .bar a[aria-current] { color:var(--blue); font-weight:600; border-bottom-color:var(--red); }
+  main { max-width:1120px; margin:0 auto; padding:26px 24px 60px; }
+  .head { background:var(--blue); color:#fff; border-radius:14px; padding:22px 26px; display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+  .avatar { width:76px; height:76px; border-radius:16px; background:var(--gold); color:var(--blue-d); display:grid; place-items:center; font-size:26px; font-weight:700; }
+  h1 { margin:0; font-size:27px; font-weight:600; }
+  .sub { color:#bcd2ea; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-top:12px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; border-top:3px solid var(--blue); }
+  .tile small { display:block; color:var(--ink-3); font-size:12.5px; }
+  .tile b { font-weight:600; }
+  .tabs { display:flex; gap:4px; margin-top:22px; border-bottom:1px solid var(--line); }
+  .tab { padding:9px 16px; color:var(--ink-2); text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-1px; }
+  .tab[aria-current] { color:var(--blue); border-bottom-color:var(--blue); font-weight:600; }
+  h2 { font-size:16px; margin:28px 0 10px; font-weight:600; }
+  .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px 18px; }
+  label { display:block; font-size:13px; color:var(--ink-2); margin-bottom:4px; }
+  .soft { width:100%; padding:9px 12px; border:1px solid var(--line); background:#fff; border-radius:8px; font:inherit; color:var(--ink); }
+  .soft:hover { border-color:#c4bfae; }
+  .soft:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-t); }
+  .btns { display:flex; gap:10px; margin-top:18px; }
+  .btn { font:inherit; padding:9px 20px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  .btn.primary { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:500; }
+  .btn.primary:hover { background:var(--blue-d); }
+  .ptable { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; padding:10px 14px; font-size:12.5px; font-weight:500; color:var(--ink-2); background:#faf8f3; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td { padding:12px 14px; border-top:1px solid #efece3; }
+  tbody tr:first-child td { border-top:0; }
+  tbody tr { cursor:pointer; } tbody tr:hover { background:var(--blue-t); }
+  .wait { color:#9a6a0c; font-style:italic; }
+  tr.void td { color:var(--ink-3); text-decoration:line-through; }
+  .chip { display:inline-block; padding:2px 10px; border-radius:6px; font-size:12.5px; font-weight:500; }
+  .chip.pending { background:var(--gold-t); color:#7a5a14; border:1px dashed #d3a517; }
+  .chip.reg { background:var(--blue-t); color:var(--blue-d); }
+  .chip.sign { background:#dff0e3; color:#1c5a35; }
+  .chip.void { background:#ece9e0; color:var(--ink-3); }
+  .note { margin-top:20px; color:var(--ink-3); font-size:13px; }
+  @media (max-width:640px){ .bar a:not([aria-current]){display:none;} main{padding:16px;} }
+</style>
+</head>
+<body>
+<div class="stripe" aria-hidden="true"></div>
+<header class="bar"><div class="logo"><i></i>Info HR</div><a href="#" aria-current="page">Ажилтан</a><a href="#">Чөлөө</a><a href="#">Тушаал</a><a href="#">Тайлан</a></header>
+<main>
+  <section class="head"><div class="avatar" aria-hidden="true">ОД</div><div><h1>Д. Оюунчимэг</h1><div class="sub">Ахлах мэргэжилтэн · Хүний нөөцийн хэлтэс</div></div></section>
+  <div class="tiles">
+    <div class="tile"><small>Ажилд орсон</small><b>2019-03-04</b></div>
+    <div class="tile"><small>Ажилтны төрөл</small><b>Үндсэн</b></div>
+    <div class="tile"><small>Гэрээ дуусах</small><b>Хугацаагүй</b></div>
+    <div class="tile"><small>Шууд удирдлага</small><b>Б. Гантулга</b></div>
+  </div>
+  <nav class="tabs"><a class="tab" href="#" aria-current="page">Ажил</a><a class="tab" href="#">Цалин даатгал</a><a class="tab" href="#">Хувийн</a></nav>
+  <h2>Ажлын байр</h2>
+  <div class="fields">
+    <div><label for="a">Албан тушаал</label><input id="a" class="soft" value="Ахлах мэргэжилтэн"></div>
+    <div><label for="b">Хэлтэс</label><input id="b" class="soft" value="Хүний нөөцийн хэлтэс"></div>
+    <div><label for="c">Утас</label><input id="c" class="soft" value="9911 2233"></div>
+  </div>
+  <div class="btns"><button class="btn">Болих</button><button class="btn primary">Хадгалах</button></div>
+  <h2>Ажлын түүх</h2>
+  <div class="ptable"><table>
+    <thead><tr><th>Дугаар</th><th>Өөрчлөлт</th><th>Төлөв</th><th>Огноо</th></tr></thead>
+    <tbody>
+      <tr><td class="wait">дугаар хүлээгдэж байна</td><td>Албан тушаал ахиулах</td><td><span class="chip pending">Дугаар оруулаагүй</span></td><td>2026-10-20</td></tr>
+      <tr><td><b>№ 15</b></td><td>Цалин өөрчлөх</td><td><span class="chip reg">Бүртгэсэн</span></td><td>2026-07-01</td></tr>
+      <tr><td><b>№ 08</b></td><td>Хэлтэс шилжих</td><td><span class="chip sign">Гарын үсэгтэй</span></td><td>2024-02-12</td></tr>
+      <tr class="void"><td><b>№ 03</b></td><td>Гэрээ сунгах</td><td><span class="chip void">Цуцалсан</span></td><td>2023-05-09</td></tr>
+      <tr><td><b>№ 01</b></td><td>Ажилд авах</td><td><span class="chip sign">Гарын үсэгтэй</span></td><td>2019-03-04</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Throwaway mock-up, option D. Red-blue-red stripe from the national flag, gold for highlights.</p>
+</main>
+</body>
+</html>

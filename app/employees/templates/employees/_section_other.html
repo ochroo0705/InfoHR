@@ -1,20 +1,9 @@
 {% load hr %}
-{# Personal-tab section «Бусад мэдээлэл» (Task 10): read mode, or edit mode with its own form. Wrapper id sec-other; form id sec-other-form. #}
-<section id="sec-other" class="scroll-mt-20 border-b border-slate-100 py-5">
+{# Personal-tab section «Бусад мэдээлэл» (Task 10): edited on the spot by managers (_on_spot_fields.html, UI_RULES §2f), plain text for others. Wrapper id sec-other. #}
+<section id="sec-other" class="scroll-mt-20 pt-7">
   {% include "employees/_section_head.html" with name="other" %}
-  {% if editing %}
-  <form id="sec-other-form" hx-post="{% url 'employees:personal_section' employee.pk 'other' %}" hx-target="#sec-other" hx-swap="outerHTML" method="post" action="{% url 'employees:personal_section' employee.pk 'other' %}" class="mt-4">
-    {% csrf_token %}
-    <input type="hidden" name="loaded" value="{{ form|loaded_snapshot }}">
-    {% if form_errors %}<div class="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{% for e in form_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
-    <dl class="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-      {% for bound in fields %}<div><dt class="text-xs text-slate-500">{{ bound.label }}{% if bound.field.required %} *{% endif %}</dt><dd>{% field bound "w-full" "sec-other-form" boxed=True %}</dd></div>{% endfor %}
-    </dl>
-    <div class="mt-4 flex justify-end gap-2">
-      <button type="button" hx-get="{% url 'employees:personal_section' employee.pk 'other' %}" hx-target="#sec-other" hx-swap="outerHTML" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
-      <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
-    </div>
-  </form>
+  {% if can_manage %}
+  {% include "employees/_on_spot_fields.html" with name="other" %}
   {% else %}
   <dl class="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
     {% for label, value in rows %}<div><dt class="text-xs text-slate-500">{{ label }}</dt><dd>{% if value %}{{ value }}{% else %}<span class="text-slate-300">—</span>{% endif %}</dd></div>{% endfor %}

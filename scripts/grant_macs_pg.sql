@@ -28,13 +28,15 @@ grant usage, select on sequence gen_leave_type_id, gen_leave_assign_id, gen_enti
   gen_hr_legalholidays_id to info_hr_app;
 -- Personal lists (sub-project 4): the app writes these production tables directly, and deletes rows
 -- when the user removes them. emp_talents has no sequence (its key is emp_ident + talent_ident).
-grant select, insert, update, delete on family, educ, given_present, address, contacting, emp_talents
+grant select, insert, update, delete on family, relative, before_work, educ, given_present, address, contacting, emp_talents, hr_skillwork, material_help, awards, discipline, hr_complaints, body, driver, military, army_rank
   to info_hr_app;
-grant select, insert, update, delete on family_members, edu_type, present_type, contact_type, talents
+grant select, insert, update, delete on family_members, edu_type, present_type, contact_type, talents, material_help_type, discipline_type, driver_type
   to info_hr_app;
-grant usage, select on sequence gen_family_id, gen_educ_id, gen_given_present_id, gen_address_id,
+grant usage, select on sequence gen_family_id, gen_relative_id, gen_before_work_id, gen_educ_id, gen_given_present_id, gen_address_id,
   gen_contacting_id, gen_family_members_id, gen_edu_type_id, gen_talents_id, gen_present_type_id,
-  gen_contact_type_id to info_hr_app;
+  gen_contact_type_id, gen_hr_skillwork_id, gen_material_help_id, gen_material_help_type_id, gen_awards_id,
+  gen_discipline_id, gen_discipline_type_id, gen_hr_complaints_id, gen_body_id, gen_driver_id, gen_driver_type_id, gen_military_id,
+  gen_army_rank_id to info_hr_app;
 -- Qualifications, certificates, training and languages (anketa tabs): rows are edited and deleted
 -- from the personal tab; the list tables are edited on the Lists screen.
 grant select, insert, update, delete on qualification, spec_edu, hr_training, foreign_lang

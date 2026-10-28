@@ -5,11 +5,19 @@ from typing import Any
 from django.db.models import QuerySet
 
 from employees.models import ContractType, Employee, JobRecord, JobStatus, SalaryRecord
-from employees.services.history import job_on, salary_on
+from employees.services.history import salary_on
 
-# MACS emptype values that mean the person no longer works here (3 dismissed) or never did (2 external
-# reserve, 4 applicant): firebird-rules-audit.md. Every other value counts as working.
-LEGACY_NOT_WORKING = {2, 3, 4}
+# MACS emptype values, firebird-rules-audit.md. Every other value counts as working.
+# NEVER_WORKED: never worked here (2 external reserve, 4 applicant).
+# LEGACY_NOT_WORKING: no longer works here or never did (adds 3 dismissed).
+NEVER_WORKED = {2, 4}
+LEGACY_NOT_WORKING = NEVER_WORKED | {3}
+STATE_LABELS: dict[str, str] = {
+    "active": "Ажиллаж байгаа",
+    "upcoming": "Ажилд орох",
+    "long_leave": "Урт чөлөөтэй",
+    "left": "Гарсан",
+}
 
 
 @dataclass
@@ -49,17 +57,26 @@ def current_salary(employee: Employee, today: date) -> SalaryRecord | None:
     return salary
 
 
+def _period_order(job: JobRecord) -> tuple[date, bool, date]:
+    """The order of the old `order_by("period")`: by start, then by end (no end sorts last)."""
+    upper = job.period.upper
+    return (job.period.lower, upper is None, upper or date.max)
+
+
 def row_for(employee: Employee, today: date) -> Row:
-    job = job_on(employee, today)
+    # Read from the records once and sorted here, not with a query per person: employee_rows prefetches them.
+    records = list(employee.job_records.all())
+    containing = [r for r in records if today in r.period]
+    job = min(containing, key=lambda r: r.pk) if containing else None  # the job on `today` (same as job_on)
     if job is not None:
         return Row(employee, job, job.status)
-    if not employee.job_records.all():
+    if not records:
         job = legacy_job(employee)
         return Row(employee, job, job.status, legacy=True)
-    first = employee.job_records.order_by("period").first()
-    if first is not None and first.period.lower > today:
+    first = min(records, key=_period_order)
+    if first.period.lower > today:
         return Row(employee, first, "upcoming")
-    last = employee.job_records.order_by("-period").first()
+    last = max(records, key=_period_order)
     return Row(employee, last, "left")
 
 

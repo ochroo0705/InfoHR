@@ -1,0 +1,10 @@
+{% comment %}One person row of the palette (a typed answer or the recent group). `hit` is a palette.PersonHit. The typed words (`words`, from the view) are highlighted; the recent group passes none.{% endcomment %}{% load palette_extras %}
+<a href="{% url 'employees:detail' hit.employee.pk %}" data-palette-item data-palette-ref="p:{{ hit.employee.pk }}" role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">
+  <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold {% if hit.left %}bg-slate-200 text-slate-600{% else %}bg-violet-100 text-violet-700{% endif %}" aria-hidden="true">{{ hit.initials }}</span>
+  <span class="min-w-0 flex-1">
+    <span class="flex items-baseline justify-between gap-2"><span class="min-w-0 truncate font-medium">{{ hit.employee.full_name|hl:words }}</span><span class="shrink-0 text-xs text-slate-500">{{ hit.employee.code|hl:words }}</span></span>
+    {% if hit.position %}<span class="block truncate text-xs text-slate-500">{{ hit.position|hl:words }}</span>{% endif %}
+    {% if hit.department %}<span class="block truncate text-xs text-slate-500">{{ hit.department|hl:words }}</span>{% endif %}
+  </span>
+  {% if hit.left %}<span class="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Гарсан</span>{% endif %}
+</a>

@@ -52,6 +52,9 @@ LISTS: dict[str, ListSpec] = {
         ListSpec("language_level", m.LanguageLevel, "Хэлний түвшин"),
         ListSpec("talent", m.TalentKind, "Авьяас"),
         ListSpec("present_type", m.PresentType, "Бэлгийн төрөл"),
+        ListSpec("material_help_type", m.MaterialHelpType, "Буцалтгүй тусламжийн үндэслэл"),
+        ListSpec("discipline_type", m.DisciplineType, "Шийтгэлийн төрөл"),
+        ListSpec("driver_type", m.DriverType, "Жолооны ангилал"),
         ListSpec("contact_type", m.ContactType, "Холбоо барих төрөл"),
     ]
 }

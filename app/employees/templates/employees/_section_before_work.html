@@ -1,0 +1,14 @@
+{# Personal-tab list «Ажлын туршлага». Each row opens its edit pop-up. One «Хугацаа» column: the old program's month text when there is one, else the years (UI_RULES §4). Wrapper id sec-before_work. #}
+<section id="sec-before_work" class="scroll-mt-20 pt-7">
+  {% include "employees/_list_section.html" with name="before_work" title="Ажлын туршлага" items=personal.before_work %}
+  {% if personal.before_work %}<div class="ptable"><table>
+  <thead><tr><th>Газар</th><th>Мэргэжил</th><th>Хугацаа</th><th>Гарсан шалтгаан</th></tr></thead>
+  <tbody>
+  {% for r in personal.before_work %}
+    <tr class="{% if can_manage %} cursor-pointer hover:bg-violet-50{% endif %}"{% if can_manage %} hx-get="{% url 'employees:personal_edit' employee.pk 'before_work' r.key %}" hx-target="body" hx-swap="beforeend"{% endif %}>
+      <td>{{ r.values.worked_place|default:"—" }}</td><td>{{ r.values.profession|default:"—" }}</td><td>{% if r.values.start_text or r.values.end_text %}{{ r.values.start_text|default:"…" }} – {{ r.values.end_text|default:"…" }}{% else %}{{ r.values.start_year|default:"…" }} – {{ r.values.end_year|default:"…" }}{% endif %}</td><td>{{ r.values.shaltgaan|default:"—" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>{% endif %}
+</section>

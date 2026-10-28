@@ -1,0 +1,7 @@
+{% comment %}The actions of one person in the palette: a group header and its rows. `hit` is a palette.PersonHit, `actions` a list of palette.Action. Used under a single typed match and in the empty box on the person's own record page.{% endcomment %}{% load palette_extras %}
+<div class="border-t border-slate-100 first:border-t-0">
+<p class="sticky top-0 z-10 flex items-baseline justify-between gap-2 bg-white px-3 pb-1 pt-2 text-xs font-semibold tracking-wide text-slate-500 first:border-t-0"><span>Үйлдэл · {{ hit.employee.full_name }}</span><span class="font-normal text-slate-400">{{ actions|length }}</span></p>
+{% for action in actions %}
+<a href="{{ action.url }}" data-palette-item role="option"{% if action.modal %} data-palette-modal{% endif %} class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="action" %}<span class="min-w-0 truncate">{{ action.title|hl:words }}</span></a>
+{% endfor %}
+</div>

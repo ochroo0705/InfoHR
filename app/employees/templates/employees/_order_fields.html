@@ -4,5 +4,5 @@
   {% for e in order_form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
   <div class="grid gap-3 md:grid-cols-2">{% for field in order_form %}
     <label class="block text-sm {% if field.name == 'summary' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
-      {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
+      {% if field.name == 'number' %}{% include "employees/_order_number_field.html" %}{% else %}{{ field }}{% endif %}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
 </div>

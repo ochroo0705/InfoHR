@@ -49,7 +49,7 @@ def test_hr_change_is_written_when_nobody_else_changed_it(client: Client, hired:
 def test_both_changed_same_field_asks_and_saves_nothing(client: Client, hired: Employee) -> None:
     """The phone is in the contact section now: both changed it, so the section asks and saves nothing."""
     login_as(client, "HR")
-    loaded = _loaded(client.get(f"/employees/{hired.pk}/section/contact/?edit=1").content.decode())
+    loaded = _loaded(client.get(f"/employees/{hired.pk}/section/contact/").content.decode())
     _old_program_sets(hired, private_phone="99001122")
     response = client.post(f"/employees/{hired.pk}/section/contact/", {"private_phone": "88112233", "loaded": loaded})
     body = response.content.decode()

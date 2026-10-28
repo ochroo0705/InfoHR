@@ -1,0 +1,4 @@
+{% comment %}
+One entry of the personal tab's section menu; the section in view gets aria-current (sections.js) and a violet left edge. Context: sec (slug), title, count (optional; omit for no count).
+{% endcomment %}
+<li><a href="#sec-{{ sec }}" data-sec="{{ sec }}" class="-ml-px flex items-baseline justify-between gap-2 border-l-2 border-transparent py-1 pr-1 pl-4 text-slate-600 hover:border-slate-300 hover:text-slate-900 aria-[current=true]:border-violet-600 aria-[current=true]:bg-violet-100 aria-[current=true]:font-medium aria-[current=true]:text-slate-900"><span>{{ title }}</span>{% if count is not None %}<span id="menu-count-{{ sec }}" class="text-xs {% if count == 0 %}text-slate-300{% else %}text-slate-400{% endif %}">{{ count }}</span>{% endif %}</a></li>

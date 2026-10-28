@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "employees",
     "leave",
     "lists",
+    "reports",
 ]
 
 MIDDLEWARE = [
@@ -94,6 +95,22 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 ORDER_FILES_ROOT = BASE_DIR / "private" / "orders"
 ORDER_FILE_MAX_MB = 10
+ORDER_TEMPLATES_DIR = BASE_DIR.parent / "order_templates"  # Word templates of the six order types
+# Fonts for the PDF of an order, first set whose four files all exist wins: (regular, bold, italic, bold italic).
+# Times New Roman is the template font; the others are metric-compatible or fall-back Cyrillic fonts.
+ORDER_PDF_FONT_SETS = [
+    (
+        "C:/Windows/Fonts/times.ttf",
+        "C:/Windows/Fonts/timesbd.ttf",
+        "C:/Windows/Fonts/timesi.ttf",
+        "C:/Windows/Fonts/timesbi.ttf",
+    ),
+    tuple(
+        f"/usr/share/fonts/truetype/liberation/LiberationSerif-{s}.ttf"
+        for s in ("Regular", "Bold", "Italic", "BoldItalic")
+    ),
+    tuple(f"/usr/share/fonts/truetype/dejavu/DejaVuSerif{s}.ttf" for s in ("", "-Bold", "-Italic", "-BoldItalic")),
+]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
@@ -130,10 +147,27 @@ UNFOLD = {
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_LANGUAGES": True,
+    # Same turquoise as the app's "violet" scale in static/css/input.css (UI_RULES §8).
+    "COLORS": {
+        "primary": {
+            "50": "#eef8f8",
+            "100": "#dcefef",
+            "200": "#bfe0e1",
+            "300": "#93cbce",
+            "400": "#54aab0",
+            "500": "#2b8d96",
+            "600": "#0f7c86",
+            "700": "#0b656e",
+            "800": "#0a4f56",
+            "900": "#0a3d43",
+            "950": "#052a2f",
+        },
+    },
     "SCRIPTS": [
         lambda request: static("js/admin_related_modal.js"),  # "+" opens a modal, not a window
         lambda request: static("js/admin_effective_perms.js"),  # role permissions shown ticked on the user page
         lambda request: static("js/admin_row_click.js"),  # whole list row opens the record
+        lambda request: static("js/money.js"),  # money boxes group digits by commas as typed (UI_RULES §2b)
     ],
     "SIDEBAR": {
         "show_search": False,

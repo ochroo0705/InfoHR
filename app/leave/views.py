@@ -321,6 +321,28 @@ def grant_carry(request: HttpRequest, pk: int, start: str, end: str) -> HttpResp
     return _grant_view(request, pk, start, end, carry=True)
 
 
+@login_required
+def balances(request: HttpRequest) -> HttpResponse:
+    """Every employee's leave days for the work year that contains today, with the dates the days are valid."""
+    user = _user(request)
+    _require(access.can_view(user))
+    t = today()
+    lines = []
+    for e in employee_access.visible_employees(user):
+        job = history.job_on(e, t)
+        if job is not None and job.status == JobStatus.LEFT:
+            continue
+        found, _ = ledger.periods(e, t)
+        eligible = entitlement.eligible_from(e)  # the right to take leave starts after the waiting months
+        waiting = eligible if eligible is not None and t < eligible else None
+        lines.append((e, next((p for p in found if p.current), None), waiting))
+    return render(
+        request,
+        "leave/balances.html",
+        {"lines": lines, "today": t, "not_configured": _not_configured()},
+    )
+
+
 @dataclass
 class Cell:
     day: date

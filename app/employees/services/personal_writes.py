@@ -1,6 +1,7 @@
 """Write layer for the personal lists on production tables: the only code that writes them (D-017).
 
-Lists: family, education (+ ext), certificate, training, language, talent (raw SQL, no model), gift (+ ext),
+Lists: family, relative, education (+ ext), certificate, training, language, talent (raw SQL, no model), gift (+ ext),
+material_help,
 address, emergency contact.
 Every public function is atomic. A refused change raises PersonalConflict with the user-facing text.
 Production ids come from the database sequences, so nothing here sets a primary key.
@@ -13,30 +14,74 @@ from accounts.models import User
 from django.db import DataError, IntegrityError, connection, transaction
 from macs.models import (
     AddressRow,
+    ArmyRankRow,
+    AwardRow,
+    BeforeWorkRow,
+    BodyRow,
     CertificateRow,
+    ComplaintRow,
     ContactRow,
+    DisciplineRow,
+    DriverRow,
     FamilyRow,
     ForeignLanguage,
     LanguageRow,
+    MaterialHelpRow,
+    MilitaryRow,
     PresentRow,
     QualificationRow,
+    RelativeRow,
+    SkillWorkRow,
+    TalentKind,
     TrainingRow,
 )
 
 from employees.models import ActivityEntry, ActivityKind, Employee, GiftExt
 from employees.services import macs_writes
 
-KINDS = ("family", "education", "certificate", "training", "language", "talent", "gift", "address", "contact")
+KINDS = (
+    "family",
+    "relative",
+    "education",
+    "before_work",
+    "certificate",
+    "training",
+    "language",
+    "talent",
+    "skill",
+    "gift",
+    "material_help",
+    "address",
+    "contact",
+    "award",
+    "discipline",
+    "complaint",
+    "body",
+    "driver",
+    "military",
+    "army_rank",
+)
 TITLES = {
     "family": "Гэр бүл",
+    "relative": "Хамаатан садан",
     "education": "Боловсрол",
+    "before_work": "Ажлын туршлага",
     "certificate": "Мэргэшил, сертификат",
     "training": "Сургалт",
     "language": "Гадаад хэл",
     "talent": "Авьяас",
+    "skill": "Ур чадварын даалгавар",
     "gift": "Олгосон бэлэг",
+    "material_help": "Буцалтгүй тусламж",
     "address": "Хаяг",
     "contact": "Яаралтай үед холбогдох",
+    "award": "Шагнал урамшил",
+    "discipline": "Сахилгын шийтгэл",
+    "complaint": "Үйлчлүүлэгчийн гомдол",
+    "body": "Эрүүл мэндийн үзлэг",
+    "driver": "Жолоо",
+    "military": "Цэргийн алба",
+    "army_rank": "Цэргийн цол",
 }
 
 STALE = "Өөр хэрэглэгч өөрчилсөн байна, дахин ачаална уу"
@@ -46,6 +91,9 @@ CONSTRAINT = "Өгөгдөл хадгалах боломжгүй: шаардла
 # Training codes (hr_training.tr_type and pay_type); codes are stored, labels are shown.
 TR_TYPES = {1: "Дотоод", 2: "Гадаад"}
 PAY_TYPES = {1: "Зээл", 2: "Өөрөө", 3: "Байгууллага", 4: "Гадны багш", 5: "Байгууллага"}
+# Complaint codes (hr_complaints.ctype and complaint_name): fixed lists typed into the old screen, no table.
+COMPLAINT_TYPES = {1: "Харилцаа", 2: "Ур чадвар"}
+COMPLAINT_KINDS = {1: "Аман", 2: "Санал асуулга"}
 
 Snapshot = dict[str, object]
 
@@ -56,11 +104,22 @@ class PersonalConflict(Exception):
 
 _MODELS: dict[str, Any] = {
     "family": FamilyRow,
+    "relative": RelativeRow,
+    "before_work": BeforeWorkRow,
     "education": QualificationRow,
     "certificate": CertificateRow,
     "training": TrainingRow,
     "language": LanguageRow,
+    "skill": SkillWorkRow,
     "gift": PresentRow,
+    "material_help": MaterialHelpRow,
+    "award": AwardRow,
+    "discipline": DisciplineRow,
+    "complaint": ComplaintRow,
+    "body": BodyRow,
+    "driver": DriverRow,
+    "military": MilitaryRow,
+    "army_rank": ArmyRankRow,
     "address": AddressRow,
     "contact": ContactRow,
 }
@@ -145,39 +204,62 @@ def _delete_ext(kind: str, key: Any) -> None:
         model.objects.filter(pk=key).delete()
 
 
-def _language_name(language_id: Any) -> str:
-    """The language's name for the log; the id as text when it is not a known language."""
-    if not language_id:
+def _list_name(model: type[ForeignLanguage] | type[TalentKind], pk: Any) -> str:
+    """The list entry's name for the log; the id as text when it is not a known entry."""
+    if not pk:
         return ""
-    name = ForeignLanguage.objects.filter(pk=language_id).values_list("name", flat=True).first()
-    return str(name or language_id)
+    name = model.objects.filter(pk=pk).values_list("name", flat=True).first()
+    return str(name or pk)
 
 
 def _summary(kind: str, data: dict[str, object]) -> str:
-    if kind == "family":
+    if kind in ("family", "relative"):
         return str(data.get("given_name") or "")
     if kind == "education":
         return str(data.get("org_name") or "")
+    if kind == "before_work":
+        return str(data.get("worked_place") or "")
     if kind == "talent":
-        return str(data.get("talent_ident") or "")
+        return _list_name(TalentKind, data.get("talent_ident"))
+    if kind == "skill":
+        return str(data.get("description") or "")
     if kind == "certificate":
         return str(data.get("org_edu") or "")
     if kind == "training":
         return str(data.get("description") or "")
     if kind == "language":
-        return _language_name(data.get("language_id"))
+        return _list_name(ForeignLanguage, data.get("language_id"))
     if kind == "gift":
         return str(data.get("pdate") or "")
+    if kind == "material_help":
+        return str(data.get("help_date") or "")
+    if kind == "award":
+        return str(data.get("award_name") or "")
+    if kind == "discipline":
+        return str(data.get("discipline_date") or "")
+    if kind == "complaint":
+        return str(data.get("cdate") or "")
+    if kind == "body":
+        return str(data.get("inserted_ognoo") or "")
+    if kind == "driver":
+        return str(data.get("number_driver") or "")
+    if kind == "military":
+        return str(data.get("army_rank") or "")
+    if kind == "army_rank":
+        return str(data.get("rank") or "")
     if kind == "address":
         return str(data.get("street") or "")
     return str(data.get("name") or "")
+
+
+_VERB_KINDS = {"нэмсэн": ActivityKind.ADDED, "устгасан": ActivityKind.DELETED}
 
 
 def _log(kind: str, employee: Employee, by: User, verb: str, data: dict[str, object]) -> None:
     ActivityEntry.objects.create(
         employee=employee,
         by=by,
-        kind=ActivityKind.CHANGED,
+        kind=_VERB_KINDS.get(verb, ActivityKind.CHANGED),
         personal=True,
         message=f"{TITLES[kind]}: {verb} — {_summary(kind, data)}",
     )

@@ -11,6 +11,7 @@ from macs.models import FiredReason
 
 from employees.models import Employee, EmployeeExt, ensure_ext
 from employees.services import events, history, macs_writes
+from employees.tests.helpers import record_signed
 
 from .conftest import hire_values, named
 
@@ -21,7 +22,7 @@ TODAY = timezone.localdate()
 
 def _rec(emp: Employee, actor: User, type: str, effective: date, **kw: Any) -> Any:
     args: dict[str, Any] = {"changes": {}, "salary": None, "reason": "", "note": "", "by": actor} | kw
-    return events.record(emp, type=type, effective=effective, **args)
+    return record_signed(emp, type=type, effective=effective, **args)
 
 
 def _prod(emp: Employee) -> Employee:
@@ -96,7 +97,7 @@ def test_cancel_pension_contract_change_clears_pensioner(actor: User, job_values
     emp = _hire(actor, job_values)
     ev = _rec(emp, actor, "contract", TODAY + timedelta(days=5), changes={"contract_no": "P-1"}, pension=True)
     assert _pensioner(emp)
-    events.cancel(ev, reason="алдаа", by=actor)
+    events.cancel(ev, reason="алдаа", by=actor, cancel_order_no="А/31")
     assert not _pensioner(emp)
 
 
@@ -104,7 +105,7 @@ def test_cancel_keeps_pensioner_from_an_earlier_event(actor: User, job_values: d
     emp = _hire(actor, job_values)
     _rec(emp, actor, "contract", TODAY + timedelta(days=5), changes={"contract_no": "P-1"}, pension=True)
     second = _rec(emp, actor, "contract", TODAY + timedelta(days=9), changes={"contract_no": "P-2"}, pension=True)
-    events.cancel(second, reason="алдаа", by=actor)
+    events.cancel(second, reason="алдаа", by=actor, cancel_order_no="А/32")
     assert _pensioner(emp)
 
 

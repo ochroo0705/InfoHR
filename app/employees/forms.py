@@ -16,15 +16,19 @@ from lists.quick import mark_addable
 from macs.models import (
     AcademicDegree,
     BirthPlace,
+    Branch,
     City,
     ContactType,
     Country,
+    DisciplineType,
     District,
+    DriverType,
     EducationLevel,
     FamilyRelation,
     FiredReason,
     ForeignLanguage,
     LanguageLevel,
+    MaterialHelpType,
     PresentType,
     ProfessionType,
     QualificationType,
@@ -50,7 +54,7 @@ from employees.services.events import ALLOWED_FIELDS, REASON_CHOICES, SALARY_TYP
 from employees.services.orders import ISSUED_BY_MAX as ORDER_ISSUED_BY_MAX
 from employees.services.orders import NUMBER_MAX as ORDER_NUMBER_MAX
 from employees.services.orders import SUMMARY_MAX as ORDER_SUMMARY_MAX
-from employees.services.personal_writes import PAY_TYPES, TR_TYPES
+from employees.services.personal_writes import COMPLAINT_KINDS, COMPLAINT_TYPES, PAY_TYPES, TR_TYPES
 from employees.validators import normalize_register_no, validate_register_no
 
 ORDER_FILE_MAGIC = (b"%PDF-", bytes([0xFF, 0xD8, 0xFF]), bytes([0x89]) + b"PNG" + bytes([13, 10, 26, 10]))
@@ -450,11 +454,11 @@ class CancelEventForm(StyledForm):
         super().__init__(*args, **kwargs)
         if signed:  # a signed order is only undone by another order, so its number is required
             self.fields["cancel_order_no"] = forms.CharField(
-                label="Цуцалсан тушаалын дугаар",
+                label="Цуцлах шинэ тушаалын дугаар",
                 max_length=ORDER_NUMBER_MAX,
                 widget=forms.TextInput(attrs={"class": INPUT}),
                 error_messages={
-                    "required": "Гарын үсэгтэй тушаалыг цуцлахад цуцалсан тушаалын дугаар заавал.",
+                    "required": "Гарын үсэгтэй тушаалыг цуцлахад цуцлах шинэ тушаалын дугаар заавал.",
                     "max_length": MAX_LENGTH_MESSAGE,
                 },
             )
@@ -463,6 +467,8 @@ class CancelEventForm(StyledForm):
 class OrderFieldsForm(StyledForm):
     """Number, date, text and issuer of an order. Embedded (prefix "order") in the change and hire forms, where
     all of it may stay empty (the order then waits for its number); `required=True` is the edit pop-up."""
+
+    has_suggest = True  # templates put the «Санал болгох» button beside the number
 
     number = forms.CharField(label="Тушаалын дугаар", max_length=ORDER_NUMBER_MAX, required=False)
     date = forms.DateField(label="Тушаалын огноо", required=False)
@@ -523,7 +529,7 @@ def _job_field(name: str) -> forms.Field:
     if name == "contract_type":
         return forms.ChoiceField(choices=ContractType.choices, label="Гэрээний төрөл")
     if name == "contract_no":
-        return forms.CharField(label="Гэрээний дугаар", max_length=50, required=False)
+        return forms.CharField(label="Гэрээний дугаар", max_length=10, required=False)
     if name == "contract_start":
         return forms.DateField(label="Гэрээ эхлэх", required=False)
     return forms.DateField(label="Гэрээ дуусах", required=False)
@@ -580,9 +586,28 @@ class EventForm(StyledForm):
 # --- Personal tab: one form per row of the six personal lists (production tables, spec §4-§5) ---
 
 PERSONAL_DATE_FIELDS = frozenset(
-    {"birth_date", "startdate", "pdate", "start_date", "ending_date", "certify_date", "end_date"}
+    {
+        "birth_date",
+        "startdate",
+        "pdate",
+        "start_date",
+        "ending_date",
+        "certify_date",
+        "end_date",
+        "sdate",
+        "help_date",
+        "award_date",
+        "discipline_date",
+        "discipline_enddate",
+        "inserted_ognoo",
+        "cdate",
+        "sacking_date",
+        "rank_date",
+    }
 )  # snapshot dates
-PERSONAL_DECIMAL_FIELDS = frozenset({"credit_score", "amount"})  # snapshot values that are decimals
+PERSONAL_DECIMAL_FIELDS = frozenset(
+    {"credit_score", "amount", "norm", "discipline_sal_percent", "addition_r"}
+)  # snapshot values that are decimals
 SMALLINT_MAX = 32767
 INT_MAX = 2147483647
 
@@ -651,6 +676,89 @@ class PersonalRowForm(StyledForm):
             for field, slug in self.LISTS
             if not self.fields[field].queryset.exists()  # type: ignore[attr-defined]
         ]
+
+
+class RelativeRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("given_name", "given_name"),
+        ("father_name", "father_name"),
+        ("description", "description"),
+        ("phone", "phone"),
+        ("branch", "branch_id"),
+        ("department", "department_id"),
+        ("position", "position_id"),
+    )
+    LOADED = (
+        "employee_id",
+        "given_name",
+        "father_name",
+        "job",
+        "phone",
+        "description",
+        "branch_id",
+        "department_id",
+        "position_id",
+    )
+    LISTS = ()
+
+    given_name = forms.CharField(label="Нэр", max_length=20)
+    father_name = forms.CharField(label="Эцэг/эхийн нэр", max_length=20, required=False, empty_value=None)
+    description = forms.CharField(label="Ажилтны хэн болох", max_length=50)
+    phone = forms.CharField(label="Утас", max_length=14, required=False, empty_value=None)
+    branch = forms.ModelChoiceField(Branch.objects.all(), label="Ажилладаг салбар", required=False)
+    department = forms.ModelChoiceField(Department.objects.all(), label="Хэлтэс", required=False)
+    position = forms.ModelChoiceField(Position.objects.all(), label="Албан тушаал", required=False)
+
+
+class BeforeWorkRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("worked_place", "worked_place"),
+        ("start_text", "start_text"),
+        ("end_text", "end_text"),
+        ("profession", "profession"),
+        ("shaltgaan", "shaltgaan"),
+        ("start_year", "start_year"),
+        ("end_year", "end_year"),
+    )
+    LOADED = (
+        "employee_id",
+        "worked_place",
+        "start_text",
+        "end_text",
+        "profession",
+        "shaltgaan",
+        "start_year",
+        "end_year",
+    )
+    LISTS = ()
+
+    worked_place = forms.CharField(
+        label="Өмнө нь ажиллаж байсан газар", max_length=40, required=False, empty_value=None
+    )
+    start_text = forms.CharField(label="Орсон", max_length=20, required=False, empty_value=None)
+    end_text = forms.CharField(label="Гарсан", max_length=20, required=False, empty_value=None)
+    profession = forms.CharField(label="Мэргэжил", max_length=30, required=False, empty_value=None)
+    shaltgaan = forms.CharField(label="Гарсан шалтгаан", max_length=30, required=False, empty_value=None)
+    start_year = forms.IntegerField(label="Орсон он", min_value=0, max_value=SMALLINT_MAX)
+    end_year = forms.IntegerField(label="Гарсан он", min_value=0, max_value=SMALLINT_MAX)
+
+
+class SkillWorkRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("description", "description"),
+        ("norm", "norm"),
+        ("department", "department_id"),
+        ("sdate", "sdate"),
+        ("comment", "comment"),
+    )
+    LOADED = ("employee_id", "description", "norm", "department_id", "sdate", "comment")
+    LISTS = ()
+
+    description = forms.CharField(label="Даалгавар", max_length=50, required=False, empty_value=None)
+    norm = forms.DecimalField(label="Нормын тоо", max_digits=14, decimal_places=2, min_value=0)
+    department = forms.ModelChoiceField(Department.objects.all(), label="Хэлтэс", required=False)
+    sdate = forms.DateField(label="Огноо", required=False)
+    comment = forms.CharField(label="Тайлбар", max_length=100, required=False, empty_value=None)
 
 
 class FamilyRowForm(PersonalRowForm):
@@ -978,6 +1086,213 @@ class GiftRowForm(PersonalRowForm):
         return columns, ext
 
 
+class MaterialHelpRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("material_type", "material_type_id"),
+        ("amount", "amount"),
+        ("help_date", "help_date"),
+        ("description", "description"),
+    )
+    LOADED = ("employee_id", "amount", "help_date", "material_type_id", "description")
+    LISTS = (("material_type", "material_help_type"),)
+
+    material_type = forms.ModelChoiceField(MaterialHelpType.objects.all(), label="Үндэслэл")
+    amount = MoneyField(label="Мөнгөний дүн", max_digits=14, decimal_places=2)
+    help_date = forms.DateField(label="Огноо")
+    description = forms.CharField(label="Тайлбар", max_length=100, required=False, empty_value=None)
+
+
+class AwardRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("give_org", "give_org"),
+        ("award_name", "award_name"),
+        ("award_date", "award_date"),
+        ("description", "description"),
+    )
+    LOADED = ("employee_id", "give_org", "award_name", "award_date", "description")
+    LISTS = ()
+
+    give_org = forms.CharField(label="Хаанаас", max_length=40, required=False, empty_value=None)
+    award_name = forms.CharField(label="Шагналын нэр", max_length=40)
+    award_date = forms.DateField(label="Огноо", required=False)
+    # description is NOT NULL in production: an empty box is stored as "" (not NULL).
+    description = forms.CharField(label="Тайлбар", max_length=50, required=False, empty_value="")
+
+
+class DisciplineRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("from_discipline", "from_discipline"),
+        ("discipline_type", "discipline_type_id"),
+        ("discipline_date", "discipline_date"),
+        ("description", "description"),
+        ("discipline_sal_percent", "discipline_sal_percent"),
+        ("discipline_enddate", "discipline_enddate"),
+    )
+    LOADED = (
+        "employee_id",
+        "from_discipline",
+        "discipline_type_id",
+        "discipline_date",
+        "description",
+        "discipline_sal_percent",
+        "discipline_enddate",
+    )
+    LISTS = (("discipline_type", "discipline_type"),)
+
+    from_discipline = forms.CharField(label="Хаанаас", max_length=40, required=False, empty_value=None)
+    discipline_type = forms.ModelChoiceField(DisciplineType.objects.all(), label="Шийтгэлийн нэр")
+    discipline_date = forms.DateField(label="Огноо")
+    description = forms.CharField(label="Тайлбар", max_length=50, required=False, empty_value=None)
+    discipline_sal_percent = forms.DecimalField(label="Шийтгэлийн хувь", max_digits=7, decimal_places=2, required=False)
+    discipline_enddate = forms.DateField(label="Дуусах огноо", required=False)
+
+
+class ComplaintRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("cdate", "cdate"),
+        ("ctype", "ctype"),
+        ("complaint_name", "complaint_name"),
+        ("comment", "comment"),
+    )
+    LOADED = ("employee_id", "cdate", "ctype", "complaint_name", "comment")
+    LISTS = ()
+
+    cdate = forms.DateField(label="Огноо")
+    ctype = forms.TypedChoiceField(label="Төрөл", choices=list(COMPLAINT_TYPES.items()), coerce=int, initial=1)
+    complaint_name = forms.TypedChoiceField(
+        label="Гомдол", choices=list(COMPLAINT_KINDS.items()), coerce=int, initial=1
+    )
+    comment = forms.CharField(label="Тайлбар", max_length=100, required=False, empty_value=None)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # A stored code outside the two fixed lists stays selectable, so saving the row unchanged still passes.
+        for name, labels in (("ctype", COMPLAINT_TYPES), ("complaint_name", COMPLAINT_KINDS)):
+            stored = self._stored_code(name)
+            field = self.fields[name]
+            if isinstance(field, forms.ChoiceField) and stored is not None and stored not in labels:
+                field.choices = [*labels.items(), (stored, str(stored))]
+
+    def _stored_code(self, name: str) -> int | None:
+        """The code the row had when the form was opened (the loaded snapshot on a post, the initial value on a get)."""
+        if self.is_bound:
+            raw = self.data.get(f"loaded_{name}")
+            try:
+                value = json.loads(raw) if raw is not None else None
+            except (ValueError, TypeError):
+                return None
+        else:
+            value = self.initial.get(name)
+        return value if isinstance(value, int) else None
+
+
+def _finding(label: str) -> forms.CharField:
+    """A medical finding or conclusion: a two-line text box, up to 60 characters, optional."""
+    return forms.CharField(
+        label=label, max_length=60, required=False, empty_value=None, widget=forms.Textarea(attrs={"rows": 2})
+    )
+
+
+class BodyRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("inserted_ognoo", "inserted_ognoo"),
+        ("term_type", "term_type"),
+        ("end_date", "end_date"),
+        ("own_letter", "own_letter"),
+        ("ear", "ear"),
+        ("dotor", "dotor"),
+        ("medrel", "medrel"),
+        ("setgel_medrel", "setgel_medrel"),
+        ("mes_zasal", "mes_zasal"),
+        ("nud", "nud"),
+        ("female", "female"),
+        ("rentgen", "rentgen"),
+        ("skin", "skin"),
+        ("conclusion", "conclusion"),
+        ("sign", "sign"),
+    )
+    LOADED = (
+        "employee_id",
+        "inserted_ognoo",
+        "term_type",
+        "end_date",
+        "own_letter",
+        "ear",
+        "dotor",
+        "medrel",
+        "setgel_medrel",
+        "mes_zasal",
+        "nud",
+        "female",
+        "rentgen",
+        "skin",
+        "conclusion",
+        "sign",
+    )
+    LISTS = ()
+
+    inserted_ognoo = forms.DateField(label="Үзлэгийн огноо", required=False)
+    term_type = forms.CharField(label="Үзлэгийн төрөл", max_length=10, required=False, empty_value=None)
+    end_date = forms.DateField(label="Дуусах хугацаа", required=False)
+    own_letter = forms.CharField(label="Өөрийн мэдүүлэгээр", max_length=80, required=False, empty_value=None)
+    ear = _finding("Чих хамар хоолой")
+    dotor = _finding("Дотор")
+    medrel = _finding("Мэдрэл")
+    setgel_medrel = _finding("Сэтгэл мэдрэл")
+    mes_zasal = _finding("Мэс засал")
+    nud = _finding("Нүд")
+    female = _finding("Эмэгтэйчүүд")
+    rentgen = _finding("Рентген")
+    skin = _finding("Арьс")
+    conclusion = _finding("Дүгнэлт")
+    sign = forms.CharField(label="Гарын үсэг", max_length=40, required=False, empty_value=None)
+
+
+class DriverRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("driver_type", "driver_type_id"),
+        ("number_driver", "number_driver"),
+        ("inserted_ognoo", "inserted_ognoo"),
+    )
+    LOADED = ("employee_id", "driver_type_id", "number_driver", "inserted_ognoo")
+    LISTS = (("driver_type", "driver_type"),)
+
+    driver_type = forms.ModelChoiceField(DriverType.objects.all(), label="Жолооны ангилал")
+    number_driver = forms.CharField(label="Үнэмлэхний дугаар", max_length=15, required=False, empty_value=None)
+    inserted_ognoo = forms.DateField(label="Үнэмлэх авсан огноо", required=False)
+
+
+class MilitaryRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("army_rank", "army_rank"),
+        ("mil_rank", "mil_rank"),
+        ("study_type", "study_type"),
+        ("sacking_date", "sacking_date"),
+        ("sacking_reason", "sacking_reason"),
+    )
+    LOADED = ("employee_id", "army_rank", "mil_rank", "study_type", "sacking_date", "sacking_reason")
+
+    army_rank = forms.CharField(label="Цэргийн цол", max_length=20, required=False, empty_value=None)
+    mil_rank = forms.CharField(label="Бэлтгэл зэрэг", max_length=20, required=False, empty_value=None)
+    study_type = forms.CharField(label="Алба хаасан жил", max_length=20, required=False, empty_value=None)
+    sacking_date = forms.DateField(label="Халагдсан огноо", required=False)
+    sacking_reason = forms.CharField(label="Халагдсан шалтгаан", max_length=50, required=False, empty_value=None)
+
+
+class ArmyRankRowForm(PersonalRowForm):
+    COLUMNS = (
+        ("rank", "rank"),
+        ("rank_date", "rank_date"),
+        ("addition_r", "addition_r"),
+    )
+    LOADED = ("employee_id", "rank", "rank_date", "addition_r")
+    LISTS = ()
+
+    rank = forms.CharField(label="Цэргийн цол", max_length=20, required=False, empty_value=None)
+    rank_date = forms.DateField(label="Цол олгосон огноо", required=False)
+    addition_r = forms.DecimalField(label="Нэмэгдлийн хэмжээ", max_digits=14, decimal_places=2, required=False)
+
+
 class AddressRowForm(PersonalRowForm):
     COLUMNS = (("city", "city_id"), ("district", "district_id"), ("street", "street"))
     LOADED = ("employee_id", "street", "city_id", "district_id")
@@ -1084,12 +1399,23 @@ class HireContactForm(ContactRowForm):
 
 FORMS: dict[str, type[PersonalRowForm]] = {
     "family": FamilyRowForm,
+    "relative": RelativeRowForm,
     "education": EducationRowForm,
+    "before_work": BeforeWorkRowForm,
     "certificate": CertificateRowForm,
     "training": TrainingRowForm,
     "language": LanguageRowForm,
     "talent": TalentRowForm,
+    "skill": SkillWorkRowForm,
     "gift": GiftRowForm,
+    "material_help": MaterialHelpRowForm,
+    "award": AwardRowForm,
+    "discipline": DisciplineRowForm,
+    "complaint": ComplaintRowForm,
+    "body": BodyRowForm,
+    "driver": DriverRowForm,
+    "military": MilitaryRowForm,
+    "army_rank": ArmyRankRowForm,
     "address": AddressRowForm,
     "contact": ContactRowForm,
 }

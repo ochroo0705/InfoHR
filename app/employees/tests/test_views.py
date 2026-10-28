@@ -39,7 +39,7 @@ def login_as(client: Client, role: str, name: str = "viewer") -> User:
 
 def _open_section(client: Client, employee: Employee, section: str) -> str:
     """The hidden `loaded` a section form posts when opened for editing."""
-    page = client.get(f"/employees/{employee.pk}/section/{section}/?edit=1").content.decode()
+    page = client.get(f"/employees/{employee.pk}/section/{section}/").content.decode()
     found = re.search(r'name="loaded" value="([^"]*)"', page)
     assert found is not None
     return html.unescape(found.group(1))
@@ -370,7 +370,9 @@ def test_hr_page_has_inline_inputs_and_save_bar(client: Client, hired: Employee)
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     assert 'name="family_name"' in body and 'name="work_schedule"' in body
-    assert 'name="register_no"' not in body  # the personal fields are read-only until their section is opened
+    # the personal sections are edited on the spot with their own forms (UI_RULES §2f), never the page form
+    assert 'name="register_no"' in body and 'form="sec-identity-form"' in body
+    assert re.search(r'<input[^>]*name="private_phone"[^>]*form="sec-contact-form"', body)
     assert 'id="save-bar"' in body and "Хадгалах" in body and "Болих" in body
     assert 'name="si-bank"' not in body  # HR has no salary access
 
@@ -726,7 +728,7 @@ def test_hire_form_takes_other_fields(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     form = client.get("/employees/new/").context["person"]
     assert "blood_type" in form.fields and "shoe_size" in form.fields
-    edit = client.get(f"/employees/{hired.pk}/section/other/?edit=1").content.decode()
+    edit = client.get(f"/employees/{hired.pk}/section/other/").content.decode()
     assert 'name="blood_type"' in edit and 'name="shoe_size"' in edit
 
 
@@ -788,7 +790,7 @@ def test_hr_header_shows_latest_change(client: Client, hired: Employee, actor: U
     update_employee(hired, {"shoe_size": named(ClothesSize, "42")}, by=actor)
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Сүүлд:" in body and "Гутлын хэмжээ: 42" in body
+    assert "Сүүлийн өөрчлөлт:" in body and "— Гутлын хэмжээ: 42" in body
 
 
 def test_accountant_header_latest_ignores_personal(client: Client, hired: Employee, actor: User) -> None:
@@ -798,8 +800,27 @@ def test_accountant_header_latest_ignores_personal(client: Client, hired: Employ
     update_employee(hired, {"prior_service_months": 3}, by=actor)
     login_as(client, "Accountant")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Сүүлд: Ажлын цагийн хуваарь" in body
+    assert "— Ажлын цагийн хуваарь" in body
     assert "Өмнөх ажилласан сар" not in body and "Хувийн мэдээлэл" not in body
+
+
+def test_header_tile_says_open_ended_contract_has_no_end(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    body = client.get(f"/employees/{hired.pk}/").content.decode()
+    tile = body[body.index(">Гэрээ дуусах<") :][:200]
+    assert "Хугацаагүй" in tile
+
+
+def test_header_latest_order_change_names_the_order(client: Client, hired: Employee, actor: User) -> None:
+    from employees.models import HrOrder
+    from employees.services import orders
+
+    hire = HrOrder.objects.get(employee=hired, is_hire=True)
+    orders.register(hire, number="10", date=date(2026, 1, 5), summary="", issued_by="", by=actor)
+    login_as(client, "HR")
+    body = client.get(f"/employees/{hired.pk}/").content.decode()
+    latest = body[body.index('id="activity-latest"') :][:800]
+    assert "— Тушаал № 10" in latest  # the order's own line, not a bare «Огноо: … → …» from its first change
 
 
 @pytest.mark.parametrize("role", ["HR", "Accountant"])
@@ -829,7 +850,7 @@ def test_note_post_returns_activity_block(client: Client, hired: Employee, actor
     body = client.post(f"/employees/{hired.pk}/note/", {"text": "шинэ тэмдэглэл"}).content.decode()
     assert "шинэ тэмдэглэл" in body and "Өмнөх ажилласан сар" not in body
     latest = body[body.index('id="activity-latest"') :]
-    assert "Сүүлд: шинэ тэмдэглэл" in latest
+    assert "Сүүлийн өөрчлөлт:" in latest and "— шинэ тэмдэглэл" in latest
     expected = access.visible_activity(user, hired).count()
     assert f'<span id="activity-count" hx-swap-oob="true">{expected}</span>' in body
 
@@ -1003,3 +1024,11 @@ def test_hire_account_number_is_written_and_logged_for_salary_manager(
     assert emp.account_no == "5550001234"
     entry = emp.activity.get(message="Цалин, даатгалын мэдээлэл өөрчилсөн")
     assert entry.sensitive and entry.changes[0]["new"] == "5550001234"
+
+
+def test_contract_form_rejects_a_contract_number_over_ten_characters() -> None:
+    from employees.forms import EventForm
+
+    form = EventForm("contract", data={"effective": "2026-11-01", "contract_no": "DEMO-2029-01", "reason": ""})
+    assert not form.is_valid()
+    assert "contract_no" in form.errors

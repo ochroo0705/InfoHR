@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Ажилтнууд{% endblock %}
 {% block content %}
-<div class="flex items-center gap-3 mb-4">
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4">
   <h1 class="text-xl font-semibold">Ажилтнууд</h1>
-  <div class="ml-auto flex items-center gap-3">
+  <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+    {% if can_open_staff_report %}<a href="{% url 'reports:report' 'staff-list' %}" class="text-sm text-violet-700 hover:underline">Жагсаалт гаргах</a>{% endif %}
     <div class="inline-flex shrink-0 overflow-hidden rounded-lg border border-slate-300 text-sm">
       <button type="button" aria-pressed="{% if view == 'grid' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'grid' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}" form="employee-filters" data-view-btn="grid" onclick="hrSetView(this.form, 'grid'); htmx.trigger(this.form, 'viewchange')">Зураг</button>
       <button type="button" aria-pressed="{% if view == 'table' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'table' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}" form="employee-filters" data-view-btn="table" onclick="hrSetView(this.form, 'table'); htmx.trigger(this.form, 'viewchange')">Хүснэгт</button>
@@ -11,7 +12,6 @@
     {% if can_manage %}<a href="{% url 'employees:add' %}" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">+ Ажилтан нэмэх</a>{% endif %}
   </div>
 </div>
-{% include "employees/_attention.html" %}
 <form id="employee-filters" class="flex flex-wrap items-center gap-2 mb-4" hx-get="{% url 'employees:list' %}" hx-target="#results" hx-push-url="true" hx-trigger="input changed delay:300ms from:input, change from:select, change from:input[name=group], viewchange">
   <input type="hidden" name="view" value="{{ view }}">
   <input name="q" value="{{ q }}" placeholder="Нэр, код, регистр, утсаар хайх" class="flex-1 min-w-60 rounded-lg border border-slate-300 px-3 py-2 text-sm">

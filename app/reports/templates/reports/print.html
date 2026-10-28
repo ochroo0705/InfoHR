@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<title>{{ report.title }}</title>
+<style>
+  @page { size: A4 {% if landscape %}landscape{% else %}portrait{% endif %}; margin: 12mm; }
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 16px; color: #000; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; }
+  h1 { font-size: 16px; text-align: center; margin: 8px 0 8px; }
+  .filters { margin-bottom: 8px; }
+  .note { font-style: italic; color: #444; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #444; padding: 3px 5px; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  .text-right { text-align: right; }
+  .pl-6 { padding-left: 1.5rem; }
+  td.group { font-weight: bold; background: #f6f6f6; }
+  .total { margin-top: 8px; }
+  .noprint { margin-bottom: 8px; }
+  @media print { .noprint { display: none; } body { margin: 0; } tr { page-break-inside: avoid; } thead { display: table-header-group; } }
+</style>
+</head>
+<body>
+<div class="noprint"><button type="button" onclick="window.print()">Хэвлэх</button></div>
+<div class="top"><div>{{ company }}</div><div>{{ today|date:"Y-m-d" }} · {{ printed_by }}</div></div>
+<h1>{{ report.title }}</h1>
+<div class="filters">{% for line in lines %}<div>{{ line }}</div>{% endfor %}</div>
+{% if note %}<p class="note">{{ note }}</p>{% endif %}
+<table>
+  <thead>
+    <tr>{% for label, cls in heads %}<th{% if cls %} class="{{ cls }}"{% endif %}>{{ label }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% if table.count == 0 %}
+    <tr><td colspan="{{ heads|length }}">Олдсонгүй</td></tr>
+    {% else %}
+      {% for label, rows in table.groups %}
+        {% if table.filters.group %}
+        <tr><td colspan="{{ heads|length }}" class="group">{{ label }} · {{ rows|length }}</td></tr>
+        {% endif %}
+        {% for row in rows %}
+        <tr>{% for cell in row %}<td{% if cell.cls %} class="{{ cell.cls }}"{% endif %}>{% include "reports/_cell.html" %}</td>{% endfor %}</tr>
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+  </tbody>
+</table>
+{% if table.shows_count %}<p class="total">Нийт: {{ table.count }}</p>{% endif %}
+</body>
+</html>

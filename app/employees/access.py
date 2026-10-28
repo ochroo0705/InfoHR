@@ -56,8 +56,13 @@ def can_record_event(user: User, type: str) -> bool:
 
 def can_cancel(user: User, event: Event) -> bool:
     """A mixed (job + salary) event needs both rights, so it is never half-cancelled."""
-    has_job = event.job_records.exists()
-    has_salary = event.salary_records.exists()
+    if event.applied_at is None:  # waiting: nothing written yet, so what it would change decides
+        proposed = event.proposed or {}
+        has_job = bool(proposed.get("job"))
+        has_salary = proposed.get("salary") is not None
+    else:
+        has_job = event.job_records.exists()
+        has_salary = event.salary_records.exists()
     if not has_job and not has_salary:
         return can_manage(user)
     return (not has_job or can_manage(user)) and (not has_salary or can_manage_salary(user))

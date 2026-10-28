@@ -1,18 +1,21 @@
 {% load hr %}
-<div class="flex items-baseline gap-4"><p class="text-sm text-slate-500">Одоогийн үндсэн цалин</p>
-  <p class="text-2xl font-semibold">{{ salary.base_salary|mnt }}</p>
-  {% if can_manage_salary and not salaries %}<button hx-get="{% url 'employees:set_salary' employee.pk %}" hx-target="#modal" class="text-violet-700 hover:underline text-sm">Цалин тогтоох</button>{% endif %}</div>
-<table class="mt-4 w-full text-sm"><thead class="text-left text-slate-500"><tr><th class="py-1">Хугацаа</th><th>Цалин</th><th>Төрөл</th><th></th></tr></thead>
-<tbody>{% for s in salaries %}<tr class="border-t border-slate-100"><td class="py-2">{{ s.period.lower|date:"Y-m-d" }} –{% if s.period.upper %} {{ s.period.upper|date:"Y-m-d" }}{% elif not s.scheduled %} одоо{% endif %}</td>
+{# Salary tab: same look as the other tabs (UI_RULES §2e soft boxes, §4 framed table, §8 section titles). #}
+<div class="flex items-baseline gap-3">
+  <h3 class="sec-title">Үндсэн цалин{% if not salary.base_salary %} <span class="ml-1 text-sm font-normal text-slate-400">тогтоогоогүй</span>{% endif %}</h3>
+  {% if can_manage_salary and not salaries %}<button hx-get="{% url 'employees:set_salary' employee.pk %}" hx-target="#modal" class="ml-auto rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">Цалин тогтоох</button>{% endif %}
+</div>
+{% if salary.base_salary %}<div class="mt-2 flex items-baseline gap-3"><p class="text-sm text-slate-500">Одоогийн</p><p class="text-2xl font-semibold">{{ salary.base_salary|mnt }}</p></div>{% endif %}
+{% if salaries %}<div class="ptable"><table><thead><tr><th>Хугацаа</th><th>Цалин</th><th>Төрөл</th><th class="w-px"></th></tr></thead>
+<tbody>{% for s in salaries %}<tr><td>{{ s.period.lower|date:"Y-m-d" }} –{% if s.period.upper %} {{ s.period.upper|date:"Y-m-d" }}{% elif not s.scheduled %} одоо{% endif %}</td>
   <td>{{ s.base_salary|mnt }}</td><td>{{ s.label }}{% if s.scheduled %} <span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">Төлөвлөсөн</span>{% endif %}</td>
-  <td class="text-right">{% if s.cancellable %}<button hx-get="{% url 'employees:event_cancel' employee.pk s.event_id %}" hx-target="#modal" class="text-red-700 hover:underline">Цуцлах</button>{% elif can_manage_salary and not s.locked %}<button hx-get="{% url 'employees:correct_salary' employee.pk s.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td></tr>{% endfor %}</tbody></table>
-<h3 class="mt-8 mb-2 font-medium">Банк, даатгал</h3>
+  <td class="text-right whitespace-nowrap">{% if s.cancellable %}<button hx-get="{% url 'employees:event_cancel' employee.pk s.event_id %}" hx-target="#modal" class="rounded px-2 py-1 text-red-600 hover:bg-red-50">Цуцлах</button>{% elif can_manage_salary and not s.locked %}<button hx-get="{% url 'employees:correct_salary' employee.pk s.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<h3 class="sec-title mt-10 mb-3">Банк, даатгал</h3>
 <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
-  <div><dt class="text-slate-500">Банк</dt><dd>{% if si_form %}{% field si_form.bank %}{% else %}{{ employee.bank.name|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Дансны дугаар</dt><dd>{% if si_form %}{% field si_form.account_no %}{% else %}{{ employee.account_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">НДД</dt><dd>{% if si_form %}{% field si_form.social_insurance_no %}{% else %}{{ employee.social_insurance_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">ЭМДД</dt><dd>{% if si_form %}{% field si_form.health_insurance_no %}{% else %}{{ employee.health_insurance_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Даатгуулагчийн төрөл</dt><dd>{% if si_form %}{% field si_form.insured_category %}{% else %}{{ employee.insured_category.name|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">ТТД</dt><dd>{% if si_form %}{% field si_form.taxpayer_no %}{% else %}{{ employee.taxpayer_no|default:"—" }}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Хөгжлийн бэрхшээл</dt><dd>{% if si_form %}{% field si_form.has_disability %}{% else %}{% if employee.has_disability %}Тийм{% else %}Үгүй{% endif %}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Банк</dt><dd>{% if si_form %}{% field si_form.bank soft=True %}{% else %}{{ employee.bank.name|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Дансны дугаар</dt><dd>{% if si_form %}{% field si_form.account_no soft=True %}{% else %}{{ employee.account_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">НДД</dt><dd>{% if si_form %}{% field si_form.social_insurance_no soft=True %}{% else %}{{ employee.social_insurance_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">ЭМДД</dt><dd>{% if si_form %}{% field si_form.health_insurance_no soft=True %}{% else %}{{ employee.health_insurance_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Даатгуулагчийн төрөл</dt><dd>{% if si_form %}{% field si_form.insured_category soft=True %}{% else %}{{ employee.insured_category.name|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">ТТД</dt><dd>{% if si_form %}{% field si_form.taxpayer_no soft=True %}{% else %}{{ employee.taxpayer_no|default:"—" }}{% endif %}</dd></div>
+  <div><dt class="text-slate-500">Хөгжлийн бэрхшээл</dt><dd>{% if si_form %}{% field si_form.has_disability soft=True %}{% else %}{% if employee.has_disability %}Тийм{% else %}Үгүй{% endif %}{% endif %}</dd></div>
 </dl>

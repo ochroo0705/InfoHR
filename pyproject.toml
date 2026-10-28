@@ -24,7 +24,7 @@ strict = true
 exclude = ["migrations/"]
 
 [[tool.mypy.overrides]]
-module = ["environ.*", "unfold.*"]
+module = ["environ.*", "unfold.*", "docxtpl.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]

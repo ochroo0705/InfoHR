@@ -1,9 +1,9 @@
 {% load hr %}<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 {% for row in rows %}
-  <a href="{% url 'employees:detail' row.employee.pk %}" class="block rounded-xl border border-slate-200 bg-white p-4 hover:border-violet-300 hover:shadow-sm">
+  <a href="{% url 'employees:detail' row.employee.pk %}" class="card-soft block p-4">
     <div class="flex items-center gap-3">
-      {% with url=row.employee|thumb:56 %}{% if url %}<img src="{{ url }}" srcset="{{ row.employee|thumb:112 }} 2x, {{ row.employee|thumb:168 }} 3x" alt="" class="h-14 w-14 shrink-0 rounded-xl object-cover">
-      {% else %}<div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xl text-violet-700">{{ row.employee.given_name|first }}</div>{% endif %}{% endwith %}
+      {% with url=row.employee|thumb:72 %}{% if url %}<img src="{{ url }}" srcset="{{ row.employee|thumb:144 }} 2x, {{ row.employee|thumb:216 }} 3x" alt="" class="h-18 w-18 shrink-0 rounded-xl object-cover">
+      {% else %}<div class="flex h-18 w-18 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-2xl text-violet-700">{{ row.employee.given_name|first }}</div>{% endif %}{% endwith %}
       <div class="min-w-0">
         <div class="flex items-baseline gap-2"><span class="truncate font-medium" title="{{ row.employee.full_name }}">{{ row.employee.short_name }}</span>{% if row.employee.code %}<span class="shrink-0 text-xs text-slate-400">{{ row.employee.code }}</span>{% endif %}</div>
         <div class="truncate text-sm text-slate-600" title="{{ row.job.position|default:'' }}">{{ row.job.position|default:"—" }}</div>

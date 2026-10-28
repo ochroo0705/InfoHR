@@ -186,6 +186,12 @@ class LeaveKind(models.TextChoices):
     UNPAID = "unpaid", "Цалингүй чөлөө"
 
 
+class EventQuerySet(models.QuerySet["Event"]):
+    def applied(self) -> "EventQuerySet":
+        """Events whose HR order is signed (applied_at set). Waiting events are excluded."""
+        return self.filter(applied_at__isnull=False)
+
+
 class Event(models.Model):
     """An HR event (transfer, promotion, ...). Never deleted; cancelling removes its history rows."""
 
@@ -215,6 +221,12 @@ class Event(models.Model):
     )
     cancel_reason = models.CharField("Цуцлах шалтгаан", max_length=200, blank=True)
     pension = models.BooleanField("Тэтгэвэрт гарсан", default=False)
+    # Set when the HR order is signed and the change takes effect; null = waiting for signature.
+    applied_at = models.DateTimeField("Гарын үсэг зурсан огноо", null=True, blank=True)
+    # The proposed change while it waits for signature: {"job": {...}, "salary": "<str>" | null}.
+    proposed = models.JSONField("Санал болгосон өөрчлөлт", null=True, blank=True)
+
+    objects = EventQuerySet.as_manager()
 
     class Meta:
         verbose_name = "Өөрчлөлт"
@@ -227,6 +239,8 @@ class Event(models.Model):
     def status(self, today: date) -> str:
         if self.cancelled_at is not None:
             return "cancelled"
+        if self.applied_at is None:
+            return "awaiting_signature"
         return "scheduled" if self.effective > today else "effective"
 
 
@@ -345,7 +359,7 @@ class JobRecord(models.Model):
         "contract_end",
     )
 
-    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="job_records")
+    employee = models.ForeignKey(Employee, verbose_name="Ажилтан", on_delete=models.PROTECT, related_name="job_records")
     period = DateRangeField("Хугацаа")
     position = models.ForeignKey(Position, verbose_name="Албан тушаал", on_delete=models.PROTECT)
     department = models.ForeignKey(Department, verbose_name="Хэлтэс", on_delete=models.PROTECT)
@@ -371,11 +385,18 @@ class JobRecord(models.Model):
     contract_start = models.DateField("Гэрээ эхлэх", null=True, blank=True)
     contract_end = models.DateField("Гэрээ дуусах", null=True, blank=True)
     change_type = models.CharField("Өөрчлөлтийн төрөл", max_length=20, choices=ChangeType.choices)
-    event = models.ForeignKey(Event, null=True, blank=True, on_delete=models.PROTECT, related_name="job_records")
+    event = models.ForeignKey(
+        Event, verbose_name="Өөрчлөлт", null=True, blank=True, on_delete=models.PROTECT, related_name="job_records"
+    )
     note = models.TextField("Тайлбар", blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField("Бүртгэсэн огноо", auto_now_add=True)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+        settings.AUTH_USER_MODEL,
+        verbose_name="Бүртгэсэн",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
     )
 
     class Meta:
@@ -397,15 +418,24 @@ class JobRecord(models.Model):
 class SalaryRecord(models.Model):
     """One period of base salary. Protected by macs.view_salary."""
 
-    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="salary_records")
+    employee = models.ForeignKey(
+        Employee, verbose_name="Ажилтан", on_delete=models.PROTECT, related_name="salary_records"
+    )
     period = DateRangeField("Хугацаа")
     base_salary = models.DecimalField("Үндсэн цалин", max_digits=14, decimal_places=2)
     change_type = models.CharField("Өөрчлөлтийн төрөл", max_length=20, choices=ChangeType.choices)
-    event = models.ForeignKey(Event, null=True, blank=True, on_delete=models.PROTECT, related_name="salary_records")
+    event = models.ForeignKey(
+        Event, verbose_name="Өөрчлөлт", null=True, blank=True, on_delete=models.PROTECT, related_name="salary_records"
+    )
     note = models.TextField("Тайлбар", blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField("Бүртгэсэн огноо", auto_now_add=True)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+        settings.AUTH_USER_MODEL,
+        verbose_name="Бүртгэсэн",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
     )
 
     class Meta:
@@ -421,6 +451,9 @@ class SalaryRecord(models.Model):
 class ActivityKind(models.TextChoices):
     CREATED = "created", "Үүсгэсэн"
     CHANGED = "changed", "Өөрчилсөн"
+    ADDED = "added", "Нэмсэн"
+    DELETED = "deleted", "Устгасан"
+    CANCELLED = "cancelled", "Цуцалсан"
     CORRECTION = "correction", "Засвар"
     HISTORY = "history", "Огноотой өөрчлөлт"
     NOTE = "note", "Тэмдэглэл"
@@ -491,14 +524,20 @@ class AttentionDismissal(models.Model):
 class ActivityEntry(models.Model):
     """Chatter entry. Never edited or deleted (spec §4)."""
 
-    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="activity")
+    employee = models.ForeignKey(Employee, verbose_name="Ажилтан", on_delete=models.PROTECT, related_name="activity")
     at = models.DateTimeField("Огноо", auto_now_add=True)
-    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name="Хэн", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
     kind = models.CharField("Төрөл", max_length=20, choices=ActivityKind.choices)
     message = models.TextField("Мессеж")
     changes = models.JSONField("Өөрчлөлтүүд", default=list, blank=True)  # [{"field", "old", "new"}]
-    sensitive = models.BooleanField(default=False)  # salary data: hidden without view_salary
-    personal = models.BooleanField(default=False)  # Personal-tab data: hidden without view_personal (or own record)
+    sensitive = models.BooleanField("Цалингийн мэдээлэл", default=False)  # salary data: hidden without view_salary
+    # Personal-tab data: hidden without view_personal (or own record)
+    personal = models.BooleanField("Хувийн мэдээлэл", default=False)
+    order = models.ForeignKey(  # set on entries about one HR order: its own history (the «Түүх» pop-up)
+        HrOrder, verbose_name="Тушаал", null=True, blank=True, on_delete=models.PROTECT, related_name="activity"
+    )
 
     objects = AppendOnlyQuerySet.as_manager()
 

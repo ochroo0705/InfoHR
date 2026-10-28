@@ -13,22 +13,39 @@ from django.db import connection
 from macs.models import (
     AcademicDegree,
     AddressRow,
+    ArmyRankRow,
+    AwardRow,
+    BeforeWorkRow,
+    BodyRow,
+    Branch,
     CertificateRow,
     City,
+    ComplaintRow,
     ContactRow,
     ContactType,
     Country,
+    Department,
+    DisciplineRow,
+    DisciplineType,
     District,
+    DriverRow,
+    DriverType,
     EducationLevel,
     FamilyRelation,
     FamilyRow,
     ForeignLanguage,
     LanguageRow,
+    MaterialHelpRow,
+    MaterialHelpType,
+    MilitaryRow,
+    Position,
     PresentRow,
     PresentType,
     ProfessionType,
     QualificationRow,
     QualificationType,
+    RelativeRow,
+    SkillWorkRow,
     SpecEduType,
     TalentKind,
     TrainingRow,
@@ -64,6 +81,22 @@ class _Spec:
 
 
 _SPECS: dict[str, _Spec] = {
+    "relative": _Spec(
+        model=RelativeRow,
+        order=("given_name", "id"),
+        lookups=(
+            ("branch", "branch_id", Branch),
+            ("department", "department_id", Department),
+            ("position", "position_id", Position),
+        ),
+        fields=("given_name", "father_name", "phone", "description"),
+    ),
+    "before_work": _Spec(
+        model=BeforeWorkRow,
+        order=("-start_year", "id"),
+        lookups=(),
+        fields=("worked_place", "start_text", "end_text", "profession", "shaltgaan", "start_year", "end_year"),
+    ),
     "family": _Spec(
         model=FamilyRow,
         order=("birth_date", "id"),
@@ -122,6 +155,12 @@ _SPECS: dict[str, _Spec] = {
         lookups=(("talent", "talent_ident", TalentKind),),
         fields=("trained_year", "description"),
     ),
+    "skill": _Spec(
+        model=SkillWorkRow,
+        order=("-sdate", "id"),
+        lookups=(("department", "department_id", Department),),
+        fields=("description", "sdate", "norm", "comment"),
+    ),
     "gift": _Spec(
         model=PresentRow,
         order=("-pdate", "id"),
@@ -129,6 +168,54 @@ _SPECS: dict[str, _Spec] = {
         fields=("pdate", "given_year", "childqty", "price", "child_age", "given"),
         ext_model=GiftExt,
         ext_fields=("note",),
+    ),
+    "material_help": _Spec(
+        model=MaterialHelpRow,
+        order=("-help_date", "id"),
+        lookups=(("material_type", "material_type_id", MaterialHelpType),),
+        fields=("amount", "help_date", "description"),
+    ),
+    "award": _Spec(
+        model=AwardRow,
+        order=("-award_date", "id"),
+        lookups=(),
+        fields=("give_org", "award_name", "award_date", "description"),
+    ),
+    "discipline": _Spec(
+        model=DisciplineRow,
+        order=("-discipline_date", "id"),
+        lookups=(("discipline_type", "discipline_type_id", DisciplineType),),
+        fields=("from_discipline", "discipline_date", "description", "discipline_sal_percent", "discipline_enddate"),
+    ),
+    "complaint": _Spec(
+        model=ComplaintRow,
+        order=("-cdate", "id"),
+        lookups=(),
+        fields=("cdate", "comment"),
+    ),
+    "body": _Spec(
+        model=BodyRow,
+        order=("-inserted_ognoo", "id"),
+        lookups=(),
+        fields=("inserted_ognoo", "term_type", "end_date", "conclusion"),
+    ),
+    "driver": _Spec(
+        model=DriverRow,
+        order=("id",),
+        lookups=(("driver_type", "driver_type_id", DriverType),),
+        fields=("number_driver", "inserted_ognoo"),
+    ),
+    "military": _Spec(
+        model=MilitaryRow,
+        order=("id",),
+        lookups=(),
+        fields=("army_rank", "mil_rank", "study_type", "sacking_date", "sacking_reason"),
+    ),
+    "army_rank": _Spec(
+        model=ArmyRankRow,
+        order=("-rank_date", "id"),
+        lookups=(),
+        fields=("rank", "rank_date", "addition_r"),
     ),
     "address": _Spec(
         model=AddressRow,
@@ -199,6 +286,9 @@ def _build(kind: str, raw: list[Any]) -> list[PersonalRow]:
         elif kind == "training":
             values["tr_type_label"] = _code_label(snap["tr_type"], pw.TR_TYPES)
             values["pay_type_label"] = _code_label(snap["pay_type"], pw.PAY_TYPES)
+        elif kind == "complaint":
+            values["ctype_label"] = _code_label(snap["ctype"], pw.COMPLAINT_TYPES)
+            values["complaint_label"] = _code_label(snap["complaint_name"], pw.COMPLAINT_KINDS)
 
         ext_obj = ext_map.get(key) if spec.ext_model is not None else None
         ext = {f: getattr(ext_obj, f) for f in spec.ext_fields} if ext_obj else dict.fromkeys(spec.ext_fields)

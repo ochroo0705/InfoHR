@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option B — Indigo ledger (throwaway)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#ffffff; --sheet:#f5f6f9; --rule:#d5d9e4; --ink:#161a2b; --ink-2:#4a516b; --ink-3:#8088a3; --indigo:#2b3a8c; --indigo-d:#1d2766; --indigo-t:#e4e8f7; --margin:#d4483b; --amber:#9a6a0c; --amber-t:#fbf0d3; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--sheet); color:var(--ink); font:400 14px/1.5 "IBM Plex Sans",system-ui,sans-serif; }
+  :focus-visible { outline:2px solid var(--indigo); outline-offset:2px; }
+  .bar { background:var(--indigo); color:#fff; height:48px; display:flex; padding:0 24px; align-items:stretch; }
+  .logo { display:flex; align-items:center; font-weight:600; margin-right:24px; font-family:"IBM Plex Mono",monospace; letter-spacing:.02em; }
+  .bar a { display:flex; align-items:center; padding:0 14px; color:#c3caee; text-decoration:none; }
+  .bar a:hover { background:var(--indigo-d); color:#fff; }
+  .bar a[aria-current] { background:var(--paper); color:var(--indigo); font-weight:500; }
+  main { max-width:1120px; margin:0 auto; padding:0 24px 56px; }
+  .sheet { background:var(--paper); border:1px solid var(--rule); border-top:0; padding:22px 28px 30px; position:relative; }
+  .sheet::before { content:""; position:absolute; left:14px; top:0; bottom:0; width:1px; background:var(--margin); opacity:.55; }
+  .head { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; border-bottom:2px solid var(--ink); padding-bottom:12px; flex-wrap:wrap; }
+  h1 { margin:0; font-size:24px; font-weight:600; letter-spacing:-.01em; }
+  .code { font-family:"IBM Plex Mono",monospace; color:var(--ink-3); font-size:13px; }
+  .facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); border-bottom:1px solid var(--rule); }
+  .fact { padding:10px 14px 10px 0; }
+  .fact small { display:block; color:var(--ink-3); font-size:12px; }
+  .fact b { font-weight:500; font-family:"IBM Plex Mono",monospace; font-size:13.5px; }
+  .tabs { display:flex; gap:22px; margin-top:16px; border-bottom:1px solid var(--rule); }
+  .tab { padding:8px 0; color:var(--ink-2); text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab[aria-current] { color:var(--indigo); border-bottom-color:var(--indigo); font-weight:500; }
+  h2 { font-size:13px; font-weight:600; margin:26px 0 8px; color:var(--indigo-d); }
+  .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px 20px; }
+  label { display:block; font-size:12px; color:var(--ink-2); margin-bottom:3px; }
+  .soft { width:100%; padding:7px 10px; border:0; border-bottom:1px solid var(--rule); background:var(--sheet); font:inherit; color:var(--ink); border-radius:3px 3px 0 0; }
+  .soft:hover { background:var(--indigo-t); }
+  .soft:focus { outline:none; background:#fff; border-bottom:2px solid var(--indigo); }
+  .btns { display:flex; gap:8px; margin-top:16px; }
+  .btn { font:inherit; padding:7px 16px; border:1px solid var(--rule); background:#fff; border-radius:3px; cursor:pointer; }
+  .btn.primary { background:var(--indigo); color:#fff; border-color:var(--indigo); }
+  .btn.primary:hover { background:var(--indigo-d); }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-weight:500; font-size:12px; color:var(--ink-2); padding:6px 10px; border-bottom:1px solid var(--ink); white-space:nowrap; }
+  td { padding:8px 10px; border-bottom:1px solid var(--rule); }
+  tbody tr { cursor:pointer; } tbody tr:hover { background:var(--indigo-t); }
+  .no { font-family:"IBM Plex Mono",monospace; font-weight:500; }
+  .wait { color:var(--amber); font-style:italic; }
+  tr.void td { color:var(--ink-3); text-decoration:line-through; }
+  .st { font-size:12px; padding:1px 8px; border-radius:3px; border:1px solid; white-space:nowrap; }
+  .st.pending { border-style:dashed; border-color:var(--amber); background:var(--amber-t); color:var(--amber); }
+  .st.reg { border-color:#b9c2ec; background:var(--indigo-t); color:var(--indigo-d); }
+  .st.sign { border-color:#2f7a4f; background:#e0f1e7; color:#1d5a37; }
+  .st.void { border-color:var(--rule); background:var(--sheet); color:var(--ink-3); }
+  .note { margin-top:20px; color:var(--ink-3); font-size:12.5px; }
+  @media (max-width:640px){ .bar a:not([aria-current]){display:none;} .sheet{padding:18px 16px 24px 24px;} }
+</style>
+</head>
+<body>
+<header class="bar"><div class="logo">INFO·HR</div><a href="#" aria-current="page">Ажилтан</a><a href="#">Чөлөө</a><a href="#">Тушаал</a><a href="#">Тайлан</a></header>
+<main><div class="sheet">
+  <div class="head"><h1>Д. Оюунчимэг</h1><span class="code">ХН-0142 · Ахлах мэргэжилтэн</span></div>
+  <div class="facts">
+    <div class="fact"><small>Ажилд орсон</small><b>2019-03-04</b></div>
+    <div class="fact"><small>Ажилтны төрөл</small><b>Үндсэн</b></div>
+    <div class="fact"><small>Гэрээ дуусах</small><b>Хугацаагүй</b></div>
+    <div class="fact"><small>Шууд удирдлага</small><b>Б. Гантулга</b></div>
+  </div>
+  <nav class="tabs"><a class="tab" href="#" aria-current="page">Ажил</a><a class="tab" href="#">Цалин даатгал</a><a class="tab" href="#">Хувийн</a></nav>
+  <h2>Ажлын байр</h2>
+  <div class="fields">
+    <div><label for="a">Албан тушаал</label><input id="a" class="soft" value="Ахлах мэргэжилтэн"></div>
+    <div><label for="b">Хэлтэс</label><input id="b" class="soft" value="Хүний нөөцийн хэлтэс"></div>
+    <div><label for="c">Утас</label><input id="c" class="soft" value="9911 2233"></div>
+  </div>
+  <div class="btns"><button class="btn">Болих</button><button class="btn primary">Хадгалах</button></div>
+  <h2>Ажлын түүх</h2>
+  <table>
+    <thead><tr><th>Дугаар</th><th>Өөрчлөлт</th><th>Төлөв</th><th>Огноо</th></tr></thead>
+    <tbody>
+      <tr><td class="wait">дугаар хүлээгдэж байна</td><td>Албан тушаал ахиулах</td><td><span class="st pending">Дугаар оруулаагүй</span></td><td class="no">2026-10-20</td></tr>
+      <tr><td class="no">№ 15</td><td>Цалин өөрчлөх</td><td><span class="st reg">Бүртгэсэн</span></td><td class="no">2026-07-01</td></tr>
+      <tr><td class="no">№ 08</td><td>Хэлтэс шилжих</td><td><span class="st sign">Гарын үсэгтэй</span></td><td class="no">2024-02-12</td></tr>
+      <tr class="void"><td class="no">№ 03</td><td>Гэрээ сунгах</td><td><span class="st void">Цуцалсан</span></td><td class="no">2023-05-09</td></tr>
+      <tr><td class="no">№ 01</td><td>Ажилд авах</td><td><span class="st sign">Гарын үсэгтэй</span></td><td class="no">2019-03-04</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Throwaway mock-up, option B.</p>
+</div></main>
+</body>
+</html>

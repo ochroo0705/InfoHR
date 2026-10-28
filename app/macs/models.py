@@ -2,6 +2,8 @@
 """Production MACS tables (D-017). Unmanaged: Django never creates or alters them.
 Write only through employees.services.macs_writes."""
 
+from decimal import Decimal
+
 from django.db import models
 
 from macs.fields import SmallintFlagField, TimestampDateField
@@ -252,10 +254,10 @@ class Employee(_Table):
     given_name = models.CharField("Нэр", max_length=25, db_column="name")
     family_name = models.CharField("Эцэг/эхийн нэр", max_length=25, db_column="surname", null=True)
     clan_name = models.CharField("Ургийн овог", max_length=25, db_column="ovog", null=True, blank=True)
-    fullname = models.CharField(max_length=208, db_column="fullname", null=True, blank=True)
+    fullname = models.CharField("Бүтэн нэр", max_length=208, db_column="fullname", null=True, blank=True)
     register_no = models.CharField("Регистрийн дугаар", max_length=20, db_column="registerno", null=True)
     birth_date = TimestampDateField("Төрсөн огноо", db_column="birthday", null=True)
-    birth_year = models.IntegerField(db_column="birthyear", null=True, blank=True)
+    birth_year = models.IntegerField("Төрсөн он", db_column="birthyear", null=True, blank=True)
     gender = models.CharField(
         "Хүйс",
         max_length=1,
@@ -296,14 +298,17 @@ class Employee(_Table):
         choices=[("O", "I (O)"), ("A", "II (A)"), ("B", "III (B)"), ("AB", "IV (AB)")],
     )
     foreign_emp = models.SmallIntegerField("Гадаад иргэн", db_column="foreign_emp", null=True, blank=True)
-    hr_flag = models.CharField(max_length=12, db_column="hr", default="no")
-    loginpass = models.CharField(max_length=20, db_column="loginpass", null=True, blank=True)
-    status = models.CharField(max_length=8, db_column="status", null=True, blank=True)
-    contract_flag = models.CharField(max_length=12, db_column="contract_emp", default="no")
-    wagetest = models.SmallIntegerField(db_column="wagetest_emp", null=True, blank=True)
-    emptype = models.SmallIntegerField(db_column="emptype", null=True, blank=True)
+    hr_flag = models.CharField("Хүний нөөцөд бүртгэлтэй", max_length=12, db_column="hr", default="no")
+    loginpass = models.CharField(
+        "Хуучин программын нэвтрэх нууц үг", max_length=20, db_column="loginpass", null=True, blank=True
+    )
+    status = models.CharField("Төлөв", max_length=8, db_column="status", null=True, blank=True)
+    contract_flag = models.CharField("Гэрээт ажилтан", max_length=12, db_column="contract_emp", default="no")
+    wagetest = models.SmallIntegerField("Цалингийн туршилт", db_column="wagetest_emp", null=True, blank=True)
+    emptype = models.SmallIntegerField("Ажилтны төрлийн код", db_column="emptype", null=True, blank=True)
     department = models.ForeignKey(
         Department,
+        verbose_name="Хэлтэс",
         db_column="dep_ident",
         null=True,
         blank=True,
@@ -312,6 +317,7 @@ class Employee(_Table):
     )
     position = models.ForeignKey(
         Position,
+        verbose_name="Албан тушаал",
         db_column="occupation_ident",
         null=True,
         blank=True,
@@ -337,11 +343,11 @@ class Employee(_Table):
         default="Main",
         choices=[("Main", "Үндсэн"), ("Temporary", "Түр")],
     )
-    contract_no = models.CharField(max_length=10, db_column="contract_num", null=True, blank=True)
-    contract_start = TimestampDateField(db_column="g_date", null=True, blank=True)
-    contract_end = TimestampDateField(db_column="g_enddate", null=True, blank=True)
-    salary = models.DecimalField(max_digits=15, decimal_places=2, db_column="salary", default=0)
-    changed_date = TimestampDateField(db_column="changed_date", null=True, blank=True)
+    contract_no = models.CharField("Гэрээний дугаар", max_length=10, db_column="contract_num", null=True, blank=True)
+    contract_start = TimestampDateField("Гэрээ эхлэх", db_column="g_date", null=True, blank=True)
+    contract_end = TimestampDateField("Гэрээ дуусах", db_column="g_enddate", null=True, blank=True)
+    salary = models.DecimalField("Цалин", max_digits=15, decimal_places=2, db_column="salary", default=0)
+    changed_date = TimestampDateField("Сүүлд өөрчилсөн огноо", db_column="changed_date", null=True, blank=True)
     account_no = models.CharField("Дансны дугаар", max_length=20, db_column="ecode", null=True, blank=True)
     bank = _fk(Bank, "bank_ident", "Банк")
     social_insurance_no = models.CharField("НДД-ийн дугаар", max_length=14, db_column="ndno", null=True, blank=True)
@@ -380,9 +386,11 @@ class Employee(_Table):
     last_order_text = models.CharField(
         "Сүүлийн тушаалын агуулга", max_length=100, db_column="command_description", null=True, blank=True
     )
-    died = models.CharField(max_length=12, db_column="died", default="no")
-    command_id_value = models.IntegerField(db_column="command_ident", null=True, blank=True)
-    move_type = models.SmallIntegerField(db_column="move_type", null=True, blank=True)
+    died = models.CharField("Нас барсан", max_length=12, db_column="died", default="no")
+    command_id_value = models.IntegerField(
+        "Сүүлийн тушаалын дотоод дугаар", db_column="command_ident", null=True, blank=True
+    )
+    move_type = models.SmallIntegerField("Сүүлийн шилжилтийн төрөл", db_column="move_type", null=True, blank=True)
 
     class Meta(_Table.Meta):
         db_table = "employee"
@@ -478,6 +486,21 @@ class EmployeeHistory(_Table):
     branch_id_value = models.IntegerField(db_column="branch_ident", null=True, blank=True)
     move_type = models.SmallIntegerField(db_column="move_type", null=True, blank=True)
     command_id_value = models.IntegerField(db_column="command_ident", null=True, blank=True)
+    # The rest of what INS_EMPHISTORY copied from the employee row (the columns the employee row also has).
+    work_phone = models.CharField(max_length=14, db_column="workphone", null=True, blank=True)
+    private_phone = models.CharField(max_length=14, db_column="homephone", null=True, blank=True)
+    email = models.CharField(max_length=50, db_column="email", null=True, blank=True)
+    passport_no = models.CharField(max_length=20, db_column="passport", null=True, blank=True)
+    account_no = models.CharField(max_length=20, db_column="ecode", null=True, blank=True)
+    social_insurance_no = models.CharField(max_length=14, db_column="ndno", null=True, blank=True)
+    health_insurance_no = models.CharField(max_length=14, db_column="emdno", null=True, blank=True)
+    prior_service_years = models.SmallIntegerField(db_column="working_year", default=0)
+    foreign_emp = models.SmallIntegerField(db_column="foreign_emp", null=True, blank=True)
+    citizenship_id_value = models.IntegerField(db_column="country_ident", null=True, blank=True)
+    education_level_id_value = models.IntegerField(db_column="education_ident", null=True, blank=True)
+    academic_degree_id_value = models.IntegerField(db_column="graduate_ident", null=True, blank=True)
+    insured_category_id_value = models.IntegerField(db_column="insur_ident", null=True, blank=True)
+    last_order_text = models.CharField(max_length=100, db_column="command_description", null=True, blank=True)
 
     class Meta(_Table.Meta):
         db_table = "employee_history"
@@ -772,6 +795,39 @@ class PresentType(_NamedList):
         verbose_name = "Бэлгийн төрөл"
 
 
+class MaterialHelpType(_NamedList):
+    """Буцалтгүй тусламжийн үндэслэл (table `material_help_type`)."""
+
+    id = models.AutoField(primary_key=True, db_column="material_help_type_id")
+    name = models.CharField("Нэр", max_length=50, db_column="description")
+
+    class Meta(_NamedList.Meta):
+        db_table = "material_help_type"
+        verbose_name = "Буцалтгүй тусламжийн үндэслэл"
+
+
+class DisciplineType(_NamedList):
+    """Сахилгын шийтгэлийн төрөл (table `discipline_type`)."""
+
+    id = models.AutoField(primary_key=True, db_column="disctype_id")
+    name = models.CharField("Нэр", max_length=50, db_column="description")
+
+    class Meta(_NamedList.Meta):
+        db_table = "discipline_type"
+        verbose_name = "Шийтгэлийн төрөл"
+
+
+class DriverType(_NamedList):
+    """Жолооны ангилал (table `driver_type`)."""
+
+    id = models.AutoField(primary_key=True, db_column="driver_type_id")
+    name = models.CharField("Нэр", max_length=30, db_column="description")
+
+    class Meta(_NamedList.Meta):
+        db_table = "driver_type"
+        verbose_name = "Жолооны ангилал"
+
+
 class ContactType(_NamedList):
     id = models.AutoField(primary_key=True, db_column="contacttype_id")
     name = models.CharField("Нэр", max_length=30, db_column="description", null=True)
@@ -796,6 +852,61 @@ class FamilyRow(_Table):
     class Meta(_Table.Meta):
         db_table = "family"
         verbose_name = "Гэр бүлийн гишүүн"
+
+
+class RelativeRow(_Table):
+    """Ажилтны хамаатан садан (table `relative`). Branch, department and position are optional lookups."""
+
+    id = models.AutoField(primary_key=True, db_column="relative_id")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    given_name = models.CharField("Нэр", max_length=20, db_column="given_name")
+    father_name = models.CharField("Эцэг/эхийн нэр", max_length=20, db_column="father_name", null=True, blank=True)
+    job = models.CharField("Ажил", max_length=50, db_column="job", null=True, blank=True)
+    phone = models.CharField("Утас", max_length=14, db_column="phone", null=True, blank=True)
+    description = models.CharField("Ажилтны хэн болох", max_length=50, db_column="description")
+    branch = _ref(Branch, "branch_ident", "Ажилладаг салбар", null=True)
+    department = _ref(Department, "dep_ident", "Хэлтэс", null=True)
+    position = _ref(Position, "occup_ident", "Албан тушаал", null=True)
+
+    class Meta(_Table.Meta):
+        db_table = "relative"
+        verbose_name = "Хамаатан садан"
+
+
+class BeforeWorkRow(_Table):
+    """Ажилтны өмнө ажиллаж байсан газар (table `before_work`). Dates are free text, years are numbers."""
+
+    id = models.AutoField(primary_key=True, db_column="id_before")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    worked_place = models.CharField(
+        "Өмнө нь ажиллаж байсан газар", max_length=40, db_column="worked_place", null=True, blank=True
+    )
+    start_text = models.CharField("Орсон", max_length=20, db_column="start_date", null=True, blank=True)
+    end_text = models.CharField("Гарсан", max_length=20, db_column="end_date", null=True, blank=True)
+    profession = models.CharField("Мэргэжил", max_length=30, db_column="profession", null=True, blank=True)
+    shaltgaan = models.CharField("Гарсан шалтгаан", max_length=30, db_column="shaltgaan", null=True, blank=True)
+    start_year = models.SmallIntegerField("Орсон он", db_column="start_year")
+    end_year = models.SmallIntegerField("Гарсан он", db_column="end_year")
+
+    class Meta(_Table.Meta):
+        db_table = "before_work"
+        verbose_name = "Өмнө ажилласан газар"
+
+
+class SkillWorkRow(_Table):
+    """Ажилтны ур чадварын даалгавар, норм (table `hr_skillwork`). The key column is `emp_ident`; norm is NOT NULL."""
+
+    id = models.AutoField(primary_key=True, db_column="skillwork_id")
+    employee = _ref(Employee, "emp_ident", "Ажилтан")
+    description = models.CharField("Даалгавар", max_length=50, db_column="description", null=True, blank=True)
+    norm = models.DecimalField("Нормын тоо", max_digits=14, decimal_places=2, db_column="norm")
+    department = _ref(Department, "dep_ident", "Хэлтэс", null=True)
+    sdate = TimestampDateField("Огноо", db_column="sdate", null=True, blank=True)
+    comment = models.CharField("Тайлбар", max_length=100, db_column="comment", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "hr_skillwork"
+        verbose_name = "Ур чадварын даалгавар"
 
 
 class EducRow(_Table):
@@ -916,6 +1027,148 @@ class PresentRow(_Table):
         verbose_name = "Бэлэг"
 
 
+class MaterialHelpRow(_Table):
+    """Ажилтанд олгосон буцалтгүй тусламж (table `material_help`). amount, help_date and material_type are NOT NULL."""
+
+    id = models.AutoField(primary_key=True, db_column="material_help_id")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    amount = models.DecimalField("Мөнгөний дүн", max_digits=14, decimal_places=2, db_column="amount")
+    help_date = TimestampDateField("Огноо", db_column="help_date")
+    material_type = _ref(MaterialHelpType, "material_type", "Үндэслэл")
+    description = models.CharField("Тайлбар", max_length=100, db_column="description", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "material_help"
+        verbose_name = "Буцалтгүй тусламж"
+
+
+class AwardRow(_Table):
+    """Ажилтанд олгосон шагнал (table `awards`). award_name and description are NOT NULL."""
+
+    id = models.AutoField(primary_key=True, db_column="award_id")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    give_org = models.CharField("Хаанаас", max_length=40, db_column="give_org", null=True, blank=True)
+    award_name = models.CharField("Шагналын нэр", max_length=40, db_column="award_name")
+    award_date = TimestampDateField("Огноо", db_column="award_date", null=True, blank=True)
+    description = models.CharField("Тайлбар", max_length=50, db_column="description")
+
+    class Meta(_Table.Meta):
+        db_table = "awards"
+        verbose_name = "Шагнал урамшил"
+
+
+class DisciplineRow(_Table):
+    """Ажилтанд оногдуулсан сахилгын шийтгэл (table `discipline`). Type (discipline_name) and date are NOT NULL."""
+
+    id = models.AutoField(primary_key=True, db_column="discipline_id")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    from_discipline = models.CharField("Хаанаас", max_length=40, db_column="from_discipline", null=True, blank=True)
+    discipline_type = _ref(DisciplineType, "discipline_name", "Шийтгэлийн нэр")
+    discipline_date = TimestampDateField("Огноо", db_column="discipline_date")
+    description = models.CharField("Тайлбар", max_length=50, db_column="description", null=True, blank=True)
+    discipline_sal_percent = models.DecimalField(
+        "Шийтгэлийн хувь", max_digits=7, decimal_places=2, db_column="discipline_sal_percent", null=True, blank=True
+    )
+    discipline_enddate = TimestampDateField("Дуусах огноо", db_column="discipline_enddate", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "discipline"
+        verbose_name = "Сахилгын шийтгэл"
+
+
+class ComplaintRow(_Table):
+    """Ажилтны эсрэг гаргасан үйлчлүүлэгчийн гомдол (table `hr_complaints`). Date, type and name are NOT NULL.
+    ctype and complaint_name are codes from fixed lists (personal_writes.COMPLAINT_TYPES / COMPLAINT_KINDS)."""
+
+    id = models.AutoField(primary_key=True, db_column="complaint_id")
+    employee = _ref(Employee, "emp_ident", "Ажилтан")
+    cdate = TimestampDateField("Огноо", db_column="cdate")
+    ctype = models.SmallIntegerField("Төрөл", db_column="ctype")
+    complaint_name = models.SmallIntegerField("Гомдол", db_column="complaint_name")
+    comment = models.CharField("Тайлбар", max_length=100, db_column="comment", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "hr_complaints"
+        verbose_name = "Үйлчлүүлэгчийн гомдол"
+
+
+class BodyRow(_Table):
+    """Ажилтны эрүүл мэндийн үзлэг (table `body`). Every column is nullable in production.
+    The conclusion attribute maps to the column `finally`, which is a Python keyword."""
+
+    id = models.AutoField(primary_key=True, db_column="body_id")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    inserted_ognoo = TimestampDateField("Үзлэгийн огноо", db_column="inserted_ognoo", null=True, blank=True)
+    term_type = models.CharField("Үзлэгийн төрөл", max_length=10, db_column="term_type", null=True, blank=True)
+    end_date = TimestampDateField("Дуусах хугацаа", db_column="end_date", null=True, blank=True)
+    own_letter = models.CharField("Өөрийн мэдүүлэгээр", max_length=80, db_column="own_letter", null=True, blank=True)
+    ear = models.CharField("Чих хамар хоолой", max_length=60, db_column="ear", null=True, blank=True)
+    dotor = models.CharField("Дотор", max_length=60, db_column="dotor", null=True, blank=True)
+    medrel = models.CharField("Мэдрэл", max_length=60, db_column="medrel", null=True, blank=True)
+    setgel_medrel = models.CharField("Сэтгэл мэдрэл", max_length=60, db_column="setgel_medrel", null=True, blank=True)
+    mes_zasal = models.CharField("Мэс засал", max_length=60, db_column="mes_zasal", null=True, blank=True)
+    nud = models.CharField("Нүд", max_length=60, db_column="nud", null=True, blank=True)
+    female = models.CharField("Эмэгтэйчүүд", max_length=60, db_column="female", null=True, blank=True)
+    rentgen = models.CharField("Рентген", max_length=60, db_column="rentgen", null=True, blank=True)
+    skin = models.CharField("Арьс", max_length=60, db_column="skin", null=True, blank=True)
+    conclusion = models.CharField("Дүгнэлт", max_length=60, db_column="finally", null=True, blank=True)
+    sign = models.CharField("Гарын үсэг", max_length=40, db_column="sign", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "body"
+        verbose_name = "Эрүүл мэндийн үзлэг"
+
+
+class DriverRow(_Table):
+    """Ажилтны жолооны үнэмлэх (table `driver`). drivertype (driver_type) is NOT NULL."""
+
+    id = models.AutoField(primary_key=True, db_column="id_driver")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    number_driver = models.CharField(
+        "Үнэмлэхний дугаар", max_length=15, db_column="number_driver", null=True, blank=True
+    )
+    inserted_ognoo = TimestampDateField("Үнэмлэх авсан огноо", db_column="inserted_ognoo", null=True, blank=True)
+    driver_type = _ref(DriverType, "drivertype", "Жолооны ангилал")
+
+    class Meta(_Table.Meta):
+        db_table = "driver"
+        verbose_name = "Жолоо"
+
+
+class MilitaryRow(_Table):
+    """Цэргийн алба (table `military`). Every column except the employee is optional."""
+
+    id = models.AutoField(primary_key=True, db_column="military_id")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    army_rank = models.CharField("Цэргийн цол", max_length=20, db_column="army_rank", null=True, blank=True)
+    mil_rank = models.CharField("Бэлтгэл зэрэг", max_length=20, db_column="mil_rank", null=True, blank=True)
+    study_type = models.CharField("Алба хаасан жил", max_length=20, db_column="study_type", null=True, blank=True)
+    sacking_date = TimestampDateField("Халагдсан огноо", db_column="sacking_date", null=True, blank=True)
+    sacking_reason = models.CharField(
+        "Халагдсан шалтгаан", max_length=50, db_column="sacking_reason", null=True, blank=True
+    )
+
+    class Meta(_Table.Meta):
+        db_table = "military"
+        verbose_name = "Цэргийн алба"
+
+
+class ArmyRankRow(_Table):
+    """Цэргийн цол (table `army_rank`). Every column except the employee is optional."""
+
+    id = models.AutoField(primary_key=True, db_column="rank_id")
+    employee = _ref(Employee, "employee_ident", "Ажилтан")
+    rank_date = TimestampDateField("Цол олгосон огноо", db_column="rank_date", null=True, blank=True)
+    rank = models.CharField("Цэргийн цол", max_length=20, db_column="rank", null=True, blank=True)
+    addition_r = models.DecimalField(
+        "Нэмэгдлийн хэмжээ", max_digits=14, decimal_places=2, db_column="addition_r", null=True, blank=True
+    )
+
+    class Meta(_Table.Meta):
+        db_table = "army_rank"
+        verbose_name = "Цэргийн цол"
+
+
 class AddressRow(_Table):
     """Ажилтны хаяг (table `address`). The DB key is (address_id, employee_ident); writes must
     always also filter by employee."""
@@ -944,3 +1197,206 @@ class ContactRow(_Table):
     class Meta(_Table.Meta):
         db_table = "contacting"
         verbose_name = "Холбоо барих хүн"
+
+
+class IncomeLevel(_Table):
+    """Орлогын түвшин (table `income`): per-person income band, `lower < x <= upper`."""
+
+    id = models.AutoField(primary_key=True, db_column="income_id")
+    level = models.CharField("Түвшин", max_length=20, db_column="income_level")
+    lower = models.IntegerField("Доод хязгаар", db_column="c1")
+    upper = models.IntegerField("Дээд хязгаар", db_column="c2")
+
+    class Meta(_Table.Meta):
+        db_table = "income"
+        verbose_name = "Орлогын түвшин"
+        ordering = ["lower"]
+
+
+class NazgRow(_Table):
+    """Нормативт орон тоо (table `nazg`): budgeted posts per kind, position, branch and year."""
+
+    id = models.AutoField(primary_key=True, db_column="nazg_id")
+    kind = models.CharField("Төрөл", max_length=10, db_column="nazg_type")  # Main / Temporary
+    qty = models.IntegerField("Тоо", db_column="qty")
+    year = models.IntegerField("Он", db_column="rep_year")
+    position = _ref(Position, "occupation_ident", "Албан тушаал")
+    branch = _ref(Branch, "branch_ident", "Салбар")
+
+    class Meta(_Table.Meta):
+        db_table = "nazg"
+        verbose_name = "Нормативт орон тоо"
+
+
+class OccupationKind(_Table):
+    """Албан тушаалын ангилал (same table as `Position`, `occupation`): read-only view of the category code."""
+
+    id = models.AutoField(primary_key=True, db_column="occupation_id")
+    character = models.CharField("Ангилал", max_length=20, db_column="occupation_character", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "occupation"
+        verbose_name = "Албан тушаалын ангилал"
+
+
+class EmployeeIncomeRow(_Table):
+    """Ажилтны орлого (same table as `Employee`, `employee`): read-only view of the income column."""
+
+    id = models.AutoField(primary_key=True, db_column="employee_id")
+    income = models.IntegerField("Орлого", db_column="income", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "employee"
+        verbose_name = "Ажилтны орлого"
+
+
+class AddedValStat(_Table):
+    """Нэмэгдэх гүйцэтгэлийн үзүүлэлт (table `hr_addedvalstat`): one indicator and its monthly weight (`percentm`)."""
+
+    id = models.AutoField(primary_key=True, db_column="stat_id")
+    description = models.CharField("Үзүүлэлт", max_length=50, db_column="description")
+    stat_type = models.SmallIntegerField("Төрөл", db_column="stat_type", null=True, blank=True)
+    type_descr = models.CharField("Төрлийн тайлбар", max_length=50, db_column="type_descr", null=True, blank=True)
+    rownum = models.SmallIntegerField("Дугаар", db_column="rownum", null=True, blank=True)
+    percentm = models.DecimalField("Жин (%)", max_digits=14, decimal_places=2, db_column="percentm")
+
+    class Meta(_Table.Meta):
+        db_table = "hr_addedvalstat"
+        verbose_name = "Нэмэгдэх гүйцэтгэлийн үзүүлэлт"
+
+
+class AddedValBudgetRow(_Table):
+    """Нэмэгдэх гүйцэтгэлийн төлөвлөгөө, биелэлт (table `hr_addedvalbudg`): one row per indicator, person,
+    department and year, with 12 monthly budget (norm) and execution columns.
+
+    The production key is composite (stat_ident, byear, emp_ident, dep_ident). `pk` is the composite key;
+    never look a row up by `pk` alone, filter by the four fields.
+    """
+
+    pk = models.CompositePrimaryKey("stat", "year", "employee", "dep_id")
+    stat = models.IntegerField("Үзүүлэлт", db_column="stat_ident")
+    year = models.SmallIntegerField("Он", db_column="byear")
+    employee = _ref(Employee, "emp_ident", "Ажилтан")
+    dep_id = models.SmallIntegerField("Хэлтэс", db_column="dep_ident")
+    budget1 = models.DecimalField("Норм 1", max_digits=14, decimal_places=2, db_column="budget1", default=Decimal("0"))
+    budget2 = models.DecimalField("Норм 2", max_digits=14, decimal_places=2, db_column="budget2", default=Decimal("0"))
+    budget3 = models.DecimalField("Норм 3", max_digits=14, decimal_places=2, db_column="budget3", default=Decimal("0"))
+    budget4 = models.DecimalField("Норм 4", max_digits=14, decimal_places=2, db_column="budget4", default=Decimal("0"))
+    budget5 = models.DecimalField("Норм 5", max_digits=14, decimal_places=2, db_column="budget5", default=Decimal("0"))
+    budget6 = models.DecimalField("Норм 6", max_digits=14, decimal_places=2, db_column="budget6", default=Decimal("0"))
+    budget7 = models.DecimalField("Норм 7", max_digits=14, decimal_places=2, db_column="budget7", default=Decimal("0"))
+    budget8 = models.DecimalField("Норм 8", max_digits=14, decimal_places=2, db_column="budget8", default=Decimal("0"))
+    budget9 = models.DecimalField("Норм 9", max_digits=14, decimal_places=2, db_column="budget9", default=Decimal("0"))
+    budget10 = models.DecimalField(
+        "Норм 10", max_digits=14, decimal_places=2, db_column="budget10", default=Decimal("0")
+    )
+    budget11 = models.DecimalField(
+        "Норм 11", max_digits=14, decimal_places=2, db_column="budget11", default=Decimal("0")
+    )
+    budget12 = models.DecimalField(
+        "Норм 12", max_digits=14, decimal_places=2, db_column="budget12", default=Decimal("0")
+    )
+    exec1 = models.DecimalField("Гүйцэтгэл 1", max_digits=14, decimal_places=2, db_column="exec1", default=Decimal("0"))
+    exec2 = models.DecimalField("Гүйцэтгэл 2", max_digits=14, decimal_places=2, db_column="exec2", default=Decimal("0"))
+    exec3 = models.DecimalField("Гүйцэтгэл 3", max_digits=14, decimal_places=2, db_column="exec3", default=Decimal("0"))
+    exec4 = models.DecimalField("Гүйцэтгэл 4", max_digits=14, decimal_places=2, db_column="exec4", default=Decimal("0"))
+    exec5 = models.DecimalField("Гүйцэтгэл 5", max_digits=14, decimal_places=2, db_column="exec5", default=Decimal("0"))
+    exec6 = models.DecimalField("Гүйцэтгэл 6", max_digits=14, decimal_places=2, db_column="exec6", default=Decimal("0"))
+    exec7 = models.DecimalField("Гүйцэтгэл 7", max_digits=14, decimal_places=2, db_column="exec7", default=Decimal("0"))
+    exec8 = models.DecimalField("Гүйцэтгэл 8", max_digits=14, decimal_places=2, db_column="exec8", default=Decimal("0"))
+    exec9 = models.DecimalField("Гүйцэтгэл 9", max_digits=14, decimal_places=2, db_column="exec9", default=Decimal("0"))
+    exec10 = models.DecimalField(
+        "Гүйцэтгэл 10", max_digits=14, decimal_places=2, db_column="exec10", default=Decimal("0")
+    )
+    exec11 = models.DecimalField(
+        "Гүйцэтгэл 11", max_digits=14, decimal_places=2, db_column="exec11", default=Decimal("0")
+    )
+    exec12 = models.DecimalField(
+        "Гүйцэтгэл 12", max_digits=14, decimal_places=2, db_column="exec12", default=Decimal("0")
+    )
+
+    class Meta(_Table.Meta):
+        db_table = "hr_addedvalbudg"
+        verbose_name = "Нэмэгдэх гүйцэтгэлийн төлөвлөгөө"
+        verbose_name_plural = "Нэмэгдэх гүйцэтгэлийн төлөвлөгөөнүүд"
+
+    def months(self, quarter: int) -> list[tuple[Decimal, Decimal]]:
+        """(budget, execution) of the three months of `quarter` (1-4), first month first."""
+        if quarter not in (1, 2, 3, 4):
+            raise ValueError(f"quarter must be 1-4, got {quarter}")
+        first = 3 * (quarter - 1) + 1
+        return [(getattr(self, f"budget{n}"), getattr(self, f"exec{n}")) for n in (first, first + 1, first + 2)]
+
+
+class FactoryAccidentRow(_Table):
+    """Үйлдвэрлэлийн осол, хортой нөлөөлөл (table `factory_accident`). `kind` is `accident` or `toxic`."""
+
+    id = models.AutoField(primary_key=True, db_column="faccident_id")
+    kind = models.CharField("Төрөл", max_length=50, db_column="faccident")
+    type_code = models.IntegerField(
+        "Ослын төрлийн код", db_column="faccident_type", default=0
+    )  # NOT NULL in production
+    employee = _ref(Employee, "empid", "Ажилтан")
+    accident_date = TimestampDateField("Огноо", db_column="accident_date")
+    group_accident = models.SmallIntegerField("Бүлэг", db_column="group_accident", null=True, blank=True)
+    facc_type = models.SmallIntegerField("Ослын төрөл", db_column="facc_type")
+    facc_reason = models.SmallIntegerField("Ослын шалтгаан", db_column="facc_reason")
+    facc_result = models.SmallIntegerField("Ослын үр дагавар", db_column="facc_result")
+    name = models.CharField("Нэр", max_length=100, db_column="name")
+    description = models.CharField("Тайлбар", max_length=150, db_column="description", null=True, blank=True)
+    branch = _ref(Branch, "branch_ident", "Салбар", null=True)
+
+    class Meta(_Table.Meta):
+        db_table = "factory_accident"
+        verbose_name = "Үйлдвэрлэлийн осол"
+
+
+class LoanRefRow(_Table):
+    """Зээлийн үндэслэл (table `loan_refs`)."""
+
+    id = models.AutoField(primary_key=True, db_column="ref_id")
+    description = models.CharField("Нэр", max_length=100, db_column="description")
+
+    class Meta(_Table.Meta):
+        db_table = "loan_refs"
+        verbose_name = "Зээлийн үндэслэл"
+
+
+class LoanRow(_Table):
+    """Ажилтны зээл (table `hr_loan`). Read only here."""
+
+    id = models.AutoField(primary_key=True, db_column="loan_id")
+    employee = _ref(Employee, "emp_ident", "Ажилтан")
+    get_date = TimestampDateField("Авсан огноо", db_column="get_date", null=True, blank=True)
+    end_date = TimestampDateField("Дуусах огноо", db_column="end_date", null=True, blank=True)
+    amount = models.DecimalField("Зээлийн дүн", max_digits=14, decimal_places=2, db_column="amount")
+    pay_permonth = models.DecimalField("Сарын төлбөр", max_digits=14, decimal_places=2, db_column="pay_permonth")
+    loan_ref = _ref(LoanRefRow, "loanref1_ident", "Үндэслэл", null=True)
+
+    class Meta(_Table.Meta):
+        db_table = "hr_loan"
+        verbose_name = "Ажилтны зээл"
+
+
+class InfoRow(_Table):
+    """Байгууллагын мэдээлэл (table `info`): only the key and the organisation type code are mirrored."""
+
+    register_no = models.CharField("Регистрийн дугаар", max_length=20, db_column="registerno", primary_key=True)
+    orgtype_code = models.CharField("Байгууллагын төрөл", max_length=2, db_column="orgtype_code", null=True, blank=True)
+
+    class Meta(_Table.Meta):
+        db_table = "info"
+        verbose_name = "Байгууллагын мэдээлэл"
+
+
+class EmployeeGradeRow(_Table):
+    """Ажилтны зэрэглэлийн хувь (same table as `Employee`, `employee`): read-only view of `grade_perc`."""
+
+    id = models.AutoField(primary_key=True, db_column="employee_id")
+    grade_perc = models.DecimalField(
+        "Зэргийн хувь", max_digits=7, decimal_places=2, db_column="grade_perc", default=Decimal("0")
+    )
+
+    class Meta(_Table.Meta):
+        db_table = "employee"
+        verbose_name = "Ажилтны зэрэглэлийн хувь"

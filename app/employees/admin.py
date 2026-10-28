@@ -113,6 +113,10 @@ class ReadOnlyAdmin(ModelAdmin):  # type: ignore[misc]
 class EmployeeAdmin(ReadOnlyAdmin):
     list_display = ("code", "family_name", "given_name")
     search_fields = ("code", "family_name", "given_name", "register_no")
+    exclude = ("loginpass",)  # the old program's login password: never shown (employee-field-map.md)
+
+    def get_queryset(self, request: HttpRequest) -> Any:
+        return super().get_queryset(request).defer("loginpass")  # not even read
 
 
 @admin.register(JobRecord, SalaryRecord)

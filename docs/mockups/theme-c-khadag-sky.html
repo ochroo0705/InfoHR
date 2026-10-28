@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option C — Khadag sky (throwaway)</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --sky:#4ea3dc; --sky-d:#1f6fa8; --sky-t:#e3f1fb; --navy:#0d2a47; --ink:#17283a; --ink-2:#506579; --ink-3:#8497a8; --bg:#f4f8fb; --card:#fff; --line:#dbe6ee; --sun:#f2b632; --sun-t:#fff1cc; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:400 15px/1.55 Onest,system-ui,sans-serif; display:grid; grid-template-columns:220px 1fr; min-height:100vh; }
+  :focus-visible { outline:3px solid var(--sun); outline-offset:2px; }
+  aside { background:var(--navy); color:#cfe0ee; padding:22px 14px; position:sticky; top:0; height:100vh; }
+  .logo { font-weight:700; font-size:19px; color:#fff; padding:0 10px 22px; display:flex; align-items:center; gap:10px; }
+  .logo i { width:26px; height:26px; border-radius:50%; background:var(--sky); display:inline-block; box-shadow:inset -6px -6px 0 rgb(255 255 255 / .35); }
+  aside a { display:block; padding:10px 12px; border-radius:12px; color:#cfe0ee; text-decoration:none; margin-bottom:2px; }
+  aside a:hover { background:rgb(255 255 255 / .08); }
+  aside a[aria-current] { background:var(--sky); color:#fff; font-weight:600; }
+  .banner { background:linear-gradient(0deg,var(--sky-t),var(--sky-t)); border-bottom:1px solid var(--line); padding:28px 36px 0; }
+  .who { display:flex; gap:18px; align-items:center; }
+  .avatar { width:84px; height:84px; border-radius:50%; background:var(--sky); color:#fff; display:grid; place-items:center; font-size:30px; font-weight:600; border:4px solid #fff; }
+  h1 { margin:0; font-size:28px; font-weight:650; color:var(--navy); letter-spacing:-.01em; }
+  .sub { color:var(--ink-2); }
+  .tabs { display:flex; gap:6px; margin-top:22px; }
+  .tab { padding:10px 18px; border-radius:12px 12px 0 0; color:var(--ink-2); text-decoration:none; }
+  .tab[aria-current] { background:var(--bg); color:var(--sky-d); font-weight:600; }
+  .body { padding:26px 36px 60px; max-width:1000px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px 16px; }
+  .tile small { display:block; color:var(--ink-3); font-size:12.5px; }
+  .tile b { font-weight:600; font-size:16px; }
+  h2 { font-size:17px; margin:30px 0 12px; font-weight:650; color:var(--navy); }
+  .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px 18px; }
+  label { display:block; font-size:13px; color:var(--ink-2); margin-bottom:4px; }
+  .soft { width:100%; padding:10px 14px; border:1.5px solid var(--line); background:#fff; border-radius:14px; font:inherit; color:var(--ink); }
+  .soft:hover { border-color:#b5cfe2; }
+  .soft:focus { outline:none; border-color:var(--sky); box-shadow:0 0 0 4px var(--sky-t); }
+  .btns { display:flex; gap:10px; margin-top:18px; }
+  .btn { font:inherit; padding:10px 22px; border-radius:99px; border:1.5px solid var(--line); background:#fff; cursor:pointer; }
+  .btn.primary { background:var(--sky-d); border-color:var(--sky-d); color:#fff; font-weight:500; }
+  .btn.primary:hover { background:var(--navy); }
+  .list { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .row { display:grid; grid-template-columns:1.1fr 1.6fr 1.3fr .9fr; gap:12px; padding:13px 18px; align-items:center; border-top:1px solid #edf2f6; cursor:pointer; }
+  .row:first-child { border-top:0; background:#f6fafd; color:var(--ink-2); font-size:13px; font-weight:500; cursor:default; }
+  .row:not(:first-child):hover { background:var(--sky-t); }
+  .wait { color:#9a6a0c; font-style:italic; }
+  .row.void { color:var(--ink-3); text-decoration:line-through; }
+  .chip { display:inline-block; padding:2px 12px; border-radius:99px; font-size:12.5px; font-weight:500; }
+  .chip.pending { background:var(--sun-t); color:#7a5a14; border:1.5px dashed var(--sun); }
+  .chip.reg { background:var(--sky-t); color:var(--sky-d); }
+  .chip.sign { background:#dcf1e4; color:#1b5e37; }
+  .chip.void { background:#e9eef2; color:var(--ink-3); }
+  .note { margin-top:20px; color:var(--ink-3); font-size:13px; }
+  @media (max-width:760px){ body{grid-template-columns:1fr;} aside{position:static;height:auto;display:flex;overflow-x:auto;padding:10px;} .logo{padding:0 10px 0 0;} aside a{white-space:nowrap;} .banner,.body{padding-inline:16px;} .row{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+<aside><div class="logo"><i></i>Info HR</div><a href="#" aria-current="page">Ажилтан</a><a href="#">Чөлөө</a><a href="#">Тушаал</a><a href="#">Тайлан</a></aside>
+<div>
+  <div class="banner">
+    <div class="who"><div class="avatar" aria-hidden="true">ОД</div><div><h1>Д. Оюунчимэг</h1><div class="sub">Ахлах мэргэжилтэн · Хүний нөөцийн хэлтэс</div></div></div>
+    <nav class="tabs"><a class="tab" href="#" aria-current="page">Ажил</a><a class="tab" href="#">Цалин даатгал</a><a class="tab" href="#">Хувийн</a></nav>
+  </div>
+  <div class="body">
+    <div class="tiles">
+      <div class="tile"><small>Ажилд орсон</small><b>2019-03-04</b></div>
+      <div class="tile"><small>Ажилтны төрөл</small><b>Үндсэн</b></div>
+      <div class="tile"><small>Гэрээ дуусах</small><b>Хугацаагүй</b></div>
+      <div class="tile"><small>Шууд удирдлага</small><b>Б. Гантулга</b></div>
+    </div>
+    <h2>Ажлын байр</h2>
+    <div class="fields">
+      <div><label for="a">Албан тушаал</label><input id="a" class="soft" value="Ахлах мэргэжилтэн"></div>
+      <div><label for="b">Хэлтэс</label><input id="b" class="soft" value="Хүний нөөцийн хэлтэс"></div>
+      <div><label for="c">Утас</label><input id="c" class="soft" value="9911 2233"></div>
+    </div>
+    <div class="btns"><button class="btn">Болих</button><button class="btn primary">Хадгалах</button></div>
+    <h2>Ажлын түүх</h2>
+    <div class="list">
+      <div class="row"><span>Дугаар</span><span>Өөрчлөлт</span><span>Төлөв</span><span>Огноо</span></div>
+      <div class="row"><span class="wait">дугаар хүлээгдэж байна</span><span>Албан тушаал ахиулах</span><span><span class="chip pending">Дугаар оруулаагүй</span></span><span>2026-10-20</span></div>
+      <div class="row"><b>№ 15</b><span>Цалин өөрчлөх</span><span><span class="chip reg">Бүртгэсэн</span></span><span>2026-07-01</span></div>
+      <div class="row"><b>№ 08</b><span>Хэлтэс шилжих</span><span><span class="chip sign">Гарын үсэгтэй</span></span><span>2024-02-12</span></div>
+      <div class="row void"><b>№ 03</b><span>Гэрээ сунгах</span><span><span class="chip void">Цуцалсан</span></span><span>2023-05-09</span></div>
+      <div class="row"><b>№ 01</b><span>Ажилд авах</span><span><span class="chip sign">Гарын үсэгтэй</span></span><span>2019-03-04</span></div>
+    </div>
+    <p class="note">Throwaway mock-up, option C. Left menu instead of a top bar.</p>
+  </div>
+</div>
+</body>
+</html>

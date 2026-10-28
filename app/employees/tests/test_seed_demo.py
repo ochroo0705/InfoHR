@@ -114,3 +114,31 @@ def test_seed_demo_adds_fired_reasons_and_death_meaning(settings: SettingsWrappe
     }
     assert names <= set(FiredReason.objects.values_list("name", flat=True))
     assert MeaningfulEntry.get(DEATH) == FiredReason.objects.get(name="Нас барсан").pk
+
+
+def test_seed_demo_fills_new_lists(settings: SettingsWrapper) -> None:
+    from macs.models import DisciplineType, DriverType, MaterialHelpType
+
+    from employees.services import personal_rows
+
+    settings.DEBUG = True
+    call_command("seed_demo", stdout=StringIO())
+    director = Employee.objects.get(given_name="Энхбаяр")
+    new_kinds = [
+        "relative",
+        "before_work",
+        "skill",
+        "material_help",
+        "award",
+        "discipline",
+        "complaint",
+        "body",
+        "driver",
+        "military",
+        "army_rank",
+    ]
+    for kind in new_kinds:
+        assert personal_rows.rows(kind, director), kind
+    assert MaterialHelpType.objects.count() == 1
+    assert DisciplineType.objects.count() == 1
+    assert DriverType.objects.count() == 1

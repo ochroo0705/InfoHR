@@ -15,6 +15,7 @@ from employees.models import ActivityEntry, Employee, Event, ensure_ext
 from employees.services import events, history, macs_writes
 
 from .conftest import hire_values
+from .helpers import record_signed
 from .test_insurance_columns import login_as
 
 pytestmark = pytest.mark.django_db
@@ -93,7 +94,7 @@ def test_salary_change_on_legacy_creates_starting_records_then_the_change(
 def test_transfer_on_legacy_starts_then_transfers(actor: User, job_values: dict[str, Any]) -> None:
     emp = _legacy(actor, job_values)
     other = macs_writes.save_department("Захиргаа")
-    events.record(
+    record_signed(
         emp,
         type="transfer",
         effective=TODAY,

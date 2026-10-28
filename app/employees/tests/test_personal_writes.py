@@ -8,12 +8,16 @@ from django.db import connection
 from macs.models import (
     AcademicDegree,
     AddressRow,
+    Branch,
     CertificateRow,
     City,
     ContactRow,
     ContactType,
     Country,
+    Department,
+    DisciplineType,
     District,
+    DriverType,
     EducationLevel,
     EducRow,
     EduType,
@@ -21,6 +25,8 @@ from macs.models import (
     FamilyRow,
     ForeignLanguage,
     LanguageRow,
+    MaterialHelpType,
+    Position,
     PresentRow,
     PresentType,
     QualificationRow,
@@ -53,6 +59,9 @@ def lists(db: None) -> dict[str, Any]:
         "talent": TalentKind.objects.create(name="Хөгжим").pk,
         "talent2": TalentKind.objects.create(name="Спорт").pk,
         "present": PresentType.objects.create(name="Мөнгө").pk,
+        "material_type": MaterialHelpType.objects.create(name="Эмчилгээ").pk,
+        "discipline_type": DisciplineType.objects.create(name="Анхааруулга").pk,
+        "driver_type": DriverType.objects.create(name="B ангилал").pk,
         "contact": ContactType.objects.create(name="Утас").pk,
         "city": city.pk,
         "district": District.objects.create(name="Баянгол", city=city).pk,
@@ -61,10 +70,33 @@ def lists(db: None) -> dict[str, Any]:
         "edu_level": EducationLevel.objects.create(name="Бакалавр").pk,
         "grade": AcademicDegree.objects.create(name="Баклавр").pk,
         "country": Country.objects.create(name="Япон").pk,
+        "branch": Branch.objects.create(name="Төв салбар").pk,
+        "department": Department.objects.create(name="Санхүү").pk,
+        "position": Position.objects.create(name="Нярав").pk,
     }
 
 
 def _values(kind: str, lists: dict[str, Any]) -> dict[str, object]:
+    if kind == "before_work":
+        return {
+            "worked_place": "Анод ХХК",
+            "start_text": "2019 оны 3-р сар",
+            "end_text": "2021 оны 6-р сар",
+            "profession": "Нягтлан",
+            "shaltgaan": "Өөрийн хүсэлт",
+            "start_year": 2019,
+            "end_year": 2021,
+        }
+    if kind == "relative":
+        return {
+            "given_name": "Дорж",
+            "father_name": "Бат",
+            "phone": "99112233",
+            "description": "Эхнэр",
+            "branch_id": lists["branch"],
+            "department_id": lists["department"],
+            "position_id": lists["position"],
+        }
     if kind == "family":
         return {"relation_id": lists["relation"], "given_name": "Болд", "surname": "Бат", "job": "Багш"}
     if kind == "education":
@@ -78,6 +110,14 @@ def _values(kind: str, lists: dict[str, Any]) -> dict[str, object]:
         }
     if kind == "talent":
         return {"talent_ident": lists["talent"], "trained_year": 2015, "description": "Хийл"}
+    if kind == "skill":
+        return {
+            "description": "Excel",
+            "norm": Decimal("1.50"),
+            "department_id": lists["department"],
+            "sdate": date(2026, 1, 15),
+            "comment": "Туршилт",
+        }
     if kind == "gift":
         return {
             "present_type_id": lists["present"],
@@ -87,6 +127,65 @@ def _values(kind: str, lists: dict[str, Any]) -> dict[str, object]:
             "price": 50000,
             "child_age": 3,
             "given": 1,
+        }
+    if kind == "material_help":
+        return {
+            "material_type_id": lists["material_type"],
+            "amount": Decimal("1250000"),
+            "help_date": date(2026, 1, 15),
+            "description": "Эмнэлгийн зардал",
+        }
+    if kind == "award":
+        return {
+            "give_org": "Засгийн газар",
+            "award_name": "Гавьяа медаль",
+            "award_date": date(2026, 3, 8),
+            "description": "Жилийн үр дүн",
+        }
+    if kind == "discipline":
+        return {
+            "from_discipline": "Санхүүгийн алба",
+            "discipline_type_id": lists["discipline_type"],
+            "discipline_date": date(2026, 2, 1),
+            "description": "Хоцорсон",
+            "discipline_sal_percent": Decimal("12.50"),
+            "discipline_enddate": date(2026, 5, 1),
+        }
+    if kind == "driver":
+        return {
+            "driver_type_id": lists["driver_type"],
+            "number_driver": "1234567",
+            "inserted_ognoo": date(2026, 3, 1),
+        }
+    if kind == "army_rank":
+        return {"rank_date": date(2025, 6, 1), "rank": "Ахлагч", "addition_r": Decimal("15.00")}
+    if kind == "military":
+        return {
+            "army_rank": "Ахлагч",
+            "mil_rank": "Бэлтгэл-1",
+            "study_type": "2 жил",
+            "sacking_date": date(2026, 3, 1),
+            "sacking_reason": "Хугацаа дууссан",
+        }
+    if kind == "complaint":
+        return {"cdate": date(2026, 2, 1), "ctype": 1, "complaint_name": 2, "comment": "Хүлээн авалт"}
+    if kind == "body":
+        return {
+            "inserted_ognoo": date(2026, 2, 1),
+            "term_type": "Жилийн",
+            "end_date": date(2027, 2, 1),
+            "own_letter": "Тийм",
+            "ear": "Хэвийн",
+            "dotor": "Хэвийн",
+            "medrel": "Хэвийн",
+            "setgel_medrel": "Хэвийн",
+            "mes_zasal": "Хэвийн",
+            "nud": "Хэвийн",
+            "female": "Хэвийн",
+            "rentgen": "Хэвийн",
+            "skin": "Хэвийн",
+            "conclusion": "Ажилд тохиромжтой",
+            "sign": "Б.Болд",
         }
     if kind == "address":
         return {"city_id": lists["city"], "district_id": lists["district"], "street": "Жуулчин 12"}
@@ -137,6 +236,28 @@ def _changed(kind: str, lists: dict[str, Any]) -> dict[str, object]:
     values = dict(_values(kind, lists))
     if kind == "talent":
         values["description"] = "Гитар"
+    elif kind == "before_work":
+        values["worked_place"] = "Шинэ газар"
+    elif kind == "skill":
+        values["description"] = "Word"
+    elif kind == "material_help":
+        values["amount"] = Decimal("500000")
+    elif kind == "award":
+        values["award_name"] = "Шинэ шагнал"
+    elif kind == "discipline":
+        values["description"] = "Шинэ тайлбар"
+    elif kind == "complaint":
+        values["comment"] = "Шинэ тайлбар"
+    elif kind == "body":
+        values["conclusion"] = "Шинэ дүгнэлт"
+    elif kind == "driver":
+        values["number_driver"] = "7654321"
+    elif kind == "military":
+        values["army_rank"] = "Сержант"
+    elif kind == "army_rank":
+        values["rank"] = "Сержант"
+    elif kind == "relative":
+        values["given_name"] = "Ганаа"
     elif kind == "family":
         values["given_name"] = "Ганаа"
     elif kind == "education":
@@ -170,7 +291,7 @@ def test_add_each_kind_inserts_and_logs(kind: str, emp: Employee, lists: dict[st
     assert len(_rows_for(kind, emp)) == 1
     assert pw.load(kind, emp, key) is not None
     entry = ActivityEntry.objects.filter(employee=emp).latest("id")
-    assert entry.kind == ActivityKind.CHANGED
+    assert entry.kind == ActivityKind.ADDED
     assert entry.personal is True
     assert entry.message.startswith(f"{pw.TITLES[kind]}: нэмсэн — ")
 
@@ -180,6 +301,13 @@ def test_language_log_shows_language_name(emp: Employee, lists: dict[str, Any], 
     _add("language", emp, lists, actor)
     entry = ActivityEntry.objects.filter(employee=emp).latest("id")
     assert entry.message == f"{pw.TITLES['language']}: нэмсэн — Англи"
+
+
+@pytest.mark.django_db
+def test_talent_log_shows_talent_name(emp: Employee, lists: dict[str, Any], actor: User) -> None:
+    _add("talent", emp, lists, actor)
+    entry = ActivityEntry.objects.filter(employee=emp).latest("id")
+    assert entry.message == f"{pw.TITLES['talent']}: нэмсэн — Хөгжим"
 
 
 @pytest.mark.django_db
@@ -218,7 +346,8 @@ def test_delete_each_kind(kind: str, emp: Employee, lists: dict[str, Any], actor
     pw.delete(kind, emp, key, loaded, actor)
     assert _rows_for(kind, emp) == []
     assert pw.load(kind, emp, key) is None
-    assert ActivityEntry.objects.filter(employee=emp, message__startswith=f"{pw.TITLES[kind]}: устгасан").exists()
+    entry = ActivityEntry.objects.filter(employee=emp, message__startswith=f"{pw.TITLES[kind]}: устгасан").get()
+    assert entry.kind == ActivityKind.DELETED
 
 
 @pytest.mark.django_db

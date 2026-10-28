@@ -11,8 +11,10 @@ from employees import access
 from employees.models import ActivityEntry, Department, Employee, Event, JobRecord, Position, SalaryRecord
 from employees.services import events, history
 from employees.services.events import EventError
+from employees.services.orders import OrderError
 
 from .conftest import named
+from .helpers import record_signed, sign_event
 from .test_access import user_in
 
 PAST = date(2026, 3, 1)
@@ -25,7 +27,7 @@ def future() -> date:
 def rec(emp: Employee, actor: User, type: str, effective: date, **kw: Any) -> Event:
     args: dict[str, Any] = {"changes": {}, "salary": None, "reason": "", "note": "", "by": actor}
     args.update(kw)
-    return events.record(emp, type=type, effective=effective, **args)
+    return record_signed(emp, type=type, effective=effective, **args)
 
 
 def errors_of(emp: Employee, actor: User, type: str, effective: date, **kw: Any) -> dict[str, str]:
@@ -53,7 +55,9 @@ def test_promotion_any_date_with_salary(hired: Employee, actor: User, lead: Posi
     salary = history.salary_on(hired, day)
     assert salary is not None and salary.base_salary == Decimal("3000000.00") and salary.event == ev
     assert ev.status(timezone.localdate()) == ("scheduled" if when == "future" else "effective")
-    msgs = ActivityEntry.objects.filter(employee=hired, message__startswith="Дэвшүүлсэн")
+    msgs = ActivityEntry.objects.filter(employee=hired, message__startswith="Дэвшүүлсэн").exclude(
+        message__contains="хүлээж байна"
+    )
     assert msgs.count() == 2
     assert (" (өнгөрсөн огноогоор)" in msgs[0].message) == (when == "past")
     job_entry = msgs.get(sensitive=False)
@@ -72,7 +76,9 @@ def test_status_is_derived_from_date(hired: Employee, actor: User, lead: Positio
 def test_transfer_and_note_not_in_log(hired: Employee, actor: User) -> None:
     dept = Department.objects.create(name="Хүний нөөц")
     rec(hired, actor, "transfer", PAST, changes={"department": dept}, note="нууц тайлбар")
-    entry = ActivityEntry.objects.get(employee=hired, message__startswith="Шилжүүлсэн")
+    entry = ActivityEntry.objects.exclude(message__contains="хүлээж байна").get(
+        employee=hired, message__startswith="Шилжүүлсэн"
+    )
     assert "нууц" not in entry.message and entry.message.startswith("Шилжүүлсэн · 2026-03-01-нээс")
     assert job_at(hired, PAST).note == "нууц тайлбар"
 
@@ -90,8 +96,10 @@ def test_promotion_needs_position_change(hired: Employee, actor: User, job_value
 def test_demotion_needs_reason(hired: Employee, actor: User, lead: Position) -> None:
     assert "reason" in errors_of(hired, actor, "demotion", PAST, changes={"position": lead})
     rec(hired, actor, "demotion", PAST, changes={"position": lead}, reason="Гүйцэтгэл")
-    entry = ActivityEntry.objects.get(employee=hired, message__startswith="Бууруулсан")
-    assert entry.message.endswith(". Гүйцэтгэл")
+    entry = ActivityEntry.objects.exclude(message__contains="хүлээж байна").get(
+        employee=hired, message__startswith="Бууруулсан"
+    )
+    assert entry.message.endswith(". Гүйцэтгэл. Тушаал гарын үсэгтэй болсон.")
 
 
 def test_disallowed_field_refused(hired: Employee, actor: User, lead: Position) -> None:
@@ -164,7 +172,7 @@ def test_failure_leaves_no_event(hired: Employee, actor: User, lead: Position) -
 
 def test_cancel_scheduled_merges_back(hired: Employee, actor: User, lead: Position) -> None:
     ev = rec(hired, actor, "promotion", future(), changes={"position": lead}, salary=Decimal("3000000"))
-    events.cancel(ev, reason="Буруу бүртгэл", by=actor)
+    events.cancel(ev, reason="Буруу бүртгэл", by=actor, cancel_order_no="А/41")
     ev.refresh_from_db()
     assert ev.status(timezone.localdate()) == "cancelled" and ev.cancelled_by == actor
     (job,) = JobRecord.objects.filter(employee=hired)
@@ -189,7 +197,7 @@ def test_cancel_refusals(hired: Employee, actor: User, lead: Position) -> None:
     assert "__all__" in _cancel_errors(done, actor, "reason")
     ev = rec(hired, actor, "transfer", future(), changes={"department": Department.objects.create(name="Х")})
     assert "reason" in _cancel_errors(ev, actor, "  ")
-    events.cancel(ev, reason="ok", by=actor)
+    events.cancel(ev, reason="ok", by=actor, cancel_order_no="А/42")
     assert "__all__" in _cancel_errors(ev, actor, "again")
 
 
@@ -314,22 +322,25 @@ def test_salary_failure_rolls_back_job_part(
     def boom(*args: Any, **kwargs: Any) -> None:
         raise history.HistoryError("boom")
 
-    monkeypatch.setattr(history, "change_salary", boom)
-    counts = (
-        Event.objects.count(),
-        JobRecord.objects.count(),
-        SalaryRecord.objects.count(),
-        ActivityEntry.objects.count(),
+    monkeypatch.setattr(history, "insert_salary", boom)
+    # The promotion waits for its order, so the salary failure comes when the order is signed.
+    ev = events.record(
+        hired,
+        type="promotion",
+        effective=PAST,
+        changes={"position": lead},
+        salary=Decimal("3"),
+        reason="",
+        note="",
+        by=actor,
     )
-    assert errors_of(hired, actor, "promotion", PAST, changes={"position": lead}, salary=Decimal("3")) == {
-        "__all__": "boom"
-    }
-    assert counts == (
-        Event.objects.count(),
-        JobRecord.objects.count(),
-        SalaryRecord.objects.count(),
-        ActivityEntry.objects.count(),
-    )
+    counts = (Event.objects.count(), JobRecord.objects.count(), SalaryRecord.objects.count())
+    with pytest.raises(OrderError) as exc:
+        sign_event(ev, by=actor)
+    assert exc.value.errors == {"__all__": "boom"}
+    ev.refresh_from_db()
+    assert ev.applied_at is None
+    assert counts == (Event.objects.count(), JobRecord.objects.count(), SalaryRecord.objects.count())
     assert JobRecord.objects.get(employee=hired).period.upper is None
 
 
@@ -343,8 +354,10 @@ def test_termination_stores_fired_reason(hired: Employee, actor: User) -> None:
     ev = rec(hired, actor, "termination", PAST, fired_reason=reason)
     ev.refresh_from_db()
     assert ev.fired_reason == reason and ev.reason == ""
-    entry = ActivityEntry.objects.get(employee=hired, message__startswith="Ажлаас чөлөөлсөн")
-    assert entry.message.endswith(". Өөрийн хүсэлтээр")
+    entry = ActivityEntry.objects.exclude(message__contains="хүлээж байна").get(
+        employee=hired, message__startswith="Ажлаас чөлөөлсөн"
+    )
+    assert entry.message.endswith(". Өөрийн хүсэлтээр. Тушаал гарын үсэгтэй болсон.")
 
 
 def test_fired_reason_rejected_for_transfer(hired: Employee, actor: User) -> None:
@@ -394,8 +407,8 @@ def test_cancel_refused_while_later_row_exists(hired: Employee, actor: User, lea
     errs = _cancel_errors(transfer, actor, "x")
     assert "__all__" in errs
     assert JobRecord.objects.filter(employee=hired).count() == 3
-    events.cancel(promo, reason="x", by=actor)
-    events.cancel(transfer, reason="x", by=actor)
+    events.cancel(promo, reason="x", by=actor, cancel_order_no="А/43")
+    events.cancel(transfer, reason="x", by=actor, cancel_order_no="А/44")
     (job,) = JobRecord.objects.filter(employee=hired)
     assert job.period.upper is None and job.department != dept
 

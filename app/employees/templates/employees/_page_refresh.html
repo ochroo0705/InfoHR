@@ -1,0 +1,4 @@
+{# Out-of-band refresh after a personal-tab write without a reload (UI_RULES §2f): the activity log entries (not its note form, which may hold a note being typed), the header's latest line and Түүх count, and, when `menu_sec` is set, that menu entry's count (`menu_count`). Context: detail_context. #}
+<div id="activity-list" hx-swap-oob="innerHTML">{% include "employees/_activity_entries.html" %}</div>
+{% include "employees/_activity_oob.html" %}
+{% if menu_sec %}<span id="menu-count-{{ menu_sec }}" hx-swap-oob="true" class="text-xs {% if menu_count == 0 %}text-slate-300{% else %}text-slate-400{% endif %}">{{ menu_count }}</span>{% endif %}
