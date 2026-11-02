@@ -180,14 +180,62 @@ def _leave_not_configured(user: User) -> list[Attention]:
     ]
 
 
+def _approval_role_removed(user: User) -> list[Attention]:
+    """A role used for leave approval was deleted, so the approval setting changed: whoever can change it is told."""
+    from leave import access as leave_access  # local import: leave depends on employees, not the reverse
+    from leave.models import LeaveSettings
+
+    if not leave_access.can_manage_settings(user):
+        return []
+    if not LeaveSettings.objects.filter(pk=1, approval_role_removed=True).exists():
+        return []
+    return [
+        Attention(
+            None,
+            "Чөлөө батлах роль устгагдсан тул тохиргоо өөрчлөгдсөн",
+            "leave_approval_role_removed",
+            MISSING,
+            url=reverse("leave:settings"),
+        )
+    ]
+
+
+def _leave_requests_waiting(user: User, today: date) -> list[Attention]:
+    """Approvers are told how many leave requests wait for them, with a link to the requests list (spec 5.5)."""
+    from leave.services import approvers as leave_approvers  # local import: leave depends on employees
+
+    if not leave_approvers.requests_active(user):  # approval on, or requests still waiting (spec 5.1)
+        return []
+    if not leave_approvers.may_decide(user, today):  # cheap pre-check before the queue is worked out
+        return []
+    count = len(leave_approvers.waiting_for_cached(user, today))
+    if count == 0:
+        return []
+    return [
+        Attention(
+            None,
+            f"{count} чөлөөний хүсэлт таныг хүлээж байна",
+            "leave_requests",
+            DUE,
+            url=reverse("leave:requests"),
+        )
+    ]
+
+
 def items(user: User, rows: list[Row], today: date) -> list[Attention]:
     can_manage = access.can_manage(user)
     can_salary = access.can_view_salary(user)
-    system_items = _death_meaning_missing(user) + _leave_not_configured(user)
+    system_items = (
+        _death_meaning_missing(user)
+        + _leave_not_configured(user)
+        + _approval_role_removed(user)
+        + _leave_requests_waiting(user, today)
+    )
     from leave import access as leave_access  # local import: leave depends on employees, not the reverse
     from leave.services import entitlement as leave_entitlement
     from leave.services import ledger as leave_ledger
     from leave.services.fmt import fmt_days
+    from leave.services.rows import LeaveRow
 
     can_leave = leave_access.can_view(user) and leave_ledger.annual_configured()
     # Waiting changes use every visible employee, left ones too: a waiting rehire belongs to a left employee.
@@ -206,6 +254,19 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
             .exclude(account_no__isnull=True)
             .exclude(account_no="")
             .values_list("pk", flat=True)
+        )
+    # Leave balance and setup state for everyone at once (a lookup per person made this page slow at 300 staff).
+    started: set[int] = set()
+    balances: dict[int, tuple[list[leave_ledger.Period], list[LeaveRow]]] = {}
+    if can_leave:
+        starts = leave_entitlement.employment_starts(r.employee for r in rows)
+        started = {pk for pk, day in starts.items() if day is not None and day <= today}
+        # Read-only: periods never writes grants, so a list GET stays free of side effects.
+        balances = leave_ledger.periods_many((r.employee for r in rows if r.employee.pk in started), today)
+    setup_done: dict[int, bool] = {}
+    if can_manage:
+        setup_done = setup.complete_many(
+            (r.employee for r in rows if (x := ext_of(r.employee)) is not None and x.setup_required), user
         )
     out: list[Attention] = []
     if can_manage:
@@ -257,9 +318,8 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
             out.append(Attention(e, f"Чөлөөнөөс буцах огноо өнгөрсөн: {_fmt(back)}", "leave", OVERDUE, back))
         elif back is not None and back <= today + timedelta(days=SCHEDULED_DAYS):
             out.append(Attention(e, f"Чөлөөнөөс буцах: {_fmt(back)}", "leave", DUE, back))
-        if can_leave and leave_entitlement.has_started(e, today):
-            # Read-only: periods() never writes grants, so a list GET stays free of side effects.
-            found, _ = leave_ledger.periods(e, today)
+        if can_leave and e.pk in started:
+            found, _ = balances[e.pk]
             current = next((p for p in found if p.start <= today <= p.end), None)
             if current is not None and current.left < 0:
                 out.append(
@@ -269,7 +329,7 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
                 )
             if any(p.doubled for p in found):
                 out.append(Attention(e, "Ээлжийн амралт: давхардсан эрх", "leave_doubled", DUE))
-        if can_manage and ext is not None and ext.setup_required and not setup.complete_for(e, user):
+        if can_manage and ext is not None and ext.setup_required and not setup_done[e.pk]:
             out.append(Attention(e, "Бүрдүүлэлт дутуу", "setup"))
         if access.can_view_personal(user, e) and e.pk not in with_contact:
             out.append(Attention(e, "Яаралтай үед холбогдох хүн бүртгээгүй", "emergency"))
@@ -294,6 +354,9 @@ def _sorted(out: list[Attention]) -> list[Attention]:
     return out
 
 
+# A group shows this many items; the rest load on demand behind "+N" (a box with every item was 770 KB at 300 staff).
+GROUP_LIMIT = 10
+
 # Group headings per (kind, urgency); a kind not listed falls back to its first item's text.
 GROUP_LABELS: dict[tuple[str, int], str] = {
     ("termination", DUE): "Ажлаас гарах",
@@ -314,6 +377,7 @@ GROUP_LABELS: dict[tuple[str, int], str] = {
     ("emergency", MISSING): "Яаралтай үед холбогдох хүн дутуу",
     ("bank", MISSING): "Банкны мэдээлэл дутуу",
     ("lists_death", MISSING): "Жагсаалтын утга дутуу",
+    ("leave_requests", DUE): "Чөлөөний хүсэлт батлах",
 }
 
 
@@ -328,6 +392,15 @@ class Group:
     def dated(self) -> bool:
         """Dated items (and those with their own detail text) show one line each; the rest show as name chips."""
         return any(a.due is not None for a in self.items) or self.kind == "leave_balance"
+
+    @property
+    def shown(self) -> list[Attention]:
+        return self.items[:GROUP_LIMIT]
+
+    @property
+    def more(self) -> int:
+        """How many items sit behind the "+N" button."""
+        return max(0, len(self.items) - GROUP_LIMIT)
 
 
 def group(found: list[Attention]) -> list[Group]:

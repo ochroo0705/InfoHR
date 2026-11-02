@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Ажилтнууд{% endblock %}
 {% block content %}
+{% if one_time_login %}{% include "employees/_one_time_login.html" %}{% endif %}
 <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4">
   <h1 class="text-xl font-semibold">Ажилтнууд</h1>
   <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
     {% if can_open_staff_report %}<a href="{% url 'reports:report' 'staff-list' %}" class="text-sm text-violet-700 hover:underline">Жагсаалт гаргах</a>{% endif %}
     <div class="inline-flex shrink-0 overflow-hidden rounded-lg border border-slate-300 text-sm">
-      <button type="button" aria-pressed="{% if view == 'grid' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'grid' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}" form="employee-filters" data-view-btn="grid" onclick="hrSetView(this.form, 'grid'); htmx.trigger(this.form, 'viewchange')">Зураг</button>
-      <button type="button" aria-pressed="{% if view == 'table' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'table' %}bg-violet-600 text-white{% else %}bg-white text-slate-700 hover:bg-slate-50{% endif %}" form="employee-filters" data-view-btn="table" onclick="hrSetView(this.form, 'table'); htmx.trigger(this.form, 'viewchange')">Хүснэгт</button>
+      <button type="button" aria-pressed="{% if view == 'grid' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'grid' %}bg-violet-600 text-white{% else %}bg-surface text-slate-700 hover:bg-slate-50{% endif %}" form="employee-filters" data-view-btn="grid" onclick="hrSetView(this.form, 'grid'); htmx.trigger(this.form, 'viewchange')">Зураг</button>
+      <button type="button" aria-pressed="{% if view == 'table' %}true{% else %}false{% endif %}" class="px-3 py-2 {% if view == 'table' %}bg-violet-600 text-white{% else %}bg-surface text-slate-700 hover:bg-slate-50{% endif %}" form="employee-filters" data-view-btn="table" onclick="hrSetView(this.form, 'table'); htmx.trigger(this.form, 'viewchange')">Хүснэгт</button>
     </div>
-    {% if can_manage %}<a href="{% url 'employees:add' %}" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">+ Ажилтан нэмэх</a>{% endif %}
+    {% if can_manage %}<a href="{% url 'employees:import' %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Ажилтан импортлох</a>
+    <a href="{% url 'employees:add' %}" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">+ Ажилтан нэмэх</a>{% endif %}
   </div>
 </div>
 <form id="employee-filters" class="flex flex-wrap items-center gap-2 mb-4" hx-get="{% url 'employees:list' %}" hx-target="#results" hx-push-url="true" hx-trigger="input changed delay:300ms from:input, change from:select, change from:input[name=group], viewchange">
@@ -33,7 +35,7 @@ function hrSetView(form, v) {
     b.setAttribute("aria-pressed", on ? "true" : "false");
     b.classList.toggle("bg-violet-600", on);
     b.classList.toggle("text-white", on);
-    b.classList.toggle("bg-white", !on);
+    b.classList.toggle("bg-surface", !on);
     b.classList.toggle("text-slate-700", !on);
     b.classList.toggle("hover:bg-slate-50", !on);
   });

@@ -915,8 +915,17 @@ def _add_rows(client: Client, employee: Employee, lists: dict[str, Any], numbers
 # 156 with the on-the-spot «Хувийн мэдээлэл» (UI_RULES §2f, 2026-10-22), 164 once every field section is on the spot:
 # their dropdowns load their lists on page load (a constant cost, not per row).
 # 165 since Task 7b: the Work tab looks up the employee's waiting changes (+1 query, even with none).
-# With one waiting change the page costs more again: see WAITING_ONE_QUERIES in test_waiting_display.py.
-PERSONAL_TAB_QUERIES = 165
+# 166 since the data-scope lookup: one AccessScope row per request (Task 3, data-scope plan).
+# 168 (Task 6, steady state, measured 2026-10-30 with CaptureQueriesContext and the SQL listed per table):
+#   166 before Task 6 (2026-10-26), then +1 `LeaveSettings` select on every page from Task 5's «Хүсэлт» nav
+#   (leave_tags.requests_nav: LeaveSettings.get().approval_on), +1 `employees_employeeext` exists-lookup from
+#   Task 6's «Миний хуудас» nav link (hr.own_record).
+# Drift this pin guards against: the once-per-process daily sync (DailySyncMiddleware, employees/daily_sync.py) runs
+# on the first signed-in request of the process. If the measured GET is that first request, it adds queries (4 on
+# this page, savepoints and sync rows), so the count depends on test order. The warm-up request below absorbs it.
+# With one waiting change the page costs more again: see WAITING_ONE_QUERIES below.
+# 169 since the nav link also asks whether requests still wait while approval is off (spec 5.1): one cheap query.
+PERSONAL_TAB_QUERIES = 169
 
 
 def test_personal_tab_query_count(
@@ -925,6 +934,7 @@ def test_personal_tab_query_count(
     """Lists must not add a query per row: the page costs no more with 3 rows per kind than the 1-row count."""
     login_as(client, "HR")
     _add_rows(client, hired, lists, range(0, 1))
+    client.get(f"/employees/{hired.pk}/")  # warm-up: one-time work of a test transaction is not per page
     with CaptureQueriesContext(connection) as one_row:
         assert client.get(f"/employees/{hired.pk}/").status_code == 200
     assert len(one_row.captured_queries) == PERSONAL_TAB_QUERIES
@@ -938,7 +948,10 @@ def test_personal_tab_query_count(
 # Measured 2026-10-26 (Task 7b): the same page with one waiting change (a job change that waits for its order).
 # One more query than PERSONAL_TAB_QUERIES: the baseline already counts the waiting-events lookup, and with a
 # waiting event the order lookup runs too (views._awaiting_rows); with no waiting event that lookup is skipped.
-WAITING_ONE_QUERIES = 166
+# 167 since the data-scope lookup: one AccessScope row per request (Task 3, data-scope plan).
+# 169 since Task 6 (see PERSONAL_TAB_QUERIES: 168 + the waiting-change lookups).
+# 170 with the nav query above.
+WAITING_ONE_QUERIES = 170
 
 
 def test_personal_tab_query_count_with_one_waiting_change(
@@ -949,6 +962,7 @@ def test_personal_tab_query_count_with_one_waiting_change(
 
     user = login_as(client, "HR")
     _add_rows(client, hired, lists, range(0, 1))
+    client.get(f"/employees/{hired.pk}/")  # warm-up: one-time work of a test transaction is not per page
     with CaptureQueriesContext(connection) as before:
         assert client.get(f"/employees/{hired.pk}/").status_code == 200
     assert len(before.captured_queries) == PERSONAL_TAB_QUERIES

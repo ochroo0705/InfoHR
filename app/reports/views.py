@@ -4,7 +4,9 @@ from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import parse_qsl
 
+from accounts.audit import record_export
 from accounts.models import User
+from config import batching
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied
@@ -14,6 +16,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django.views.decorators.vary import vary_on_headers
 from employees import access, listing
 from employees.models import CompanySettings
 from macs.models import (
@@ -154,6 +157,7 @@ def columns_modal(request: HttpRequest, key: str) -> HttpResponse:
 
 
 @login_required
+@vary_on_headers("HX-Request")
 def report_page(request: HttpRequest, key: str) -> HttpResponse:
     user = request.user
     assert isinstance(user, User)  # login_required guarantees a real user
@@ -164,6 +168,11 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         raise PermissionDenied
     table = build_table(report, user, parse_filters(request.GET))
     f = table.filters
+    # rows load in batches only when the table is not grouped: a grouped table shows every row under its heading
+    batch: batching.Batch[Any] | None = None
+    if not f.group:
+        batch = batching.window(request, table.groups[0][1])
+        table.groups = [("", batch.shown)]
     heads = [
         HeaderCell(
             label=c.label,
@@ -183,6 +192,9 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         "excel_url": _address(reverse("reports:excel", args=[report.key]), f) if user.has_perm(EXPORT_PERM) else "",
         "table": table,
         "heads": heads,
+        "shown_rows": batch.shown if batch is not None else [],
+        "next_query": batch.next_query if batch is not None else "",
+        "batch_url": request.path,
         "note": report.note(f) if report.note is not None else "",
         "filter_names": names,
         "states": STATES,
@@ -218,6 +230,9 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
             [] if report.picks_columns else [c for c in allowed_columns(report, user) if c.key in report.group_options]
         ),
     }
+    if batch is not None and batch.offset:
+        # the «Цааш харуулах» pill asked for the next batch: only its rows and the pill after them go back
+        return render(request, "reports/_batch_rows.html", context)
     if report.saved_views:
         context.update(_saved_context(user, report, to_query(f)))
     response = render(request, "reports/report.html", context)
@@ -268,18 +283,27 @@ def report_print(request: HttpRequest, key: str) -> HttpResponse:
     if not registry.can_open(user, report):
         raise PermissionDenied
     table = build_table(report, user, parse_filters(request.GET))
+    lines = describe(table.filters, report.filters)
     context = {
         "report": report,
         "table": table,
         "heads": [(c.label, cls) for c, cls in zip(table.columns, column_classes(table.columns), strict=True)],
-        "lines": describe(table.filters, report.filters),
+        "lines": lines,
         "note": report.note(table.filters) if report.note is not None else "",
         "landscape": len(table.columns) > MAX_PORTRAIT_COLUMNS,
         "company": CompanySettings.get().name,
         "today": timezone.localdate(),
         "printed_by": user.get_full_name() or user.get_username(),
     }
-    return render(request, "reports/print.html", context)
+    response = render(request, "reports/print.html", context)
+    record_export(
+        request,
+        "print_page",
+        report.title,
+        filters="; ".join(describe(table.filters, report.filters, for_log=True)),
+        rows=table.count,
+    )
+    return response
 
 
 @login_required
@@ -298,6 +322,8 @@ def report_excel(request: HttpRequest, key: str) -> HttpResponse:
     today = timezone.localdate().isoformat()
     response = HttpResponse(excel.workbook_bytes(report.title, lines, table, sheet=report.key), content_type=XLSX)
     response["Content-Disposition"] = f'attachment; filename="{report.key}-{today}.xlsx"'
+    log_label = describe(table.filters, report.filters, for_log=True)
+    record_export(request, "export_report", report.title, filters="; ".join(log_label), rows=table.count)
     return response
 
 

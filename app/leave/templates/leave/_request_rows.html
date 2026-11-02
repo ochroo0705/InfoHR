@@ -1,0 +1,13 @@
+{% for row in items %}{% with r=row.req %}
+<tr class="border-t border-slate-100 hover:bg-violet-50 cursor-pointer" hx-get="{% url 'leave:request_detail' r.pk %}" hx-target="body" hx-swap="beforeend" title="Нээх">
+  <td class="py-2">{{ r.employee.full_name }}</td>
+  <td>{{ r.leave_type }}</td>
+  <td>{{ r.start_date|date:"Y-m-d" }} – {{ r.end_date|date:"Y-m-d" }}</td>
+  <td class="text-right">{{ r.working_days }}</td>
+  <td class="pl-6">{% if r.status == 'waiting' %}{{ r.current_step }}/{{ r.step_count }}{% else %}—{% endif %}</td>
+  <td class="pl-6 text-slate-500">{{ row.rule|default:"—" }}</td>
+  <td class="pl-6">{{ r.get_status_display }}</td>
+  <td class="pl-6 text-slate-500">{% if r.status == 'waiting' %}{{ row.since|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+</tr>
+{% endwith %}{% endfor %}{% if not items and not offset %}<tr><td colspan="8" class="py-6 text-center text-slate-400">Хүсэлт олдсонгүй</td></tr>{% endif %}
+{% if next_query %}{% url 'leave:requests' as more_url %}{% include "_more_batch.html" with url=more_url kind="tr" colspan=8 %}{% endif %}

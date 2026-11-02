@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Импортын үр дүн{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+  <h1 class="text-xl font-semibold">Импортын үр дүн</h1>
+</div>
+{% include "employees/import_steps.html" with step=4 %}
+
+<p class="mb-4 text-sm text-slate-600">Файл: {{ draft.filename }}{% if draft.finished_at %} · Импорт хийсэн: {{ draft.finished_at|date:"Y-m-d" }}{% endif %}</p>
+<div class="grid gap-3 sm:grid-cols-3">
+  <div class="card-soft rounded-xl bg-surface p-4">
+    <p class="text-sm text-slate-500">Нэмэгдсэн</p>
+    <p class="text-2xl font-semibold">{{ draft.created_count }}</p>
+  </div>
+  <div class="card-soft rounded-xl bg-surface p-4">
+    <p class="text-sm text-slate-500">Давхардсан</p>
+    <p class="text-2xl font-semibold">{{ draft.duplicate_count }}</p>
+  </div>
+  <div class="card-soft rounded-xl bg-surface p-4">
+    <p class="text-sm text-slate-500">Алдаатай</p>
+    <p class="text-2xl font-semibold">{{ draft.rejected_count }}</p>
+  </div>
+</div>
+
+{% if draft.rejected_count and draft.rejected_file %}
+<div class="mt-6 rounded-xl border border-slate-200 bg-surface p-4">
+  <p class="text-sm text-slate-700">Алдаатай {{ draft.rejected_count }} мөрийг Excel файлаар татаж, засаад дахин оруулна уу. Файлд мөр бүрийн алдаа «Алдаа» баганад бичигдсэн байна.</p>
+  <a href="{% url 'employees:import_rejected' draft.pk %}" class="mt-3 inline-block rounded-lg border border-slate-300 px-4 py-2 text-sm">Алдаатай мөрийг татах</a>
+</div>
+{% endif %}
+
+<div class="mt-6 flex flex-wrap items-center gap-3">
+  <a href="{% url 'employees:list' %}" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Ажилтнуудын жагсаалт</a>
+  <a href="{% url 'employees:import' %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Өөр файл импортлох</a>
+</div>
+{% endblock %}

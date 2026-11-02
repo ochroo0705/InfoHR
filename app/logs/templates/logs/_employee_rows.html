@@ -1,0 +1,8 @@
+{# Rows of the employee log (see employee.html). A filter change replaces the table; a later batch adds only its rows (_employee_items.html). #}
+{# Framed table (UI_RULES §4 `ptable`): the frame gives every cell its padding and row lines, so cells carry none. #}
+<div class="ptable card-soft">
+<table>
+  <thead><tr><th>Огноо</th><th>Ажилтан</th><th>Хэн</th><th>Төрөл</th><th class="w-full">Мессеж, өөрчлөлт</th></tr></thead>
+  <tbody>{% include "logs/_employee_items.html" %}</tbody>
+</table>
+</div>

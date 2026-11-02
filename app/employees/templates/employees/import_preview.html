@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Урьдчилан харах{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+  <h1 class="text-xl font-semibold">Урьдчилан харах</h1>
+  {% if not unfinished %}<div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+    <a href="{% url 'employees:import_map' draft.pk %}" class="text-sm text-violet-700 hover:underline">Баганыг засах</a>
+  </div>{% endif %}
+</div>
+{% include "employees/import_steps.html" with step=3 %}
+
+{% if unfinished %}
+  <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ unfinished }}</p>
+  {% if unfinished_link %}<p class="mt-4"><a href="{% url 'employees:import' %}" class="text-violet-700 hover:underline">Файл оруулах хуудас руу</a></p>{% endif %}
+{% else %}
+  {% if error %}<p class="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+  <p class="mb-4 text-sm text-slate-600">Файл: {{ draft.filename }}</p>
+
+  <div class="grid gap-3 sm:grid-cols-3">
+    <div class="card-soft rounded-xl bg-surface p-4">
+      <p class="text-sm text-slate-500">Шинээр нэмэх</p>
+      <p class="text-2xl font-semibold">{{ preview.new }}</p>
+    </div>
+    <div class="card-soft rounded-xl bg-surface p-4">
+      <p class="text-sm text-slate-500">Давхардсан</p>
+      <p class="text-2xl font-semibold">{{ preview.duplicates }}</p>
+    </div>
+    <div class="card-soft rounded-xl bg-surface p-4">
+      <p class="text-sm text-slate-500">Алдаатай</p>
+      <p class="text-2xl font-semibold">{{ preview.errors }}</p>
+    </div>
+  </div>
+
+  {% if preview.new_departments or preview.new_positions %}
+  <div class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+    {% if preview.new_departments %}<p>Шинээр үүсэх хэлтэс: {{ preview.new_departments|join:", " }}</p>{% endif %}
+    {% if preview.new_positions %}<p>Шинээр үүсэх албан тушаал: {{ preview.new_positions|join:", " }}</p>{% endif %}
+  </div>
+  {% endif %}
+  {% if ignored %}
+  <p class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Цалин, даатгалтай холбоотой багана ({{ ignored|join:", " }}) таны эрхээр импортлогдохгүй. Алгасагдана.</p>
+  {% endif %}
+
+  <form method="post" action="{% url 'employees:import_run' draft.pk %}" class="mt-6 flex flex-wrap items-end justify-end gap-3" onsubmit="if(this.dataset.sent){return false}this.dataset.sent=1;this.querySelector('button[type=submit]').disabled=true;">{% csrf_token %}
+    {% if needs_confirm %}
+    <label class="block w-full text-sm sm:w-auto">
+      <span class="mb-1 block">Импорт хийх {{ preview.new }} ажилтны тоог бичнэ үү *</span>
+      <input type="number" name="confirm_count" min="1" required class="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    </label>
+    {% endif %}
+    {% if preview.new %}
+    <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">{{ preview.new }} ажилтныг импортлох</button>
+    {% elif preview.errors %}
+    <p class="w-full text-right text-sm text-slate-500">Шинээр нэмэх ажилтан алга. Энэ товч ямар ч ажилтан нэмэхгүй. Алдаатай мөрүүдийг татах хуудас руу шилжинэ.</p>
+    <button type="submit" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Алдаатай мөрүүдийг татаж авах</button>
+    {% else %}
+    <button type="button" disabled class="cursor-not-allowed rounded-lg bg-violet-600 px-4 py-2 text-sm text-white opacity-50">Импортлох</button>
+    <p class="w-full text-right text-sm text-slate-500">Файлд ажилтны мөр алга. Файлаа засаад дахин оруулна уу.</p>
+    {% endif %}
+  </form>
+
+  <h2 class="sec-title mt-8">Мөрүүд</h2>
+  {% if total_rows > 100 %}<p class="mb-2 text-xs text-slate-500">Эхний 100 мөрийг харуулж байна. Нийт {{ total_rows }} мөр.</p>{% endif %}
+  <div class="ptable overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-slate-500">
+          <th>Мөр</th>
+          <th>Нэр</th>
+          <th>Регистр, паспорт</th>
+          <th>Хэлтэс</th>
+          <th>Албан тушаал</th>
+          <th>Төлөв</th>
+          <th>Тэмдэглэл</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.number }}</td>
+          <td>{{ r.name }}</td>
+          <td>{{ r.identity }}</td>
+          <td>{{ r.department }}</td>
+          <td>{{ r.position }}</td>
+          <td><span class="rounded-full px-2 py-0.5 text-xs {{ r.look }}">{{ r.label }}</span></td>
+          <td class="text-slate-600">{{ r.note }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="py-6 text-center text-slate-400">Мөр олдсонгүй.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

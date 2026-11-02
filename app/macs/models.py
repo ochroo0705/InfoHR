@@ -186,6 +186,7 @@ class Shift(_NamedList):
 class Department(_NamedList):
     id = models.SmallAutoField(primary_key=True, db_column="dep_id")
     name = models.CharField("Нэр", max_length=25, db_column="name", null=True)
+    parent_id_value = models.SmallIntegerField(db_column="parent_id", null=True, blank=True)
 
     class Meta(_NamedList.Meta):
         db_table = "deps"

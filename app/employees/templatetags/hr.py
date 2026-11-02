@@ -5,10 +5,27 @@ from django import template
 from django.forms import BoundField, CheckboxInput, Form, Select, Textarea
 from django.utils import timezone
 
-from employees.models import Employee
+from employees.models import Employee, EmployeeExt
 from employees.money import group
 
 register = template.Library()
+
+
+@register.simple_tag(takes_context=True)
+def own_record(context: template.Context) -> bool | None:
+    """True when the logged-in user has an employee record of their own («Миний хуудас» in the nav); None when the
+    page has no request in its context.
+
+    Asked once per request (the base template asks several times), so it costs one query per page.
+    """
+    request = context.get("request")
+    if request is None:
+        return None
+    cached: bool | None = getattr(request, "_own_record", None)
+    if cached is None:
+        cached = bool(request.user.is_authenticated and EmployeeExt.objects.filter(user_id=request.user.pk).exists())
+        request._own_record = cached
+    return cached
 
 
 @register.filter
@@ -32,8 +49,8 @@ INLINE = "border-b border-transparent bg-transparent hover:border-slate-300 focu
 # Edit on the spot inside a tab's field grid (UI_RULES §2e): a quiet box that is always there, so an
 # editable value never looks like plain text. `f-soft` is the hook for the changed-field marker.
 SOFT = (
-    "f-soft rounded-md border border-slate-200 bg-slate-50 px-2 py-1 hover:border-slate-400 hover:bg-white"
-    " focus:border-violet-600 focus:bg-white focus:outline-none"
+    "f-soft rounded-md border border-slate-200 bg-slate-50 px-2 py-1 hover:border-slate-400 hover:bg-surface"
+    " focus:border-violet-600 focus:bg-surface focus:outline-none"
 )
 
 

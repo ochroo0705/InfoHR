@@ -2,10 +2,14 @@ from typing import Any
 
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.views import PasswordChangeView
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from employees.models import EmployeeExt
 
+from accounts.audit import Category, record_safe
 from accounts.forms import ChangePasswordForm, NewPasswordForm
+from accounts.models import User
 
 
 class ForcedPasswordChangeView(PasswordChangeView):
@@ -22,4 +26,19 @@ class ForcedPasswordChangeView(PasswordChangeView):
         user = form.user
         user.must_change_password = False
         user.save(update_fields=["must_change_password"])
+        # No password text here: the entry only says that the user changed their own password.
+        record_safe(Category.ACCESS, "password_changed", actor=user, target_type="user", target_label=user.username)
         return response
+
+
+def home(request: HttpRequest) -> HttpResponseRedirect:
+    """Landing page. An Auditor (system log right, no employee right) goes to the system log. A user without the
+    employee-list right who has an employee record of their own goes to My page; everyone else goes to Today."""
+    user = request.user
+    assert isinstance(user, User)
+    has_employees = user.has_perm("macs.view_employees")
+    if user.has_perm("accounts.view_audit") and not has_employees:
+        return redirect("logs:system")
+    if not has_employees and EmployeeExt.objects.filter(user_id=user.pk).exists():
+        return redirect("me")
+    return redirect("employees:today")

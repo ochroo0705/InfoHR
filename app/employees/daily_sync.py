@@ -16,6 +16,8 @@ import logging
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
 
+from accounts import audit_context
+from accounts.audit import Category, record_safe
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse
@@ -66,6 +68,8 @@ def run_daily_sync(today: date, *, force: bool = False) -> int | None:
         row.day = today
         row.save(update_fields=["day"])
     _synced_day = today
+    with audit_context.system():  # the sync is nobody's action, even when a request ran it
+        record_safe(Category.IMPORT, "macs_sync", actor=None, message=f"{changed} ажилтны мэдээлэл шинэчлэгдсэн")
     return changed
 
 

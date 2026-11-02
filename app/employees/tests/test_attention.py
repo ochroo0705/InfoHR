@@ -9,7 +9,7 @@ from django.contrib.auth.models import Group, Permission
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
-from leave.models import GrantKind, LeaveTypeExt
+from leave.models import GrantKind, LeaveRequest, LeaveSettings, LeaveTypeExt
 from leave.services import entitlement as leave_entitlement
 from leave.services import ledger as leave_ledger
 from leave.services import writes as leave_writes
@@ -250,7 +250,7 @@ def test_most_urgent_first_and_rest_folded(
 ) -> None:
     today = timezone.localdate()
     emp.job_records.update(contract_end=today - timedelta(days=10))
-    for i in range(6):  # new hires without an emergency contact: one "missing" item each at least
+    for i in range(12):  # new hires without an emergency contact: one "missing" item each at least
         history.hire(hire_values(f"УБ991122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
     hr = user_in("HR", "hr1")
     found = attention.items(hr, employee_rows(Employee.objects.all(), today), today)
@@ -263,9 +263,67 @@ def test_most_urgent_first_and_rest_folded(
     assert [g.urgency for g in groups] == sorted(g.urgency for g in groups)
     assert sum(len(g.items) for g in groups) == len(found)
     emergency = next(g for g in groups if g.kind == "emergency")
-    assert not emergency.dated and len(emergency.items) >= 6
+    assert not emergency.dated and len(emergency.items) >= 12
     assert "Гэрээ дууссан" in html and f"Яаралтай үед холбогдох хүн дутуу · {len(emergency.items)}" in html
-    assert f"+{len(emergency.items) - 5}" in html  # chips past five fold behind "+N"
+    assert f">+{len(emergency.items) - attention.GROUP_LIMIT}</button>" in html  # chips past ten wait behind "+N"
+    assert html.count("group/chip inline-flex") == attention.GROUP_LIMIT * sum(
+        1 for g in groups if not g.dated and len(g.items) >= attention.GROUP_LIMIT
+    ) + sum(len(g.items) for g in groups if not g.dated and len(g.items) < attention.GROUP_LIMIT)
+
+
+def _many_without_contact(actor: User, job_values: dict[str, Any], count: int) -> None:
+    for i in range(count):
+        history.hire(hire_values(f"УБ771122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+
+
+def test_a_group_shows_ten_items_and_loads_the_rest_on_request(
+    client: Client, emp: Employee, actor: User, job_values: dict[str, Any]
+) -> None:
+    _many_without_contact(actor, job_values, 14)
+    login_as(client, "HR")
+    today = timezone.localdate()
+    hr = User.objects.get(username="viewer")
+    groups = attention.group(attention.items(hr, employee_rows(Employee.objects.all(), today), today))
+    emergency = next(g for g in groups if g.kind == "emergency")
+    assert len(emergency.items) > attention.GROUP_LIMIT
+    page = client.get(reverse("employees:today")).content.decode()
+    assert f">+{len(emergency.items) - attention.GROUP_LIMIT}</button>" in page
+    more = client.get(reverse("employees:attention_more"), {"kind": "emergency", "urgency": str(emergency.urgency)})
+    assert more.status_code == 200 and more["Cache-Control"] == "no-store"
+    body = more.content.decode()
+    assert body.count("group/chip") == len(emergency.items) - attention.GROUP_LIMIT
+    rest = emergency.items[attention.GROUP_LIMIT :]
+    assert all(f'href="/employees/{a.employee.pk}/' in body for a in rest if a.employee)
+    assert not any(
+        f'href="/employees/{a.employee.pk}/' in body for a in emergency.items[: attention.GROUP_LIMIT] if a.employee
+    )
+
+
+def test_a_dated_group_loads_the_rest_as_lines(
+    client: Client, emp: Employee, actor: User, job_values: dict[str, Any]
+) -> None:
+    today = timezone.localdate()
+    for i in range(12):
+        person = history.hire(
+            hire_values(f"УБ661122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor
+        )
+        person.job_records.update(contract_end=today + timedelta(days=5 + i))
+    login_as(client, "HR")
+    hr = User.objects.get(username="viewer")
+    groups = attention.group(attention.items(hr, employee_rows(Employee.objects.all(), today), today))
+    ending = next(g for g in groups if g.kind == "contract" and g.dated)
+    assert len(ending.items) > attention.GROUP_LIMIT
+    body = client.get(
+        reverse("employees:attention_more"), {"kind": "contract", "urgency": str(ending.urgency)}
+    ).content.decode()
+    assert body.count("<li") == len(ending.items) - attention.GROUP_LIMIT
+
+
+def test_attention_more_needs_login_and_a_real_group(client: Client, emp: Employee) -> None:
+    assert client.get(reverse("employees:attention_more"), {"kind": "emergency", "urgency": "2"}).status_code == 302
+    login_as(client, "HR")
+    assert client.get(reverse("employees:attention_more"), {"kind": "nope", "urgency": "9"}).status_code == 404
+    assert client.post(reverse("employees:attention_more")).status_code == 405
 
 
 def test_dismiss_all_in_group(client: Client, emp: Employee, actor: User, job_values: dict[str, Any]) -> None:
@@ -595,3 +653,45 @@ def test_missing_data_chips_open_the_tab_that_fixes_them(emp: Employee, client: 
     html = client.get(reverse("employees:today")).content.decode()
     detail = reverse("employees:detail", args=[emp.pk])
     assert f'href="{detail}#salary"' in html and f'href="{detail}#personal-basic"' in html
+
+
+def _approval_on_with_waiting_request(
+    emp: Employee, boss_user: User, actor: User, leave_type: LeaveTypeRow, job: dict[str, Any]
+) -> None:
+    """Direct-manager approval is on, and one request of `emp` waits for the employee linked to `boss_user`."""
+    LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": True})
+    boss = history.hire(hire_values("УБ00000002"), {}, start=date(2025, 1, 1), job=job, salary=None, by=actor)
+    link_login(boss, boss_user)
+    job_row = emp.job_records.get()
+    job_row.manager = boss
+    job_row.save()
+    LeaveRequest.objects.create(
+        employee=emp,
+        leave_type=leave_type,
+        start_date=TODAY + timedelta(days=7),
+        end_date=TODAY + timedelta(days=8),
+        working_days=2,
+        step1_manager=True,
+        step_count=1,
+        created_by=actor,
+    )
+
+
+def test_approver_sees_waiting_requests_item(
+    emp: Employee, actor: User, annual_type: LeaveTypeRow, job_values: dict[str, Any]
+) -> None:
+    boss_user = User.objects.create_user("boss_login", password="x-long-pass-123")  # noqa: S106
+    _approval_on_with_waiting_request(emp, boss_user, actor, annual_type, job_values)
+    matches = [a for a in attention.items(boss_user, [], TODAY) if a.kind == "leave_requests"]
+    assert [(a.text, a.url) for a in matches] == [
+        ("1 чөлөөний хүсэлт таныг хүлээж байна", reverse("leave:requests"))
+    ]
+
+
+def test_non_approver_has_no_requests_item(
+    emp: Employee, actor: User, annual_type: LeaveTypeRow, job_values: dict[str, Any]
+) -> None:
+    boss_user = User.objects.create_user("boss_login2", password="x-long-pass-123")  # noqa: S106
+    _approval_on_with_waiting_request(emp, boss_user, actor, annual_type, job_values)
+    stranger = user_in("Employee", "stranger_login")
+    assert not any(a.kind == "leave_requests" for a in attention.items(stranger, [], TODAY))

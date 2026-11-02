@@ -1,8 +1,9 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from django.db.models import QuerySet
+from django.db.models import Exists, OuterRef, QuerySet
 
 from employees.models import ContractType, Employee, JobRecord, JobStatus, SalaryRecord
 from employees.services.history import salary_on
@@ -57,10 +58,33 @@ def current_salary(employee: Employee, today: date) -> SalaryRecord | None:
     return salary
 
 
+def current_salaries(employees: Iterable[Employee], today: date) -> dict[int, SalaryRecord | None]:
+    """`current_salary` for many employees: two queries in all instead of two per person."""
+    people = list(employees)
+    ids = [e.pk for e in people]
+    valid: dict[int, SalaryRecord] = {}
+    for record in SalaryRecord.objects.filter(employee_id__in=ids, period__contains=today).order_by("-pk"):
+        valid[record.employee_id] = record  # the lowest pk is assigned last, as `.first()` picks it
+    with_history = set(SalaryRecord.objects.filter(employee_id__in=ids).values_list("employee_id", flat=True))
+    out: dict[int, SalaryRecord | None] = {}
+    for e in people:
+        found = valid.get(e.pk)
+        if found is None and e.pk not in with_history and e.salary:
+            found = SalaryRecord(employee=e, base_salary=e.salary)  # MACS salary, display only (QC 1c)
+        out[e.pk] = found
+    return out
+
+
 def _period_order(job: JobRecord) -> tuple[date, bool, date]:
     """The order of the old `order_by("period")`: by start, then by end (no end sorts last)."""
     upper = job.period.upper
     return (job.period.lower, upper is None, upper or date.max)
+
+
+def prefetched_job_on(employee: Employee, day: date) -> JobRecord | None:
+    """`history.job_on` for an employee loaded with `prefetch_related("job_records")`: no query."""
+    containing = [r for r in employee.job_records.all() if day in r.period]
+    return min(containing, key=lambda r: r.pk) if containing else None
 
 
 def row_for(employee: Employee, today: date) -> Row:
@@ -78,6 +102,15 @@ def row_for(employee: Employee, today: date) -> Row:
         return Row(employee, first, "upcoming")
     last = max(records, key=_period_order)
     return Row(employee, last, "left")
+
+
+def still_working(qs: QuerySet[Employee], today: date) -> QuerySet[Employee]:
+    """Everyone except those whose job record valid today says LEFT, filtered by the database (no rows are built).
+
+    People with no HR job history (read from MACS, `Row.legacy`) are kept whatever MACS says: the balances page
+    has always listed them."""
+    left_today = JobRecord.objects.filter(employee=OuterRef("pk"), period__contains=today, status=JobStatus.LEFT)
+    return qs.exclude(Exists(left_today))
 
 
 def employee_rows(qs: QuerySet[Employee], today: date) -> list[Row]:

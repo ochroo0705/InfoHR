@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Ажилтны бүртгэл{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+  {% include "logs/_tabs.html" with current="employee" %}
+  {% if excel_base %}<a id="log-excel" href="{{ excel_base }}{% if query %}?{{ query }}{% endif %}" data-base="{{ excel_base }}" class="ml-auto shrink-0 rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm hover:bg-slate-50">Excel</a>{% endif %}
+</div>
+<h1 class="sr-only">Ажилтны бүртгэл</h1>
+{# Filters live in the address (UI_RULES §4b, §5): the search boxes update while typing, dropdowns and checkboxes on change. #}
+<form id="log-filters" method="get" action="{% url 'logs:employee' %}" hx-get="{% url 'logs:employee' %}" hx-target="#rows" hx-push-url="true" hx-trigger="input changed delay:300ms from:input[name=q], input changed delay:300ms from:input[name=emp], input changed delay:300ms from:input[name=by], input changed delay:300ms from:input[name=field], change from:select, change from:input[type=date], change from:input[type=checkbox], submit" class="mt-4 mb-4 flex flex-wrap items-center gap-2 text-sm">
+  {% if employee %}<span class="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 py-1 pl-3 pr-1 text-sm text-violet-800">Ажилтан: {{ employee_name }}<input type="hidden" name="employee" value="{{ employee.pk }}"><a href="{{ chip_remove_url }}" aria-label="Хасах" class="rounded-full px-2 text-violet-700 hover:bg-violet-100">×</a></span>{% endif %}
+  <input type="search" name="q" value="{{ q }}" placeholder="Мессеж, өөрчлөлтөөр хайх" aria-label="Хайх" autocomplete="off" class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <input type="search" name="emp" value="{{ emp }}" placeholder="Ажилтны нэр, код" aria-label="Ажилтан" autocomplete="off" class="w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <input type="search" name="by" value="{{ by }}" placeholder="Хэн хийсэн" aria-label="Хэн хийсэн" autocomplete="off" class="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <details class="relative shrink-0">
+    <summary class="flex cursor-pointer list-none items-center rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm hover:bg-slate-50">Төрөл{% if kinds %} · {{ kinds|length }}{% endif %} ▾</summary>
+    <div class="absolute left-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
+      {% for value, label in kind_choices %}<label class="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-slate-50"><input type="checkbox" name="kind" value="{{ value }}"{% if value in kinds %} checked{% endif %}> {{ label }}</label>{% endfor %}
+    </div>
+  </details>
+  <select name="area" aria-label="Хэсэг" data-search="off" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх хэсэг</option>
+    {% for key, label in areas %}<option value="{{ key }}"{% if area == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <input type="text" name="field" value="{{ field }}" placeholder="Талбар, жишээ: Хаяг" aria-label="Талбар" autocomplete="off" class="w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <select name="oldest" aria-label="Эрэмбэ" data-search="off" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Шинэ нь эхэнд</option><option value="1"{% if oldest %} selected{% endif %}>Хуучин нь эхэнд</option></select>
+  <div class="flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 bg-surface px-3">
+    <span class="shrink-0 text-slate-500">Хугацаа</span>
+    <input type="date" name="from" value="{{ date_from }}" placeholder="Эхлэх" aria-label="Эхлэх огноо" class="w-32 border-0 bg-transparent py-2 text-sm focus:outline-none">
+    <span class="text-slate-500">–</span>
+    <input type="date" name="to" value="{{ date_to }}" placeholder="Дуусах" aria-label="Дуусах огноо" class="w-32 border-0 bg-transparent py-2 text-sm focus:outline-none">
+  </div>
+  <label class="flex shrink-0 cursor-pointer items-center gap-2 text-slate-700"><input type="checkbox" name="system" value="1"{% if system %} checked{% endif %}> Системийн үйлдэл</label>
+  {# «Цэвэрлэх» is a plain link, so it is outside the form's change triggers. #}
+  <a href="{{ clear_url }}" class="text-sm text-slate-500 hover:text-violet-700">Цэвэрлэх</a>
+</form>
+<div id="rows" class="overflow-x-auto">{% include "logs/_employee_rows.html" %}</div>
+<script>
+// The «Төрөл» panel closes when the user clicks anywhere outside it (it is a <details>, which stays open otherwise).
+document.addEventListener("click", function (e) {
+  document.querySelectorAll("#log-filters details[open]").forEach(function (d) {
+    if (!d.contains(e.target)) d.removeAttribute("open");
+  });
+});
+</script>
+{% if excel_base %}<script>
+// The Excel link follows the address: htmx pushes the cleaned filters there after each filter change.
+function syncExcelLink() {
+  var link = document.getElementById("log-excel");
+  if (link) link.href = link.dataset.base + window.location.search;
+}
+// Filter changes push the address, and Back/Forward restores it: both move the link along.
+document.addEventListener("htmx:pushedIntoHistory", syncExcelLink);
+document.addEventListener("htmx:historyRestore", syncExcelLink);
+</script>{% endif %}
+{% endblock %}

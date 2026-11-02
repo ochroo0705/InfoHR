@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load hr leave_tags %}
+{% block title %}Миний хуудас{% endblock %}
+{% block main_width %}max-w-2xl px-4{% endblock %}
+{% block content %}
+
+{% for n in notices %}
+<div data-notice class="mb-3 flex items-start gap-3 rounded-xl border border-slate-200 border-l-4 {% if n.approved %}border-l-emerald-500{% else %}border-l-red-500{% endif %} bg-surface p-3 text-sm">
+  <p class="min-w-0 flex-1">{{ n.item.text }}</p>
+  <form hx-post="{% url 'me_notice' %}" hx-target="closest [data-notice]" hx-swap="outerHTML" class="shrink-0">
+    {% csrf_token %}
+    <input type="hidden" name="key" value="{{ n.item.key }}">
+    <button class="rounded px-2 py-1 text-slate-500 hover:bg-slate-100">Мэдлээ</button>
+  </form>
+</div>
+{% endfor %}
+
+<section class="rounded-xl bg-surface p-4 shadow-sm">
+  <div class="flex items-center gap-4">
+    {% with photo=employee|thumb:80 %}
+    {% if photo %}
+    <img src="{{ photo }}" alt="" width="80" height="80" class="h-20 w-20 shrink-0 rounded-2xl object-cover">
+    {% else %}
+    <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-amber-100 text-3xl font-extrabold text-violet-700">{{ employee.given_name|first }}</div>
+    {% endif %}
+    {% endwith %}
+    <div class="min-w-0">
+      <h1 class="truncate text-xl font-semibold">{{ employee.full_name }}</h1>
+      {% if job %}
+      <p class="text-sm text-slate-700">{{ job.position }}</p>
+      <p class="text-sm text-slate-500">{{ job.department }}</p>
+      {% if job.manager %}<p class="text-sm text-slate-500">Шууд удирдлага: {{ job.manager.full_name }}</p>{% endif %}
+      {% else %}
+      <p class="text-sm text-slate-400">Ажлын мэдээлэл алга</p>
+      {% endif %}
+    </div>
+  </div>
+  {% if can_request %}
+  <button hx-get="{% url 'leave:request_new' %}" hx-target="body" hx-swap="beforeend" class="mt-4 w-full rounded-lg bg-violet-600 px-4 py-3 text-base text-white hover:bg-violet-700">Чөлөө хүсэх</button>
+  {% endif %}
+</section>
+
+{% if queue %}
+<section class="mt-6">
+  <h2 class="sec-title mb-2">Надад ирсэн хүсэлт <span class="text-sm font-normal text-slate-500">{{ queue|length }}</span></h2>
+  <ul class="divide-y divide-slate-100 overflow-hidden rounded-xl bg-surface shadow-sm">
+    {% for q in queue %}{% with r=q.req %}
+    <li>
+      <button hx-get="{% url 'leave:request_detail' r.pk %}" hx-target="body" hx-swap="beforeend" class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-violet-50">
+        <span class="min-w-0">
+          <span class="block font-medium">{{ r.employee.full_name }}</span>
+          <span class="block text-sm text-slate-500">{{ r.leave_type }} · {{ r.start_date|date:"Y-m-d" }} – {{ r.end_date|date:"Y-m-d" }}</span>
+        </span>
+        <span class="shrink-0 text-sm text-slate-500">Шат {{ q.step }}</span>
+      </button>
+    </li>
+    {% endwith %}{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="mt-6">
+  <h2 class="sec-title mb-2">Ээлжийн амралт</h2>
+  {% leave_start_missing employee as start_missing %}
+  {% if start_missing %}
+  <p class="text-sm text-amber-700">Ажилд орсон огноо бүртгэлгүй тул ээлжийн амралтыг тооцох боломжгүй.</p>
+  {% elif not leave_configured %}
+  <p class="text-sm text-slate-500">Ээлжийн амралтын төрөл тохируулаагүй байна.</p>
+  {% else %}
+  <ul class="divide-y divide-slate-100 overflow-hidden rounded-xl bg-surface shadow-sm">
+    {% for p in periods %}{% if p.current or p.upcoming %}
+    <li class="flex items-center justify-between gap-3 px-4 py-3">
+      <span class="min-w-0">
+        <span class="block font-medium">{{ p.start|date:"Y-m-d" }} – {{ p.end|date:"Y-m-d" }}{% if p.current %} <span class="ml-1 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">Одоо</span>{% else %} <span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Ирэх</span>{% endif %}</span>
+        <span class="block text-xs text-slate-500">Эрх {{ p.granted|floatformat:"-1" }} · авсан {{ p.taken|floatformat:"-1" }}</span>
+      </span>
+      <span class="shrink-0 text-lg font-semibold {% if p.left < 0 %}text-red-700{% else %}text-slate-800{% endif %}">{{ p.left|floatformat:"-1" }} хоног</span>
+    </li>
+    {% endif %}{% empty %}
+    <li class="px-4 py-3 text-sm text-slate-400">Ажлын жил эхлээгүй байна.</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if leave_nowhere %}<p class="mt-2 text-sm text-amber-700">Хугацаа тодорхойгүй чөлөө: {{ leave_nowhere|length }}</p>{% endif %}
+</section>
+
+<section class="mt-6">
+  <h2 class="sec-title mb-2">Миний хүсэлтүүд</h2>
+  {% if requests %}
+  <ul class="divide-y divide-slate-100 overflow-hidden rounded-xl bg-surface shadow-sm">
+    {% for q in requests %}{% with r=q.req %}
+    <li class="px-4 py-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="font-medium">{{ r.leave_type }}</div>
+          <div class="text-sm text-slate-500">{{ r.start_date|date:"Y-m-d" }} – {{ r.end_date|date:"Y-m-d" }} · {{ r.working_days }} өдөр</div>
+        </div>
+        <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {% if r.status == 'approved' %}bg-emerald-100 text-emerald-800{% elif r.status == 'rejected' %}bg-red-100 text-red-700{% elif r.status == 'waiting' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}">{{ r.get_status_display }}{% if r.status == 'waiting' %} · шат {{ r.current_step }}/{{ r.step_count }}{% endif %}</span>
+      </div>
+      {% if r.status == 'waiting' and q.rule %}<p class="mt-1 text-xs text-slate-500">Батлах: {{ q.rule }}</p>{% endif %}
+      {% if r.status == 'rejected' and r.reason %}<p class="mt-1 text-sm text-red-700">Шалтгаан: {{ r.reason }}</p>{% endif %}
+      {% if r.status == 'waiting' %}
+      <button hx-post="{% url 'leave:request_withdraw' r.pk %}" hx-target="#me-error" hx-swap="innerHTML" hx-confirm="Хүсэлтээ буцаах уу?" class="mt-2 text-sm text-red-600 hover:underline">Буцаах</button>
+      {% endif %}
+    </li>
+    {% endwith %}{% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-slate-400">Хүсэлт гаргаагүй байна.</p>
+  {% endif %}
+  <div id="me-error" class="mt-2 text-sm"></div>
+</section>
+
+<section class="mt-6">
+  <h2 class="sec-title mb-2">Энэ оны бүртгэгдсэн чөлөө</h2>
+  {% if recorded %}
+  <ul class="divide-y divide-slate-100 overflow-hidden rounded-xl bg-surface shadow-sm">
+    {% for lv in recorded %}
+    <li class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+      <span class="min-w-0">{{ lv.leave_type }} · {{ lv.start|date:"Y-m-d" }} – {{ lv.end|date:"Y-m-d" }}</span>
+      <span class="shrink-0 text-slate-600">{{ lv.days|floatformat:"-1" }} өдөр</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-slate-400">Бүртгэгдээгүй</p>
+  {% endif %}
+</section>
+{% endblock %}

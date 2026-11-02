@@ -112,6 +112,8 @@ def test_upload_signs_order(hr: Client, hired: Employee, actor: User) -> None:
     assert hr.post(edit_url(hired, order, "upload/"), {"file": scan}).status_code == 204
     order.refresh_from_db()
     assert order.state == OrderState.SIGNED and order.file
+    assert hr.get(edit_url(hired, order, "file/")).status_code == 403  # a hire scan shows the salary (OQ-080)
+    login_as(hr, "Accountant", "acc1")  # the Accountant holds macs.view_salary
     got = hr.get(edit_url(hired, order, "file/"))
     assert got.status_code == 200 and b"".join(got.streaming_content) == PDF  # type: ignore[attr-defined]
     assert got["Content-Type"] == "application/pdf" and got["X-Content-Type-Options"] == "nosniff"
@@ -162,12 +164,17 @@ def test_file_view_hidden_from_other_employees(client: Client, hired: Employee, 
     assert client.get(edit_url(hired, order, "file/")).status_code == 404
 
 
-def test_file_view_allowed_for_the_employee_and_missing_file_404(client: Client, hired: Employee, actor: User) -> None:
+def test_file_view_refused_for_the_employee_on_a_hire_order(client: Client, hired: Employee, actor: User) -> None:
     order = registered_hire(hired, actor)
-    link_login(hired, login_as(client, "Employee", "me"))
-    assert client.get(edit_url(hired, order, "file/")).status_code == 404  # nothing uploaded yet
     orders.attach_signed_file(order, SimpleUploadedFile("a.pdf", PDF), by=actor)
-    assert client.get(edit_url(hired, order, "file/")).status_code == 200
+    link_login(hired, login_as(client, "Employee", "me"))
+    assert client.get(edit_url(hired, order, "file/")).status_code == 403  # the hire scan shows the salary (OQ-080)
+
+
+def test_missing_file_404_for_a_salary_right_holder(client: Client, hired: Employee, actor: User) -> None:
+    order = registered_hire(hired, actor)
+    login_as(client, "Accountant", "acc2")
+    assert client.get(edit_url(hired, order, "file/")).status_code == 404  # nothing uploaded yet
 
 
 def test_viewer_cannot_edit(client: Client, hired: Employee, actor: User) -> None:
@@ -184,7 +191,7 @@ def test_employee_page_lists_orders(hr: Client, hired: Employee, actor: User) ->
     Command.objects.create(employee_id=hired.pk, number="A-9", date=date(2020, 5, 1), summary="Хуучин тушаал")
     body = hr.get(f"/employees/{hired.pk}/").content.decode()
     assert "Ажилд авав" in body and "№ 15" in body
-    assert "Хуучин тушаал" in body and "Хуучин програм" in body
+    assert "Хуучин тушаал" in body and "MACS" in body
     assert "A-9" in body
 
 

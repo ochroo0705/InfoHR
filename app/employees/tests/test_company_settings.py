@@ -18,7 +18,7 @@ from .test_views import login_as
 pytestmark = pytest.mark.django_db
 
 
-def _company(name: str = "Инфосистемс-1 ХХК", director: str = "Б. Батболд") -> CompanySettings:
+def _company(name: str = "Жишээ-1 ХХК", director: str = "Б. Батболд") -> CompanySettings:
     row = CompanySettings.get()
     row.name, row.director_name = name, director
     row.save()
@@ -54,11 +54,11 @@ def test_register_blank_issued_by_takes_director(actor: User, job_values: dict[s
 
 
 def test_print_shows_company_name(client: Client) -> None:
-    _company(name="Инфосистемс-1 ХХК")
+    _company(name="Жишээ-1 ХХК")
     login_as(client, "HR", "hr_company")
     response = client.get("/employees/orders/print/")
     assert response.status_code == 200
-    assert "Инфосистемс-1 ХХК" in response.content.decode()
+    assert "Жишээ-1 ХХК" in response.content.decode()
 
 
 def test_admin_singleton_no_second_row_no_delete() -> None:

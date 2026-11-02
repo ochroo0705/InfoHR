@@ -31,7 +31,7 @@ def test_hire_shows_password_once_then_not_again(client: Client, job_values: dic
     assert response.status_code == 302
     page = client.get(response.headers["Location"]).content.decode()
     assert 'id="one-time-login"' in page and "bold" in page
-    password = page.split('rounded bg-white px-2 py-1 font-mono text-base tracking-wider select-all">')[1].split("<")[0]
+    password = page.split('bg-surface px-2 py-1 font-mono text-base tracking-wider select-all">')[1].split("<")[0]
     bold = User.objects.get(username="bold")
     assert bold.check_password(password)
     again = client.get(f"/employees/{emp.pk}/").content.decode()

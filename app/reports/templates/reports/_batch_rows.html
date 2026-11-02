@@ -1,0 +1,3 @@
+{# One batch of an ungrouped report: its rows, then the «Цааш харуулах» pill when more follow (config/batching.py). #}
+{% include "reports/_rows.html" with rows=shown_rows %}
+{% if next_query %}{% include "_more_batch.html" with url=batch_url next_query=next_query kind="tr" colspan=heads|length %}{% endif %}

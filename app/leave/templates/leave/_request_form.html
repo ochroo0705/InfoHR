@@ -1,0 +1,22 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-1 text-lg font-semibold">Чөлөө хүсэх</h2>
+    <p class="mb-4 text-xs text-slate-500">Хүсэлт батлагдах хүртэл хүлээгдэнэ. Бүх шат батлагдсаны дараа чөлөө бүртгэгдэнэ.</p>
+    <form hx-post="{% url 'leave:request_new' %}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+      {# Live preview: the dates and type are re-checked on change only (not on every key), since a check may write grants. #}
+      <div hx-post="{% url 'leave:request_check' %}" hx-trigger="change" hx-target="#request-check" hx-swap="innerHTML" hx-include="closest form" class="space-y-3">
+        {% for field in form %}
+        <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
+          {{ field }}{% for e in field.errors %}<span class="block text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
+        {% endfor %}
+      </div>
+      <div id="request-check" class="text-sm"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хүсэлт илгээх</button>
+      </div>
+    </form>
+  </div>
+</div>

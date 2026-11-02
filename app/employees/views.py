@@ -6,13 +6,23 @@ from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
+from accounts.audit import record_export
 from accounts.models import User
+from config import batching
 from config.params import id_param as _id_param
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import Q, QuerySet
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseRedirect,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import Resolver404, resolve, reverse
 from django.utils import timezone
@@ -47,6 +57,7 @@ from employees.forms import (
     SalaryInsuranceForm,
     SetSalaryForm,
 )
+from employees.images import attach_photo_digests
 from employees.listing import STATE_LABELS, Row, current_salary, employee_rows, row_for
 from employees.models import (
     EXT_FIELDS,
@@ -100,6 +111,9 @@ def _user(request: HttpRequest) -> User:
     return request.user
 
 
+LIST_BATCH = batching.LIST_BATCH  # people per batch in the employee list
+
+
 @login_required
 @vary_on_headers("HX-Request")
 def employee_list(request: HttpRequest) -> HttpResponse:
@@ -124,8 +138,14 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     view = "table" if request.GET.get("view") == "table" else "grid"  # pictures by default
     group = request.GET.get("group") == "1"
     groups = _group_by_department(rows) if group and rows else None
+    is_partial = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-History-Restore-Request")
+    batch = batching.Batch(rows, 0, "") if group else batching.window(request, rows, LIST_BATCH)
+    shown, next_query, offset = batch.shown, batch.next_query, batch.offset  # grouped lists show everyone
+    if view == "grid":
+        attach_photo_digests(r.employee for r in shown)  # one query for the photos on show, not one per card
     context: dict[str, Any] = {
-        "rows": rows,
+        "rows": shown,
+        "next_query": next_query,
         "groups": groups,
         "group": group,
         "view": view,
@@ -139,9 +159,19 @@ def employee_list(request: HttpRequest) -> HttpResponse:
         "can_manage": access.can_manage(_user(request)),
         "can_open_staff_report": can_open(_user(request), STAFF_LIST),
     }
-    is_partial = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-History-Restore-Request")
-    template = "employees/_results.html" if is_partial else "employees/list.html"
-    return render(request, template, context)
+    # A hire from outside the user's scope opens this list instead of the detail page: its one-time login is shown
+    # here, once, the same way employee_detail shows it. Only a full page takes it (not an htmx partial).
+    pending = None if is_partial else request.session.pop(ONE_TIME_LOGIN_KEY, None)
+    if isinstance(pending, dict):
+        context["one_time_login"] = pending
+    if not is_partial:
+        template = "employees/list.html"
+    else:
+        template = "employees/_batch.html" if offset else "employees/_results.html"
+    response = render(request, template, context)
+    if isinstance(pending, dict):
+        response["Cache-Control"] = "no-store"  # the password must not come back from the Back cache
+    return response
 
 
 @login_required
@@ -182,6 +212,24 @@ def attention_toggle(request: HttpRequest) -> HttpResponse:
     return render(request, "employees/_attention.html", _attention_context(user, found))
 
 
+@login_required
+@require_GET
+def attention_more(request: HttpRequest) -> HttpResponse:
+    """The items of one Анхаарах group past the first `GROUP_LIMIT`, loaded when «+N» is pressed."""
+    user, today = _user(request), timezone.localdate()
+    rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
+    shown, _ = attention.split(user, attention.items(user, rows, today))
+    kind, urgency = request.GET.get("kind", ""), request.GET.get("urgency", "")
+    found = next((g for g in attention.group(shown) if g.kind == kind and str(g.urgency) == urgency), None)
+    if found is None:
+        raise Http404
+    response = render(
+        request, "employees/_attention_more.html", {"group": found, "rest": found.items[attention.GROUP_LIMIT :]}
+    )
+    response["Cache-Control"] = "no-store"
+    return response
+
+
 def _attention_context(user: User, found: list[attention.Attention]) -> dict[str, object]:
     shown, hidden = attention.split(user, found)
     return {"attention": shown, "attention_groups": attention.group(shown), "attention_hidden": hidden}
@@ -197,7 +245,7 @@ def _employee_for(request: HttpRequest, pk: int) -> Employee:
 
 
 def _employee_form(request: HttpRequest, employee: Employee, data: Any = None, files: Any = None) -> EmployeeForm:
-    form = EmployeeForm(data, files, employee=employee)
+    form = EmployeeForm(data, files, employee=employee, user=_user(request))
     if not access.can_view_personal(_user(request), employee):  # those inputs are not on the page
         for name in PERSONAL_FIELDS:
             form.fields.pop(name, None)
@@ -273,11 +321,11 @@ def _leave_section(user: User, employee: Employee, today: date) -> dict[str, obj
     }
 
 
-ORDER_WARNING_KEY = "order_warning"  # session: old-program number clash, shown once on the employee page
+ORDER_WARNING_KEY = "order_warning"  # session: MACS number clash, shown once on the employee page
 
 
 def order_rows(employee: Employee) -> list[dict[str, Any]]:
-    """Our orders (newest first) plus the old program's own command rows (read-only, state «Хуучин програм»)."""
+    """Our orders (newest first) plus MACS's own command rows (read-only, state «MACS»)."""
     ours = list(employee.hr_orders.select_related("event").order_by("-date", "-pk"))
     taken = {o.command_id for o in ours if o.command_id}
     legacy = [c for c in Command.objects.filter(employee_id=employee.pk).order_by("-date", "-pk") if c.pk not in taken]
@@ -290,7 +338,7 @@ def order_rows(employee: Employee) -> list[dict[str, Any]]:
 def change_rows(jobs: list[Any], order_list: list[dict[str, Any]]) -> tuple[list[Any], list[dict[str, Any]]]:
     """The Work tab's one list: each history row carries its order (`row.order`, `row.order_row` with the cancel
     links), and a cancelled change that had an order stays as a struck-through row. Returns (rows newest first,
-    the order rows no change claims: old-program commands and the like)."""
+    the order rows no change claims: MACS commands and the like)."""
     by_event = {r["order"].event_id: r for r in order_list if r["order"] and r["order"].event_id}
     hire = next((r for r in order_list if r["order"] and r["order"].is_hire), None)
     hire_job = next((j for j in reversed(jobs) if j.change_type == ChangeType.HIRE), None)  # `jobs` is newest first
@@ -329,7 +377,7 @@ def _awaiting(order: HrOrder | None) -> bool:
 
 
 def _remember_warning(request: HttpRequest, order: HrOrder | None) -> None:
-    """Keep the old-program number-clash note for the next employee page (the pop-up closes with a refresh)."""
+    """Keep the MACS number-clash note for the next employee page (the pop-up closes with a refresh)."""
     if order is None or not order.number or order.date is None:
         return
     text = orders.legacy_clash_warning(order.number, order.date, order.command_id)
@@ -337,11 +385,11 @@ def _remember_warning(request: HttpRequest, order: HrOrder | None) -> None:
         request.session[ORDER_WARNING_KEY] = text
 
 
-def _personal_sections(employee: Employee, can_manage: bool) -> dict[str, dict[str, object]]:
+def _personal_sections(employee: Employee, can_manage: bool, user: User) -> dict[str, dict[str, object]]:
     """Read-mode context of the four field sections of the personal tab, from one form instance."""
-    form = EmployeeForm(employee=employee)
+    form = EmployeeForm(employee=employee, user=user)
     return {
-        name: _section_context(employee, name, names, form, False, can_manage)
+        name: _section_context(employee, name, names, form, False, can_manage, user=user)
         for name, names in sections.SECTIONS.items()
     }
 
@@ -356,11 +404,16 @@ def _section_counts(personal: dict[str, list[personal_rows.PersonalRow]], employ
     return counts
 
 
+ACTIVITY_BATCH = 50  # log entries per batch in the «Түүх» drawer; older ones load as the drawer scrolls
+
+
 def _activity_context(activity: QuerySet[ActivityEntry]) -> dict[str, object]:
-    """The activity log as the page shows it: the drawer's entries, the Түүх count and the header's latest line."""
+    """The activity log as the page shows it: the drawer's newest entries, the Түүх count, the header's latest line."""
+    count = activity.count()
     return {
-        "activity": activity.select_related("by")[:100],
-        "activity_count": activity.count(),
+        "activity": activity.select_related("by")[:ACTIVITY_BATCH],
+        "activity_count": count,
+        "activity_next_query": f"offset={ACTIVITY_BATCH}" if count > ACTIVITY_BATCH else "",
         "latest_activity": activity.select_related("by").first(),
     }
 
@@ -387,7 +440,10 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
         user,
         today,
     )
-    changes, other_orders = change_rows(jobs, order_rows(employee))
+    order_list = order_rows(employee)
+    for entry in order_list:  # scan_ok: may this user open the row's signed scan (access.can_open_order_scan)
+        entry["scan_ok"] = entry["order"] is None or access.can_open_order_scan(user, entry["order"])
+    changes, other_orders = change_rows(jobs, order_list)
     menu = [
         (t.value, events.PLACEMENT_LABEL if t == EventType.TRANSFER else t.label)
         for t in EventType
@@ -423,7 +479,7 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
         "can_manage_salary": access.can_manage_salary(user),
         "can_view_personal": can_view_personal,
         "personal": personal,
-        "personal_sections": _personal_sections(employee, can_manage) if can_view_personal else {},
+        "personal_sections": _personal_sections(employee, can_manage, user) if can_view_personal else {},
         "section_counts": _section_counts(personal, employee) if can_view_personal else {},
         "today": today,
         "form": _employee_form(request, employee) if can_manage else None,
@@ -451,17 +507,19 @@ def employee_add(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_manage(user))
     person = HirePersonForm(request.POST or None, request.FILES or None)
-    job = HireJobForm(request.POST or None)
+    job = HireJobForm(request.POST or None, user=user)
     extras = HireExtrasForm(request.POST or None)
     allow_salary = access.can_manage_salary(user)
     si = SalaryInsuranceForm(request.POST or None, prefix="si") if allow_salary else None
     address = HireAddressForm(request.POST or None, prefix="addr")
     contact = HireContactForm(request.POST or None, prefix="contact")
-    order_form = OrderFieldsForm(request.POST or None, prefix="order")
+    # An install that keeps hire orders on paper (CompanySettings, D-052) gets no order fields and no order.
+    hire_order = orders.requires_order(OrderType.HIRED.value)
+    order_form = OrderFieldsForm(request.POST or None, prefix="order") if hire_order else None
     if (
         request.method == "POST"
         and person.is_valid()
-        and order_form.is_valid()
+        and (order_form is None or order_form.is_valid())
         and job.is_valid()
         and extras.is_valid()
         and (si is None or si.is_valid())
@@ -471,6 +529,7 @@ def employee_add(request: HttpRequest) -> HttpResponse:
         salary = extras.cleaned_data["base_salary"] if allow_salary else None
         skip = {*EXT_FIELDS, *PHOTO_FIELDS, *BIRTH_FIELDS}
         columns = {k: person.cleaned_data[k] for k in person.fields if k not in skip}
+        columns["branch"] = job.cleaned_data["branch"]  # production branch_ident; None when not set
         ext = {k: person.cleaned_data[k] for k in EXT_FIELDS}
         job_values = {f: job.cleaned_data[f] for f in JobRecord.JOB_FIELDS}
         address_values = address.values()[0] if address.filled() else None
@@ -486,10 +545,11 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                     by=user,
                     address=address_values,
                     contact=contact_values,
-                    order_number=order_form.cleaned_data["number"],
-                    order_date=order_form.cleaned_data["date"],
-                    order_summary=order_form.cleaned_data["summary"],
-                    order_issued_by=order_form.cleaned_data["issued_by"],
+                    with_order=hire_order,
+                    order_number=order_form.cleaned_data["number"] if order_form else "",
+                    order_date=order_form.cleaned_data["date"] if order_form else None,
+                    order_summary=order_form.cleaned_data["summary"] if order_form else "",
+                    order_issued_by=order_form.cleaned_data["issued_by"] if order_form else "",
                 )
                 if person.cleaned_data.get("birth_city") is not None:
                     records.set_birth_place(
@@ -516,18 +576,24 @@ def employee_add(request: HttpRequest) -> HttpResponse:
             person.add_error(None, str(error))
             return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, status=400)
         except OrderError as error:  # the hire is rolled back with its order
-            order_form.add_service_errors(error.errors)
+            if order_form is not None:
+                order_form.add_service_errors(error.errors)
             return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, status=400)
         except (IntegrityError, DataError) as exc:
             person.add_error(None, DB_REFUSED)
             logger.warning("employee write refused: %s", exc)
             return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, status=400)
         _remember_warning(request, HrOrder.objects.filter(employee=employee, is_hire=True).first())
+        # A limited user may hire outside their scope: that page would 404, so the list opens instead.
+        if access.visible_employees(user).filter(pk=employee.pk).exists():
+            url = reverse("employees:detail", args=[employee.pk])
+        else:
+            url = reverse("employees:list")
         if request.headers.get("HX-Request"):  # errors swap in place; success opens the new employee's page
             response = HttpResponse(status=204)
-            response["HX-Redirect"] = reverse("employees:detail", args=[employee.pk])
+            response["HX-Redirect"] = url
             return response
-        return redirect("employees:detail", pk=employee.pk)
+        return redirect(url)
     return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form)
 
 
@@ -540,7 +606,7 @@ def _hire_form(
     si: SalaryInsuranceForm | None,
     address: HireAddressForm,
     contact: HireContactForm,
-    order_form: OrderFieldsForm,
+    order_form: OrderFieldsForm | None,
     status: int = 200,
 ) -> HttpResponse:
     context = {
@@ -606,7 +672,7 @@ def district_options(request: HttpRequest) -> HttpResponse:
 def check_register(request: HttpRequest) -> HttpResponse:
     _require(access.can_manage(_user(request)))
     value = normalize_register_no(request.GET.get("register_no", ""))
-    match = Employee.objects.filter(register_no=value).first() if value else None
+    match = access.visible_employees(_user(request)).filter(register_no=value).first() if value else None
     return render(request, "employees/_register_check.html", {"match": match})
 
 
@@ -670,7 +736,7 @@ def employee_save(request: HttpRequest, pk: int) -> HttpResponse:
     form = None
     if can_manage:  # the Ажил tab posts no personal fields: they are completed from the stored values
         stored = Employee.objects.get(pk=pk)
-        posted = sections.complete_post(EmployeeForm(employee=stored), request.POST)
+        posted = sections.complete_post(EmployeeForm(employee=stored, user=user), request.POST)
         form = _employee_form(request, stored, posted, request.FILES)
     si_form = None
     if can_salary:  # without the permission, salary POST data is ignored entirely
@@ -680,7 +746,7 @@ def employee_save(request: HttpRequest, pk: int) -> HttpResponse:
     changes: dict[str, Any] = {}
     si_changes: dict[str, Any] = {}
     if valid:
-        # Only what this user changed is written; a field the old program changed meanwhile is asked about.
+        # Only what this user changed is written; a field MACS changed meanwhile is asked about.
         if form is not None:
             columns, ext = form.values()
             changes = stale.resolve(form, employee, {**columns, **ext})
@@ -739,7 +805,11 @@ def personal_section(request: HttpRequest, pk: int, section: str) -> HttpRespons
     if request.method == "POST":
         # Same flow as employee_save: fresh instance for the form, the visible one for the stale check and the write.
         stored = Employee.objects.get(pk=pk)
-        form = EmployeeForm(sections.section_data(EmployeeForm(employee=stored), request.POST, names), employee=stored)
+        form = EmployeeForm(
+            sections.section_data(EmployeeForm(employee=stored, user=user), request.POST, names),
+            employee=stored,
+            user=user,
+        )
         sections.only_section_required(form, names)
         if form.is_valid():
             columns, ext = form.values()
@@ -756,7 +826,9 @@ def personal_section(request: HttpRequest, pk: int, section: str) -> HttpRespons
                     logger.warning("employee section write refused: %s", exc)
                 else:
                     employee = Employee.objects.get(pk=pk)
-                    context = _section_context(employee, section, names, None, can_manage=can_manage, with_lists=False)
+                    context = _section_context(
+                        employee, section, names, None, can_manage=can_manage, with_lists=False, user=user
+                    )
                     context |= {**_refresh_context(request, employee), "oob": True}
                     if section == "other":  # its menu entry counts filled fields
                         filled, total = sections.other_progress(employee)
@@ -764,8 +836,10 @@ def personal_section(request: HttpRequest, pk: int, section: str) -> HttpRespons
                     return render(request, template, context)
         editing = True  # invalid, conflicting or refused: show the section for editing with its errors
     else:
-        form = EmployeeForm(employee=Employee.objects.get(pk=pk))
-    context = _section_context(employee, section, names, form, editing, can_manage, with_lists=not fields_only)
+        form = EmployeeForm(employee=Employee.objects.get(pk=pk), user=user)
+    context = _section_context(
+        employee, section, names, form, editing, can_manage, with_lists=not fields_only, user=user
+    )
     return render(request, template, context, status=200)
 
 
@@ -777,10 +851,11 @@ def _section_context(
     editing: bool = False,
     can_manage: bool = False,
     with_lists: bool = True,
+    user: User | None = None,
 ) -> dict[str, object]:
     """Context of a section template: its bound fields, or the stored form when the save succeeded (read mode)."""
     if form is None:
-        form = EmployeeForm(employee=employee)
+        form = EmployeeForm(employee=employee, user=user)
     rows = sections.read_rows(employee, section, records.birth_place_text(employee))
     return {
         "employee": employee,
@@ -795,6 +870,29 @@ def _section_context(
         "can_manage": can_manage,
         "personal": _personal_lists(employee) if with_lists and section in ("contact", "education") else {},
     }
+
+
+@login_required
+@require_GET
+def activity_more(request: HttpRequest, pk: int) -> HttpResponse:
+    """The next batch of the «Түүх» drawer, loaded when the pill at its end scrolls into view."""
+    employee = _employee_for(request, pk)
+    entries = access.visible_activity(_user(request), employee).select_related("by")
+    raw = request.GET.get("offset", "")
+    offset = int(raw) if raw.isdigit() else 0
+    total = entries.count()
+    shown = list(entries[offset : offset + ACTIVITY_BATCH])
+    before = entries[offset - 1] if 0 < offset <= total else None  # entry above this batch: same day, no heading
+    context = {
+        "employee": employee,
+        "today": timezone.localdate(),
+        "activity": shown,
+        "prev_day": timezone.localtime(before.at).strftime("%Y-%m-%d") if before else "",
+        "activity_next_query": f"offset={offset + ACTIVITY_BATCH}" if total > offset + ACTIVITY_BATCH else "",
+    }
+    response = render(request, "employees/_activity_entries.html", context)
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required
@@ -826,7 +924,7 @@ def correct_job(request: HttpRequest, pk: int, record_id: int) -> HttpResponse:
     _require(access.can_manage(_user(request)))
     record = get_object_or_404(employee.job_records.select_related("event"), pk=record_id)
     _require(not _is_scheduled(record.event, timezone.localdate()))  # scheduled rows are cancelled, not corrected
-    form = JobCorrectionForm(request.POST or None, instance=JobRecord.objects.get(pk=record.pk))
+    form = JobCorrectionForm(request.POST or None, instance=JobRecord.objects.get(pk=record.pk), user=_user(request))
     if request.method == "POST" and form.is_valid():
         changes = {f: form.cleaned_data[f] for f in JobRecord.JOB_FIELDS}
         try:
@@ -1092,7 +1190,7 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
     missing = events.start_placement_missing(employee)  # QC 1d: MACS-only employee with no department/position
     effective: date | None
     order_form = None
-    if type in ORDER_TYPES:
+    if type in ORDER_TYPES and orders.event_asks_for_order(type):
         # A form rebuilt from an open one (kind change) keeps the order fields already typed, unvalidated.
         typed_order = {
             name: request.GET[f"order-{name}"]
@@ -1101,7 +1199,9 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
         }
         order_form = OrderFieldsForm(request.POST or None, prefix="order", initial=typed_order)
     if request.method == "POST":
-        form = EventForm(type, request.POST, with_salary=with_salary, start_missing=missing)
+        form = EventForm(
+            type, request.POST, with_salary=with_salary, start_missing=missing, user=user, employee=employee
+        )
         if form.is_valid() and (order_form is None or order_form.is_valid()):
             data = form.cleaned_data
             salary = data.get("salary") if with_salary else None
@@ -1146,7 +1246,9 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
         effective = form.cleaned_data.get("effective") if hasattr(form, "cleaned_data") else None
         summary = _event_summary(employee, form)
     elif request.GET.get("summary"):
-        form = EventForm(type, request.GET, with_salary=with_salary, start_missing=missing)
+        form = EventForm(
+            type, request.GET, with_salary=with_salary, start_missing=missing, user=user, employee=employee
+        )
         form.full_clean()
         return render(request, "employees/_event_summary.html", {"summary": _event_summary(employee, form)})
     else:
@@ -1158,14 +1260,18 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
         if previous is not None:
             # The date was changed in an open form: keep what the user edited, refill
             # the rest with the values in force on the new date.
-            typed = EventForm(type, request.GET, with_salary=with_salary, start_missing=missing)
+            typed = EventForm(
+                type, request.GET, with_salary=with_salary, start_missing=missing, user=user, employee=employee
+            )
             before = _event_initial(employee, type, previous, with_salary)
             for name, field in typed.fields.items():
                 if name not in ("effective", "reason", "note") and name in request.GET:
                     value = typed[name].data
                     if field.has_changed(before.get(name), value):
                         initial[name] = value
-        form = EventForm(type, initial=initial, with_salary=with_salary, start_missing=missing)
+        form = EventForm(
+            type, initial=initial, with_salary=with_salary, start_missing=missing, user=user, employee=employee
+        )
         summary = ""
     form.fields["effective"].widget.attrs.update(
         {
@@ -1291,7 +1397,7 @@ FILE_TYPES = ((b"%PDF-", "application/pdf", ".pdf"), (b"\x89PNG", "image/png", "
 
 def _order_download(request: HttpRequest, pk: int, order_id: int, pdf: bool) -> FileResponse:
     """The order filled from its Word template, as .docx or .pdf (a draft to print and sign)."""
-    _, order = _order_for(request, pk, order_id)
+    employee, order = _order_for(request, pk, order_id)
     _require(access.can_manage(_user(request)))
     if order.state == OrderState.CANCELLED:
         raise Http404
@@ -1300,12 +1406,14 @@ def _order_download(request: HttpRequest, pk: int, order_id: int, pdf: bool) -> 
     except order_docs.OrderDocError:
         raise Http404 from None
     name = re.sub(r"[^\w-]", "_", order.number) if order.number else f"id{order.pk}"
-    return FileResponse(
+    response = FileResponse(
         io.BytesIO(data),
         as_attachment=True,
         filename=f"tushaal-{name}.{'pdf' if pdf else 'docx'}",
         content_type=order_docs.PDF_TYPE if pdf else order_docs.DOCX_TYPE,
     )
+    record_export(request, "download_order", _order_label(order, employee))
+    return response
 
 
 @login_required
@@ -1316,6 +1424,36 @@ def order_document(request: HttpRequest, pk: int, order_id: int) -> FileResponse
 @login_required
 def order_document_pdf(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
     return _order_download(request, pk, order_id, pdf=True)
+
+
+MAX_ID_DIGITS = 9  # ids longer than this cannot be a row id (and would overflow the database integer)
+ORDER_PRINT_LIMIT = 100  # orders in one printout; a bigger pile is printed in two goes
+
+
+@login_required
+@require_POST
+def orders_print_selected(request: HttpRequest) -> FileResponse | HttpResponseBadRequest:
+    """The ticked orders of the register as one PDF, one order per page, to print and sign together. Only orders of
+    people the user may see; cancelled orders and orders with no usable template are left out. Each order is
+    logged like a single download."""
+    user = _user(request)
+    _require(access.can_manage(user))
+    ids = {int(v) for v in request.POST.getlist("ids") if v.isdecimal() and len(v) <= MAX_ID_DIGITS}
+    chosen = list(
+        HrOrder.objects.filter(pk__in=ids, employee__in=access.visible_employees(user))
+        .exclude(state=OrderState.CANCELLED)
+        .select_related("employee")
+        .order_by("date", "pk")[:ORDER_PRINT_LIMIT]
+    )
+    if not chosen:
+        return HttpResponseBadRequest("Хэвлэх тушаал алга.")
+    try:
+        data, printed = order_docs.render_pdf_many(chosen, user)
+    except order_docs.OrderDocError:
+        return HttpResponseBadRequest("Хэвлэх тушаал алга.")
+    for order in printed:
+        record_export(request, "download_order", _order_label(order, order.employee))
+    return FileResponse(io.BytesIO(data), filename="tushaal-songoson.pdf", content_type=order_docs.PDF_TYPE)
 
 
 @login_required
@@ -1335,6 +1473,7 @@ def order_detail(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
         "employee": employee,
         "order": order,
         "can_manage": can_manage,
+        "can_open_scan": access.can_open_order_scan(_user(request), order),
         "links": orders.cancellation_links(siblings)[order.pk],
         "entries": order.activity.select_related("by").order_by("-at", "-id"),
         "department": job["department"],
@@ -1375,7 +1514,8 @@ def order_history(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
 
 @login_required
 def order_file(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
-    _, order = _order_for(request, pk, order_id)  # visible employees only: anyone else gets 404
+    employee, order = _order_for(request, pk, order_id)  # visible employees only: anyone else gets 404
+    _require(access.can_open_order_scan(_user(request), order))  # hire and rehire scans need macs.view_salary (OQ-080)
     if not order.file:
         raise Http404
     try:
@@ -1389,10 +1529,17 @@ def order_file(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
     response["X-Content-Type-Options"] = "nosniff"
     response["Content-Disposition"] = f'inline; filename="order-{order.pk}{ext}"'
     response["Cache-Control"] = "private, no-store"
+    record_export(request, "download_order", "Гарын үсэгтэй файл: " + _order_label(order, employee))
     return response
 
 
-def _register_context(request: HttpRequest) -> dict[str, Any]:
+def _order_label(order: HrOrder, employee: Employee) -> str:
+    """The order and its employee for the system log: the number and the employee code, never the name."""
+    return f"Тушаал № {order.number or 'дугаар байхгүй'}, ажилтны код {employee.code}"
+
+
+def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[str, Any]:
+    """The register page's filters and rows: one batch (`batched`, the page itself) or every row (print)."""
     get = request.GET
     state = get.get("state", "")
     valid_states = {s.value for s in OrderState} | {order_register.LEGACY}
@@ -1408,16 +1555,27 @@ def _register_context(request: HttpRequest) -> dict[str, Any]:
         year = None
     today = timezone.localdate()
     q = get.get("q", "").strip()[:100]
-    rows = order_register.register_rows(
-        _user(request),
-        year=year,
-        order_type=order_type,
-        department_id=department,
-        state=state or None,
-        today=today,
-        q=q,
-    )
+    user = _user(request)
+    filters: dict[str, Any] = {
+        "year": year,
+        "order_type": order_type,
+        "department_id": department,
+        "state": state or None,
+        "today": today,
+        "q": q,
+    }
+    paging: dict[str, Any] = {}
+    if batched:
+        batch = batching.paged(
+            request, lambda offset, size: order_register.register_page(user, **filters, offset=offset, size=size)
+        )
+        rows = batch.shown
+        paging = {"offset": batch.offset, "next_query": batch.next_query}
+    else:
+        rows = order_register.register_rows(user, **filters)
     return {
+        **paging,
+        "can_manage": access.can_manage(_user(request)),
         "rows": rows,
         "q": q,
         "year": year,
@@ -1425,7 +1583,7 @@ def _register_context(request: HttpRequest) -> dict[str, Any]:
         "department": department,
         "state": state,
         "types": OrderType.choices,
-        "states": [*OrderState.choices, (order_register.LEGACY, "Хуучин програм")],
+        "states": [*OrderState.choices, (order_register.LEGACY, "MACS")],
         "departments": Department.objects.exclude(ext__active=False),
         "years": list(range(today.year, today.year - 12, -1)),
         "querystring": request.GET.urlencode(),
@@ -1448,9 +1606,14 @@ def order_suggest(request: HttpRequest) -> JsonResponse:
 @login_required
 @vary_on_headers("HX-Request")
 def orders_page(request: HttpRequest) -> HttpResponse:
-    context = _register_context(request)
+    context = _register_context(request, batched=True)
     is_partial = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-History-Restore-Request")
-    return render(request, "employees/_order_register_rows.html" if is_partial else "employees/orders.html", context)
+    if not is_partial:
+        template = "employees/orders.html"
+    else:
+        more_of_it = bool(context["offset"])  # a later batch adds rows to the table; the first replaces it
+        template = "employees/_order_register_items.html" if more_of_it else "employees/_order_register_rows.html"
+    return render(request, template, context)
 
 
 @login_required
@@ -1461,7 +1624,28 @@ def orders_print(request: HttpRequest) -> HttpResponse:
         buckets.setdefault(row.department or NO_DEPARTMENT, []).append(row)
     context["groups"] = sorted(buckets.items(), key=lambda item: (item[0] == NO_DEPARTMENT, item[0]))
     context["company"] = CompanySettings.get().name
+    record_export(
+        request, "print_page", "Тушаалын бүртгэл", filters=_register_label(context), rows=len(context["rows"])
+    )
     return render(request, "employees/orders_print.html", context)
+
+
+def _register_label(context: dict[str, Any]) -> str:
+    """The register's filters as one readable line for the system log. The search text is not written, only that a
+    search was made: it is typed by the user and may hold a person's name."""
+    parts: list[str] = []
+    if context["year"]:
+        parts.append(f"Он: {context['year']}")
+    if context["order_type"] is not None:
+        parts.append(f"Тушаалын төрөл: {OrderType(context['order_type']).label}")
+    if context["department"] is not None:
+        name = Department.objects.filter(pk=context["department"]).values_list("name", flat=True).first()
+        parts.append(f"Хэлтэс: {name or '—'}")
+    if context["state"]:
+        parts.append(f"Төлөв: {dict(context['states']).get(context['state'], '—')}")
+    if context["q"]:
+        parts.append("Хайлт ашигласан")
+    return "; ".join(parts)
 
 
 # --- Ctrl+K command palette ---
@@ -1488,7 +1672,10 @@ def palette_search(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     q = request.GET.get("q", "")
     today = timezone.localdate()
-    people = palette.people(user, q, today)
+    more = request.GET.get("more") == "1"  # «show all»: up to PEOPLE_MORE_LIMIT people instead of PEOPLE_LIMIT
+    people, people_total = palette.find_people(
+        user, q, today, palette.PEOPLE_MORE_LIMIT if more else palette.PEOPLE_LIMIT
+    )
     single = people[0] if len(people) == 1 else None  # the person's own actions only when exactly one person matched
     # The remembered items are shown only in the empty box; the browser sends them, the server re-checks each one.
     recent = palette.recent(user, palette.parse_refs(request.GET.get("recent", "")), today) if not q.split() else []
@@ -1506,6 +1693,8 @@ def palette_search(request: HttpRequest) -> HttpResponse:
             "fixed_urls": palette.fixed_urls(user),  # only these pages get a data-palette-ref (what can be recalled)
             "actions": palette.actions(user, q),
             "people": people,
+            "people_total": people_total,  # every match; the header shows «shown / total» when some are left out
+            "people_more": not more and people_total > len(people),  # offer «show all»
             "words": q[: palette.QUERY_LIMIT].split(),  # highlighted in the rows; empty for the empty box
             "orders": palette.orders(user, q),
             "person": single,

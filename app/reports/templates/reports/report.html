@@ -15,7 +15,7 @@
       {% if can_edit_view %}<button type="button" hx-get="{% url 'reports:view_edit' current_view.pk %}" hx-target="body" hx-swap="beforeend" class="-ml-1 text-sm text-violet-700 hover:underline">Засах</button>{% endif %}
       {% endif %}
       {# One joined group for the report's tools, so five buttons read as one control, not five competing actions (UI_RULES §4b). #}
-      <div class="inline-flex shrink-0 divide-x divide-slate-300 overflow-hidden rounded-lg border border-slate-300 bg-white text-sm [&>*]:px-4 [&>*]:py-2 [&>*:hover]:bg-slate-50">
+      <div class="inline-flex shrink-0 divide-x divide-slate-300 overflow-hidden rounded-lg border border-slate-300 bg-surface text-sm [&>*]:px-4 [&>*]:py-2 [&>*:hover]:bg-slate-50">
         {% if report.saved_views %}<button type="button" hx-get="{% url 'reports:view_new' report.key %}?{{ query }}" hx-target="body" hx-swap="beforeend">Хадгалах</button>{% endif %}
         {% if report.picks_columns %}<button type="button" hx-get="{% url 'reports:columns' report.key %}?{{ query }}" hx-target="body" hx-swap="beforeend">Багана</button>{% endif %}
         {% if print_url %}<a href="{{ print_url }}" target="_blank" rel="noopener">Хэвлэх</a>{% endif %}

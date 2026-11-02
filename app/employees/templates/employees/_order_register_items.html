@@ -1,0 +1,13 @@
+{# Order register <tr> rows (see _order_register_rows.html). #}
+{% for r in rows %}
+    <tr class="cursor-pointer border-t border-slate-100 hover:bg-violet-50{% if r.state == 'cancelled' %} text-slate-400 line-through{% endif %}" {% if r.order_id %}hx-get="{% url 'employees:order_detail' r.employee_id r.order_id %}" hx-target="body" hx-swap="beforeend"{% else %}onclick="location.href='{% url 'employees:detail' r.employee_id %}'"{% endif %}>
+      {% if can_manage %}<td class="w-8" onclick="event.stopPropagation()">{% if r.order_id and r.state != 'cancelled' %}<input type="checkbox" value="{{ r.order_id }}" aria-label="Тушаал сонгох" class="order-pick rounded border-slate-300">{% endif %}</td>{% endif %}
+      <td class="py-2 whitespace-nowrap">{% if r.number %}№ {{ r.number }}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}</td>
+      <td class="whitespace-nowrap">{{ r.date|date:"Y-m-d"|default:"—" }}</td>
+      <td>{{ r.employee_name }}</td>
+      <td>{{ r.department }}</td>
+      <td>{{ r.summary }}</td>
+      <td>{% if r.state == 'legacy' %}{% include "employees/_order_state.html" with order=None legacy=True %}{% else %}{% if r.state == 'signed' %}<span class="seal">{{ r.state_label }}</span>{% else %}<span class="rounded-full px-2 py-0.5 text-xs {% if r.state == 'pending' %}border border-dashed border-amber-400 bg-amber-50 text-amber-900{% elif r.state == 'registered' %}bg-sky-100 text-sky-900{% else %}bg-slate-200 text-slate-700{% endif %}">{{ r.state_label }}</span>{% endif %}{% if r.awaiting %} {% include "employees/_awaiting_chip.html" %}{% endif %}{% endif %}</td>
+    </tr>
+  {% endfor %}{% if not rows and not offset %}<tr><td colspan="7" class="py-6 text-center text-slate-400">Тушаал олдсонгүй</td></tr>{% endif %}
+{% if next_query %}{% url 'employees:orders' as more_url %}{% include "_more_batch.html" with url=more_url kind="tr" colspan=7 %}{% endif %}

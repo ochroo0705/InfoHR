@@ -532,6 +532,7 @@ class ListEntryInUse(ValueError):
 _EXTENSIONS: dict[type[Any], type[Any]] = {Department: DepartmentExt, Position: PositionExt}
 
 
+@transaction.atomic
 def save_list_entry(model: Any, values: dict[str, Any], *, entry: Any | None = None) -> Any:
     """Create or update one row of a production list table (the generic list editor)."""
     if entry is None:

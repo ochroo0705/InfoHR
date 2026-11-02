@@ -1,11 +1,11 @@
 {# Read-only pop-up: the history of one order (employee activity entries linked to it). #}
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
-  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
     <h2 class="mb-4 text-lg font-semibold">Тушаалын түүх: {{ order.get_order_type_display }}{% if order.number %} · № {{ order.number }}{% endif %}</h2>
     {% if not entries %}<p class="text-sm text-slate-500">Бүртгэл алга</p>{% else %}
     <ol class="ml-1 border-l border-slate-200">{% for e in entries %}
       <li class="relative pb-4 pl-4 text-sm last:pb-1">
-        <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-white bg-violet-500"></span>
+        <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-surface bg-violet-500"></span>
         <div class="flex items-baseline gap-2">
           <span class="truncate font-medium">{{ e.by.get_full_name|default:e.by.username|default:"Систем" }}</span>
           <span class="ml-auto shrink-0 text-xs text-slate-400">{{ e.at|date:"Y-m-d H:i" }}</span>

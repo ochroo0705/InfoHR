@@ -5,6 +5,7 @@ from typing import Any
 from accounts.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
+from macs.models import Branch
 
 from employees.models import Employee, Event, HrOrder, OrderState
 from employees.services import events, orders
@@ -36,3 +37,8 @@ def record_signed(employee: Employee, **record_kwargs: Any) -> Event:
     if event.applied_at is None:
         return sign_event(event, by=record_kwargs.get("by"))
     return event
+
+
+def make_branch(name: str) -> Branch:
+    """A production branch row (macs.Branch) for tests. This file is exempt from the write guard."""
+    return Branch.objects.create(name=name)

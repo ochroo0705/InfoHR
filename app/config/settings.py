@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "leave",
     "lists",
     "reports",
+    "logs",
 ]
 
 MIDDLEWARE = [
@@ -42,6 +43,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.AuditContextMiddleware",
     "employees.daily_sync.DailySyncMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -96,6 +98,10 @@ MEDIA_ROOT = BASE_DIR / "media"
 ORDER_FILES_ROOT = BASE_DIR / "private" / "orders"
 ORDER_FILE_MAX_MB = 10
 ORDER_TEMPLATES_DIR = BASE_DIR.parent / "order_templates"  # Word templates of the six order types
+# Request header that carries the client IP behind a reverse proxy (e.g. "HTTP_X_FORWARDED_FOR").
+# Empty = use REMOTE_ADDR. Used by the system log only. The proxy must APPEND the client's IP to this
+# header, not trust a value the client supplied: the last comma-separated value is the one used.
+AUDIT_TRUSTED_PROXY_HEADER = ""
 # Fonts for the PDF of an order, first set whose four files all exist wins: (regular, bold, italic, bold italic).
 # Times New Roman is the template font; the others are metric-compatible or fall-back Cyrillic fonts.
 ORDER_PDF_FONT_SETS = [
@@ -192,6 +198,21 @@ UNFOLD = {
                         "title": "Албан тушаалууд",
                         "icon": "work",
                         "link": reverse_lazy("admin:macs_position_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Тохиргоо",
+                "items": [
+                    {
+                        "title": "Байгууллагын тохиргоо",
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:employees_companysettings_changelist"),
+                    },
+                    {
+                        "title": "Тушаалын загварууд",
+                        "icon": "description",
+                        "link": reverse_lazy("admin:employees_ordertemplate_changelist"),
                     },
                 ],
             },

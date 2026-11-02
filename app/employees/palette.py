@@ -8,20 +8,25 @@ come first.
 """
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
 from accounts.models import User
-from django.db.models import F
+from django.db.models import Case, CharField, Count, F, Func, IntegerField, Q, QuerySet, Value, When, Window
+from django.db.models.functions import Coalesce, Lower
 from django.urls import reverse
+from django.utils import timezone
 from macs.models import Department, Position
 
 from employees import access
 from employees.listing import Row, employee_rows
-from employees.models import Employee, EventType, HrOrder
+from employees.models import Employee, EventType, HrOrder, JobRecord
 from employees.services.orders import _key as order_key
 
 PEOPLE_LIMIT = 8  # at most this many people in one palette answer
+PEOPLE_MORE_LIMIT = 50  # at most this many people after «show all» (the user types more to narrow it)
 ORDER_LIMIT = 5  # at most this many orders (Тушаал) in one palette answer, the newest first
 NUMBER_SIGN = "№"  # a typed order number may start with this sign (`№12`, `№ 12`)
 _DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")  # a typed date, YYYY-MM-DD (checked by date.fromisoformat)
@@ -81,15 +86,66 @@ class Recent:
     kind: str = "page"  # the icon of a page row (see Screen.kind)
 
 
-# (title, URL name, permission needed; "" means none beyond being logged in)
-_CATALOGUE: tuple[tuple[str, str, str], ...] = (
-    ("Өнөөдөр", "employees:today", ""),
+# Who may see an entry: a permission name, "" (only being signed in), or a test of the user for a rule that is more
+# than one permission (the same rule the screen itself or the top bar uses, accounts/nav.py).
+type Need = str | Callable[[User], bool]
+
+
+def _per_user[T](user: User, key: str, work: Callable[[], T]) -> T:
+    """`work()` once per user object: one palette answer asks for the fixed screens several times."""
+    cache: dict[str, Any] = user.__dict__.setdefault("_palette_cache", {})
+    if key not in cache:
+        cache[key] = work()
+    return cache[key]  # type: ignore[no-any-return]
+
+
+def _has_own_record(user: User) -> bool:
+    """The login is linked to an employee (My page exists for them)."""
+    return _per_user(user, "own", lambda: access.own_employee(user) is not None)
+
+
+def _sees_requests(user: User) -> bool:
+    """The top bar's «Хүсэлт» rule (leave_tags.requests_nav): request screens are in use, and the user may view leave
+    or has a request waiting for their decision."""
+    from leave import access as leave_access  # local import: the leave screens import employees (import cycle)
+    from leave.services.approvers import may_decide, requests_active, waiting_for_cached
+
+    if not requests_active(user):
+        return False
+    day = timezone.localdate()
+    return leave_access.can_view(user) or (may_decide(user, day) and bool(waiting_for_cached(user, day)))
+
+
+def _may_request_leave(user: User) -> bool:
+    """The rule of the leave request form (leave/views_requests._requester): own record, the right, approval on."""
+    from leave.services.approvers import approval_enabled  # local import: import cycle, as above
+
+    return user.has_perm("leave.request_own_leave") and _has_own_record(user) and approval_enabled(user)
+
+
+def _is_staff(user: User) -> bool:
+    return bool(user.is_staff)
+
+
+def _allowed(user: User, need: Need) -> bool:
+    if callable(need):
+        return need(user)
+    return not need or user.has_perm(need)
+
+
+# (title, URL name, who may see it)
+_CATALOGUE: tuple[tuple[str, str, Need], ...] = (
+    ("Өнөөдөр", "employees:today", "macs.view_employees"),  # as the top bar; HR's home page, so first for them
+    ("Миний хуудас", "me", _has_own_record),  # first for staff without the employee right: their home page
     ("Ажилтнууд", "employees:list", ""),
     ("Тушаалын бүртгэл", "employees:orders", "macs.view_employees"),
     ("Чөлөө, амралт", "leave:list", "leave.view_leave"),
+    ("Хүсэлт", "leave:requests", _sees_requests),
     ("Багийн хуанли", "leave:calendar", "leave.view_leave"),
     ("Амралтын үлдэгдэл", "leave:balances", "leave.view_leave"),
     ("Тайлан", "reports:catalogue", "reports.view_reports"),
+    ("Ажилтны бүртгэл", "logs:employee", "macs.view_employees"),
+    ("Системийн бүртгэл", "logs:system", "accounts.view_audit"),
     ("Жагсаалтууд", "lists:index", "lists.manage_lists"),
 )
 
@@ -97,20 +153,24 @@ _CATALOGUE: tuple[tuple[str, str, str], ...] = (
 _SCREEN_KINDS: dict[str, str] = {"leave:calendar": "calendar"}
 
 # Deep pages: found by a typed word only, so the empty box keeps the short menu of fixed screens.
-_DEEP: tuple[tuple[str, str, str], ...] = (
+_DEEP: tuple[tuple[str, str, Need], ...] = (
     ("Баярын өдрүүд", "leave:holidays", "leave.manage_leave_settings"),
     ("Амралтын төрөл, тохиргоо", "leave:settings", "leave.manage_leave_settings"),
+    ("Утгын холбоо", "lists:meaning", "lists.manage_lists"),
+    ("Админ хэсэг", "admin:index", _is_staff),
 )
 
 # Quick actions (create forms, or a page to print or to change the password): their own group in the palette.
-# Every permission in the tuple is needed; an empty tuple means only being signed in.
+# Every need in the tuple must hold (see `Need`); an empty tuple means only being signed in.
 # The leave form asks for both (leave/access.py can_record); the quick action and a person's action need both.
 _LEAVE_PERMS = ("leave.record_leave", "leave.view_leave")
 
 # (title, URL name, permissions needed, opens as a pop-up)
-_ACTIONS: tuple[tuple[str, str, tuple[str, ...], bool], ...] = (
+_ACTIONS: tuple[tuple[str, str, tuple[Need, ...], bool], ...] = (
     ("Чөлөө бүртгэх", "leave:add", _LEAVE_PERMS, True),
+    ("Чөлөө хүсэх", "leave:request_new", (_may_request_leave,), True),  # staff self-service (D-057)
     ("Ажилтан нэмэх", "employees:add", ("macs.manage_employees",), False),
+    ("Ажилтан импортлох", "employees:import", ("macs.manage_employees",), False),  # access.can_manage
     ("Тушаалын бүртгэл хэвлэх", "employees:orders_print", ("macs.view_employees",), False),  # as the register screen
     ("Нууц үг солих", "password_change", (), False),
 )
@@ -119,6 +179,24 @@ _ACTIONS: tuple[tuple[str, str, tuple[str, ...], bool], ...] = (
 def _fold(text: str) -> str:
     """Case-folded text with Mongolian ө read as о and ү as у, so the letters match with or without them."""
     return text.casefold().replace("ө", "о").replace("ү", "у")
+
+
+# Capital Cyrillic letters (Mongolian: А–Я, Ё, Ө, Ү) and the small ө, ү, mapped to what `_fold` makes of them. Used by
+# `_sql_fold`: PostgreSQL's lower() folds Cyrillic only when the database's locale knows it, translate() always does.
+_FOLD_FROM = "АБВГДЕЁЖЗИЙКЛМНОӨПРСТУҮФХЦЧШЩЪЫЬЭЮЯөү"
+_FOLD_TO = "".join(_fold(ch) for ch in _FOLD_FROM)
+
+
+def _sql_fold(expression: Any) -> Func:
+    """`_fold` in SQL: lower() for Latin letters, then translate() for Cyrillic capitals, ө and ү. NULL reads as "",
+    so a missing name or job matches no word and `exclude` treats it as plain text too."""
+    return Func(
+        Lower(Coalesce(expression, Value(""))),
+        Value(_FOLD_FROM),
+        Value(_FOLD_TO),
+        function="translate",
+        output_field=CharField(),
+    )
 
 
 def _ranked[T](words: list[str], found: list[tuple[str, T]]) -> list[T]:
@@ -132,7 +210,8 @@ def _ranked[T](words: list[str], found: list[tuple[str, T]]) -> list[T]:
 def screens(user: User, q: str) -> list[Screen]:
     """The screens the user may open whose title contains every typed word. An empty query lists only the fixed ones.
 
-    With a word typed the order is: fixed screens, deep pages, reports, lists; inside each group the best matches first.
+    With a word typed the order is: fixed screens, deep pages, reports, saved report views, lists; inside each group
+    the best matches first.
     """
     if not user.is_active:
         return []
@@ -142,6 +221,7 @@ def screens(user: User, q: str) -> list[Screen]:
         found = _month_screens(user, q) + found  # a typed date is the most specific answer, so it comes first
         found += _matching(user, words, _DEEP)
         found += _report_screens(user, words)
+        found += _saved_view_screens(user, words)
         found += _list_screens(user, words)
     return found
 
@@ -153,7 +233,7 @@ def actions(user: User, q: str) -> list[Action]:
     words = [_fold(w) for w in q.split()]
     found: list[tuple[str, Action]] = []
     for title, url_name, perms, modal in _ACTIONS:
-        if not all(user.has_perm(perm) for perm in perms):
+        if not all(_allowed(user, need) for need in perms):
             continue
         if all(w in _fold(title) for w in words):
             found.append((title, Action(title, reverse(url_name), modal)))
@@ -232,13 +312,12 @@ def orders(user: User, q: str) -> list[OrderHit]:
     ]
 
 
-def _matching(user: User, words: list[str], entries: tuple[tuple[str, str, str], ...]) -> list[Screen]:
-    """The entries of a (title, URL name, permission) table the user may open whose title contains every typed word."""
+def _matching(user: User, words: list[str], entries: tuple[tuple[str, str, Need], ...]) -> list[Screen]:
+    """The entries of a (title, URL name, need) table the user may open whose title contains every typed word.
+    The title is checked first, so a rule that reads the database runs only for a title that matches."""
     found: list[tuple[str, Screen]] = []
-    for title, url_name, perm in entries:
-        if perm and not user.has_perm(perm):
-            continue
-        if all(w in _fold(title) for w in words):
+    for title, url_name, need in entries:
+        if all(w in _fold(title) for w in words) and _allowed(user, need):
             found.append((title, Screen(title, reverse(url_name), _SCREEN_KINDS.get(url_name, "page"))))
     return _ranked(words, found)
 
@@ -269,52 +348,119 @@ def _report_screens(user: User, words: list[str]) -> list[Screen]:
     return _ranked(words, found)[:REPORT_LIMIT]
 
 
-def _person_rank(words: list[str], family: str, given: str, code: str) -> int:
-    """0: a typed word is the code exactly; 1: family or given name starts with the first typed word;
-    2: every word is in the name or code; 3: some word matches only the position or department."""
-    if code and code in words:
-        return 0
-    if family.startswith(words[0]) or given.startswith(words[0]):
-        return 1
-    if all(w in family or w in given or w in code for w in words):
-        return 2
-    return 3
+def _saved_view_screens(user: User, words: list[str]) -> list[Screen]:
+    """Saved report views (a named setup of filters and columns) of the reports the user may open, as
+    «Тайлан · <report> · <name>», opening the report with the saved query. Matched on the report's title and the
+    view's name together; at most REPORT_LIMIT. One query."""
+    from reports import registry  # local import: import cycle, as in `_report_screens`
+    from reports.models import SavedView
+
+    reports = {key: r for key, r in registry.REPORTS.items() if r.saved_views and registry.can_open(user, r)}
+    if not reports:
+        return []
+    found: list[tuple[str, Screen]] = []
+    for view in SavedView.objects.filter(report__in=reports).order_by("report", "name", "pk"):
+        report = reports[view.report]
+        if not all(w in _fold(f"{report.title} {view.name}") for w in words):
+            continue
+        base = reverse("reports:report", args=[report.key])
+        url = f"{base}?{view.query}" if view.query else base  # as the report page's own view picker
+        found.append((view.name, Screen(f"Тайлан · {report.title} · {view.name}", url)))
+    return _ranked(words, found)[:REPORT_LIMIT]
 
 
 def people(user: User, q: str, today: date) -> list[PersonHit]:
-    """Employees the user may see whose family name, given name, code, position or department contains every typed
-    word (folded, see `_fold`). Position and department are the ones the list shows for the person (the same row).
+    """The first PEOPLE_LIMIT people `find_people` finds."""
+    return find_people(user, q, today)[0]
 
-    The best matches come first (see `_person_rank`); the rest keep the order family name, given name, pk.
+
+def find_people(user: User, q: str, today: date, limit: int = PEOPLE_LIMIT) -> tuple[list[PersonHit], int]:
+    """Employees the user may see whose family name, given name, code, position or department contains every typed
+    word (folded, see `_fold`), at most `limit` of them, and how many match in all. Position and department are the
+    ones the list shows for the person (the same row).
+
+    The best matches come first: a typed word that is the code exactly, then a family or given name that starts
+    with the first typed word, then every word in the name or code, then a match that needs the position or
+    department; each rank keeps the order family name, given name, pk.
     A blank query finds nothing. Wildcard characters are matched as plain text (no SQL pattern is built).
     """
     if not user.is_active:
-        return []
+        return [], 0
     words = [_fold(w) for w in q[:QUERY_LIMIT].split()]
     if not words:
-        return []
-    # Folding cannot be done in SQL, so the people HR has touched (as the list shows them) are read as the list reads
-    # them, and filtered here. Position and department names are read in one query each, not per person.
+        return [], 0
+    # Matches by name or code are exact in SQL, so the database counts and ranks them and rows are built only for
+    # the ones shown. A match by position or department alone needs the row the list shows (its job), so those few
+    # candidates (`_candidates` minus the name matches) are checked here. Both orders: rank, then family name, given
+    # name, pk (pk last: ties come out the same every time).
+    base = _candidates(access.visible_employees(user), words).filter(ext__isnull=False)  # people HR has touched
+    by_name = Q()
+    for word in words:
+        by_name &= Q(f_family__contains=word) | Q(f_given__contains=word) | Q(f_code__contains=word)
+    named = base.filter(by_name).annotate(
+        rank=Case(
+            When(f_code__in=words, then=Value(0)),
+            When(Q(f_family__startswith=words[0]) | Q(f_given__startswith=words[0]), then=Value(1)),
+            default=Value(2),
+            output_field=IntegerField(),
+        )
+    )
+    first = list(
+        named.annotate(total=Window(Count("pk")))  # every name match, read with the first ones: one scan, not two
+        .order_by("rank", "family_name", "given_name", "pk")
+        .values_list("pk", "total")[:limit]
+    )
+    shown = [pk for pk, _ in first]
+    named_total = first[0][1] if first else 0
     rows = employee_rows(
-        access.visible_employees(user)
-        .filter(ext__isnull=False)  # only people HR has touched, as the list does
-        .order_by("family_name", "given_name", "pk"),  # pk last: ties come out the same every time
+        base.filter(Q(pk__in=shown) | ~by_name).order_by("family_name", "given_name", "pk"),
         today,
     )
     hits = _person_hits(rows)
-    ranked: list[tuple[int, PersonHit]] = []
+    on_show = set(shown)
+    by_job: list[PersonHit] = []
     for row in rows:
+        if row.employee.pk in on_show:
+            continue
         hit = hits[row.employee.pk]
+        pos, dep = _fold(hit.position), _fold(hit.department)
         fam, giv, cod = (
             _fold(row.employee.family_name or ""),
             _fold(row.employee.given_name or ""),
             _fold(row.employee.code or ""),
         )
-        pos, dep = _fold(hit.position), _fold(hit.department)
         if all(w in fam or w in giv or w in cod or w in pos or w in dep for w in words):
-            ranked.append((_person_rank(words, fam, giv, cod), hit))
-    ranked.sort(key=lambda pair: pair[0])  # stable: equal ranks keep the query order
-    return [hit for _, hit in ranked[:PEOPLE_LIMIT]]
+            by_job.append(hit)
+    found = [hits[pk] for pk in shown] + by_job
+    return found[:limit], named_total + len(by_job)
+
+
+def _candidates(qs: QuerySet[Employee], words: list[str]) -> QuerySet[Employee]:
+    """The employees of `qs` that may match: every folded word is in the name or code, or in the name of the position
+    or department of one of their job records or of their MACS row (the job of a person with no HR history).
+
+    A superset of the people `find_people` keeps: the row the list shows uses one of those jobs, and `_sql_fold`
+    folds as `_fold` does. `contains` escapes % and _, so wildcards stay plain text. Positions and departments are
+    short tables, so each word looks them up once and people are then filtered by id, not by a name per person.
+    """
+    qs = qs.alias(
+        f_family=_sql_fold(F("family_name")),
+        f_given=_sql_fold(F("given_name")),
+        f_code=_sql_fold(F("code")),
+    )
+    for word in words:
+        positions = Position.objects.alias(f_name=_sql_fold(F("name"))).filter(f_name__contains=word).values("pk")
+        departments = Department.objects.alias(f_name=_sql_fold(F("name"))).filter(f_name__contains=word).values("pk")
+        jobs = JobRecord.objects.filter(Q(position__in=positions) | Q(department__in=departments))
+        qs = qs.filter(
+            Q(f_family__contains=word)
+            | Q(f_given__contains=word)
+            | Q(f_code__contains=word)
+            | Q(position__in=positions)
+            | Q(department__in=departments)
+            | Q(pk__in=jobs.values("employee_id"))
+        )
+    return qs
 
 
 def _person_hits(rows: list[Row]) -> dict[int, PersonHit]:

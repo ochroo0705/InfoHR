@@ -1,7 +1,7 @@
 """Stale check for the employee page save: production columns the old MACS program also writes.
 
 The page posts back, in a hidden `loaded` field, the values it showed when it was opened. On save:
-- a field HR left as loaded is not written, so a change the old program made meanwhile stays;
+- a field HR left as loaded is not written, so a change MACS made meanwhile stays;
 - a field HR changed is written when the stored value is still the loaded one;
 - a field both changed is a clash: nothing is saved and the field asks which value to keep
   (`resolve-<name>` = "mine" or "theirs"). The page is then re-rendered with the current values as loaded.
@@ -90,5 +90,5 @@ def resolve(form: forms.Form, employee: Employee, changes: dict[str, Any]) -> di
             conflicts[name] = _theirs(employee, name)
     form.conflicts = conflicts  # type: ignore[attr-defined]
     for name, theirs in conflicts.items():
-        form.add_error(name, f"Энэ утгыг өөр газар (хуучин программ) «{theirs}» болгож өөрчилсөн байна.")
+        form.add_error(name, f"Энэ утгыг өөр газар (MACS) «{theirs}» болгож өөрчилсөн байна.")
     return write

@@ -55,11 +55,16 @@ def test_role_editor_groups_permissions_into_cards() -> None:
         groups = [group for group, _options in field.widget.choices]
     assert groups == ["Үйл ажиллагааны эрх", "Ажилтан", "Чөлөө, амралт", "Жагсаалтууд", "Тайлан"]
     switches = {label for _value, label in field.widget.choices[0][1]}
-    assert switches == {"Чөлөө, амралт батлах", "Тушаал гаргах / баталгаажуулах", "Жагсаалтыг Excel рүү гаргах"}
+    assert switches == {
+        "Чөлөө, амралт батлах",
+        "Тушаал гаргах / баталгаажуулах",
+        "Жагсаалтыг Excel рүү гаргах",
+        "Үйл ажиллагааны бүртгэл харах",
+    }
     employee_card = {label for _value, label in field.widget.choices[1][1]}
     assert "Цалин, даатгалын мэдээллийг харах" in employee_card
     leave_card = {label for _value, label in field.widget.choices[2][1]}
-    assert leave_card == {"Чөлөө харах", "Чөлөө бүртгэх", "Чөлөөний тохиргоо"}
+    assert leave_card == {"Чөлөө харах", "Чөлөө бүртгэх", "Чөлөөний тохиргоо", "Өөрийн чөлөө хүсэх"}
     lists_card = {label for _value, label in field.widget.choices[3][1]}
     assert lists_card == {"Жагсаалт засах"}
 

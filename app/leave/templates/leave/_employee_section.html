@@ -48,7 +48,7 @@
   {% endif %}
   {% if old_absences %}
   <div class="border-t border-slate-100 py-3 text-sm" data-old-absences>
-    <span class="font-medium text-slate-700">Хуучин програмын «Амралт» бүртгэл</span>
+    <span class="font-medium text-slate-700">MACS-ын «Амралт» бүртгэл</span>
     <span class="ml-1 rounded bg-slate-100 px-1.5 text-xs text-slate-600">Зөвхөн харах</span>
     <ul class="mt-1 space-y-0.5 text-slate-600">
       {% for a in old_absences %}<li>{{ a.from_date|date:"Y-m-d" }}{% if a.to_date %} – {{ a.to_date|date:"Y-m-d" }}{% endif %}: <span class="text-slate-700">{{ a.absence_type.name }}</span>{% if a.note %} · {{ a.note }}{% endif %}</li>{% endfor %}

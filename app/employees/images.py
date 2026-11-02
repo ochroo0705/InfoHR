@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+from collections.abc import Iterable
 from io import BytesIO
 from pathlib import Path
 
@@ -69,21 +70,52 @@ THUMB_CENTERING = (0.5, 0.3)
 CROP_TAG = "c30"
 
 
+def attach_photo_digests(employees: Iterable[Employee]) -> None:
+    """Look up the photo hash of many employees in one query (Postgres hashes; no image bytes travel).
+
+    `thumbnail_url` then finds the cached thumbnail without reading the photo, so a list of 300 people
+    costs one query instead of one per person. An employee with no photo gets an empty hash."""
+    from django.db.models import CharField, F, Func
+    from macs.models import EmployeePhoto
+
+    people = list(employees)
+    for person in people:
+        person._photo_md5 = ""  # type: ignore[attr-defined]
+    hashed = (
+        EmployeePhoto.objects.filter(employee_id__in=[p.pk for p in people], data__isnull=False)
+        .annotate(digest=Func(F("data"), function="md5", output_field=CharField()))
+        .order_by("-id")  # lowest id is assigned last and wins, as `.first()` does in thumbnail_url
+        .values_list("employee_id", "digest")
+    )
+    by_pk = {p.pk: p for p in people}
+    for employee_id, digest in hashed:
+        by_pk[employee_id]._photo_md5 = digest or ""  # type: ignore[attr-defined]
+
+
 def thumbnail_url(employee: Employee, side: int) -> str:
     """URL of a side x side JPEG made from the photo in emp_photo; "" when there is no photo.
 
-    Cached on disk by a hash of the photo bytes, so a replaced photo gets a new file.
+    Cached on disk by a hash of the stored photo bytes, so a replaced photo gets a new file.
     """
     from django.core.files.storage import default_storage
     from macs.models import EmployeePhoto
 
-    raw = EmployeePhoto.objects.filter(employee=employee).values_list("data", flat=True).first()
-    jpeg = photo_bytes(raw)
-    if jpeg is None:
+    known = getattr(employee, "_photo_md5", None)  # set by attach_photo_digests for a whole list
+    if known == "":
         return ""
-    digest = hashlib.sha1(jpeg).hexdigest()[:12]  # noqa: S324 - cache key, not security
-    name = f"employees/thumbs/{employee.pk}_{side}_{digest}_{CROP_TAG}.jpg"  # new crop -> new file
+    raw = None
+    if known is None:
+        raw = EmployeePhoto.objects.filter(employee=employee).values_list("data", flat=True).first()
+        if photo_bytes(raw) is None:
+            return ""
+        known = hashlib.md5(bytes(raw or b""), usedforsecurity=False).hexdigest()
+    name = f"employees/thumbs/{employee.pk}_{side}_{known[:12]}_{CROP_TAG}.jpg"  # new crop -> new file
     if not default_storage.exists(name):
+        if raw is None:  # the hash came from the list lookup: read the photo now (once per new thumbnail)
+            raw = EmployeePhoto.objects.filter(employee=employee).values_list("data", flat=True).first()
+        jpeg = photo_bytes(raw)
+        if jpeg is None:
+            return ""
         try:
             with Image.open(BytesIO(jpeg)) as source:
                 image = ImageOps.fit(

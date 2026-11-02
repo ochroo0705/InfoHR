@@ -11,6 +11,7 @@ from django.db.models import F, Func, Model, Q, Value
 from django.db.models.functions import Upper
 from django.forms.models import fields_for_model, model_to_dict
 from django.urls import reverse
+from django.utils import timezone
 from lists.models import DEATH, MeaningfulEntry
 from lists.quick import mark_addable
 from macs.models import (
@@ -36,6 +37,7 @@ from macs.models import (
     TalentKind,
 )
 
+from employees.access import branch_choices, branch_required, default_branch, manager_choices
 from employees.images import MAX_UPLOAD_BYTES, shrink_photo
 from employees.models import (
     EXT_FIELDS,
@@ -50,7 +52,9 @@ from employees.models import (
     Position,
 )
 from employees.money import MoneyField
+from employees.scope import manager_error
 from employees.services.events import ALLOWED_FIELDS, REASON_CHOICES, SALARY_TYPES
+from employees.services.history import job_on
 from employees.services.orders import ISSUED_BY_MAX as ORDER_ISSUED_BY_MAX
 from employees.services.orders import NUMBER_MAX as ORDER_NUMBER_MAX
 from employees.services.orders import SUMMARY_MAX as ORDER_SUMMARY_MAX
@@ -157,8 +161,13 @@ class EmployeeForm(StyledForm):
     photo = forms.ImageField(label="Зураг", required=False)
     photo_clear = forms.BooleanField(label="Зураг устгах", required=False)
 
-    def __init__(self, data: Any = None, files: Any = None, *, employee: Employee | None = None) -> None:
+    # user=None leaves the branch picker unscoped; every view passes the user. A branch-limited user gets their own
+    # branches plus the employee's current one, so a value outside the limit that is already stored stays valid.
+    def __init__(
+        self, data: Any = None, files: Any = None, *, employee: Employee | None = None, user: User | None = None
+    ) -> None:
         self.employee = employee
+        self.user = user
         initial: dict[str, Any] = {}
         if employee is not None:
             initial = model_to_dict(employee, fields=[f for f in EMPLOYEE_FIELDS + OTHER_FIELDS if f not in EXT_FIELDS])
@@ -190,6 +199,9 @@ class EmployeeForm(StyledForm):
             field = built[name]
             field.required = name in REQUIRED
             self.fields[name] = field
+        self.register_optional = employee is not None and not employee.register_no and bool(employee.passport_no)
+        if employee is not None:
+            self._relax_stored_blanks(initial)
         self.fields["birth_city"] = forms.ModelChoiceField(
             City.objects.all(), label="Төрсөн аймаг, хот", required=False
         )
@@ -219,8 +231,21 @@ class EmployeeForm(StyledForm):
             if isinstance(field, forms.DateField):
                 field.widget = forms.DateInput(attrs={"type": "date", "class": INPUT}, format="%Y-%m-%d")
 
-    def clean_register_no(self) -> str:
-        value = normalize_register_no(self.cleaned_data["register_no"])
+    def _relax_stored_blanks(self, initial: dict[str, Any]) -> None:
+        """Editing an existing employee: a required field that is blank in the stored row is not required on this save,
+        so an imported person (a foreign worker has no register number) can still be edited. The register number is
+        optional only when the person has a passport number. Creating a new employee is not affected."""
+        for name in REQUIRED:
+            if name == "register_no":
+                self.fields[name].required = not self.register_optional
+            elif initial.get(name) in (None, ""):
+                self.fields[name].required = False
+
+    def clean_register_no(self) -> str | None:
+        raw = self.cleaned_data.get("register_no") or ""
+        if not raw.strip() and self.register_optional:
+            return None  # passport-only person: no register number, stored as empty
+        value = normalize_register_no(raw)
         validate_register_no(value)
         # Stored rows may hold unnormalised numbers (e.g. "уб 99112233"): compare normalised to normalised.
         stored = Employee.objects.annotate(
@@ -243,6 +268,15 @@ class EmployeeForm(StyledForm):
         # Existing MACS values the inputs cannot express must survive an unrelated save (QC 4 review).
         employee = self.employee
         assert employee is not None
+        if self.user is not None:
+            allowed = branch_choices(self.user).values("pk")
+            self.fields["branch"].queryset = Branch.objects.filter(  # type: ignore[attr-defined]
+                Q(pk__in=allowed) | Q(pk=employee.branch_id)
+            )
+            if branch_required(self.user):
+                # A branch-limited user may not clear the branch of a person who has one. A person without a stored
+                # branch stays optional, so a legacy row can still be edited.
+                self.fields["branch"].required = employee.branch_id is not None
         foreign_choices = [("", "—"), ("1", "Тийм"), ("0", "Үгүй")]
         if employee.foreign_emp not in (None, 0, 1):  # an unknown old value stays selectable
             foreign_choices.append((str(employee.foreign_emp), str(employee.foreign_emp)))
@@ -382,7 +416,8 @@ class JobCorrectionForm(StyledModelForm):
         model = JobRecord
         fields = list(JobRecord.JOB_FIELDS)
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    # user=None leaves the picker unscoped: only tests and management commands may omit it; every view passes the user.
+    def __init__(self, *args: Any, user: User | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["position"].queryset = Position.objects.filter(  # type: ignore[attr-defined]
             ~Q(ext__active=False) | Q(pk=self.instance.position_id)
@@ -390,9 +425,27 @@ class JobCorrectionForm(StyledModelForm):
         self.fields["department"].queryset = Department.objects.filter(  # type: ignore[attr-defined]
             ~Q(ext__active=False) | Q(pk=self.instance.department_id)
         )
-        self.fields["manager"].queryset = Employee.objects.exclude(  # type: ignore[attr-defined]
-            pk=self.instance.employee_id
-        )
+        if user is None:
+            self.fields["manager"].queryset = Employee.objects.exclude(  # type: ignore[attr-defined]
+                pk=self.instance.employee_id
+            )
+        else:  # the people this user may see, plus the current manager (scope §5)
+            choices = manager_choices(user, self.instance.manager)
+            self.fields["manager"].queryset = choices.exclude(  # type: ignore[attr-defined]
+                pk=self.instance.employee_id
+            )
+
+    def clean(self) -> dict[str, Any]:
+        """Shows a manager loop early; history.correct_job refuses it again (the service is the authority)."""
+        cleaned = super().clean() or {}
+        manager = cleaned.get("manager")
+        period = self.instance.period
+        start = period.lower if period is not None else None
+        if manager is not None and start is not None and manager.pk != self.instance.manager_id:
+            message = manager_error(self.instance.employee_id, manager.pk, start)
+            if message is not None:
+                self.add_error("manager", message)
+        return cleaned
 
 
 class SalaryCorrectionForm(StyledForm):
@@ -407,15 +460,23 @@ class SetSalaryForm(StyledForm):
 
 class HireJobForm(StyledModelForm):
     start = forms.DateField(label="Ажилд орох огноо")
+    branch = forms.ModelChoiceField(Branch.objects.all(), label="Ажилладаг салбар", required=False)
 
     class Meta:
         model = JobRecord
         fields = list(JobRecord.JOB_FIELDS)
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    # user=None leaves the picker unscoped: only tests and management commands may omit it; every view passes the user.
+    def __init__(self, *args: Any, user: User | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["position"].queryset = Position.objects.exclude(ext__active=False)  # type: ignore[attr-defined]
         self.fields["department"].queryset = Department.objects.exclude(ext__active=False)  # type: ignore[attr-defined]
+        if user is not None:  # a new hire has no current manager, so only the people this user may see
+            self.fields["manager"].queryset = manager_choices(user)  # type: ignore[attr-defined]
+            self.fields["branch"].queryset = branch_choices(user)  # type: ignore[attr-defined]
+            self.fields["branch"].required = branch_required(user)  # a branch-limited hirer must pick one
+            default = default_branch(user)  # the hirer's own branch, pre-selected on a fresh form
+            self.fields["branch"].initial = default.pk if default is not None else None
         self.fields["status"].initial = "active"
 
 
@@ -509,6 +570,14 @@ class OrderUploadForm(StyledForm):
         return upload  # type: ignore[no-any-return]
 
 
+def _posted_day(value: Any) -> date | None:
+    """An ISO date typed in a form (the effective date), or None when it is empty or not a date."""
+    try:
+        return date.fromisoformat(value) if isinstance(value, str) and value else None
+    except ValueError:
+        return None
+
+
 def _job_field(name: str) -> forms.Field:
     if name == "position":
         return forms.ModelChoiceField(Position.objects.exclude(ext__active=False), label="Албан тушаал")
@@ -538,8 +607,16 @@ def _job_field(name: str) -> forms.Field:
 class EventForm(StyledForm):
     """One form per event type, built from the fields the type may change (services.events)."""
 
+    # user=None leaves the picker unscoped: only tests and management commands may omit it; every view passes the user.
     def __init__(
-        self, type: str, *args: Any, with_salary: bool = False, start_missing: tuple[str, ...] = (), **kwargs: Any
+        self,
+        type: str,
+        *args: Any,
+        with_salary: bool = False,
+        start_missing: tuple[str, ...] = (),
+        user: User | None = None,
+        employee: Employee | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.type = type
@@ -554,6 +631,14 @@ class EventForm(StyledForm):
             fields[f"start_{name}"] = start
         for name in self.job_fields:
             fields[name] = _job_field(name)
+        if user is not None and "manager" in fields and employee is not None:
+            # Shows the manager in force on this date: the one out-of-scope person admitted (at most one).
+            # Scope §5: the people this user may see, plus the manager in force on the effective date.
+            day = _posted_day(self.data.get("effective")) if self.is_bound else None
+            if day is None and isinstance(self.initial.get("effective"), date):
+                day = self.initial["effective"]
+            job = job_on(employee, day or timezone.localdate())
+            fields["manager"].queryset = manager_choices(user, job.manager if job is not None else None)  # type: ignore[attr-defined]
         if self.with_salary:
             fields["salary"] = MoneyField(label="Үндсэн цалин", required=type == EventType.SALARY_CHANGE)
         choices = REASON_CHOICES.get(type)

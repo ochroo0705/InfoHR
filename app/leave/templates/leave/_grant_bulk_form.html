@@ -1,0 +1,22 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-1 text-lg font-semibold">Олон хүнд эрх нэмэх</h2>
+    {% if people %}
+    <p class="mb-4 text-sm text-slate-500">{% if everyone %}Одоо ажиллаж буй бүх{% else %}Сонгосон{% endif %} <strong>{{ people|length }}</strong> хүнд ижил хоног нэмнэ. Хүн бүрийн түүхэнд тусдаа бичигдэнэ.</p>
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      {% if everyone %}<input type="hidden" name="everyone" value="1">{% else %}{% for p in people %}<input type="hidden" name="ids" value="{{ p.pk }}">{% endfor %}{% endif %}
+      {% for field in form %}
+      <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
+        {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">{{ people|length }} хүнд нэмэх</button>
+      </div>
+    </form>
+    {% else %}
+    <p class="my-4 text-sm text-slate-500">Ажилтан сонгоогүй байна.</p>
+    <div class="flex justify-end"><button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Хаах</button></div>
+    {% endif %}
+  </div>
+</div>

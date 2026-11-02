@@ -54,7 +54,7 @@ def test_section_save_conflict_shows_choice(client: Client, hired: Employee) -> 
     Employee.objects.filter(pk=hired.pk).update(clan_name="Өөр")  # the old program changed it meanwhile
     response = client.post(_url(hired), {"clan_name": "Шинэ", "loaded": loaded})
     assert response.status_code == 200
-    assert "хуучин программ" in response.content.decode()
+    assert "(MACS)" in response.content.decode()
     hired.refresh_from_db()
     assert hired.clan_name == "Өөр"
 

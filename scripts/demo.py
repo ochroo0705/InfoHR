@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEMO_DB = "info_hr_demo"
+DEMO_DB = os.environ.get("DEMO_DB", "info_hr_demo")  # e.g. info_hr_demo_scale for the 300-person check
 PORT = os.environ.get("PORT", "8001")  # the preview tool may assign another port
 
 

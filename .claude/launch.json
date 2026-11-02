@@ -29,6 +29,14 @@
       "port": 8004
     },
     {
+      "name": "scope-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8011", "--noreload"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_scope", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8011,
+      "autoPort": false
+    },
+    {
       "name": "lists-demo",
       "runtimeExecutable": ".venv/Scripts/python",
       "runtimeArgs": ["app/manage.py", "runserver", "8005"],
@@ -57,6 +65,21 @@
       "runtimeArgs": ["app/manage.py", "runserver", "8008", "--noreload"],
       "env": {"DJANGO_DB_NAME": "info_hr_demo_orders", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
       "port": 8008,
+      "autoPort": false
+    },
+    {
+      "name": "scale-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["scripts/demo.py", "run"],
+      "env": {"DEMO_DB": "info_hr_demo_scale", "PYTHONIOENCODING": "utf-8"},
+      "port": 8010
+    },
+    {
+      "name": "import-demo",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["app/manage.py", "runserver", "8013", "--noreload"],
+      "env": {"DJANGO_DB_NAME": "info_hr_demo_import", "DJANGO_DEBUG": "true", "PYTHONIOENCODING": "utf-8"},
+      "port": 8013,
       "autoPort": false
     }
   ]

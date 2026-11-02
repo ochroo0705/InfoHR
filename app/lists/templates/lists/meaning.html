@@ -5,7 +5,7 @@
   <a href="{% url 'lists:index' %}" class="text-sm text-violet-700 hover:underline">← Жагсаалтууд</a>
   <h1 class="mr-auto text-xl font-semibold">Утгын холбоо</h1>
 </div>
-<form method="post" class="mt-4 space-y-4 rounded-xl border border-slate-200 bg-white p-6">
+<form method="post" class="mt-4 space-y-4 rounded-xl border border-slate-200 bg-surface p-6">
   {% csrf_token %}
   {% for row in rows %}
   <label class="block text-sm">{{ row.spec.label }}

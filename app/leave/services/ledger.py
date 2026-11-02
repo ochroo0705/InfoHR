@@ -5,13 +5,14 @@ the period that contains its start; when several contain it, the latest start wi
 read from the production rows on each call (spec §10: nothing is cached).
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 
 from accounts.models import User
 from django.db import transaction
 from django.utils import timezone
-from employees.models import ActivityEntry, ActivityKind, Employee, JobStatus
+from employees.models import LEAVE_BALANCE_EDITED, ActivityEntry, ActivityKind, Employee, EmployeeType, JobStatus
 from employees.services import history
 from macs.models import LeaveTypeRow
 
@@ -78,11 +79,17 @@ def _overlaps(a_start: date, a_end: date, b_start: date, b_end: date) -> bool:
 
 
 @transaction.atomic
+def _is_intern(employee: Employee, today: date) -> bool:
+    return employee.job_records.filter(period__contains=today, employee_type=EmployeeType.INTERN).exists()
+
+
 def ensure_grants(employee: Employee, today: date) -> None:
     """With the switch on, write the law's annual grant for the current employment year if nothing covers it.
 
     Past years are never filled in, and any grant of any leave type (old program included) counts as covering."""
     if not LeaveSettings.get().auto_annual_grant or not annual_configured():
+        return
+    if _is_intern(employee, today):  # an internship earns no annual leave by itself; HR can still grant days by hand
         return
     Employee.objects.select_for_update().get(pk=employee.pk)
     leave_type = _annual_type()
@@ -106,7 +113,23 @@ def periods(employee: Employee, today: date) -> tuple[list[Period], list[LeaveRo
         return [], []
     grants = rows.grants(employee.pk)
     counted = [lv for lv in rows.leaves(employee_ids=[employee.pk]) if lv.counts and lv.type_ext.uses_annual_balance]
+    return _periods(grants, counted, today)
 
+
+def periods_many(employees: Iterable[Employee], today: date) -> dict[int, tuple[list[Period], list[LeaveRow]]]:
+    """`periods` for many employees with a fixed number of queries; same result per employee."""
+    ids = [e.pk for e in employees]
+    if not ids or not annual_configured():
+        return {i: ([], []) for i in ids}
+    grants = rows.grants_many(ids)
+    counted: dict[int, list[LeaveRow]] = {}
+    for lv in rows.leaves(employee_ids=ids):
+        if lv.counts and lv.type_ext.uses_annual_balance:
+            counted.setdefault(lv.employee_id, []).append(lv)
+    return {i: _periods(grants.get(i, []), counted.get(i, []), today) for i in ids}
+
+
+def _periods(grants: list[GrantRow], counted: list[LeaveRow], today: date) -> tuple[list[Period], list[LeaveRow]]:
     # Keys sorted (start, end) descending: the first key that contains a day is the latest-starting period.
     found: dict[tuple[date, date], tuple[list[GrantRow], list[LeaveRow]]] = {}
     for key in sorted({(g.start, g.end) for g in grants}, reverse=True):
@@ -187,8 +210,10 @@ def _signed(days: int) -> str:
     return f"+{days}" if days > 0 else str(days)
 
 
-def _log(employee: Employee, by: User, message: str) -> None:
-    ActivityEntry.objects.create(employee=employee, by=by, kind=ActivityKind.CHANGED, message=message)
+def _log(employee: Employee, by: User, message: str, changes: list[dict[str, str]] | None = None) -> None:
+    ActivityEntry.objects.create(
+        employee=employee, by=by, kind=ActivityKind.CHANGED, message=message, changes=changes or []
+    )
 
 
 def _written(employee: Employee, grant_pk: int) -> GrantRow:
@@ -217,7 +242,9 @@ def adjust(employee: Employee, period_start: date, period_end: date, days: int, 
     _log(
         employee,
         by,
-        f"Амралтын эрх засварласан ({period_start} – {period_end}): {_signed(days)} хоног. {reason}",
+        f"{LEAVE_BALANCE_EDITED} ({period_start} – {period_end}): {_signed(days)} хоног. {reason}",
+        # The entered days; the adjustment is a new grant row, so nothing was there before.
+        [{"field": "Засварласан хоног", "old": "", "new": str(days)}],
     )
     return _written(employee, grant.pk)
 

@@ -1,4 +1,5 @@
-"""Word documents for HR orders: fills `order_templates/*.docx` (docxtpl) from an order.
+"""Word documents for HR orders: fills a template (docxtpl) from an order. The template is the install's own upload
+(admin «Тушаалын загвар», D-053) or else the bundled starter in `order_templates/*.docx`.
 
 Conventions the templates rely on (see COWORK.md): `effective_date` and `probation_end` carry their own ending
 ("2026 оны 11 дүгээр сарын 1-ний", the template adds " өдрөөс эхлэн" / " өдөр"); `order_date` already ends with
@@ -17,10 +18,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.opc.exceptions import PackageNotFoundError
 from docxtpl import DocxTemplate
 from fpdf import FPDF
+from jinja2 import TemplateError
+from jinja2.sandbox import SandboxedEnvironment
 from macs.models import Department, Position
 
 from employees import access
-from employees.models import CompanySettings, EmployeeExt, HrOrder, JobRecord, OrderType
+from employees.models import CompanySettings, EmployeeExt, HrOrder, JobRecord, OrderTemplate, OrderType
 from employees.money import group
 from employees.services import events, history, macs_writes, orders
 
@@ -64,6 +67,80 @@ PT_MM = 25.4 / 72
 
 class OrderDocError(Exception):
     """The Word template of this order type is missing or unreadable."""
+
+
+# Every name a template may use: the keys of `build_context` (a test keeps the two in step).
+PLACEHOLDERS = (
+    "company_name",
+    "director_name",
+    "issued_by",
+    "order_number",
+    "order_date",
+    "order_summary",
+    "employee_full_name",
+    "employee_short_name",
+    "employee_number",
+    "register_number",
+    "department",
+    "position",
+    "employee_type",
+    "effective_date",
+    "old_department",
+    "new_department",
+    "old_position",
+    "new_position",
+    "old_employee_type",
+    "new_employee_type",
+    "probation_end",
+    "salary",
+    "termination_reason",
+)
+
+
+def starter_path(order_type: OrderType | int) -> Path:
+    """The bundled starter template of an order type (the one every new install starts with)."""
+    return Path(settings.ORDER_TEMPLATES_DIR) / TEMPLATE_FILES[OrderType(order_type)]
+
+
+def template_source(order_type: OrderType | int) -> Path | io.BytesIO:
+    """The install's own uploaded template of this type, else the bundled starter."""
+    row = OrderTemplate.objects.filter(order_type=int(order_type)).exclude(file="").first()
+    if row is None:
+        return starter_path(order_type)
+    try:
+        with row.file.open("rb") as handle:
+            return io.BytesIO(handle.read())
+    except OSError as error:  # an uploaded file that is gone is an error, not a silent fall back to the starter
+        raise OrderDocError(f"{row.file.name}") from error
+
+
+def _render(source: Path | io.BytesIO, context: dict[str, Any]) -> bytes:
+    """Fill a template. Rendered in a sandbox: an uploaded file may only use the plain placeholders and `if`/`for`."""
+    template = DocxTemplate(str(source) if isinstance(source, Path) else source)
+    try:
+        template.render(context, jinja_env=SandboxedEnvironment(), autoescape=True)  # the file is opened here
+    except (OSError, ValueError, PackageNotFoundError, TemplateError, KeyError) as error:  # missing or not a .docx
+        raise OrderDocError(str(source)) from error
+    out = io.BytesIO()
+    template.save(out)
+    return out.getvalue()
+
+
+def check_template(data: bytes) -> list[str]:
+    """Why an uploaded file cannot be an order template (Mongolian messages); an empty list means it can."""
+    try:
+        template = DocxTemplate(io.BytesIO(data))
+        used = template.get_undeclared_template_variables()
+    except Exception:  # noqa: BLE001  # arbitrary uploaded bytes: a bad zip, bad XML or a bad tag all mean "not a template"
+        return ["Файл нь Word (.docx) загвар биш эсвэл гэмтсэн байна."]
+    unknown = sorted(name for name in used if name not in PLACEHOLDERS)
+    if unknown:
+        return [f"Танигдаагүй орлуулагч: {', '.join(unknown)}. Зөвшөөрөгдсөн нэрсийг хуудасны дээд хэсгээс харна уу."]
+    try:
+        _render(io.BytesIO(data), {name: f"[{name}]" for name in PLACEHOLDERS})
+    except OrderDocError:
+        return ["Загварыг бөглөж чадсангүй: {{ }} болон {% %} тэмдэглэгээг шалгана уу."]
+    return []
 
 
 def day_ending(day: int) -> str:
@@ -155,16 +232,7 @@ def build_context(order: HrOrder, user: User) -> dict[str, Any]:
 
 def render_order(order: HrOrder, user: User) -> bytes:
     """The filled Word file of an order."""
-    path = Path(settings.ORDER_TEMPLATES_DIR) / TEMPLATE_FILES[OrderType(order.order_type)]
-    context = build_context(order, user)
-    template = DocxTemplate(str(path))
-    try:
-        template.render(context, autoescape=True)  # the file is opened here, not in the constructor
-    except (OSError, ValueError, PackageNotFoundError) as error:  # missing or not a .docx
-        raise OrderDocError(str(path)) from error
-    out = io.BytesIO()
-    template.save(out)
-    return out.getvalue()
+    return _render(template_source(order.order_type), build_context(order, user))
 
 
 def _pdf_fonts() -> tuple[str, str, str, str]:
@@ -174,12 +242,9 @@ def _pdf_fonts() -> tuple[str, str, str, str]:
     raise OrderDocError("no Cyrillic font found (settings.ORDER_PDF_FONT_SETS)")
 
 
-def render_pdf(order: HrOrder, user: User) -> bytes:
-    """The same order as a PDF. Drawn from the filled Word file paragraph by paragraph (alignment, bold, size),
-    because no Word or LibreOffice is available on the server; the layout is close to Word's, not identical."""
-    word = Document(io.BytesIO(render_order(order, user)))
+def _new_pdf(word: Any) -> FPDF:
+    """An empty A4 PDF with the margins of the Word file and the Cyrillic fonts loaded."""
     section = word.sections[0]
-    base_pt = word.styles["Normal"].font.size.pt if word.styles["Normal"].font.size else 11.0
     pdf = FPDF(unit="mm", format="A4")
     left, top, right, bottom = (
         m.mm if m is not None else 25.4
@@ -189,6 +254,12 @@ def render_pdf(order: HrOrder, user: User) -> bytes:
     pdf.set_auto_page_break(True, margin=bottom)
     for style, path in zip(("", "B", "I", "BI"), _pdf_fonts(), strict=True):
         pdf.add_font("Order", style, path)
+    return pdf
+
+
+def _draw_order(pdf: FPDF, word: Any) -> None:
+    """One order on its own new page, paragraph by paragraph."""
+    base_pt = word.styles["Normal"].font.size.pt if word.styles["Normal"].font.size else 11.0
     pdf.add_page()
     for paragraph in word.paragraphs:
         run = next((r for r in paragraph.runs if r.text.strip()), None)
@@ -211,4 +282,29 @@ def render_pdf(order: HrOrder, user: User) -> bytes:
             new_y="NEXT",
         )
         pdf.ln(1.5)
-    return bytes(pdf.output())
+
+
+def render_pdf(order: HrOrder, user: User) -> bytes:
+    """The same order as a PDF. Drawn from the filled Word file paragraph by paragraph (alignment, bold, size),
+    because no Word or LibreOffice is available on the server; the layout is close to Word's, not identical."""
+    return render_pdf_many([order], user)[0]
+
+
+def render_pdf_many(orders: list[HrOrder], user: User) -> tuple[bytes, list[HrOrder]]:
+    """Several orders in one PDF, each on its own page, in the given order (to print and sign in one go). An order
+    that cannot be filled (no usable template) is left out; the PDF and the orders in it are returned. Margins come
+    from the first order's Word file. Raises OrderDocError when none can be printed."""
+    used: list[HrOrder] = []
+    words = []
+    for order in orders:
+        try:
+            words.append(Document(io.BytesIO(render_order(order, user))))
+        except OrderDocError:
+            continue
+        used.append(order)
+    if not words:
+        raise OrderDocError("no orders to print")
+    pdf = _new_pdf(words[0])
+    for word in words:
+        _draw_order(pdf, word)
+    return bytes(pdf.output()), used

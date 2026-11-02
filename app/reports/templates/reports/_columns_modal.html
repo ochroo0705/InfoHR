@@ -1,5 +1,5 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
-  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-white p-6 shadow-xl">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
     <h2 class="mb-4 text-lg font-semibold">Багана сонгох</h2>
     {# A plain GET to the report: the picked columns and the grouping go into the address, the page reloads with them. #}
     <form method="get" action="{% url 'reports:report' report.key %}" class="space-y-4">

@@ -1,6 +1,6 @@
 {# Pop-up with everything about one order (opened from the register). Needs employee, order, links, entries, can_manage, editable. #}
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
-  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
     <div class="mb-1 flex items-start gap-3">
       <div>
         <h2 class="text-lg font-semibold">{% if order.event %}{{ order.event.get_type_display }} · {{ order.event.effective|date:"Y-m-d" }}{% else %}Ажилд авсан{% endif %}</h2>
@@ -24,7 +24,7 @@
       <dt class="text-slate-500">Агуулга</dt><dd>{{ order.summary|default:"—" }}</dd>
       <dt class="text-slate-500">Гаргасан</dt><dd>{{ order.issued_by|default:"—" }}</dd>
       <dt class="text-slate-500">Гарын үсэгтэй файл</dt>
-      <dd>{% if order.file %}<a href="{% url 'employees:order_file' employee.pk order.pk %}" target="_blank" rel="noopener" class="text-violet-700 hover:underline">Файл харах</a>{% else %}<span class="text-slate-400">хавсаргаагүй</span>{% endif %}</dd>
+      <dd>{% if not can_open_scan %}<span class="text-slate-400">Цалингийн эрх шаардлагатай</span>{% elif order.file %}<a href="{% url 'employees:order_file' employee.pk order.pk %}" target="_blank" rel="noopener" class="text-violet-700 hover:underline">Файл харах</a>{% else %}<span class="text-slate-400">хавсаргаагүй</span>{% endif %}</dd>
       {% if order.state == 'cancelled' %}
       <dt class="text-slate-500">Цуцалсан</dt>
       <dd>{{ order.cancel_reason|default:"—" }}{% if order.cancel_order_no %} · цуцлах тушаал: {% if links.cancelled_by %}<a href="#" hx-get="{% url 'employees:order_detail' employee.pk links.cancelled_by.pk %}" hx-target="body" hx-swap="beforeend" hx-on::after-request="this.closest('div.fixed').remove()" class="text-violet-700 hover:underline">№ {{ order.cancel_order_no }}</a>{% else %}№ {{ order.cancel_order_no }}{% endif %}{% endif %}</dd>
@@ -38,7 +38,7 @@
     {% if not entries %}<p class="text-sm text-slate-400">Бүртгэл алга</p>{% else %}
     <ol class="ml-1 border-l border-slate-200">{% for e in entries %}
       <li class="relative pb-3 pl-4 text-sm last:pb-1">
-        <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-white bg-violet-500"></span>
+        <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-surface bg-violet-500"></span>
         <div class="flex items-baseline gap-2"><span class="truncate font-medium">{{ e.by.get_full_name|default:e.by.username|default:"Систем" }}</span><span class="ml-auto shrink-0 text-xs text-slate-400">{{ e.at|date:"Y-m-d H:i" }}</span></div>
         <p class="mt-0.5 text-slate-700">{{ e.message }}</p>
         {% if e.changes %}<dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">{% for c in e.changes %}

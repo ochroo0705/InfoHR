@@ -1,0 +1,18 @@
+{% load log_extras %}{# Log <tr> rows of the system log. Rows lead nowhere, so they have no hover highlight (UI_RULES §4). #}
+{% for e in rows %}
+    <tr class="align-top">
+      <td class="whitespace-nowrap">{{ e.at|date:"Y-m-d" }} <span class="text-xs text-slate-400">{{ e.at|date:"H:i" }}</span></td>
+      <td class="whitespace-nowrap">{{ e.actor_name|default:"Систем" }}</td>
+      <td class="whitespace-nowrap">{{ e.category|category_label }}</td>
+      <td class="whitespace-nowrap">{{ e.action|action_label }}</td>
+      <td>{% if e.target_type %}<span class="block text-xs text-slate-500">{{ e.target_type }}</span>{% endif %}{{ e.target_label }}</td>
+      <td>
+        <p class="text-slate-700">{{ e.message }}</p>
+        {% if e.changes %}<dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">{% for c in e.changes %}
+          <dt class="text-slate-500">{{ c.field }}</dt>
+          <dd class="text-slate-800">{% if c.old %}<s class="text-slate-400">{{ c.old }}</s> → {% endif %}{{ c.new|default:"(хоосон)" }}</dd>{% endfor %}</dl>{% endif %}
+      </td>
+      <td class="whitespace-nowrap text-slate-600">{{ e.ip|default:"" }}</td>
+    </tr>
+{% endfor %}{% if not rows and not offset %}<tr><td colspan="{{ row_colspan }}" class="py-6 text-center text-slate-400">Бүртгэл олдсонгүй</td></tr>{% endif %}
+{% if next_query %}{% url 'logs:system' as more_url %}{% include "_more_batch.html" with url=more_url next_query=next_query kind="tr" colspan=row_colspan %}{% endif %}

@@ -1,10 +1,11 @@
-"""The order register: Info HR orders plus the old program's own order rows, for the people a user may see."""
+"""The order register: Info HR orders plus MACS's own order rows, for the people a user may see."""
 
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
 from accounts.models import User
+from django.db.models import F, Q, QuerySet
 from macs.models import Command
 
 from employees import access
@@ -57,6 +58,99 @@ def _row(emp: Any, today: date, **own: Any) -> RegisterRow:
     )
 
 
+def _matching(rows: QuerySet[Any], words: list[str]) -> QuerySet[Any]:
+    """Every word must be part of the order number or the employee's name or code (case does not matter)."""
+    for word in words:
+        rows = rows.filter(
+            Q(number__icontains=word)
+            | Q(employee__family_name__icontains=word)
+            | Q(employee__given_name__icontains=word)
+            | Q(employee__code__icontains=word)
+        )
+    return rows
+
+
+def _sources(
+    user: User,
+    *,
+    year: int | None,
+    order_type: int | None,
+    department_id: int | None,
+    state: str | None,
+    q: str,
+) -> tuple[QuerySet[HrOrder] | None, QuerySet[Command] | None]:
+    """The two filtered, newest-first sources of the register (None when the filters leave a source out).
+
+    Everything is filtered and sorted by the database, so a page can read just the rows it shows."""
+    people = access.visible_employees(user)
+    if department_id is not None:
+        people = people.filter(department_id=department_id)
+    words = q.casefold().split()
+    ours: QuerySet[HrOrder] | None = None
+    legacy: QuerySet[Command] | None = None
+    newest_first = (F("date").desc(nulls_last=True), "-pk")
+    if state != LEGACY:
+        ours = HrOrder.objects.filter(employee__in=people).select_related(
+            "event", "employee__department", "employee__position"
+        )
+        if year is not None:
+            ours = ours.filter(date__year=year)
+        if order_type is not None:
+            ours = ours.filter(order_type=order_type)
+        if state:
+            ours = ours.filter(state=state)
+        ours = _matching(ours, words).order_by(*newest_first)
+    if not state or state == LEGACY:
+        taken = HrOrder.objects.exclude(command_id=None).values("command_id")
+        legacy = (
+            Command.objects.filter(employee__in=people)
+            .exclude(pk__in=taken)
+            .select_related("employee__department", "employee__position")
+        )
+        if year is not None:
+            legacy = legacy.filter(date__year=year)
+        if order_type is not None:
+            legacy = legacy.filter(order_type=order_type)
+        legacy = _matching(legacy, words).order_by(*newest_first)
+    return ours, legacy
+
+
+def _ours(o: HrOrder, today: date) -> RegisterRow:
+    return _row(
+        o.employee,
+        today,
+        number=o.number,
+        date=o.date,
+        summary=o.summary,
+        issued_by=o.issued_by,
+        state=o.state,
+        state_label=o.get_state_display(),
+        order_type=o.order_type,
+        order_id=o.pk,
+        awaiting=o.event is not None and o.event.applied_at is None and o.event.cancelled_at is None,
+    )
+
+
+def _legacy(c: Command, today: date) -> RegisterRow:
+    return _row(
+        c.employee,
+        today,
+        number=c.number or "",
+        date=c.date,
+        summary=c.summary or "",
+        issued_by=c.issued_by or "",
+        state=LEGACY,
+        state_label="MACS",
+        order_type=c.order_type,
+        command_id=c.pk,
+    )
+
+
+def _newest_first(row: RegisterRow) -> tuple[date, bool, int]:
+    """Sort key: by date, an Info HR order before an old-program order of the same day, then the later record."""
+    return row.date or date.min, row.order_id is not None, row.order_id or row.command_id or 0
+
+
 def register_rows(
     user: User,
     *,
@@ -67,64 +161,34 @@ def register_rows(
     today: date | None = None,
     q: str = "",
 ) -> list[RegisterRow]:
+    """Every matching row, newest first (the print view and the report: they need the whole register)."""
     today = today or date.today()
-    people = access.visible_employees(user).select_related("department", "position")
-    if department_id is not None:
-        people = people.filter(department_id=department_id)
-    by_id = {e.pk: e for e in people}
-    rows: list[RegisterRow] = []
-    ours = HrOrder.objects.filter(employee_id__in=by_id).select_related("event")
-    taken = set(HrOrder.objects.exclude(command_id=None).values_list("command_id", flat=True))
-    if state != LEGACY:
-        if year is not None:
-            ours = ours.filter(date__year=year)
-        if order_type is not None:
-            ours = ours.filter(order_type=order_type)
-        if state:
-            ours = ours.filter(state=state)
-        for o in ours:
-            rows.append(
-                _row(
-                    by_id[o.employee_id],
-                    today,
-                    number=o.number,
-                    date=o.date,
-                    summary=o.summary,
-                    issued_by=o.issued_by,
-                    state=o.state,
-                    state_label=o.get_state_display(),
-                    order_type=o.order_type,
-                    order_id=o.pk,
-                    awaiting=o.event is not None and o.event.applied_at is None and o.event.cancelled_at is None,
-                )
-            )
-    if not state or state == LEGACY:
-        legacy = Command.objects.filter(employee_id__in=by_id)
-        if year is not None:
-            legacy = legacy.filter(date__year=year)
-        if order_type is not None:
-            legacy = legacy.filter(order_type=order_type)
-        for c in legacy:
-            if c.pk in taken:
-                continue
-            rows.append(
-                _row(
-                    by_id[c.employee_id],
-                    today,
-                    number=c.number or "",
-                    date=c.date,
-                    summary=c.summary or "",
-                    issued_by=c.issued_by or "",
-                    state=LEGACY,
-                    state_label="Хуучин програм",
-                    order_type=c.order_type,
-                    command_id=c.pk,
-                )
-            )
-    words = q.casefold().split()
-    if words:  # every word must be part of the order number or the employee's name or code
-        rows = [
-            r for r in rows if all(w in f"{r.number} {r.employee_name} {r.employee_code}".casefold() for w in words)
-        ]
-    rows.sort(key=lambda r: r.date or date.min, reverse=True)
+    ours, legacy = _sources(user, year=year, order_type=order_type, department_id=department_id, state=state, q=q)
+    rows = [_ours(o, today) for o in ours or ()] + [_legacy(c, today) for c in legacy or ()]
+    rows.sort(key=_newest_first, reverse=True)
     return rows
+
+
+def register_page(
+    user: User,
+    *,
+    year: int | None,
+    order_type: int | None,
+    department_id: int | None,
+    state: str | None,
+    offset: int,
+    size: int,
+    today: date | None = None,
+    q: str = "",
+) -> tuple[list[RegisterRow], bool]:
+    """One batch of the register and whether more rows follow it, without reading the rest.
+
+    The newest `offset + size + 1` rows of the merged list all lie within the newest `offset + size + 1` of each
+    source, so each source is cut there and the two are merged here."""
+    today = today or date.today()
+    ours, legacy = _sources(user, year=year, order_type=order_type, department_id=department_id, state=state, q=q)
+    need = offset + size + 1
+    rows = [_ours(o, today) for o in (ours[:need] if ours is not None else ())]
+    rows += [_legacy(c, today) for c in (legacy[:need] if legacy is not None else ())]
+    rows.sort(key=_newest_first, reverse=True)
+    return rows[offset : offset + size], len(rows) > offset + size

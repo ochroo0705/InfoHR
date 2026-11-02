@@ -2,6 +2,7 @@ from datetime import date
 from typing import Any
 
 from django import forms
+from django.contrib.auth.models import Group
 from django.db.models import Q, QuerySet
 from django.http import QueryDict
 from employees.forms import StyledForm
@@ -10,6 +11,7 @@ from macs.models import LeaveTypeRow
 
 from leave.models import LeaveTypeExt
 from leave.services.records import Draft
+from leave.services.requests import requestable_types
 from leave.services.writes import AssignSnapshot
 
 DATE = forms.DateInput(attrs={"type": "date"})
@@ -52,6 +54,36 @@ class LeaveForm(StyledForm):
         )
 
 
+REQUEST_TOO_LONG = "Тайлбар 200 тэмдэгтээс урт байж болохгүй."
+REQUEST_BACKWARDS = "Дуусах огноо эхлэх огнооноос өмнө байж болохгүй."
+
+
+class RequestForm(StyledForm):
+    """The staff leave request (spec 5.3). No employee field: the view always uses the logged-in user's own record."""
+
+    leave_type = forms.ModelChoiceField(label="Төрөл", queryset=LeaveTypeRow.objects.none())
+    start_date = forms.DateField(label="Эхлэх", widget=DATE)
+    end_date = forms.DateField(label="Дуусах", widget=DATE)
+    note = forms.CharField(
+        label="Тайлбар",
+        required=False,
+        max_length=200,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        error_messages={"max_length": REQUEST_TOO_LONG},
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["leave_type"].queryset = requestable_types()  # type: ignore[attr-defined]
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        start, end = cleaned.get("start_date"), cleaned.get("end_date")
+        if start and end and end < start:
+            raise forms.ValidationError(REQUEST_BACKWARDS)
+        return cleaned
+
+
 def _optional_int(value: str) -> int | None:
     return int(value) if value else None
 
@@ -88,6 +120,29 @@ class CancelForm(StyledForm):
     reason = forms.CharField(label="Шалтгаан", max_length=200)
 
 
+TOO_LONG_REASON = "Шалтгаан 200 тэмдэгтээс урт байж болохгүй."
+
+
+class ApproveForm(StyledForm):
+    """Approver's optional reason, asked only when the balance would go negative (spec 5.3)."""
+
+    override_reason = forms.CharField(
+        label="Үлдэгдэл хүрэлцэхгүй бол шалтгаан",
+        required=False,
+        max_length=200,
+        error_messages={"max_length": TOO_LONG_REASON},
+    )
+
+
+class RejectForm(StyledForm):
+    reason = forms.CharField(
+        label="Татгалзсан шалтгаан",
+        max_length=200,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        error_messages={"required": "Татгалзсан шалтгаан бичнэ үү.", "max_length": TOO_LONG_REASON},
+    )
+
+
 class AdjustForm(StyledForm):
     days = forms.IntegerField(label="Хоног (+/−)", min_value=-1000, max_value=1000)
     reason = forms.CharField(label="Шалтгаан", max_length=200)
@@ -105,12 +160,79 @@ class GrantForm(StyledForm):
     reason = forms.CharField(label="Шалтгаан", max_length=200)
 
 
+class BulkGrantForm(GrantForm):
+    """Same days for many people: the single grant form, applied to each chosen employee."""
+
+
 class LeaveTypeForm(StyledForm):
     name = forms.CharField(label="Нэр", max_length=200)
     is_paid = forms.BooleanField(label="Цалинтай", required=False)
     uses_annual_balance = forms.BooleanField(label="Ээлжийн амралтаас хасна", required=False)
     is_active = forms.BooleanField(label="Идэвхтэй", required=False, initial=True)
     order = forms.IntegerField(label="Дараалал", min_value=0, max_value=32767, initial=0)
+    staff_may_request = forms.BooleanField(label="Ажилтан хүсэлт гаргана", required=False, initial=True)
+
+
+MANAGER_CHOICE = "manager"
+GROUP_PREFIX = "group:"
+
+
+def _parse_step(value: str) -> tuple[int | None, bool]:
+    """Stored form of one approval step: (group id, manager flag). Empty means no step."""
+    if value == MANAGER_CHOICE:
+        return None, True
+    if value.startswith(GROUP_PREFIX):
+        return int(value.removeprefix(GROUP_PREFIX)), False
+    return None, False
+
+
+def encode_step(group_id: int | None, manager: bool) -> str:
+    """The dropdown value that shows a stored step."""
+    if group_id is not None:
+        return f"{GROUP_PREFIX}{group_id}"
+    return MANAGER_CHOICE if manager else ""
+
+
+class ApprovalSettingsForm(StyledForm):
+    """Who approves leave requests, step by step (spec 5.1). Role choices are read when the form is made."""
+
+    step1 = forms.ChoiceField(
+        label="Чөлөө батлах",
+        required=False,
+        error_messages={"invalid_choice": "Жагсаалтаас сонгоно уу."},
+    )
+    step2 = forms.ChoiceField(
+        label="Дараа нь батлах",
+        required=False,
+        error_messages={"invalid_choice": "Жагсаалтаас сонгоно уу."},
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        roles = [(f"{GROUP_PREFIX}{g.pk}", g.name) for g in Group.objects.order_by("name")]
+        manager = [(MANAGER_CHOICE, "Шууд удирдлага")]
+        step1 = self.fields["step1"]
+        step2 = self.fields["step2"]
+        if isinstance(step1, forms.ChoiceField) and isinstance(step2, forms.ChoiceField):
+            step1.choices = [("", "Батлахгүй"), *manager, *roles]
+            step2.choices = [("", "—"), *manager, *roles]
+
+    def clean(self) -> dict[str, Any]:
+        cleaned: dict[str, Any] = super().clean() or {}
+        if not cleaned.get("step1"):
+            cleaned["step2"] = ""  # step 2 only exists when step 1 is set
+        return cleaned
+
+    def settings_values(self) -> dict[str, Any]:
+        """Field values for LeaveSettings, from the cleaned choices."""
+        group1, manager1 = _parse_step(self.cleaned_data["step1"])
+        group2, manager2 = _parse_step(self.cleaned_data["step2"])
+        return {
+            "approval1_group_id": group1,
+            "approval1_manager": manager1,
+            "approval2_group_id": group2,
+            "approval2_manager": manager2,
+        }
 
 
 def initial_dates(today: date) -> dict[str, date]:

@@ -4,14 +4,16 @@ ADMIN = "Admin"
 HR = "HR"
 ACCOUNTANT = "Accountant"
 EMPLOYEE = "Employee"
+AUDITOR = "Auditor"  # sees the system log only: no employee data, no export (decided 2026-10-29)
 
-SWITCHES = ("approve_leave", "issue_orders", "export_lists")
+SWITCHES = ("approve_leave", "issue_orders", "export_lists", "view_audit")
 
 DEFAULT_SWITCHES: dict[str, tuple[str, ...]] = {
     ADMIN: SWITCHES,
     HR: ("approve_leave", "issue_orders", "export_lists"),
     ACCOUNTANT: ("export_lists",),
     EMPLOYEE: (),
+    AUDITOR: ("view_audit",),
 }
 
 # Employee-module permissions per role (employees app, spec §6).
@@ -20,6 +22,7 @@ DEFAULT_EMPLOYEE_PERMS: dict[str, tuple[str, ...]] = {
     HR: ("view_employees", "manage_employees", "view_personal"),
     ACCOUNTANT: ("view_employees", "view_salary", "manage_salary"),
     EMPLOYEE: (),
+    AUDITOR: (),
 }
 
 # Lists-module permissions per role (lists app; the Lists screen is for HR admins).
@@ -28,6 +31,7 @@ DEFAULT_LIST_PERMS: dict[str, tuple[str, ...]] = {
     HR: ("manage_lists",),
     ACCOUNTANT: (),
     EMPLOYEE: (),
+    AUDITOR: (),
 }
 
 # Reports-module permissions per role (reports app, docs/superpowers/specs/2026-10-23-reports-design.md §8).
@@ -36,6 +40,7 @@ DEFAULT_REPORT_PERMS: dict[str, tuple[str, ...]] = {
     HR: ("view_reports",),
     ACCOUNTANT: ("view_reports",),
     EMPLOYEE: (),
+    AUDITOR: (),
 }
 
 # Leave-module permissions per role (leave app, spec §6).
@@ -43,5 +48,6 @@ DEFAULT_LEAVE_PERMS: dict[str, tuple[str, ...]] = {
     ADMIN: ("view_leave", "record_leave", "manage_leave_settings"),
     HR: ("view_leave", "record_leave"),  # leave settings (auto grants, types, holidays) are Admin only
     ACCOUNTANT: ("view_leave",),
-    EMPLOYEE: (),
+    EMPLOYEE: ("request_own_leave",),
+    AUDITOR: (),
 }

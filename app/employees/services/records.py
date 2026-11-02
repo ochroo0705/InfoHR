@@ -9,7 +9,7 @@ from lists.models import MONGOLIA, MeaningfulEntry
 
 from employees.models import (
     EXT_FIELDS,
-    PERSONAL_FIELDS,
+    PERSONAL_LOG_FIELDS,
     ActivityEntry,
     ActivityKind,
     Employee,
@@ -41,7 +41,7 @@ def update_employee(employee: Employee, data: dict[str, Any], by: User) -> list[
     ext_changed = False
     for target, values in ((ext, ext_data), (employee, column_data)):
         for is_personal in (False, True):
-            subset = {k: v for k, v in values.items() if (k in PERSONAL_FIELDS) == is_personal}
+            subset = {k: v for k, v in values.items() if (k in PERSONAL_LOG_FIELDS) == is_personal}
             found = _diff_values(target, subset)
             if target is ext and found:
                 ext_changed = True

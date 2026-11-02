@@ -8,4 +8,4 @@ class AccountsConfig(AppConfig):
     verbose_name = _("Access")
 
     def ready(self) -> None:
-        from . import signals  # noqa: F401
+        from . import audit_models, signals  # noqa: F401

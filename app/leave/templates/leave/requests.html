@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Чөлөөний хүсэлт{% endblock %}
+{% block content %}
+<nav class="inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm" aria-label="Хүсэлтийн харагдац">
+  <a href="?tab=mine" {% if tab == 'mine' %}aria-current="page"{% endif %} class="px-3 py-2 {% if tab == 'mine' %}bg-violet-600 text-white{% else %}bg-surface text-slate-700 hover:bg-slate-50{% endif %}">Надад ирсэн</a>
+  {% if can_all %}<a href="?tab=all" {% if tab == 'all' %}aria-current="page"{% endif %} class="px-3 py-2 {% if tab == 'all' %}bg-violet-600 text-white{% else %}bg-surface text-slate-700 hover:bg-slate-50{% endif %}">Бүгд</a>{% endif %}
+</nav>
+<h1 class="mt-3 text-xl font-semibold">Чөлөөний хүсэлт</h1>
+{% if tab == 'mine' %}
+<p class="mt-1 text-sm text-slate-500">Таны батлах ээлжинд хүлээгдэж буй хүсэлтүүд. Мөрийг дарж шийдвэрлэнэ.</p>
+{% else %}
+<form hx-get="{% url 'leave:requests' %}" hx-target="#rows" hx-trigger="change" class="mt-4 flex flex-wrap items-center gap-2 text-sm">
+  <input type="hidden" name="tab" value="all">
+  <select name="status" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх төлөв</option>{% for value, label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+</form>
+{% endif %}
+<div class="card-soft mt-3 overflow-x-auto px-4 pb-2"><table class="w-full text-sm"><thead class="text-left text-slate-500"><tr><th class="py-2">Ажилтан</th><th>Төрөл</th><th>Хугацаа</th><th class="text-right">Ажлын өдөр</th><th class="pl-6">Шат</th><th class="pl-6">Батлах</th><th class="pl-6">Төлөв</th><th class="pl-6">Хүлээж эхэлсэн</th></tr></thead>
+<tbody id="rows">{% include "leave/_request_rows.html" %}</tbody></table></div>
+{% endblock %}

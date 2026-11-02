@@ -12,7 +12,7 @@ from typing import Any
 from accounts.models import User
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
-from employees.models import ActivityEntry, ActivityKind
+from employees.models import HOLIDAY_RECOUNT, ActivityEntry, ActivityKind
 from employees.services.macs_writes import ListEntryInUse
 from macs.models import Employee, Entitlement, LeaveAssign, LeaveTypeRow, LegalHoliday
 
@@ -365,7 +365,8 @@ def recount_assigns(days: set[date], by: User) -> int:
             employee=row.employee,
             by=by,
             kind=ActivityKind.CHANGED,
-            message=f"Баярын өдөр өөрчлөгдсөн тул дахин тооцсон: {before} → {fmt_days(new)} ажлын өдөр",
+            message=f"{HOLIDAY_RECOUNT}: {before} → {fmt_days(new)} ажлын өдөр",
+            changes=[{"field": "Ажлын өдөр", "old": fmt_days(old), "new": fmt_days(new)}],
         )
         changed += 1
     return changed

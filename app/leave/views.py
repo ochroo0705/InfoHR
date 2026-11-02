@@ -1,10 +1,13 @@
 import calendar as pycal
 from dataclasses import dataclass
 from datetime import date, timedelta
+from typing import Any
 
 from accounts.models import User
+from config import batching
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -12,19 +15,22 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from employees import access as employee_access
-from employees.models import Employee, JobStatus
-from employees.services import history
+from employees import listing
+from employees.models import Department, Employee, JobStatus
 from employees.services.macs_writes import ListEntryInUse
 from macs.models import LeaveAssign, LeaveTypeRow
 
 from leave import access
 from leave.forms import (
     AdjustForm,
+    ApprovalSettingsForm,
+    BulkGrantForm,
     CancelForm,
     CarryOverForm,
     GrantForm,
     LeaveForm,
     LeaveTypeForm,
+    encode_step,
     initial_dates,
     loaded_from_post,
 )
@@ -106,16 +112,23 @@ def leave_list(request: HttpRequest) -> HttpResponse:
             people = people.filter(
                 Q(family_name__icontains=word) | Q(given_name__icontains=word) | Q(code__icontains=word)
             )
-    by_id = {e.pk: e for e in people}
-    found = rows.leaves(employee_ids=list(by_id), start=_iso(f.get("from", "")), end=_iso(f.get("to", "")))
-    if (type_id := _int(f.get("type"))) is not None:
-        found = [lv for lv in found if lv.leave_type.pk == type_id]
     status = f.get("status", "recorded")
-    if status != "all":
-        found = [lv for lv in found if lv.state.name == status.upper()]
+    state = None if status == "all" else status.upper()
+    start, end, type_id = _iso(f.get("from", "")), _iso(f.get("to", "")), _int(f.get("type"))
+
+    def fetch(offset: int, size: int) -> tuple[list[tuple[LeaveRow, Employee]], bool]:
+        page, more = rows.leaves_page(
+            people.order_by(), offset=offset, size=size, start=start, end=end, type_id=type_id, state=state
+        )
+        names = Employee.objects.in_bulk([lv.employee_id for lv in page])  # only the people on this batch
+        return [(lv, names[lv.employee_id]) for lv in page], more
+
     t = today()
+    batch = batching.paged(request, fetch)
     context = {
-        "items": [(lv, by_id[lv.employee_id]) for lv in found],
+        "items": batch.shown,
+        "offset": batch.offset,
+        "next_query": batch.next_query,
         "types": LeaveTypeRow.objects.all(),
         "filters": f,
         "q": q,
@@ -282,6 +295,37 @@ def grant_add(request: HttpRequest, pk: int) -> HttpResponse:
     return render(request, "leave/_grant_form.html", context)
 
 
+@login_required
+def grant_bulk(request: HttpRequest) -> HttpResponse:
+    """Give the same leave days to many people at once: the chosen rows of the balances screen (`ids`) or everyone
+    still working in the user's scope (`everyone=1`). Each person is granted on their own, so one refusal
+    (a person without a start date, say) skips that person and the rest still get their days."""
+    user = _user(request)
+    _require(access.can_record(user))
+    data = request.POST if request.method == "POST" else request.GET
+    everyone = data.get("everyone") == "1"
+    people = listing.still_working(employee_access.visible_employees(user), today())
+    ids = sorted({n for n in map(_int, data.getlist("ids")) if n is not None})
+    chosen = (
+        list(people.order_by("family_name", "given_name", "pk"))
+        if everyone
+        else list(people.filter(pk__in=ids).order_by("family_name", "given_name", "pk"))
+    )
+    form = BulkGrantForm(request.POST if request.method == "POST" else None)
+    context: dict[str, Any] = {"form": form, "people": chosen, "everyone": everyone, "action": request.path}
+    if request.method == "POST" and chosen and form.is_valid():
+        d = form.cleaned_data
+        done, skipped = 0, []
+        for employee in chosen:
+            try:
+                ledger.manual_grant(employee, d["start"], d["end"], d["days"], d["reason"], user)
+                done += 1
+            except ledger.LedgerError as e:
+                skipped.append((employee, str(e)))
+        return render(request, "leave/_grant_bulk_result.html", {"done": done, "skipped": skipped})
+    return render(request, "leave/_grant_bulk_form.html", context)
+
+
 def _grant_view(request: HttpRequest, pk: int, start: str, end: str, carry: bool) -> HttpResponse:
     user = _user(request)
     _require(access.can_record(user))
@@ -327,20 +371,35 @@ def balances(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_view(user))
     t = today()
-    lines = []
-    for e in employee_access.visible_employees(user):
-        job = history.job_on(e, t)
-        if job is not None and job.status == JobStatus.LEFT:
-            continue
-        found, _ = ledger.periods(e, t)
-        eligible = entitlement.eligible_from(e)  # the right to take leave starts after the waiting months
-        waiting = eligible if eligible is not None and t < eligible else None
-        lines.append((e, next((p for p in found if p.current), None), waiting))
-    return render(
-        request,
-        "leave/balances.html",
-        {"lines": lines, "today": t, "not_configured": _not_configured()},
+    people = listing.still_working(employee_access.visible_employees(user), t).order_by(
+        "family_name", "given_name", "pk"
     )
+
+    def fetch(offset: int, size: int) -> tuple[list[Any], bool]:
+        # The database picks the batch; grants and leaves are then read once for its people, not once per person.
+        chunk = list(people[offset : offset + size + 1])
+        staying = chunk[:size]
+        periods = ledger.periods_many(staying, t)
+        eligible_from = entitlement.eligible_froms(staying)  # the right to take leave starts after the waiting months
+        lines = []
+        for e in staying:
+            found, _ = periods[e.pk]
+            eligible = eligible_from[e.pk]
+            waiting = eligible if eligible is not None and t < eligible else None
+            lines.append((e, next((p for p in found if p.current), None), waiting))
+        return lines, len(chunk) > size
+
+    batch = batching.paged(request, fetch)
+    context = {
+        "lines": batch.shown,
+        "offset": batch.offset,
+        "next_query": batch.next_query,
+        "today": t,
+        "not_configured": _not_configured(),
+        "can_record": access.can_record(user),
+    }
+    template = "leave/_balance_rows.html" if batch.offset else "leave/balances.html"
+    return render(request, template, context)
 
 
 @dataclass
@@ -377,14 +436,20 @@ def team_calendar(request: HttpRequest) -> HttpResponse:
     last = first.replace(day=pycal.monthrange(first.year, first.month)[1])
     days = [first.replace(day=n) for n in range(1, last.day + 1)]
     holidays = calendar.holidays_between(first, last)
-    people = list(employee_access.visible_employees(user))
-    counted = [lv for lv in rows.leaves(employee_ids=[e.pk for e in people], start=first, end=last) if lv.counts]
+    department = _int(request.GET.get("department"))
+    people = list(employee_access.visible_employees(user).prefetch_related("job_records"))
+    counted: dict[int, list[LeaveRow]] = {}
+    for lv in rows.leaves(employee_ids=[e.pk for e in people], start=first, end=last):
+        if lv.counts:
+            counted.setdefault(lv.employee_id, []).append(lv)
     lines = []
     for e in people:
-        jobs = [history.job_on(e, first), history.job_on(e, last)]
+        jobs = [listing.prefetched_job_on(e, first), listing.prefetched_job_on(e, last)]
         if all(j is None or j.status == JobStatus.LEFT for j in jobs):
             continue
-        mine = [lv for lv in counted if lv.employee_id == e.pk]
+        if department is not None and not any(j and j.department_id == department for j in jobs):
+            continue
+        mine = counted.get(e.pk, [])
         cells = []
         for d in days:
             hit = next((lv for lv in mine if lv.start <= d <= lv.end), None)
@@ -405,6 +470,8 @@ def team_calendar(request: HttpRequest) -> HttpResponse:
             "prev": prev_m,
             "next": next_m,
             "this_month": today().strftime("%Y-%m") if first != today().replace(day=1) else "",
+            "department": department,
+            "departments": Department.objects.exclude(ext__active=False),
             "not_configured": _not_configured(),
         },
     )
@@ -478,17 +545,46 @@ def _type_rows() -> list[tuple[LeaveTypeRow, LeaveTypeExt]]:
     return sorted(found, key=lambda pair: (pair[1].order, pair[0].name))
 
 
+def _approval_initial(setting: LeaveSettings) -> dict[str, str]:
+    return {
+        "step1": encode_step(setting.approval1_group_id, setting.approval1_manager),
+        "step2": encode_step(setting.approval2_group_id, setting.approval2_manager),
+    }
+
+
+def _settings_page(
+    request: HttpRequest, setting: LeaveSettings, approval_form: ApprovalSettingsForm | None = None
+) -> HttpResponse:
+    context = {
+        "types": _type_rows(),
+        "auto": setting.auto_annual_grant,
+        "approval_form": approval_form or ApprovalSettingsForm(initial=_approval_initial(setting)),
+    }
+    return render(request, "leave/settings.html", context)
+
+
 @login_required
 def leave_settings(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_manage_settings(user))
     setting = LeaveSettings.get()
+    if request.method == "POST" and "step1" in request.POST:  # the approval form (its own submit button)
+        approval_form = ApprovalSettingsForm(request.POST)
+        if not approval_form.is_valid():
+            return _settings_page(request, setting, approval_form=approval_form)
+        values = approval_form.settings_values()
+        values["approval_role_removed"] = False  # the admin has now chosen again
+        for field, value in values.items():
+            setattr(setting, field, value)
+        with transaction.atomic():  # the audit line is written after the save, so both must commit together
+            setting.save(update_fields=list(values))
+        return redirect("leave:settings")
     if request.method == "POST":
         setting.auto_annual_grant = request.POST.get("auto_annual_grant", "") in {"on", "1", "true", "True"}
-        setting.save(update_fields=["auto_annual_grant"])
+        with transaction.atomic():  # the audit line is written after the save, so both must commit together
+            setting.save(update_fields=["auto_annual_grant"])
         return redirect("leave:settings")
-    context = {"types": _type_rows(), "auto": setting.auto_annual_grant}
-    return render(request, "leave/settings.html", context)
+    return _settings_page(request, setting)
 
 
 def _type_initial(row: LeaveTypeRow) -> dict[str, object]:
@@ -499,6 +595,7 @@ def _type_initial(row: LeaveTypeRow) -> dict[str, object]:
         "uses_annual_balance": ext.uses_annual_balance,
         "is_active": ext.is_active,
         "order": ext.order,
+        "staff_may_request": ext.staff_may_request,
     }
 
 
@@ -519,6 +616,7 @@ def _ext_values(d: dict[str, object]) -> dict[str, object]:
         "uses_annual_balance": d["uses_annual_balance"],
         "is_active": d["is_active"],
         "order": d["order"],
+        "staff_may_request": d["staff_may_request"],
     }
 
 

@@ -25,6 +25,7 @@ from employees.models import (
     SalaryRecord,
 )
 from employees.money import group
+from employees.scope import manager_error
 from employees.services import macs_writes, orders, personal_writes
 from employees.services.display import shown
 from employees.services.orders import OrderError
@@ -98,11 +99,16 @@ def hire(
     order_date: date | None = None,
     order_summary: str = "",
     order_issued_by: str = "",
+    with_order: bool = True,
 ) -> Employee:
+    if not with_order and (
+        order_number.strip() or order_date is not None or order_summary.strip() or order_issued_by.strip()
+    ):
+        raise ValueError("Тушаалгүй бүртгэхэд тушаалын талбар оруулах боломжгүй.")
     with connection.cursor() as cursor:
         cursor.execute("SELECT pg_advisory_xact_lock(%s)", [HIRE_LOCK_KEY])
     employee = macs_writes.create_employee(
-        values, {**ext_values, "setup_required": True}, code=macs_writes.next_code(), by=by
+        values, {"setup_required": True, **ext_values}, code=macs_writes.next_code(), by=by
     )
     job = _no_end_if_open_ended(job)
     if "emptype" not in job:  # D-028: the type is stored; a hire is probation (9) when a probation end is given
@@ -147,25 +153,28 @@ def hire(
     macs_writes.sync_current(employee, timezone.localdate())
     macs_writes.record_movement(employee, "in", start)
     history_id = macs_writes.snapshot_history(employee, start)
-    order = orders.create_for_change(
-        employee=employee,
-        event=None,
-        is_hire=True,
-        order_type=OrderType.HIRED.value,
-        number="",
-        date=None,
-        summary="",
-        issued_by="",
-        by=by,
-    )
-    HrOrder.objects.filter(pk=order.pk).update(history_id=history_id)
-    if order_number.strip() or order_date is not None:  # registered after the history row is linked to it
-        order.refresh_from_db()
-        if not order_number.strip() or order_date is None:
-            raise OrderError({"number" if not order_number.strip() else "date": "Дугаар болон огноог хамт оруулна уу."})
-        orders.register(
-            order, number=order_number, date=order_date, summary=order_summary, issued_by=order_issued_by, by=by
+    if with_order:
+        order = orders.create_for_change(
+            employee=employee,
+            event=None,
+            is_hire=True,
+            order_type=OrderType.HIRED.value,
+            number="",
+            date=None,
+            summary="",
+            issued_by="",
+            by=by,
         )
+        HrOrder.objects.filter(pk=order.pk).update(history_id=history_id)
+        if order_number.strip() or order_date is not None:  # registered after the history row is linked to it
+            order.refresh_from_db()
+            if not order_number.strip() or order_date is None:
+                raise OrderError(
+                    {"number" if not order_number.strip() else "date": "Дугаар болон огноог хамт оруулна уу."}
+                )
+            orders.register(
+                order, number=order_number, date=order_date, summary=order_summary, issued_by=order_issued_by, by=by
+            )
     # The optional first address and emergency contact (production rows) belong to this hire: a refused one
     # raises PersonalConflict and the whole hire rolls back.
     if address is not None:
@@ -448,6 +457,13 @@ def correct_job(record: JobRecord, *, changes: dict[str, Any], reason: str, by: 
     Employee.objects.select_for_update().get(pk=record.employee_id)
     record = JobRecord.objects.select_for_update().get(pk=record.pk)
     changes = _no_end_if_open_ended(changes, record.contract_type)
+    new_manager = changes.get("manager")
+    if new_manager is not None and new_manager.pk != record.manager_id:
+        start = record.period.lower
+        assert start is not None  # noqa: S101
+        message = manager_error(record.employee_id, new_manager.pk, start)
+        if message is not None:
+            raise HistoryError(message)
     diff = []
     for field, value in changes.items():
         if field not in JobRecord.JOB_FIELDS:

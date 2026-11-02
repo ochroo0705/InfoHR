@@ -10,7 +10,7 @@
 <h2 class="mt-6 font-medium">Чөлөөний төрөл</h2>
 <p class="mt-1 text-sm text-slate-500">Ээлжийн амралтаас хасна гэж тэмдэглэсэн төрлийн чөлөө л ээлжийн амралтын үлдэгдэлд тооцогдоно. Ашиглагдаж байгаа төрлийг устгах боломжгүй.</p>
 <table class="mt-3 w-full text-sm">
-  <thead class="text-left text-slate-500"><tr><th class="py-2">Нэр</th><th>Цалинтай</th><th>Ээлжийн амралтаас хасна</th><th>Идэвхтэй</th></tr></thead>
+  <thead class="text-left text-slate-500"><tr><th class="py-2">Нэр</th><th>Цалинтай</th><th>Ээлжийн амралтаас хасна</th><th>Идэвхтэй</th><th>Ажилтан хүсэлт гаргана</th></tr></thead>
   <tbody>
   {% for row, ext in types %}
   <tr class="border-t border-slate-100 hover:bg-violet-50 cursor-pointer {% if not ext.is_active %}text-slate-400 line-through{% endif %}"
@@ -19,12 +19,40 @@
     <td>{% if ext.is_paid %}Тийм{% else %}Үгүй{% endif %}</td>
     <td>{% if ext.uses_annual_balance %}Тийм{% else %}Үгүй{% endif %}</td>
     <td>{% if ext.is_active %}Тийм{% else %}Үгүй{% endif %}</td>
+    <td>{% if ext.staff_may_request %}Тийм{% else %}Үгүй{% endif %}</td>
   </tr>
-  {% empty %}<tr><td colspan="4" class="py-6 text-center text-slate-400">Чөлөөний төрөл бүртгээгүй</td></tr>{% endfor %}
+  {% empty %}<tr><td colspan="5" class="py-6 text-center text-slate-400">Чөлөөний төрөл бүртгээгүй</td></tr>{% endfor %}
   </tbody>
 </table>
 
-<form method="post" class="mt-8 max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
+<form method="post" class="mt-8 max-w-2xl rounded-xl border border-slate-200 bg-surface p-6">
+  {% csrf_token %}
+  <h2 class="font-medium">Чөлөөний хүсэлтийг хэн батлах вэ</h2>
+  <p class="mt-1 text-sm text-slate-500">Батлахгүй гэж сонговол ажилтан хүсэлт гаргах боломжгүй, HR чөлөөг шууд бүртгэнэ. «Шууд удирдлага» гэж сонговол ажилтны шууд удирдлага батална. Роль сонговол тухайн ролийн хэрэглэгчид батална.</p>
+  <p class="mt-1 text-sm text-slate-500">Сонгосон шатанд батлах хүн байхгүй бол (роль хоосон, удирдлагагүй гэх мэт) батлах эрхтэй хэрэглэгч батална. Тэр ч байхгүй бол Админ хэрэглэгчид очно.</p>
+
+  {% if approval_form.non_field_errors %}<p class="mt-3 rounded bg-red-50 p-2 text-sm text-red-700">{{ approval_form.non_field_errors|join:" " }}</p>{% endif %}
+
+  <div class="mt-4">
+    <label class="block text-sm">{{ approval_form.step1.label }}
+      {{ approval_form.step1 }}{% for e in approval_form.step1.errors %}<span class="block text-xs text-red-600">{{ e }}</span>{% endfor %}
+    </label>
+    <p class="mt-1 text-xs text-slate-500">Нэг шаттай бол энд л сонгоно. Батлахгүй бол хоёрдугаар шат ч хүчингүй болно.</p>
+  </div>
+
+  <div id="step2-box" class="mt-4 {% if not approval_form.step1.value %}hidden{% endif %}">
+    <label class="block text-sm">{{ approval_form.step2.label }}
+      {{ approval_form.step2 }}{% for e in approval_form.step2.errors %}<span class="block text-xs text-red-600">{{ e }}</span>{% endfor %}
+    </label>
+    <p class="mt-1 text-xs text-slate-500">Заавал биш. Сонгосон бол эхний шатаар батлагдсаны дараа энэ шатаар батлагдана. Хоосон бол нэг шаттай.</p>
+  </div>
+
+  <div class="mt-4 flex justify-end">
+    <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
+  </div>
+</form>
+
+<form method="post" class="mt-8 max-w-2xl rounded-xl border border-slate-200 bg-surface p-6">
   {% csrf_token %}
   <h2 class="font-medium">Ээлжийн амралтын эрхийг автоматаар нэмэх</h2>
   <p class="mt-1 text-sm text-slate-500">Асаалттай үед ажлын жил бүрт хуулийн дагуух эрх автоматаар бичигдэнэ. Унтраалттай үед эрхийг гараар нэмнэ. Унтраасан нь бичигдсэн эрхийг устгахгүй.</p>
@@ -36,4 +64,10 @@
     <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
   </div>
 </form>
+<script>
+  // The second step shows only once the first step is chosen (select.js keeps the real select, so change still fires).
+  document.querySelector('select[name="step1"]').addEventListener("change", function (e) {
+    document.getElementById("step2-box").classList.toggle("hidden", e.target.value === "");
+  });
+</script>
 {% endblock %}

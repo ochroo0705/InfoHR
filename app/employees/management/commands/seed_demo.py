@@ -1,4 +1,4 @@
-"""Fill an EMPTY database with a Mongolian demo company (InfoSystems, ~10 people).
+"""Fill an EMPTY database with a Mongolian demo company (a made-up company, ~10 people).
 
 Demo only: refuses to run when DEBUG is off or when employees already exist, because
 history and the activity log can never be deleted through the app. Use it on the
@@ -17,10 +17,11 @@ from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 from django.utils import timezone
-from leave.models import LeaveSettings
+from leave.models import LeaveRequest, LeaveSettings
 from leave.services import calendar as leave_calendar
 from leave.services import ledger as leave_ledger
 from leave.services import records as leave_records
+from leave.services import requests as leave_requests
 from leave.services import writes as leave_writes
 from lists.models import DEATH, MONGOLIA, MeaningfulEntry
 from macs.models import (
@@ -98,7 +99,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1978, 5, 23),
         gender="male",
         phone="99112233",
-        email="enkhbayar@infosystems.mn",
+        email="enkhbayar@example.mn",
         start=date(2015, 3, 2),
         pos="Гүйцэтгэх захирал",
         dept="Удирдлага",
@@ -117,7 +118,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1986, 11, 7),
         gender="female",
         phone="88103344",
-        email="oyunchimeg@infosystems.mn",
+        email="oyunchimeg@example.mn",
         start=date(2018, 9, 1),
         pos="Хүний нөөцийн менежер",
         dept="Хүний нөөц",
@@ -136,7 +137,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1982, 3, 2),
         gender="female",
         phone="95116677",
-        email="sarantuya@infosystems.mn",
+        email="sarantuya@example.mn",
         start=date(2016, 1, 11),
         pos="Ерөнхий нягтлан бодогч",
         dept="Санхүү",
@@ -155,7 +156,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1992, 4, 15),
         gender="male",
         phone="99887766",
-        email="bold@infosystems.mn",
+        email="bold@example.mn",
         start=date(2019, 6, 3),
         pos="Ахлах програм хөгжүүлэгч",
         dept="Програм хангамж",
@@ -174,7 +175,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1998, 12, 3),
         gender="male",
         phone="80201122",
-        email="temuulen@infosystems.mn",
+        email="temuulen@example.mn",
         start=date(2023, 2, 1),
         pos="Програм хөгжүүлэгч",
         dept="Програм хангамж",
@@ -193,7 +194,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1990, 8, 17),
         gender="female",
         phone="99045588",
-        email="ariunaa@infosystems.mn",
+        email="ariunaa@example.mn",
         start=date(2017, 4, 17),
         pos="Борлуулалтын менежер",
         dept="Борлуулалт",
@@ -212,7 +213,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1995, 6, 2),
         gender="male",
         phone="86117799",
-        email="ganzorig@infosystems.mn",
+        email="ganzorig@example.mn",
         start=date(2021, 10, 4),
         pos="Техникийн дэмжлэгийн инженер",
         dept="Техникийн дэмжлэг",
@@ -231,7 +232,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(1994, 2, 27),
         gender="female",
         phone="99551234",
-        email="nomin@infosystems.mn",
+        email="nomin@example.mn",
         start=date(2020, 3, 16),
         pos="Нягтлан бодогч",
         dept="Санхүү",
@@ -269,7 +270,7 @@ PEOPLE: list[dict[str, Any]] = [
         birth=date(2001, 3, 11),
         gender="female",
         phone="85006677",
-        email="khulan@infosystems.mn",
+        email="khulan@example.mn",
         start=None,
         pos="Оффисын менежер",
         dept="Удирдлага",
@@ -715,3 +716,28 @@ class Command(BaseCommand):
             if leave_records.check(draft, today).errors:  # e.g. a holiday week or a leave-year boundary
                 continue
             leave_records.record(draft, by, today)
+
+        # Leave approval: the direct manager approves. Two requests wait for them and one is rejected.
+        LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": True})
+        bold_user = ensure_ext(people["Болд"]).user or by
+        director_user = ensure_ext(people["Энхбаяр"]).user or by
+        self._demo_request(
+            people["Болд"], bold_user, types["annual"], monday_next + timedelta(days=14), 2, "", today
+        )
+        self._demo_request(
+            people["Тэмүүлэн"], by, types["personal"], monday_next + timedelta(days=21), 1, "Эмнэлгийн үзлэг", today
+        )
+        declined = self._demo_request(
+            people["Ариунаа"], by, types["unpaid"], today - timedelta(days=10), 1, "", today
+        )
+        if declined is not None:
+            leave_requests.reject(declined, director_user, "Тухайн үед ажлын ачаалал их байсан", today)
+
+    def _demo_request(
+        self, employee: Employee, by: User, leave_type: Any, start: date, days: int, note: str, today: date
+    ) -> LeaveRequest | None:
+        """A request through the production service; skipped when the checks refuse the dates (a holiday week)."""
+        end = start + timedelta(days=days - 1)
+        if leave_requests.preview(employee, leave_type, start, end, today).errors:
+            return None
+        return leave_requests.submit(employee, leave_type, start, end, note, by, today)

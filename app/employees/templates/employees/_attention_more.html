@@ -1,0 +1,1 @@
+{% if group.dated %}{% for a in rest %}{% include "employees/_attention_item.html" with action="dismiss" %}{% endfor %}{% else %}{% for a in rest %}{% include "employees/_attention_chip.html" %}{% endfor %}{% endif %}

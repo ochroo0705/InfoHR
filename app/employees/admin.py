@@ -1,10 +1,14 @@
 from typing import Any, cast
 
+from accounts.audit import record_export
 from django import forms
 from django.contrib import admin, messages
+from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Model
-from django.http import HttpRequest
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
+from django.urls import path, reverse
+from django.utils.html import format_html
 from lists.usage import usage_count
 from unfold.admin import ModelAdmin
 
@@ -15,11 +19,13 @@ from .models import (
     DepartmentExt,
     Employee,
     JobRecord,
+    OrderTemplate,
+    OrderType,
     Position,
     PositionExt,
     SalaryRecord,
 )
-from .services import macs_writes
+from .services import macs_writes, order_docs
 
 
 class _RefForm(forms.ModelForm):  # type: ignore[type-arg]
@@ -133,10 +139,127 @@ class ActivityAdmin(ReadOnlyAdmin):
 class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
     """One row only (CompanySettings.get): it can be added once and never deleted."""
 
-    fields = ["name", "director_name"]
+    fieldsets = (
+        (None, {"fields": ("name", "director_name")}),
+        (
+            "Тушаал шаардах өөрчлөлтүүд",
+            {
+                "description": (
+                    "Сонгоогүй төрлийн өөрчлөлтийг тушаалгүйгээр хадгалж, хүчинтэй өдрөөс нь мөрдөнө "
+                    "(тушаалыг цаасаар хөтөлнө). Өмнө гарсан тушаал, гарын үсэг хүлээж буй өөрчлөлт хэвээр үлдэнэ."
+                ),
+                "fields": tuple(CompanySettings.ORDER_FLAGS.values()),
+            },
+        ),
+    )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return not CompanySettings.objects.exists() and super().has_add_permission(request)
 
     def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
+
+
+MAX_TEMPLATE_BYTES = 5 * 1024 * 1024
+
+
+class OrderTemplateForm(forms.ModelForm):  # type: ignore[type-arg]
+    class Meta:
+        model = OrderTemplate
+        fields = ["file"]
+        help_texts = {
+            "file": "Загвар доторх зөвхөн эдгээр орлуулагчийг ашиглана: "
+            + ", ".join("{{ " + name + " }}" for name in order_docs.PLACEHOLDERS)
+            + ". Анхдагч загварт буцахын тулд «Clear» гэж чагтална."
+        }
+        help_texts = {
+            "file": "Загвар доторх зөвхөн эдгээр орлуулагчийг ашиглана: "
+            + ", ".join("{{ " + name + " }}" for name in order_docs.PLACEHOLDERS)
+            + ". Анхдагч загварт буцахын тулд «Clear» гэж чагтална."
+        }
+
+    def clean_file(self) -> Any:
+        value = self.cleaned_data.get("file")
+        if not isinstance(value, UploadedFile):  # unchanged, or «Clear» ticked: back to the starter
+            return value
+        if not (value.name or "").lower().endswith(".docx"):
+            raise forms.ValidationError("Зөвхөн Word (.docx) файл оруулна уу.")
+        if (value.size or 0) > MAX_TEMPLATE_BYTES:
+            raise forms.ValidationError("Файл 5 MB-аас хэтрэхгүй байх ёстой.")
+        problems = order_docs.check_template(value.read())
+        value.seek(0)
+        if problems:
+            raise forms.ValidationError(problems)
+        return value
+
+
+@admin.register(OrderTemplate)
+class OrderTemplateAdmin(ModelAdmin):  # type: ignore[misc]
+    """The install's own Word template of each order type (D-053). The six rows exist from the first visit; no file
+    means the bundled starter template. «Clear» ticked on a row puts the starter back."""
+
+    form = OrderTemplateForm
+    list_display = ("order_type_label", "source", "needed", "updated_at", "downloads")
+    fields = ("order_type_label", "file", "downloads")
+    readonly_fields = ("order_type_label", "downloads")
+
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+        OrderTemplate.ensure_all()
+        return cast(HttpResponse, super().changelist_view(request, extra_context))
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def save_model(self, request: HttpRequest, obj: OrderTemplate, form: Any, change: bool) -> None:
+        obj.updated_by = request.user  # type: ignore[assignment]
+        super().save_model(request, obj, form, change)
+
+    @admin.display(description="Төрөл")
+    def order_type_label(self, obj: OrderTemplate) -> str:
+        return str(obj)
+
+    @admin.display(description="Загвар")
+    def source(self, obj: OrderTemplate) -> str:
+        return "Өөрийн файл" if obj.file else "Анхдагч (стандарт)"
+
+    @admin.display(description="Тушаал шаардах эсэх", boolean=True)
+    def needed(self, obj: OrderTemplate) -> bool:
+        return CompanySettings.get().requires_order(obj.order_type)
+
+    @admin.display(description="Татах")
+    def downloads(self, obj: OrderTemplate) -> Any:
+        if obj.pk is None:
+            return ""
+        base = reverse("admin:employees_ordertemplate_download", args=[obj.pk])
+        return format_html(
+            '<a href="{}?which=current">Одоогийнхыг татах</a> · <a href="{}?which=starter">Анхдагчийг татах</a>',
+            base,
+            base,
+        )
+
+    def get_urls(self) -> list[Any]:
+        return [
+            path(
+                "<int:pk>/download/",
+                self.admin_site.admin_view(self.download),
+                name="employees_ordertemplate_download",
+            ),
+            *super().get_urls(),
+        ]
+
+    def download(self, request: HttpRequest, pk: int) -> FileResponse:
+        if not self.has_view_permission(request):
+            raise Http404
+        row = OrderTemplate.objects.filter(pk=pk).first()
+        if row is None:
+            raise Http404
+        if row.file and request.GET.get("which") != "starter":
+            handle = row.file.open("rb")
+        else:
+            handle = order_docs.starter_path(row.order_type).open("rb")
+        name = order_docs.TEMPLATE_FILES[OrderType(row.order_type)]
+        record_export(request, "order_template_download", f"Тушаалын загвар: {OrderType(row.order_type).label}")
+        return FileResponse(handle, as_attachment=True, filename=name, content_type=order_docs.DOCX_TYPE)

@@ -1,0 +1,16 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-2 text-lg font-semibold">Хүсэлт татгалзах</h2>
+    <p class="mb-3 text-sm text-slate-600">{{ req.leave_type }} {{ req.start_date|date:"Y-m-d" }} – {{ req.end_date|date:"Y-m-d" }}</p>
+    <form hx-post="{% url 'leave:request_reject' req.pk %}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+      <label class="block text-sm">{{ form.reason.label }} *
+        {{ form.reason }}{% for e in form.reason.errors %}<span class="block text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Татгалзах</button>
+      </div>
+    </form>
+  </div>
+</div>

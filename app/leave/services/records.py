@@ -8,7 +8,15 @@ from datetime import date, timedelta
 
 from accounts.models import User
 from django.db import transaction
-from employees.models import ActivityEntry, ActivityKind, Employee
+from employees.models import (
+    LEAVE_CANCELLED,
+    LEAVE_EDITED,
+    LEAVE_MISTAKE_REMOVED,
+    LEAVE_RECORDED,
+    ActivityEntry,
+    ActivityKind,
+    Employee,
+)
 from macs.models import LeaveAssign, LeaveTypeRow
 
 from leave.models import type_ext
@@ -134,15 +142,38 @@ def _text(type_name: str, start: date, end: date, days: int) -> str:
     return f"{type_name} {_date(start)}–{_date(end)} ({fmt_days(days)} ажлын өдөр)"
 
 
-def _loaded_text(loaded: AssignSnapshot) -> str:
-    """The row as the user saw it when the form was opened (for the activity log)."""
+def _loaded_parts(loaded: AssignSnapshot) -> tuple[str, date, date, int]:
+    """The row as the user saw it when the form was opened: type name, start, end, days."""
     name = LeaveTypeRow.objects.filter(pk=loaded.leave_type_id).values_list("name", flat=True).first() or ""
     days = loaded.adays if loaded.adays is not None else calendar.working_days(loaded.date1, loaded.date2)
-    return _text(name, loaded.date1, loaded.date2, days)
+    return name, loaded.date1, loaded.date2, days
 
 
-def _log(employee: Employee, by: User, message: str) -> None:
-    ActivityEntry.objects.create(employee=employee, by=by, kind=ActivityKind.CHANGED, message=message)
+def _log(employee: Employee, by: User, message: str, changes: list[dict[str, str]] | None = None) -> None:
+    ActivityEntry.objects.create(
+        employee=employee, by=by, kind=ActivityKind.CHANGED, message=message, changes=changes or []
+    )
+
+
+_LEAVE_FIELDS = ("leave_type", "date1", "date2", "adays")  # LeaveAssign columns the log shows
+
+
+def _leave_values(type_name: str, start: date, end: date, days: int) -> tuple[str, str, str, str]:
+    """A leave as the log shows its four logged columns, in _LEAVE_FIELDS order."""
+    return type_name, _date(start), _date(end), fmt_days(days)
+
+
+def _leave_changes(
+    old: tuple[str, str, str, str] | None, new: tuple[str, str, str, str] | None
+) -> list[dict[str, str]]:
+    """One {field, old, new} per logged column whose value differs (create: old empty; cancel: new empty)."""
+    olds = old or ("", "", "", "")
+    news = new or ("", "", "", "")
+    return [
+        {"field": str(LeaveAssign._meta.get_field(name).verbose_name), "old": before, "new": after}  # type: ignore[union-attr]
+        for name, before, after in zip(_LEAVE_FIELDS, olds, news, strict=True)
+        if before != after
+    ]
 
 
 def _lock_employee(employee: Employee) -> None:
@@ -168,7 +199,8 @@ def record(draft: Draft, by: User, today: date) -> LeaveAssign:
     except WriteConflict as exc:
         raise LeaveError(str(exc)) from exc
     text = _text(str(draft.leave_type), draft.start_date, draft.end_date, c.working_days)
-    _log(draft.employee, by, f"Чөлөө бүртгэсэн: {text}")
+    created = _leave_values(str(draft.leave_type), draft.start_date, draft.end_date, c.working_days)
+    _log(draft.employee, by, f"{LEAVE_RECORDED}: {text}", _leave_changes(None, created))
     return assign
 
 
@@ -181,7 +213,8 @@ def update(a: LeaveAssign, draft: Draft, by: User, today: date) -> LeaveAssign:
         raise LeaveError(writes.STALE)
     if loaded.status not in (None, LeaveAssign.APPROVED):
         raise LeaveError("Цуцалсан чөлөөг засах боломжгүй.")
-    before = _loaded_text(loaded)
+    parts = _loaded_parts(loaded)
+    before = _text(*parts)
     draft.employee = a.employee
     draft.leave_id = a.pk
     c = _validated(draft, today)
@@ -200,7 +233,10 @@ def update(a: LeaveAssign, draft: Draft, by: User, today: date) -> LeaveAssign:
     except WriteConflict as exc:
         raise LeaveError(str(exc)) from exc
     after = _text(str(draft.leave_type), draft.start_date, draft.end_date, c.working_days)
-    _log(a.employee, by, f"Чөлөө засварласан: {before} → {after}")
+    changes = _leave_changes(
+        _leave_values(*parts), _leave_values(str(draft.leave_type), draft.start_date, draft.end_date, c.working_days)
+    )
+    _log(a.employee, by, f"{LEAVE_EDITED}: {before} → {after}", changes)
     return row
 
 
@@ -213,11 +249,14 @@ def cancel(a: LeaveAssign, loaded: AssignSnapshot, reason: str, by: User, today:
     if loaded.status not in (None, LeaveAssign.APPROVED):
         raise LeaveError("Аль хэдийн цуцалсан.")
     mistake = loaded.date1 <= today
-    before = _loaded_text(loaded)
+    parts = _loaded_parts(loaded)
+    before = _text(*parts)
     try:
         row = writes.cancel_assign(a, loaded, reason, mistake=mistake, by=by)
     except WriteConflict as exc:
         raise LeaveError(str(exc)) from exc
-    verb = "Буруу бүртгэсэн тул хассан" if mistake else "Чөлөө цуцалсан"
-    _log(a.employee, by, f"{verb}: {before}. {reason}")
+    verb = LEAVE_MISTAKE_REMOVED if mistake else LEAVE_CANCELLED
+    # One item: the status goes from recorded (the cancel guard allows only recorded or approved rows) to cancelled.
+    status = [{"field": "Төлөв", "old": rows.State.RECORDED.value, "new": rows.State.CANCELLED.value}]
+    _log(a.employee, by, f"{verb}: {before}. {reason}", status)
     return row

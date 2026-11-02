@@ -10,13 +10,15 @@ from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from leave.models import LeaveSettings
 from lists.registry import LISTS
 from macs.models import FiredReason
+from reports.models import SavedView
 from reports.registry import REPORTS, can_open
 
-from employees import palette
+from employees import listing, palette
 from employees.models import Employee, EmployeeExt, HrOrder, OrderState, OrderType, ensure_ext
-from employees.services import history
+from employees.services import history, macs_writes
 from employees.templatetags.palette_extras import hl
 
 from .conftest import hire_values, link_login, named
@@ -57,6 +59,7 @@ def test_screens_with_empty_query_list_every_allowed_screen(listed: Employee) ->
         "Багийн хуанли",
         "Амралтын үлдэгдэл",
         "Тайлан",
+        "Ажилтны бүртгэл",
     ]
     if hr.has_perm("lists.manage_lists"):
         expected.append("Жагсаалтууд")
@@ -67,7 +70,9 @@ def test_screens_with_empty_query_list_every_allowed_screen(listed: Employee) ->
 def test_screens_hide_what_the_user_may_not_open(listed: Employee) -> None:
     emp = _user("Employee", "pal_emp")
     titles = [s.title for s in palette.screens(emp, "")]
-    assert "Өнөөдөр" in titles
+    assert "Ажилтнууд" in titles
+    assert "Өнөөдөр" not in titles  # as the top bar: Today is for those who see the staff
+    assert "Ажилтны бүртгэл" not in titles
     assert "Тушаалын бүртгэл" not in titles
     assert "Жагсаалтууд" not in titles
     assert "Тайлан" not in titles
@@ -93,7 +98,7 @@ def test_reports_are_not_listed_for_an_empty_query(listed: Employee) -> None:
     hr = _user("HR", "pal_rep2")
     titles = [s.title for s in palette.screens(hr, "")]
     assert not any(t.startswith("Тайлан · ") for t in titles)
-    fixed = [perm for _, _, perm in palette._CATALOGUE if not perm or hr.has_perm(perm)]
+    fixed = [need for _, _, need in palette._CATALOGUE if palette._allowed(hr, need)]
     assert len(titles) == len(fixed)  # only the short menu of fixed screens
 
 
@@ -148,7 +153,7 @@ def test_lists_and_deep_pages_are_not_listed_for_an_empty_query(listed: Employee
     titles = [s.title for s in palette.screens(hr, "")]
     assert not any(t.startswith(("Жагсаалт · ", "Тайлан · ")) for t in titles)
     assert not {"Ажилтан нэмэх", "Баярын өдрүүд", "Амралтын төрөл, тохиргоо"} & set(titles)
-    fixed = [perm for _, _, perm in palette._CATALOGUE if not perm or hr.has_perm(perm)]
+    fixed = [need for _, _, need in palette._CATALOGUE if palette._allowed(hr, need)]
     assert len(titles) == len(fixed)  # only the short menu of fixed screens
 
 
@@ -177,6 +182,7 @@ def test_actions_with_empty_query_list_both_in_order(listed: Employee) -> None:
     assert palette.actions(hr, "") == [
         palette.Action("Чөлөө бүртгэх", "/leave/new/", True),
         palette.Action("Ажилтан нэмэх", "/employees/new/", False),
+        palette.Action("Ажилтан импортлох", reverse("employees:import"), False),
         palette.Action("Тушаалын бүртгэл хэвлэх", reverse("employees:orders_print"), False),
         palette.Action("Нууц үг солих", reverse("password_change"), False),
     ]
@@ -1301,3 +1307,286 @@ def test_each_sticky_group_header_has_its_own_group_wrapper(client: Client, list
     chunks = body.split('<div class="border-t border-slate-100 first:border-t-0">')[1:]
     assert len(chunks) >= 2
     assert all(chunk.count("sticky top-0") == 1 for chunk in chunks)
+
+
+# --- Scale: people are filtered in the database first; the true total and «show all» (up to PEOPLE_MORE_LIMIT) ---
+
+
+def _rows_built(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Records how many employees `people` builds list rows for (the expensive Python step)."""
+    sizes: list[int] = []
+    real = listing.employee_rows
+
+    def counting(qs: Any, today: date) -> Any:
+        rows = real(qs, today)
+        sizes.append(len(rows))
+        return rows
+
+    monkeypatch.setattr("employees.palette.employee_rows", counting)
+    return sizes
+
+
+def test_people_build_rows_only_for_database_candidates(
+    actor: User, job_values: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = _hire(actor, job_values, "УБ99190001", "Өлзийсайхан", "Нэр")
+    for i in range(4):
+        _hire(actor, job_values, f"УБ{99190100 + i:08d}", "Бусад", f"Нэр{i}")
+    hr = _user("HR", "pal_scale1")
+    sizes = _rows_built(monkeypatch)
+    assert [h.employee.pk for h in palette.people(hr, "олзийсайхан", TODAY)] == [target.pk]  # folded in SQL too
+    assert sizes == [1]  # the four others were never loaded
+    assert palette.people(hr, "zzzqq", TODAY) == []
+    assert sizes[-1] == 0
+
+
+def test_people_sql_filter_folds_capitals_and_mongolian_letters(actor: User, job_values: dict[str, Any]) -> None:
+    emp = _hire(actor, job_values, "УБ99190002", "ӨНӨРБАЯР", "ҮҮРЦАЙХ")
+    Employee.objects.filter(pk=emp.pk).update(code="AB-7")
+    hr = _user("HR", "pal_scale2")
+    for query in ("онорбаяр", "Өнөрбаяр", "уурцайх", "ҮҮРЦАЙХ", "ab-7", "AB-7"):
+        assert [h.employee.pk for h in palette.people(hr, query, TODAY)] == [emp.pk], query
+
+
+def test_people_sql_filter_keeps_wildcards_literal(actor: User, job_values: dict[str, Any]) -> None:
+    emp = _hire(actor, job_values, "УБ99190003", "Хувь%нэр", "Нэр")
+    _hire(actor, job_values, "УБ99190004", "Хувьнэр", "Нэр")
+    hr = _user("HR", "pal_scale3")
+    assert [h.employee.pk for h in palette.people(hr, "хувь%", TODAY)] == [emp.pk]
+    assert palette.people(hr, "х_вь", TODAY) == []
+
+
+def test_people_match_a_legacy_row_by_its_macs_position(actor: User) -> None:
+    """A person with no HR job history shows the MACS position; the database filter must not drop them."""
+    position = macs_writes.save_position("Зөөгч")
+    emp = Employee.objects.create(given_name="Легаси", family_name="Хуучин", position=position)
+    ensure_ext(emp)
+    hr = _user("HR", "pal_scale4")
+    hits = palette.people(hr, "зоогч", TODAY)
+    assert [h.employee.pk for h in hits] == [emp.pk] and hits[0].position == "Зөөгч"
+
+
+def test_people_do_not_match_a_past_position(actor: User, job_values: dict[str, Any]) -> None:
+    """A word that matches only an old job (not the one the list shows) finds nothing: the Python check still runs."""
+    emp = _hire(actor, job_values, "УБ99190005", "Шилжсэн", "Нэр")
+    manager = macs_writes.save_position("Менежер")
+    history.change_job(
+        emp, effective=date(2026, 6, 1), changes={"position": manager}, change_type="correction", note="", by=actor
+    )
+    hr = _user("HR", "pal_scale5")
+    assert [h.employee.pk for h in palette.people(hr, "менежер", TODAY)] == [emp.pk]  # control: today's job
+    assert palette.people(hr, "нягтлан шилжсэн", TODAY) == []
+
+
+def test_find_people_returns_the_true_total(actor: User, job_values: dict[str, Any]) -> None:
+    for i in range(10):
+        _hire(actor, job_values, f"УБ{99191000 + i:08d}", "Нийт", f"Нэр{i}")
+    hr = _user("HR", "pal_scale6")
+    hits, total = palette.find_people(hr, "нийт", TODAY)
+    assert (len(hits), total) == (palette.PEOPLE_LIMIT, 10)
+    hits, total = palette.find_people(hr, "нийт", TODAY, limit=palette.PEOPLE_MORE_LIMIT)
+    assert (len(hits), total) == (10, 10)
+    assert [h.employee.given_name for h in hits] == [f"Нэр{i}" for i in range(10)]
+
+
+def test_palette_shows_the_total_and_a_show_all_row(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    for i in range(10):
+        _hire(actor, job_values, f"УБ{99192000 + i:08d}", "Олуул", f"Нэр{i}")
+    client.force_login(_user("HR", "pal_scale7"))
+    body = client.get(reverse("employees:palette"), {"q": "олуул"}).content.decode()
+    assert body.count('data-palette-ref="p:') == 8
+    assert "8 / 10" in body  # the header says more exist
+    more = re.findall(r"<a [^>]*data-palette-more[^>]*>", body)
+    assert len(more) == 1 and "data-palette-item" in more[0] and 'role="option"' in more[0]
+    assert "Бүх 10 хүнийг харуулах" in body
+
+    body = client.get(reverse("employees:palette"), {"q": "олуул", "more": "1"}).content.decode()
+    assert body.count('data-palette-ref="p:') == 10
+    assert "data-palette-more" not in body
+    assert "8 / 10" not in body
+
+
+def test_palette_says_when_even_show_all_is_cut(
+    client: Client, actor: User, job_values: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(palette, "PEOPLE_MORE_LIMIT", 9)
+    for i in range(10):
+        _hire(actor, job_values, f"УБ{99193000 + i:08d}", "Хэтэрхий", f"Нэр{i}")
+    client.force_login(_user("HR", "pal_scale8"))
+    body = client.get(reverse("employees:palette"), {"q": "хэтэрхий", "more": "1"}).content.decode()
+    assert body.count('data-palette-ref="p:') == 9
+    assert "9 / 10" in body
+    assert "data-palette-more" not in body
+    assert "data-palette-cut" in body  # the hint to type more
+
+
+def test_palette_has_no_show_all_row_when_everything_fits(client: Client, listed: Employee) -> None:
+    client.force_login(_user("HR", "pal_scale9"))
+    body = client.get(reverse("employees:palette"), {"q": "Батын"}).content.decode()
+    assert "data-palette-more" not in body and "data-palette-cut" not in body
+    assert not re.search(r"[0-9]+ / [0-9]+", body)  # the header shows a plain count
+
+
+# --- Entries for the features added after the palette: My page, leave requests, logs, import, admin, saved views ---
+
+
+def _approval_on() -> None:
+    LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": True})  # one step: approval is on
+
+
+def _fresh(user: User) -> User:
+    """The same login read again: rights and palette rules are kept on the user object for one request."""
+    return User.objects.get(pk=user.pk)
+
+
+def test_my_page_is_offered_only_to_a_user_with_an_own_record(listed: Employee) -> None:
+    staff = _user("Employee", "pal_new1")
+    assert "Миний хуудас" not in [s.title for s in palette.screens(staff, "")]
+    link_login(listed, staff)
+    staff = _fresh(staff)
+    screens = palette.screens(staff, "")
+    assert screens[0] == palette.Screen("Миний хуудас", reverse("me"))  # their home page comes first
+    assert palette.screens(staff, "миний") == [palette.Screen("Миний хуудас", reverse("me"))]
+    hr = _user("HR", "pal_new1b")
+    link_login(_hire_simple(), hr)
+    titles = [s.title for s in palette.screens(_fresh(hr), "")]
+    assert titles[:2] == ["Өнөөдөр", "Миний хуудас"]  # HR's home page stays first
+
+
+def test_requests_screen_follows_the_top_bar_rule(listed: Employee) -> None:
+    hr = _user("HR", "pal_new2")
+    staff = _user("Employee", "pal_new3")
+    requests = palette.Screen("Хүсэлт", reverse("leave:requests"))
+    assert requests not in palette.screens(hr, "")  # approval is off and nothing waits
+    _approval_on()
+    hr, staff = _fresh(hr), _fresh(staff)
+    assert requests in palette.screens(hr, "")  # may view leave
+    titles = [s.title for s in palette.screens(hr, "")]
+    assert titles.index("Чөлөө, амралт") < titles.index("Хүсэлт") < titles.index("Багийн хуанли")
+    assert requests not in palette.screens(staff, "")  # nothing to decide and may not view leave
+
+
+def test_request_leave_action_needs_own_record_right_and_approval(listed: Employee) -> None:
+    staff = _user("Employee", "pal_new4")
+    link_login(listed, staff)
+    ask = palette.Action("Чөлөө хүсэх", reverse("leave:request_new"), True)
+    assert ask not in palette.actions(staff, "")  # approval off
+    _approval_on()
+    staff = _fresh(staff)
+    assert ask in palette.actions(staff, "")
+    assert palette.actions(staff, "хүсэх") == [ask]
+    no_record = _user("Employee", "pal_new5")
+    assert ask not in palette.actions(no_record, "")
+    hr = _user("HR", "pal_new6")
+    link_login(_hire_simple(), hr)
+    assert hr.has_perm("leave.request_own_leave") == (ask in palette.actions(hr, ""))
+
+
+def _hire_simple() -> Employee:
+    emp = Employee.objects.create(given_name="Өөр", family_name="Хүн")
+    ensure_ext(emp)
+    return emp
+
+
+def test_logs_are_offered_by_their_own_rights(listed: Employee) -> None:
+    hr = _user("HR", "pal_new7")
+    auditor = _user("Auditor", "pal_new8")
+    employee_log = palette.Screen("Ажилтны бүртгэл", reverse("logs:employee"))
+    system_log = palette.Screen("Системийн бүртгэл", reverse("logs:system"))
+    assert employee_log in palette.screens(hr, "")
+    assert (system_log in palette.screens(hr, "")) == hr.has_perm("accounts.view_audit")
+    # The employee list is offered to everyone, as in the top bar; it shows only who the user may see.
+    assert palette.screens(auditor, "") == [palette.Screen("Ажилтнууд", reverse("employees:list")), system_log]
+    assert palette.screens(auditor, "бүртгэл") == [system_log]
+
+
+def test_import_and_admin_need_their_rights(listed: Employee) -> None:
+    hr = _user("HR", "pal_new9")
+    accountant = _user("Accountant", "pal_new10")
+    assert [a.title for a in palette.actions(hr, "импорт")] == ["Ажилтан импортлох"]
+    assert palette.actions(accountant, "импорт") == []
+    admin_page = palette.Screen("Админ хэсэг", reverse("admin:index"))
+    assert admin_page not in palette.screens(hr, "админ")
+    hr.is_staff = True
+    hr.save(update_fields=["is_staff"])
+    assert admin_page in palette.screens(hr, "админ")
+    assert admin_page not in palette.screens(hr, "")  # found by a typed word only
+
+
+def test_list_meanings_page_is_a_deep_page(listed: Employee) -> None:
+    admin = _user("Admin", "pal_new11")
+    hr = _user("HR", "pal_new12")
+    meaning = palette.Screen("Утгын холбоо", reverse("lists:meaning"))
+    assert (meaning in palette.screens(admin, "утгын")) == admin.has_perm("lists.manage_lists")
+    assert (meaning in palette.screens(hr, "утгын")) == hr.has_perm("lists.manage_lists")
+    assert meaning not in palette.screens(admin, "")
+
+
+def test_saved_report_views_are_found_by_name_or_report_title(listed: Employee) -> None:
+    hr = _user("HR", "pal_new13")
+    report = next(r for r in REPORTS.values() if r.saved_views and can_open(hr, r))
+    SavedView.objects.create(report=report.key, name="Санхүүгийнхэн", query="department=1")
+    SavedView.objects.create(report=report.key, name="Хоосон", query="")
+    base = reverse("reports:report", args=[report.key])
+    first = palette.Screen(f"Тайлан · {report.title} · Санхүүгийнхэн", f"{base}?department=1")
+    assert first in palette.screens(hr, "санхуугийнхэн")  # folded
+    assert palette.Screen(f"Тайлан · {report.title} · Хоосон", base) in palette.screens(hr, "хоосон")
+    assert first not in palette.screens(hr, "")
+
+
+def test_saved_views_of_a_report_the_user_may_not_open_are_hidden(listed: Employee) -> None:
+    staff = _user("Employee", "pal_new14")
+    report = next(r for r in REPORTS.values() if r.saved_views)
+    assert not can_open(staff, report)
+    SavedView.objects.create(report=report.key, name="Нууцхан", query="")
+    assert palette.screens(staff, "нууцхан") == []
+
+
+def test_palette_view_offers_the_request_action_as_a_pop_up(client: Client, listed: Employee) -> None:
+    staff = _user("Employee", "pal_new15")
+    link_login(listed, staff)
+    _approval_on()
+    client.force_login(staff)
+    body = client.get(reverse("employees:palette"), {"q": "хүсэх"}).content.decode()
+    link = _anchor(body, reverse("leave:request_new"))
+    assert "data-palette-item" in link and "data-palette-modal" in link
+
+
+# --- Guard: an entry is offered only when its page opens for that user ---
+
+
+def _offered(user: User) -> list[tuple[str, str, bool]]:
+    """Every page and quick action the palette can offer the user, typed-word entries included: (title, URL, pop-up)."""
+    entries = [(s.title, s.url, False) for s in palette._matching(user, [], palette._CATALOGUE + palette._DEEP)]
+    entries += [(s.title, s.url, False) for s in palette._report_screens(user, [])]
+    entries += [(s.title, s.url, False) for s in palette._list_screens(user, [])]
+    entries += [(s.title, s.url, False) for s in palette._saved_view_screens(user, [])]
+    entries += [(a.title, a.url, a.modal) for a in palette.actions(user, "")]
+    return entries
+
+
+@pytest.mark.parametrize("role", ["Admin", "HR", "Accountant", "Employee", "Auditor", "admin-site only"])
+def test_every_offered_entry_opens_for_that_user(client: Client, role: str) -> None:
+    """A palette entry that leads to a refused page must not be offered. Approval is on and every report that allows
+    saved views has one, so the entries that depend on them are opened too. Each user has an own employee record."""
+    _approval_on()
+    for report in REPORTS.values():
+        if report.saved_views:
+            SavedView.objects.create(report=report.key, name="Харагдац", query="")
+    user = User.objects.create_user(f"pal_reach_{role}", password="x-long-pass-123")  # noqa: S106
+    if role == "admin-site only":
+        user.is_staff = True
+        user.save(update_fields=["is_staff"])
+    else:
+        user.groups.add(Group.objects.get(name=role))
+    link_login(_hire_simple(), user)
+    user = _fresh(user)
+    client.force_login(user)
+    entries = _offered(user)
+    assert entries  # every signed-in user is offered something (at least the password change)
+    refused = []
+    for title, url, modal in entries:
+        response = client.get(url, headers={"HX-Request": "true"} if modal else {})
+        if response.status_code != 200:
+            refused.append((title, url, response.status_code))
+    assert refused == []

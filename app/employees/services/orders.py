@@ -93,7 +93,29 @@ def order_type_for(
     new_state = macs_writes.state_of(employee, candidate, day)
     before = job_on(employee, previous)
     old_state = macs_writes.state_of(employee, before, previous) if before is not None else new_state
-    return classify_parts(event_type, pension, old_state, new_state)
+    needed = classify_parts(event_type, pension, old_state, new_state)
+    return needed if needed is not None and requires_order(needed) else None  # an order type turned off: no order
+
+
+# The order types a change of each event type can end up needing (decided from the change itself, `classify_parts`).
+EVENT_ORDER_TYPES: dict[str, tuple[OrderType, ...]] = {
+    EventType.TRANSFER: (OrderType.DEPARTMENT, OrderType.POSITION, OrderType.TYPE_CHANGED),
+    EventType.PROMOTION: (OrderType.DEPARTMENT, OrderType.POSITION, OrderType.TYPE_CHANGED),
+    EventType.DEMOTION: (OrderType.DEPARTMENT, OrderType.POSITION, OrderType.TYPE_CHANGED),
+    EventType.CONTRACT: (OrderType.TYPE_CHANGED, OrderType.PENSION),
+    EventType.TERMINATION: (OrderType.FIRED, OrderType.PENSION),
+    EventType.REHIRE: (OrderType.HIRED,),
+}
+
+
+def requires_order(order_type: int) -> bool:
+    """Whether this install handles changes of this order type with an HR order (CompanySettings, D-052)."""
+    return CompanySettings.get().requires_order(order_type)
+
+
+def event_asks_for_order(event_type: str) -> bool:
+    """Whether the event form shows the order fields: some order type the event can need is on."""
+    return any(requires_order(t.value) for t in EVENT_ORDER_TYPES.get(event_type, ()))
 
 
 def _key(number: str) -> str:
@@ -142,7 +164,7 @@ def cancellation_links(orders_of_employee: list[HrOrder]) -> dict[int, dict[str,
 
 
 def legacy_clash_warning(number: str, day: datetime.date | None, exclude_command_id: int | None = None) -> str:
-    """Warning text when an old-program command row (not one of ours) has this number in that year, else ''."""
+    """Warning text when a MACS command row (not one of ours) has this number in that year, else ''."""
     if day is None or not number.strip():
         return ""
     ours = set(HrOrder.objects.filter(command_id__isnull=False).values_list("command_id", flat=True))
@@ -151,7 +173,7 @@ def legacy_clash_warning(number: str, day: datetime.date | None, exclude_command
     key = _key(number)
     for cmd in Command.objects.filter(number__iexact=number.strip()).exclude(pk__in=ours):
         if cmd.date is not None and cmd.date.year == day.year and _key(cmd.number) == key:
-            return f"Хуучин програмд {day.year} онд ийм дугаартай тушаал байна."
+            return f"MACS-д {day.year} онд ийм дугаартай тушаал байна."
     return ""
 
 

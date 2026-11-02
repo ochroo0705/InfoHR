@@ -1,0 +1,17 @@
+  {% for e, p, waiting in lines %}
+  <tr class="hover:bg-violet-50 cursor-pointer" onclick="location.href='{% url 'employees:detail' e.pk %}'">
+    {% if can_record %}<td onclick="event.stopPropagation()"><input type="checkbox" name="ids" value="{{ e.pk }}" aria-label="{{ e.full_name }}" class="bulk-pick rounded border-slate-300"></td>{% endif %}
+    <td><a class="hover:text-violet-700 hover:underline" href="{% url 'employees:detail' e.pk %}" onclick="event.stopPropagation()">{{ e.full_name }}</a>
+      {% if waiting %}<span data-waiting class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" title="Ажилд орсноос хойш хангалттай сар болоогүй">Эрх {{ waiting|date:"Y-m-d" }}-аас</span>{% endif %}</td>
+    {% if p %}
+    <td class="whitespace-nowrap">{{ p.start|date:"Y-m-d" }} – {{ p.end|date:"Y-m-d" }}</td>
+    <td class="text-right">{{ p.granted|floatformat:"-1" }}</td>
+    <td class="text-right">{{ p.taken|floatformat:"-1" }}</td>
+    <td class="text-right"><span class="inline-block min-w-10 rounded-full px-2 py-0.5 text-center font-semibold {% if p.left < 0 %}bg-red-100 text-red-700{% elif p.left > 0 %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-500{% endif %}">{{ p.left|floatformat:"-1" }}</span></td>
+    {% else %}
+    <td colspan="4" class="text-slate-400">Одоогийн ажлын жилд эрх бүртгэгдээгүй</td>
+    {% endif %}
+  </tr>
+  {% endfor %}{% if not lines and not offset %}<tr><td colspan="6" class="py-6 text-center text-slate-400">Ажилтан алга</td></tr>{% endif %}
+{% if next_query %}{% url 'leave:balances' as more_url %}{% include "_more_batch.html" with url=more_url kind="tr" colspan=6 %}{% endif %}
+

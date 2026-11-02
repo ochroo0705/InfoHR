@@ -5,12 +5,10 @@ employee."""
 
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
 
 from accounts.models import User
 from django.utils import timezone
 from employees import listing
-from employees.models import Employee
 from macs.models import Department, EmployeeIncomeRow, FamilyRow, IncomeLevel
 
 from reports import survey_common
@@ -44,10 +42,12 @@ def _rows(user: User, f: Filters) -> list[IncomeLine]:
     bands = list(IncomeLevel.objects.order_by("lower"))
 
     departments = _department_names(persons)
+    salaries = listing.current_salaries((p.row.employee for p in persons), today)
     lines: list[IncomeLine] = []
     for p in persons:
         emp = p.row.employee
-        income = incomes.get(emp.pk) or _base_salary(emp, today)
+        salary = salaries[emp.pk]
+        income = incomes.get(emp.pk) or (int(salary.base_salary) if salary is not None else 0)
         family_qty = family[emp.pk] + 1
         per_person = income // family_qty
         level = next((b.level for b in bands if b.lower < per_person <= b.upper), NO_LEVEL)
@@ -63,12 +63,6 @@ def _department_names(persons: list[Person]) -> dict[int, str]:
         pk: name or "" for pk, name in Department.objects.filter(pk__in=dept_ids).values_list("pk", "name")
     }
     return {p.row.employee.pk: names.get(p.row.job.department_id, "") if p.row.job is not None else "" for p in persons}
-
-
-def _base_salary(employee: Employee, today: date) -> int:
-    """Today's base salary as whole tugrik; 0 when there is none."""
-    salary = listing.current_salary(employee, today)
-    return int(salary.base_salary) if salary is not None else 0
 
 
 COLUMNS: tuple[Column, ...] = (

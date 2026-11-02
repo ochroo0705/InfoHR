@@ -74,6 +74,7 @@ def test_leave_pages_share_one_switch_and_a_settings_menu(actor: User) -> None:
     pages = (("leave:list", "Бүртгэл"), ("leave:balances", "Үлдэгдэл"), ("leave:calendar", "Багийн хуанли"))
     for name, current in pages:
         body = c.get(reverse(name)).content.decode()
-        assert body.count('aria-current="page"') == 1
+        switch = body.split('aria-label="Чөлөө, амралтын харагдац"', 1)[1].split("</nav>", 1)[0]
+        assert switch.count('aria-current="page"') == 1  # the top bar marks its own open link too
         assert f'aria-current="page" class="px-3 py-2 bg-violet-600 text-white">{current}<' in body
         assert "Баярын өдрүүд" in body and "Тохиргоо ▾" in body  # admin sees the settings menu

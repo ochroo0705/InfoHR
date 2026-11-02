@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from django import forms
 from django.apps import apps
@@ -8,6 +8,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
 from django.db.models import ManyToManyField
+from django.forms.models import BaseInlineFormSet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
@@ -15,11 +16,14 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import gettext as _
-from unfold.admin import ModelAdmin
+from employees.forms import StyledModelForm
+from macs.models import Branch, Department
+from unfold.admin import ModelAdmin, StackedInline
 from unfold.forms import UserChangeForm
 from unfold.widgets import UnfoldAdminCheckboxSelectMultiple, UnfoldAdminTextInputWidget
 
-from .models import User
+from .audit import Category, record_safe
+from .models import AccessScope, User
 from .passwords import set_temp_password
 
 admin.site.unregister(Group)
@@ -209,12 +213,89 @@ def _log_reset(user: User, by: User) -> None:
         ActivityEntry.objects.create(employee=employee, by=by, kind=ActivityKind.CHANGED, message="Нууц үг шинэчилсэн")
 
 
+class AccessScopeForm(StyledModelForm):
+    """«Үзэх хүрээ» block of the user page. The ids are stored as plain int lists (AccessScope)."""
+
+    branch_ids = forms.MultipleChoiceField(
+        label="Салбар",
+        required=False,
+        widget=UnfoldAdminCheckboxSelectMultiple,
+        help_text="Сонгосон салбарын ажилтнууд.",
+    )
+    department_ids = forms.MultipleChoiceField(
+        label="Хэлтэс",
+        required=False,
+        widget=UnfoldAdminCheckboxSelectMultiple,
+        help_text="Сонгосон хэлтсийн ажилтнууд.",
+    )
+
+    class Meta:
+        model = AccessScope
+        fields = ("limited", "branch_ids", "department_ids", "include_sub_departments", "own_team")
+        labels = {
+            "limited": "Хязгаарлах",
+            "include_sub_departments": "Дэд хэлтсүүдийг оролцуулах",
+            "own_team": "Миний удирдлаган дахь ажилтнууд",
+        }
+        help_texts = {
+            "limited": (
+                "Идэвхжүүлээд салбар, хэлтэс, баг сонгоогүй бол хэрэглэгч зөвхөн өөрийн бүртгэлийг харна. "
+                "Админ эрхтэй хэрэглэгч хэзээ ч хязгаарлагдахгүй."
+            ),
+            "include_sub_departments": "Хэлтэс сонгосон бол түүний дэд хэлтсийн ажилтнуудыг ч харуулна.",
+            "own_team": "Энэ хэрэглэгч удирдаж буй ажилтнуудыг харна.",
+        }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        branch_field = cast(forms.MultipleChoiceField, self.fields["branch_ids"])
+        department_field = cast(forms.MultipleChoiceField, self.fields["department_ids"])
+        branch_field.choices = [(b.pk, b.name) for b in Branch.objects.order_by("name")]
+        department_field.choices = [(d.pk, d.name or f"№{d.pk}") for d in Department.objects.order_by("name")]
+        for name in ("branch_ids", "department_ids"):
+            self.fields[name].widget.attrs.pop("class", None)  # checkbox list, not a text box
+        if self.instance.pk is not None:
+            self.initial["branch_ids"] = [str(pk) for pk in self.instance.branch_ids]
+            self.initial["department_ids"] = [str(pk) for pk in self.instance.department_ids]
+
+    def clean_branch_ids(self) -> list[int]:
+        return [int(value) for value in self.cleaned_data.get("branch_ids", [])]
+
+    def clean_department_ids(self) -> list[int]:
+        return [int(value) for value in self.cleaned_data.get("department_ids", [])]
+
+
+class AccessScopeFormSet(BaseInlineFormSet):  # type: ignore[type-arg]
+    """A POST without the block (scripts, older forms) changes nothing: no rows are read or saved."""
+
+    def __init__(self, data: Any = None, *args: Any, **kwargs: Any) -> None:
+        prefix = kwargs.get("prefix") or self.get_default_prefix()
+        if data is not None and f"{prefix}-TOTAL_FORMS" not in data:
+            data = data.copy()
+            data[f"{prefix}-TOTAL_FORMS"] = "0"
+            data[f"{prefix}-INITIAL_FORMS"] = "0"
+        super().__init__(data, *args, **kwargs)
+
+
+class AccessScopeInline(StackedInline):  # type: ignore[misc]
+    model = AccessScope
+    form = AccessScopeForm
+    formset = AccessScopeFormSet
+    fields = ("limited", "branch_ids", "department_ids", "include_sub_departments", "own_team")
+    max_num = 1
+    extra = 1
+    can_delete = False
+    verbose_name = "Үзэх хүрээ"
+    verbose_name_plural = "Үзэх хүрээ"
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin[User], ModelAdmin):  # type: ignore[misc]
     """Passwords are never typed here: a new user and «Түр нууц үг үүсгэх» both get a temporary one (D-014)."""
 
     form = TempPasswordUserChangeForm
     add_form = TempPasswordUserCreationForm
+    inlines = [AccessScopeInline]
     add_fieldsets = ((None, {"fields": ("username",)}),)
     change_user_password_template = "admin/accounts/user/temp_password.html"  # noqa: S105 (a template path)
     list_display = ("username", "first_name", "last_name", "is_active", "last_login")
@@ -245,6 +326,13 @@ class UserAdmin(BaseUserAdmin[User], ModelAdmin):  # type: ignore[misc]
             password = set_temp_password(user)
             assert isinstance(request.user, User)
             _log_reset(user, request.user)
+            record_safe(
+                Category.ACCESS,
+                "password_reset",
+                actor=request.user,
+                target_type="user",
+                target_label=user.get_username(),
+            )
             _show_once(request, user, password)
             return redirect(reverse(f"{self.admin_site.name}:accounts_user_change", args=[user.pk]))
         context = {

@@ -1,5 +1,6 @@
 """Onboarding setup checklist ("Бүрдүүлэлт") for new hires."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -59,6 +60,25 @@ def is_complete(employee: Employee) -> bool:
 def complete_for(employee: Employee, user: User) -> bool:
     """Complete over the items this user can see (a hidden bank item must not block or leak)."""
     return all(i.done for i in status(employee, user))
+
+
+def complete_many(employees: Iterable[Employee], user: User) -> dict[int, bool]:
+    """`complete_for` for many employees with one query for the ticked items."""
+    people = list(employees)
+    ticked: dict[int, set[str]] = {}
+    for employee_id, key in SetupItem.objects.filter(employee_id__in=[e.pk for e in people]).values_list(
+        "employee_id", "key"
+    ):
+        ticked.setdefault(employee_id, set()).add(key)
+    sees_bank = access.can_view_salary(user)
+    return {
+        e.pk: all(
+            bool(e.account_no) if key in AUTO else key in ticked.get(e.pk, set())
+            for key, _ in ITEMS
+            if sees_bank or key != "bank"
+        )
+        for e in people
+    }
 
 
 @transaction.atomic

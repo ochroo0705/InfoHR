@@ -1,5 +1,5 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
-  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
     <h2 class="mb-4 text-lg font-semibold">{% if mistake %}Буруу бүртгэсэн{% else %}Чөлөө цуцлах{% endif %}</h2>
     <p class="mb-3 text-sm text-slate-600">{{ row.leave_type }} {{ row.start|date:"Y-m-d" }} – {{ row.end|date:"Y-m-d" }}</p>
     {% if mistake %}<p class="mb-3 text-sm text-slate-600">Энэ чөлөө эхэлсэн эсвэл дууссан тул цуцлах биш, буруу бүртгэснийг засна.{% if row.type_ext.uses_annual_balance %} Хоног нь үлдэгдэлд буцна.{% endif %}</p>{% endif %}

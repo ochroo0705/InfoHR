@@ -29,6 +29,7 @@ from employees.models import (
     contract_errors,
     ensure_ext,
 )
+from employees.scope import manager_error
 from employees.services import history, macs_writes, orders
 from employees.services.history import HistoryError
 from employees.services.orders import OrderError
@@ -40,7 +41,7 @@ ALLOWED_FIELDS: dict[str, tuple[str, ...]] = {
     EventType.PROMOTION: _PLACEMENT,
     EventType.DEMOTION: _PLACEMENT,
     EventType.SALARY_CHANGE: (),
-    EventType.CONTRACT: _CONTRACT,
+    EventType.CONTRACT: ("employee_type", *_CONTRACT),  # also how an intern becomes staff (or the other way round)
     EventType.LEAVE_START: (),
     EventType.LEAVE_RETURN: (),
     EventType.TERMINATION: (),
@@ -127,6 +128,10 @@ def _validate(
         if field not in allowed:
             errors[field] = "Энэ өөрчлөлтөөр энэ талбарыг өөрчлөх боломжгүй."
     new = {f: v for f, v in changes.items() if f in allowed and getattr(current, f) != v}
+    if new.get("manager") is not None:
+        message = manager_error(employee.pk, new["manager"].pk, effective)
+        if message is not None:
+            _add(errors, "manager", message)
     if type == EventType.TRANSFER and not new:
         _add(errors, "__all__", "Хэлтэс, албан тушаал эсвэл удирдлагын аль нэгийг өөрчилнө үү.")
     if type in (EventType.PROMOTION, EventType.DEMOTION) and "position" not in new:
@@ -141,7 +146,7 @@ def _validate(
                 new["contract_end"] = None
         start = changes.get("contract_start", current.contract_start)
         end = new.get("contract_end", current.contract_end) if kind != ContractType.OPEN_ENDED else None
-        errors.update(contract_errors(kind, start, end))
+        errors.update(contract_errors(kind, start, end, changes.get("employee_type", current.employee_type)))
     needed = REQUIRED_STATUS.get(type)
     if needed is not None and current.status != needed:
         _add(

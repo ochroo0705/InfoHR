@@ -1,11 +1,12 @@
 """Annual leave entitlement (Labor Law art. 99, order А/191; leave-scope §3)."""
 
 import calendar as cal
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 from typing import cast
 
-from employees.models import Employee, EventType, JobStatus, LeaveKind, ext_of
+from employees.models import Employee, Event, EventType, JobStatus, LeaveKind, ext_of
 
 from leave.models import AnnualLeaveRule
 
@@ -35,6 +36,18 @@ def employment_start(employee: Employee) -> date | None:
     if rehire is not None:
         return rehire.effective
     return cast(date | None, employee.first_hire_date)
+
+
+def employment_starts(employees: Iterable[Employee]) -> dict[int, date | None]:
+    """`employment_start` for many employees in one query."""
+    people = list(employees)
+    rehires: dict[int, date] = {}
+    live = Event.objects.applied().filter(
+        employee_id__in=[e.pk for e in people], type=EventType.REHIRE, cancelled_at__isnull=True
+    )
+    for event in live.order_by("-effective"):
+        rehires.setdefault(event.employee_id, event.effective)  # newest first: the latest rehire wins
+    return {e.pk: rehires.get(e.pk, cast(date | None, e.first_hire_date)) for e in people}
 
 
 def require_start(employee: Employee) -> date:
@@ -148,3 +161,19 @@ def eligible_from(employee: Employee) -> date | None:
     if start is None:
         return None
     return add_months(start, rule_for(start).eligibility_months)
+
+
+def eligible_froms(employees: Iterable[Employee]) -> dict[int, date | None]:
+    """`eligible_from` for many employees: one query for the starts and one for the rules."""
+    rules = list(AnnualLeaveRule.objects.order_by("effective_from"))
+    out: dict[int, date | None] = {}
+    for pk, start in employment_starts(employees).items():
+        if start is None:
+            out[pk] = None
+            continue
+        if not rules:
+            raise LookupError("Ээлжийн амралтын хуулийн тохиргоо алга")
+        # Same pick as rule_for: the latest rule in force on `start`, else the earliest known one.
+        rule = next((r for r in reversed(rules) if r.effective_from <= start), rules[0])
+        out[pk] = add_months(start, rule.eligibility_months)
+    return out

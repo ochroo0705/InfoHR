@@ -31,7 +31,11 @@ def people(user: User, f: Filters, day: date) -> list[Person]:
     if f.branch is not None:
         qs = qs.filter(branch_id=f.branch)
     found: list[Person] = []
-    for employee in qs.order_by("family_name", "given_name"):
+    # The job records are read once for everyone (row_for reads the prefetch): no query per person.
+    prefetched = qs.order_by("family_name", "given_name").prefetch_related(
+        "job_records__position", "job_records__department"
+    )
+    for employee in prefetched:
         row = listing.row_for(employee, day)
         job = row.job
         department_id = job.department_id if job is not None else None

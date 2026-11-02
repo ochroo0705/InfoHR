@@ -209,7 +209,7 @@ def test_legacy_number_clash_is_warning(hired: Employee, actor: User, lead: Posi
     Command.objects.create(employee_id=hired.pk, number="А/99", date=DAY, order_type=1)
     order = reg(event_order(hired, actor, lead), actor, "а/99")
     assert order.state == OrderState.REGISTERED
-    assert getattr(order, "warning", "") == "Хуучин програмд 2026 онд ийм дугаартай тушаал байна."
+    assert getattr(order, "warning", "") == "MACS-д 2026 онд ийм дугаартай тушаал байна."
     assert orders.legacy_clash_warning("А/99", DAY, exclude_command_id=order.command_id) != ""  # the old row
     assert orders.legacy_clash_warning("А/98", DAY) == ""
     assert orders.legacy_clash_warning("А/99", date(2027, 1, 1)) == ""

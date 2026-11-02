@@ -36,12 +36,14 @@ def annual_lines(user: User, f: Filters) -> list[Line]:
     as_of = f.as_of or timezone.localdate()
     configured = ledger.annual_configured()
     lines: list[Line] = []
-    for person in people(user, f, as_of):
-        if person.state == "left":
-            continue
-        found, _ = ledger.periods(person.employee, timezone.localdate())
+    staying = [person for person in people(user, f, as_of) if person.state != "left"]
+    employees = [person.employee for person in staying]
+    periods = ledger.periods_many(employees, timezone.localdate())
+    eligible_from = entitlement.eligible_froms(employees)
+    for person in staying:
+        found, _ = periods[person.employee.pk]
         period = next((p for p in found if p.start <= as_of <= p.end), None)
-        eligible = entitlement.eligible_from(person.employee)
+        eligible = eligible_from[person.employee.pk]
         waiting = eligible if eligible is not None and as_of < eligible else None
         lines.append(Line(person=person, period=period, waiting_until=waiting, configured=configured))
     return lines

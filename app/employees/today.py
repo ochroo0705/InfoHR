@@ -53,14 +53,14 @@ class MarkerLook:
 
 
 _VIOLET = "bg-violet-600 text-white"
-_VIOLET_LINE = "border-violet-600 bg-white text-violet-700"
+_VIOLET_LINE = "border-violet-600 bg-surface text-violet-700"
 _SLATE = "bg-slate-600 text-white"
-_SLATE_LINE = "border-slate-600 bg-white text-slate-700"
+_SLATE_LINE = "border-slate-600 bg-surface text-slate-700"
 _AMBER = "bg-amber-400 text-slate-900"
-_AMBER_LINE = "border-amber-500 bg-white text-slate-800"
+_AMBER_LINE = "border-amber-500 bg-surface text-slate-800"
 MARKER_LOOK: dict[str, MarkerLook] = {
     "termination": MarkerLook(
-        "termination", "Ажлаас гарах", "Х", "bg-red-600 text-white", "border-red-600 bg-white text-red-700"
+        "termination", "Ажлаас гарах", "Х", "bg-red-600 text-white", "border-red-600 bg-surface text-red-700"
     ),
     "transfer": MarkerLook("transfer", "Шилжилт, албан тушаал", "Ш", _VIOLET, _VIOLET_LINE),
     "contract": MarkerLook("contract", "Гэрээ", "Г", _VIOLET, _VIOLET_LINE),
@@ -68,7 +68,7 @@ MARKER_LOOK: dict[str, MarkerLook] = {
     "leave_start": MarkerLook("leave_start", "Чөлөө эхлэх", "Ч", _SLATE, _SLATE_LINE),
     "leave_return": MarkerLook("leave_return", "Чөлөөнөөс буцах", "Б", _SLATE, _SLATE_LINE),
     "salary": MarkerLook(
-        "salary", "Цалингийн өөрчлөлт", "Ц", "bg-slate-500 text-white", "border-slate-500 bg-white text-slate-600"
+        "salary", "Цалингийн өөрчлөлт", "Ц", "bg-slate-500 text-white", "border-slate-500 bg-surface text-slate-600"
     ),
     "anniversary": MarkerLook("anniversary", "Ажилд орсны ой", "Ж", _AMBER, _AMBER_LINE),
     "birthday": MarkerLook("birthday", "Төрсөн өдөр", "Ө", _AMBER, _AMBER_LINE),

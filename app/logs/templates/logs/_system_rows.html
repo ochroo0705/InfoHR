@@ -1,0 +1,8 @@
+{# Rows of the system log (see system.html). A filter change replaces the table; a later batch adds only its rows (_system_items.html). #}
+{# Framed table (UI_RULES §4 `ptable`): the frame gives every cell its padding and row lines, so cells carry none. #}
+<div class="ptable card-soft">
+<table>
+  <thead><tr><th>Огноо</th><th>Хэн<span class="block w-36 whitespace-normal text-xs font-normal text-slate-400">Нэвтрэх нэр (буруу оруулсан байж болно)</span></th><th>Ангилал</th><th>Үйлдэл</th><th class="min-w-40">Зорилт</th><th class="w-full">Дэлгэрэнгүй</th><th>IP</th></tr></thead>
+  <tbody>{% include "logs/_system_items.html" %}</tbody>
+</table>
+</div>

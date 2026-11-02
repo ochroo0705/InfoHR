@@ -1,10 +1,10 @@
 {# The activity log entries, without the note form, so a write elsewhere can refresh them (out of band, _page_refresh.html) without wiping a note being typed. #}
   {% load hr %}
   {% for e in activity %}{% ifchanged e.at|date:"Y-m-d" %}{% if not forloop.first %}</ol>{% endif %}
-  <h3 class="mt-5 mb-2 text-xs font-medium uppercase tracking-wide text-slate-400 first:mt-0">{{ e.at|day_label:today }}</h3>
+  {% if forloop.first and e.at|date:"Y-m-d" == prev_day %}{% else %}<h3 class="mt-5 mb-2 text-xs font-medium uppercase tracking-wide text-slate-400 first:mt-0">{{ e.at|day_label:today }}</h3>{% endif %}
   <ol class="ml-1 border-l border-slate-200">{% endifchanged %}
     <li class="relative pb-4 pl-4 text-sm last:pb-1">
-      <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-white {% if e.kind == 'correction' %}bg-amber-500{% elif e.kind == 'history' %}bg-violet-500{% elif e.kind == 'note' %}bg-sky-500{% elif e.kind == 'created' or e.kind == 'added' %}bg-emerald-500{% elif e.kind == 'deleted' or e.kind == 'cancelled' %}bg-red-400{% else %}bg-slate-400{% endif %}"></span>
+      <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-surface {% if e.kind == 'correction' %}bg-amber-500{% elif e.kind == 'history' %}bg-violet-500{% elif e.kind == 'note' %}bg-sky-500{% elif e.kind == 'created' or e.kind == 'added' %}bg-emerald-500{% elif e.kind == 'deleted' or e.kind == 'cancelled' %}bg-red-400{% else %}bg-slate-400{% endif %}"></span>
       <div class="flex items-baseline gap-2">
         <span class="truncate font-medium">{{ e.by.get_full_name|default:e.by.username|default:"Систем" }}</span>
         <span class="shrink-0 rounded px-1.5 py-0.5 text-xs {% if e.kind == 'correction' %}bg-amber-50 text-amber-700{% elif e.kind == 'history' %}bg-violet-50 text-violet-700{% elif e.kind == 'note' %}bg-sky-50 text-sky-700{% elif e.kind == 'created' or e.kind == 'added' %}bg-emerald-50 text-emerald-700{% elif e.kind == 'deleted' or e.kind == 'cancelled' %}bg-red-50 text-red-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ e.get_kind_display }}</span>
@@ -16,3 +16,4 @@
         <dt class="text-slate-500">{{ c.field }}</dt>
         <dd class="text-slate-800">{% if c.old %}<s class="text-slate-400">{{ c.old }}</s> → {% endif %}{{ c.new|default:"(хоосон)" }}</dd>{% endfor %}</dl>{% endif %}
     </li>{% if forloop.last %}</ol>{% endif %}{% empty %}<p class="text-sm text-slate-500">Бүртгэл алга</p>{% endfor %}
+{% if activity_next_query %}{% url 'employees:activity_more' employee.pk as more_url %}{% include "_more_batch.html" with url=more_url next_query=activity_next_query kind="div" %}{% endif %}

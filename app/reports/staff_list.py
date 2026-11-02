@@ -413,12 +413,13 @@ def rows(user: User, f: Filters) -> list[StaffRow]:
             BirthPlace.objects.filter(employee_id__in=ids).select_related("city", "district")
         )
 
+    salaries = listing.current_salaries((r.employee for r in kept), today) if wants_salary else {}
     result: list[StaffRow] = []
     for r in kept:
         emp = r.employee
         address = addresses.get(emp.pk)
         birthplace = birthplaces.get(emp.pk)
-        salary = listing.current_salary(emp, today) if wants_salary else None
+        salary = salaries.get(emp.pk)
         result.append(
             StaffRow(
                 row=r,

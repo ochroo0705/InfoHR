@@ -16,7 +16,7 @@
   <input type="search" name="q" value="{{ q }}" placeholder="Ажилтны нэр, кодоор хайх" hx-get="{% url 'leave:list' %}" hx-trigger="input changed delay:300ms, search" hx-target="#rows" hx-include="closest form" class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
   <select name="type" class="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="">Бүх төрөл</option>{% for t in types %}<option value="{{ t.pk }}" {% if filters.type == t.pk|stringformat:"s" %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
   <select name="status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="recorded" {% if filters.status == "recorded" %}selected{% endif %}>Бүртгэсэн</option><option value="cancelled" {% if filters.status == "cancelled" %}selected{% endif %}>Цуцалсан</option><option value="mistake" {% if filters.status == "mistake" %}selected{% endif %}>Буруу бүртгэсэн</option><option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>Татгалзсан</option><option value="all" {% if filters.status == "all" %}selected{% endif %}>Бүгд</option></select>
-  <div class="flex items-center gap-1 rounded-lg border border-slate-300 bg-white pl-3 focus-within:border-violet-500">
+  <div class="flex items-center gap-1 rounded-lg border border-slate-300 bg-surface pl-3 focus-within:border-violet-500">
     <span class="text-slate-500">Хугацаа</span>
     <input type="date" name="from" value="{{ filters.from }}" placeholder="Эхлэх" aria-label="Эхлэх огноо" class="w-28 sm:w-36 rounded-lg border-0 px-2 py-2 text-sm focus:ring-0 focus:outline-none">
     <span class="text-slate-400">–</span>

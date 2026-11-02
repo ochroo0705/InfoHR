@@ -49,8 +49,10 @@ def is_working_day(day: date, holidays: set[date]) -> bool:
     return day.weekday() < 5 and day not in holidays
 
 
-def working_days(start: date, end: date) -> int:
-    holidays = holidays_between(start, end)
+def working_days(start: date, end: date, holidays: set[date] | None = None) -> int:
+    """Working days in [start, end]. Pass `holidays` (covering the span) to count many spans with one lookup."""
+    if holidays is None:
+        holidays = holidays_between(start, end)
     return sum(1 for n in range((end - start).days + 1) if is_working_day(start + timedelta(n), holidays))
 
 

@@ -11,19 +11,13 @@
     <tbody>
       {% if table.count == 0 %}
       <tr><td colspan="{{ heads|length }}" class="py-6 text-center text-slate-400">Олдсонгүй</td></tr>
-      {% else %}
+      {% elif filters.group %}
         {% for label, rows in table.groups %}
-          {% if filters.group %}
           <tr><td colspan="{{ heads|length }}" class="font-semibold text-slate-900">{{ label }} · {{ rows|length }}</td></tr>
-          {% endif %}
-          {% for row in rows %}
-          <tr>
-            {% for cell in row %}
-            <td{% if cell.cls %} class="{{ cell.cls }}"{% endif %}>{% if cell.href %}<a href="{{ cell.href }}" class="text-violet-700 hover:underline">{% endif %}{% include "reports/_cell.html" %}{% if cell.href %}</a>{% endif %}</td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
+          {% include "reports/_rows.html" %}
         {% endfor %}
+      {% else %}
+        {% include "reports/_batch_rows.html" %}
       {% endif %}
     </tbody>
   </table>

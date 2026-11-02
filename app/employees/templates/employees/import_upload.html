@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Ажилтан импортлох{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+  <h1 class="text-xl font-semibold">Ажилтан импортлох</h1>
+  <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+    <a href="{% url 'employees:import_template' %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Загвар татах</a>
+    <a href="{% url 'employees:list' %}" class="text-sm text-violet-700 hover:underline">Ажилтнууд руу буцах</a>
+  </div>
+</div>
+{% include "employees/import_steps.html" with step=1 %}
+{% if notice %}<p class="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">{{ notice }}</p>{% endif %}
+
+<div class="max-w-2xl rounded-xl border border-slate-200 bg-surface p-6">
+  <p class="text-sm text-slate-600">Excel файлаас ажилтнуудыг нэг дор оруулна. Эхлээд загварыг татаж, мөр бүрт нэг ажилтныг бөглөнө үү. Загварын «Жишээ» мөрийг импортлох үед алгасна.</p>
+  <form method="post" enctype="multipart/form-data" class="mt-4 space-y-4">{% csrf_token %}
+    {% for e in form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
+    <div>
+      <label for="{{ form.file.id_for_label }}" class="mb-1 block text-sm font-medium">{{ form.file.label }} *</label>
+      {{ form.file }}
+      {% for e in form.file.errors %}<p class="mt-1 text-xs text-red-600">{{ e }}</p>{% endfor %}
+    </div>
+    <div class="flex justify-end">
+      <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Үргэлжлүүлэх</button>
+    </div>
+  </form>
+</div>
+
+<h2 class="sec-title mt-8">Сүүлд импортолсон</h2>
+<div class="ptable overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-slate-500">
+        <th>Файл</th>
+        <th>Огноо</th>
+        <th class="text-right">Нэмсэн</th>
+        <th class="pl-6 text-right">Давхардсан</th>
+        <th class="pl-6 text-right">Алдаатай</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in recent %}
+      <tr class="hover:bg-violet-50 cursor-pointer" onclick="location.href='{% url 'employees:import_result' d.pk %}'">
+        <td>{{ d.filename }}</td>
+        <td>{{ d.finished_at|date:"Y-m-d" }}</td>
+        <td class="text-right">{{ d.created_count }}</td>
+        <td class="pl-6 text-right">{{ d.duplicate_count }}</td>
+        <td class="pl-6 text-right">{{ d.rejected_count }}</td>
+        <td class="text-right"><a href="{% url 'employees:import_result' d.pk %}" class="text-violet-700 hover:underline" onclick="event.stopPropagation()">Дэлгэрэнгүй</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="py-6 text-center text-slate-400">Импортолсон файл алга.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

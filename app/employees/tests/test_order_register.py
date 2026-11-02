@@ -45,8 +45,8 @@ def test_register_lists_info_hr_and_legacy_orders(hr: Client, hired: Employee) -
     body = resp.content.decode()
     assert "Тушаал 15" in body
     assert "Хуучин тушаал" in body
-    assert "Хуучин програм" in body
-    assert "Хуучин програм" in body and "Бүртгэсэн" in body
+    assert "MACS" in body
+    assert "MACS" in body and "Бүртгэсэн" in body
     from employees.services.order_register import register_rows
 
     user = User.objects.get(username="hr1")

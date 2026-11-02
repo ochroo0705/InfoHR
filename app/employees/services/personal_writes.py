@@ -8,10 +8,11 @@ Production ids come from the database sequences, so nothing here sets a primary 
 """
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from accounts.models import User
 from django.db import DataError, IntegrityError, connection, transaction
+from django.db.models import Model
 from macs.models import (
     AddressRow,
     ArmyRankRow,
@@ -36,8 +37,18 @@ from macs.models import (
     TrainingRow,
 )
 
-from employees.models import ActivityEntry, ActivityKind, Employee, GiftExt
+from employees.models import (
+    PERSONAL_ADDED,
+    PERSONAL_DELETED,
+    PERSONAL_UPDATED,
+    ActivityEntry,
+    ActivityKind,
+    Employee,
+    GiftExt,
+)
+from employees.money import group
 from employees.services import macs_writes
+from employees.services.display import shown
 
 KINDS = (
     "family",
@@ -252,16 +263,111 @@ def _summary(kind: str, data: dict[str, object]) -> str:
     return str(data.get("name") or "")
 
 
-_VERB_KINDS = {"нэмсэн": ActivityKind.ADDED, "устгасан": ActivityKind.DELETED}
+_VERB_KINDS = {PERSONAL_ADDED: ActivityKind.ADDED, PERSONAL_DELETED: ActivityKind.DELETED}
+# Money columns of the personal lists: shown as 2,500,000₮.
+_MONEY_KEYS = frozenset({"amount", "price"})
+# The talent list has no model, so its three columns are labelled as on the form (TalentRowForm).
+_TALENT_LABELS = {"talent_ident": "Авьяас", "trained_year": "Сургасан он", "description": "Тайлбар"}
 
 
-def _log(kind: str, employee: Employee, by: User, verb: str, data: dict[str, object]) -> None:
+def _field_for(kind: str, key: str) -> Any | None:
+    """The model field behind one snapshot key: the row model, then the HR-only ext model."""
+    models = ([_MODELS[kind]] if kind in _MODELS else []) + ([_EXT[kind][0]] if kind in _EXT else [])
+    for model in models:
+        for field in model._meta.concrete_fields:
+            if field.attname == key:
+                return field
+    return None
+
+
+def _label(kind: str, key: str) -> str:
+    field = _field_for(kind, key)
+    if field is not None:
+        return str(field.verbose_name)
+    return _TALENT_LABELS.get(key, key)
+
+
+def _related_model(kind: str, key: str) -> type[Model] | None:
+    """The code list a key points at (a foreign key, or the talent list), None for a plain column."""
+    if kind == "talent" and key == "talent_ident":
+        return TalentKind
+    field = _field_for(kind, key)
+    if field is not None and field.is_relation:
+        return cast(type[Model], field.related_model)
+    return None
+
+
+def _list_names(wanted: dict[type[Model], set[Any]]) -> dict[tuple[type[Model], Any], str]:
+    """The names of the code-list entries, one IN query per list (not one per value)."""
+    names: dict[tuple[type[Model], Any], str] = {}
+    for model, pks in wanted.items():
+        for pk, row in cast(Any, model).objects.in_bulk(list(pks)).items():
+            names[(model, pk)] = str(row)
+    return names
+
+
+def _value_text(kind: str, key: str, value: object, names: dict[tuple[type[Model], Any], str]) -> str:
+    """A snapshot value as the log shows it: list names, formatted dates and money, '' when blank."""
+    if value is None or value == "":
+        return ""
+    model = _related_model(kind, key)
+    if model is not None:
+        return names.get((model, value), str(value))
+    field = _field_for(kind, key)
+    text = shown(field, value) if field is not None else str(value)
+    if key in _MONEY_KEYS:
+        text = f"{group(value)}₮"  # type: ignore[arg-type]
+    return text
+
+
+def _changes(kind: str, old: dict[str, object] | None, new: dict[str, object] | None) -> list[dict[str, str]]:
+    """One {field, old, new} per column whose value differs. Add: old is empty; delete: new is empty.
+
+    The row's owner (employee_id) never changes, so it is not a change. Code-list names for all changed values
+    are read with one query per list.
+    """
+    before, after = old or {}, new or {}
+    pending: list[tuple[str, object, object]] = []
+    for key in dict.fromkeys([*before, *after]):
+        if key == "employee_id":
+            continue
+        was, now = before.get(key), after.get(key)
+        if (was is None or was == "") and (now is None or now == ""):
+            continue
+        if was == now:
+            continue
+        pending.append((key, was, now))
+    wanted: dict[type[Model], set[Any]] = {}
+    for key, was, now in pending:
+        model = _related_model(kind, key)
+        if model is not None:
+            wanted.setdefault(model, set()).update(v for v in (was, now) if v not in (None, ""))
+    names = _list_names(wanted) if wanted else {}
+    return [
+        {
+            "field": _label(kind, key),
+            "old": _value_text(kind, key, was, names),
+            "new": _value_text(kind, key, now, names),
+        }
+        for key, was, now in pending
+    ]
+
+
+def _log(
+    kind: str,
+    employee: Employee,
+    by: User,
+    verb: str,
+    data: dict[str, object],
+    changes: list[dict[str, str]],
+) -> None:
     ActivityEntry.objects.create(
         employee=employee,
         by=by,
         kind=_VERB_KINDS.get(verb, ActivityKind.CHANGED),
         personal=True,
         message=f"{TITLES[kind]}: {verb} — {_summary(kind, data)}",
+        changes=changes,
     )
 
 
@@ -288,7 +394,7 @@ def add(kind: str, employee: Employee, values: dict[str, object], ext: dict[str,
         return row.pk
 
     key = _guarded(write)
-    _log(kind, employee, by, "нэмсэн", values)
+    _log(kind, employee, by, PERSONAL_ADDED, values, _changes(kind, None, {**values, **ext}))
     return key
 
 
@@ -328,7 +434,11 @@ def update(
         return new
 
     data = _guarded(write)
-    _log(kind, employee, by, "засварласан", data)
+    changes = _changes(kind, loaded, data)
+    # An unchanged save writes no entry. Ext values (gift note) are not compared: their old value is not loaded,
+    # so a save of an ext kind is always logged, as before.
+    if changes or kind in _EXT:
+        _log(kind, employee, by, PERSONAL_UPDATED, data, changes)
 
 
 @transaction.atomic
@@ -355,4 +465,4 @@ def delete(kind: str, employee: Employee, key: Any, loaded: Snapshot, by: User) 
         _delete_ext(kind, key)
 
     _guarded(write)
-    _log(kind, employee, by, "устгасан", loaded)
+    _log(kind, employee, by, PERSONAL_DELETED, loaded, _changes(kind, loaded, None))

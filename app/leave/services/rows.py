@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
+from django.db.models import Exists, OuterRef, QuerySet
 from macs.models import Employee, Entitlement, LeaveAssign, LeaveTypeRow
 
 from leave.models import GrantKind, LeaveExt, LeaveGrantExt, LeaveTypeExt
@@ -100,6 +101,12 @@ def _build(assigns: list[LeaveAssign]) -> list[LeaveRow]:
     existing_employees = set(Employee.objects.filter(pk__in=employee_ids).values_list("pk", flat=True))
     type_exts = LeaveTypeExt.objects.in_bulk(list(types))
     exts = LeaveExt.objects.in_bulk([a.pk for a in assigns])
+    uncounted = [a for a in assigns if a.adays is None]  # old-program rows with no day count: counted here, once
+    holidays = (
+        calendar.holidays_between(min(a.date1 for a in uncounted), max(a.date2 for a in uncounted))
+        if uncounted
+        else set()
+    )
 
     merged: list[LeaveRow] = []
     for a in assigns:
@@ -121,7 +128,7 @@ def _build(assigns: list[LeaveAssign]) -> list[LeaveRow]:
                 type_ext=type_exts.get(leave_type.pk) or LeaveTypeExt(leave_type=leave_type),
                 start=a.date1,
                 end=a.date2,
-                days=a.adays if a.adays is not None else calendar.working_days(a.date1, a.date2),
+                days=a.adays if a.adays is not None else calendar.working_days(a.date1, a.date2, holidays),
                 state=_state(a, ext),
                 comment=a.comment or "",
                 from_old_system=ext is None,
@@ -150,6 +157,46 @@ def leaves(
     return _build(list(qs.order_by("-date1", "-id")))
 
 
+def _with_state(qs: QuerySet[LeaveAssign], name: str) -> QuerySet[LeaveAssign]:
+    """The database form of `_state(...).name == name`; a name that is no state matches nothing."""
+    mistake = Exists(LeaveExt.objects.filter(pk=OuterRef("pk"), mistake=True))
+    if name == State.RECORDED.name:
+        return qs.exclude(status__in=[LeaveAssign.REJECTED, LeaveAssign.CANCELLED])
+    if name == State.REJECTED.name:
+        return qs.filter(status=LeaveAssign.REJECTED)
+    if name == State.CANCELLED.name:
+        return qs.filter(status=LeaveAssign.CANCELLED).exclude(mistake)
+    if name == State.MISTAKE.name:
+        return qs.filter(status=LeaveAssign.CANCELLED).filter(mistake)
+    return qs.none()
+
+
+def leaves_page(
+    employees: QuerySet[Employee],
+    *,
+    offset: int,
+    size: int,
+    start: date | None = None,
+    end: date | None = None,
+    type_id: int | None = None,
+    state: str | None = None,
+) -> tuple[list[LeaveRow], bool]:
+    """One batch of `leaves` (newest first) and whether more follow, filtered and cut by the database.
+
+    `state` is a `State` name or None for every state; `employees` are the people whose leave is wanted."""
+    qs = LeaveAssign.objects.filter(employee_id__in=employees.values("pk"))
+    if start is not None:
+        qs = qs.filter(date2__gte=start)
+    if end is not None:
+        qs = qs.filter(date1__lte=end)
+    if type_id is not None:
+        qs = qs.filter(leave_type_id=type_id)
+    if state is not None:
+        qs = _with_state(qs, state)
+    found = list(qs.order_by("-date1", "-id")[offset : offset + size + 1])
+    return _build(found[:size]), len(found) > size
+
+
 def leave(pk: int) -> LeaveRow:
     """One leave row. Raises LeaveAssign.DoesNotExist when the production row is gone or unusable."""
     rows = _build([LeaveAssign.objects.get(pk=pk)])
@@ -160,12 +207,17 @@ def leave(pk: int) -> LeaveRow:
 
 def grants(employee_id: int, *, annual_only: bool = True) -> list[GrantRow]:
     """Grants of one employee, newest first. `annual_only` keeps only types that use the annual balance."""
-    found = list(Entitlement.objects.filter(employee_id=employee_id).order_by("-date1", "-id"))
+    return grants_many([employee_id], annual_only=annual_only).get(employee_id, [])
+
+
+def grants_many(employee_ids: Iterable[int], *, annual_only: bool = True) -> dict[int, list[GrantRow]]:
+    """Grants of several employees in one pass (four queries in all), newest first within each employee."""
+    found = list(Entitlement.objects.filter(employee_id__in=list(employee_ids)).order_by("-date1", "-id"))
     types = LeaveTypeRow.objects.in_bulk({g.leave_type_id for g in found})
     type_exts = LeaveTypeExt.objects.in_bulk(list(types))
     exts = LeaveGrantExt.objects.in_bulk([g.pk for g in found])
 
-    result: list[GrantRow] = []
+    result: dict[int, list[GrantRow]] = {}
     for g in found:
         if g.leave_type_id not in types:
             logger.warning("Grant %s skipped: leave type %s is missing", g.pk, g.leave_type_id)
@@ -174,7 +226,7 @@ def grants(employee_id: int, *, annual_only: bool = True) -> list[GrantRow]:
         if annual_only and (type_ext is None or not type_ext.uses_annual_balance):
             continue
         ext = exts.get(g.pk)
-        result.append(
+        result.setdefault(g.employee_id, []).append(
             GrantRow(
                 id=g.pk,
                 employee_id=g.employee_id,

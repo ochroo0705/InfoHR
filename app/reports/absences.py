@@ -1,4 +1,4 @@
-"""C3 «Амралт, чөлөөний тайлан» (the old program's «Амралт» log) and C5 «Чөлөөтэй буюу байхгүй ажилчид» (who is away).
+"""C3 «Амралт, чөлөөний тайлан» (MACS's «Амралт» log) and C5 «Чөлөөтэй буюу байхгүй ажилчид» (who is away).
 
 The old log is read from `macs.Absence`, the read-only mirror of the old «Амралт» grid. It is a side log: it feeds no
 balance and has no status. A row with no end date counts as that one day. Leave rows for C5 come from
@@ -19,10 +19,10 @@ from reports.leave_common import LEAVE_NEEDS, Person, detail_url, people, sort_k
 from reports.types import Column, Report
 
 LEAVE_SOURCE = "Чөлөө"  # a counted leave row written in Info HR
-OLD_LOG_SOURCE = "Амралтын бүртгэл (хуучин)"  # a row of the old program's «Амралт» log
+OLD_LOG_SOURCE = "Амралтын бүртгэл (MACS)"  # a row of MACS's «Амралт» log
 NO_TYPE = "—"  # an old-log row whose type row is missing
-ABSENCES_NOTE = "Хуучин програмын «Амралт» бүртгэл. Дууссан огноогүй мөр нэг өдөр гэж тооцогдоно."
-AWAY_NOTE = "Тухайн өдөр чөлөөтэй (бүртгэсэн чөлөө) эсвэл хуучин програмын амралтын бүртгэлтэй ажилтнууд."
+ABSENCES_NOTE = "MACS-ын «Амралт» бүртгэл. Дууссан огноогүй мөр нэг өдөр гэж тооцогдоно."
+AWAY_NOTE = "Тухайн өдөр чөлөөтэй (бүртгэсэн чөлөө) эсвэл MACS-ын амралтын бүртгэлтэй ажилтнууд."
 
 
 @dataclass(frozen=True)
@@ -101,8 +101,8 @@ def _away_rows(user: User, f: Filters) -> list[Entry]:
 
 
 TOTALS_NOTE = (
-    "Таслалт, хоцролтын мэдээлэл энд байхгүй: хуучин програмын тооцооллын эх сурвалж тодорхойгүй (OQ-054). "
-    "Чөлөөний хоног нь тооцогдсон чөлөөнөөс, амралтын бүртгэл нь хуучин програмын «Амралт» бүртгэлээс."
+    "Таслалт, хоцролтын мэдээлэл энд байхгүй: MACS-ын тооцооллын эх сурвалж тодорхойгүй (OQ-054). "
+    "Чөлөөний хоног нь тооцогдсон чөлөөнөөс, амралтын бүртгэл нь MACS-ын «Амралт» бүртгэлээс."
 )
 
 

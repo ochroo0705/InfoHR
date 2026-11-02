@@ -66,13 +66,12 @@
     // a click on any other result follows its link as usual.
     shell.addEventListener("click", function (e) {
       var item = e.target.closest && e.target.closest("[data-palette-item]");
-      if (item && !item.hasAttribute("data-palette-modal")) noteOpened(item);  // a plain result is a link: it is followed
-      var modal = e.target.closest && e.target.closest("[data-palette-item][data-palette-modal]");
-      if (modal) {
+      if (item && (item.hasAttribute("data-palette-modal") || item.hasAttribute("data-palette-more"))) {
         e.preventDefault();
-        activate(modal);
+        activate(item);
         return;
       }
+      if (item) noteOpened(item);  // a plain result is a link: it is followed
       if (e.target === shell) close();
     });
     input.addEventListener("input", function () {
@@ -108,8 +107,15 @@
   }
 
   // Opens a result. A quick action with data-palette-modal (a pop-up form) is loaded over the current page with htmx,
-  // so the palette closes and the form appears where the user is; every other result is a page and is navigated to.
+  // so the palette closes and the form appears where the user is; the «show all» row (data-palette-more) asks for the
+  // same query again with more people and keeps the palette open; every other result is a page and is navigated to.
   function activate(item) {
+    if (item.hasAttribute("data-palette-more")) {
+      var at = Array.prototype.indexOf.call(items(), item);
+      search(input.value, at);  // the first newly shown person takes the row's place
+      input.focus();
+      return;
+    }
     var href = item.getAttribute("href");
     noteOpened(item);
     if (!item.hasAttribute("data-palette-modal")) {
@@ -141,7 +147,10 @@
     results.removeAttribute("aria-busy");
   }
 
-  function search(q) {
+  // `moreAt`: given only for «show all» (the server sends up to PEOPLE_MORE_LIMIT people); the row at that index is
+  // highlighted when the answer comes. Typing again searches without it, so the short list comes back.
+  function search(q, moreAt) {
+    var more = typeof moreAt === "number";
     if (controller) controller.abort();
     var mine = new AbortController();
     controller = mine;
@@ -150,7 +159,7 @@
     // The empty box also sends what the user opened last and the path of the page it was opened on (only the path,
     // no query or hash); the server re-checks every item, so these are only hints. A typed query sends neither.
     var extra = q.trim()
-      ? ""
+      ? (more ? "&more=1" : "")
       : "&recent=" + encodeURIComponent(readRecent().join(",")) + "&from=" + encodeURIComponent(window.location.pathname);
     fetch(url + "?q=" + encodeURIComponent(q) + extra, { credentials: "same-origin", signal: mine.signal })
       .then(function (r) {
@@ -168,8 +177,13 @@
         loading = false;
         clearBusy();
         results.innerHTML = html;  // the server's own fragment, trusted
-        results.scrollTop = 0;
-        highlightFirst();
+        if (more) {
+          var list = items();
+          if (list.length) select(list[Math.min(moreAt, list.length - 1)], true);
+        } else {
+          results.scrollTop = 0;
+          highlightFirst();
+        }
       })
       .catch(function (err) {
         if (err && err.name === "AbortError") return;  // a stale request, cancelled on purpose

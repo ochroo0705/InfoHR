@@ -254,9 +254,10 @@ def _name(objects: models.Manager[Any], pk: int) -> str | None:
     return name
 
 
-def describe(f: Filters, shown: tuple[str, ...]) -> list[str]:
+def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> list[str]:
     """Filter lines for print and Excel, in the order of `shown`. A filter that is set but has no name to show
-    (an unknown id, a name left empty) reads «—», so the paper never hides an applied filter."""
+    (an unknown id, a name left empty) reads «—», so the paper never hides an applied filter.
+    `for_log` is the system log's label: it names no person (the employee line only says that one was chosen)."""
     lines: list[str] = []
     for key in shown:
         if key == "state":
@@ -283,8 +284,12 @@ def describe(f: Filters, shown: tuple[str, ...]) -> list[str]:
         elif key == "discipline" and f.discipline is not None:
             lines.append(f"Шийтгэлийн төрөл: {_name(DisciplineType.objects, f.discipline) or '—'}")
         elif key == "employee" and f.employee is not None:
-            person = Employee.objects.filter(pk=f.employee).first()
-            lines.append(f"Ажилтан: {person or '—'}")
+            if for_log:
+                lines.append("Ажилтан: сонгосон")
+            else:
+                # Relies on reports/table.py:86 resetting an invisible employee filter first.
+                person = Employee.objects.filter(pk=f.employee).first()
+                lines.append(f"Ажилтан: {person or '—'}")
         elif key == "leave_type" and f.leave_type is not None:
             lines.append(f"Төрөл: {_name(LeaveTypeRow.objects, f.leave_type) or '—'}")
         elif key == "leave_state" and f.leave_state:

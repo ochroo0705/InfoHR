@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Баганы холбоо{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+  <h1 class="text-xl font-semibold">Баганы холбоо</h1>
+  <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+    <a href="{% url 'employees:import' %}" class="text-sm text-violet-700 hover:underline">Өөр файл оруулах</a>
+  </div>
+</div>
+{% include "employees/import_steps.html" with step=2 %}
+
+<p class="mb-4 text-sm text-slate-600">Файлын толгой мөр бүрийг ажилтны талбартай холбоно уу. «— алгасах —» гэж сонгосон багана импортлогдохгүй.</p>
+{% if ignored %}<p class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Цалин, даатгалтай холбоотой багана ({{ ignored|join:", " }}) таны эрхээр импортлогдохгүй. Алгасагдана.</p>{% endif %}
+{% for e in errors %}<p class="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
+{% if missing %}
+<div class="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">
+  <p>Дараах заавал талбарт багана холбох эсвэл утга өгөх шаардлагатай:</p>
+  <ul class="list-disc pl-5">{% for m in missing %}<li>{{ m }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<form method="post" class="mb-6 flex flex-wrap items-end gap-3 text-sm">{% csrf_token %}
+  <input type="hidden" name="action" value="reread">
+  {% if sheet_names|length > 1 %}
+  <label class="block">
+    <span class="mb-1 block text-slate-600">Хуудас</span>
+    <select name="sheet" class="rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">{% for s in sheet_names %}<option value="{{ s }}"{% if s == sheet %} selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+  </label>
+  {% else %}<input type="hidden" name="sheet" value="{{ sheet }}">{% endif %}
+  <label class="block">
+    <span class="mb-1 block text-slate-600">Толгой мөрийн тоо (1-10)</span>
+    <input type="number" name="header_rows" min="1" max="10" value="{{ header_rows }}" class="w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  </label>
+  <button type="submit" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Дахин уншуулах</button>
+</form>
+
+<form method="post" class="space-y-6">{% csrf_token %}
+  <section>
+    <h2 class="sec-title mb-3">Баганууд</h2>
+    <div class="ptable overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-500">
+            <th>Файлын багана</th>
+            <th>Ажилтны талбар</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for col in columns %}
+          <tr>
+            <td class="font-medium">{{ col.label }}</td>
+            <td>
+              <select name="col_{{ col.index }}" aria-label="Багана: {{ col.label }}" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+                <option value="">— алгасах —</option>
+                {% for field in fields %}<option value="{{ field.key }}"{% if field.key == col.key %} selected{% endif %}>{{ field.label }}</option>{% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" class="py-6 text-center text-slate-400">Толгой мөрөнд багана олдсонгүй.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec-title mb-1">Анхдагч утга</h2>
+    <p class="mb-3 text-sm text-slate-500">Файлын багана хоосон бол энэ утга орно. Бүх ажилтанд ижил утга өгөх бол энд бичнэ. <span class="whitespace-nowrap">* заавал</span></p>
+    <datalist id="department-options">{% for name in departments %}<option value="{{ name }}">{% endfor %}</datalist>
+    <datalist id="position-options">{% for name in positions %}<option value="{{ name }}">{% endfor %}</datalist>
+    <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <label class="block text-sm">
+        <span class="mb-1 block">Анх ажилд орсон огноо *</span>
+        <input type="date" name="default_start" value="{{ defaults.start }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block">Хэлтэс *</span>
+        <input type="text" name="default_department" list="department-options" value="{{ defaults.department }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block">Албан тушаал *</span>
+        <input type="text" name="default_position" list="position-options" value="{{ defaults.position }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block">Салбар</span>
+        <select name="default_branch" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+          <option value=""></option>
+          {% for name in branches %}<option value="{{ name }}"{% if name == defaults.branch %} selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block">Иргэншил</span>
+        <select name="default_citizenship" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+          <option value=""></option>
+          {% for name in countries %}<option value="{{ name }}"{% if name == defaults.citizenship %} selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block">Ажлын нөхцөл</span>
+        <select name="default_work_conditions" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+          <option value=""></option>
+          {% for choice in work_condition_choices %}<option value="{{ choice }}"{% if choice == defaults.work_conditions %} selected{% endif %}>{{ choice }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block">Огнооны хэлбэр</span>
+        <select name="date_format" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+          {% for value, label in date_formats %}<option value="{{ value }}"{% if value == date_format %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <div class="flex flex-wrap items-center justify-end gap-3">
+    <a href="{% url 'employees:import' %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Буцах</a>
+    <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Урьдчилан харах</button>
+  </div>
+</form>
+{% endblock %}

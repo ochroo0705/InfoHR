@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import date
 from typing import Any
 
@@ -135,6 +136,7 @@ class EmployeeType(models.TextChoices):
     FULL_TIME = "full_time", "Үндсэн, бүтэн цаг"
     PART_TIME = "part_time", "Хагас цаг"
     CONTRACT = "contract", "Гэрээт"
+    INTERN = "intern", "Дадлагжигч"
 
 
 class ContractType(models.TextChoices):
@@ -277,6 +279,32 @@ def order_storage() -> FileSystemStorage:
     return OrderFileStorage()
 
 
+class OrderTemplate(models.Model):
+    """The install's own Word template of one order type (D-053). No file = the bundled starter template."""
+
+    order_type = models.IntegerField("Тушаалын төрөл", choices=OrderType.choices, unique=True)
+    file = models.FileField("Загварын файл (.docx)", storage=order_storage, upload_to="templates/", blank=True)
+    updated_at = models.DateTimeField("Шинэчилсэн", auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "Тушаалын загвар"
+        verbose_name_plural = "Тушаалын загварууд"
+        ordering = ["order_type"]
+        default_permissions = ("change", "view")
+
+    def __str__(self) -> str:
+        return str(OrderType(self.order_type).label)
+
+    @classmethod
+    def ensure_all(cls) -> None:
+        """One row per order type, so the admin lists all six even before anything is uploaded."""
+        for order_type in OrderType.values:
+            cls.objects.get_or_create(order_type=order_type)
+
+
 class HrOrder(models.Model):
     """An HR order (тушаал) tied to one change or to the hire."""
 
@@ -333,9 +361,14 @@ def no_overlap(name: str) -> ExclusionConstraint:
     )
 
 
-def contract_errors(contract_type: str, start: date | None, end: date | None) -> dict[str, str]:
+def contract_errors(
+    contract_type: str, start: date | None, end: date | None, employee_type: str | None = None
+) -> dict[str, str]:
     """The contract rule shared by the hire form, corrections and job-change events.
-    An open-ended contract has no end date (callers clear it); a fixed-term one must have one."""
+    An open-ended contract has no end date (callers clear it); a fixed-term one must have one.
+    An intern is always fixed-term: the end date is the planned end of the internship."""
+    if employee_type == EmployeeType.INTERN and contract_type != ContractType.FIXED_TERM:
+        return {"contract_type": "Дадлагжигч хугацаатай гэрээтэй байна."}
     if contract_type == ContractType.FIXED_TERM and end is None:
         return {"contract_end": "Хугацаатай гэрээнд дуусах огноог заавал оруулна."}
     if start and end and end < start:
@@ -411,7 +444,7 @@ class JobRecord(models.Model):
     def clean(self) -> None:
         if self.contract_type == ContractType.OPEN_ENDED:
             self.contract_end = None
-        if errors := contract_errors(self.contract_type, self.contract_start, self.contract_end):
+        if errors := contract_errors(self.contract_type, self.contract_start, self.contract_end, self.employee_type):
             raise ValidationError(errors)
 
 
@@ -494,6 +527,9 @@ PERSONAL_FIELDS = frozenset(
         "elected_position",
     }
 )
+# Fields whose changes are logged as personal-tab entries. A superset of PERSONAL_FIELDS: the education fields are on
+# the personal tab (sections.SECTIONS) but are not personal *permissions* (views use PERSONAL_FIELDS for that).
+PERSONAL_LOG_FIELDS = PERSONAL_FIELDS | frozenset({"education_level", "academic_degree"})
 
 EXT_FIELDS = frozenset(
     {
@@ -519,6 +555,40 @@ class AttentionDismissal(models.Model):
 
     def __str__(self) -> str:
         return self.key
+
+
+# Messages of the writers whose activity header shows the message, not the first changed field (audit-logs task 12).
+# The personal-list writer (employees.services.personal_writes) writes "<list>: <verb> — <summary>" with one of
+# PERSONAL_LIST_VERBS. The leave writers (leave.services) and the holiday recount start their message with one of
+# LEAVE_HEADER_STARTS. Writers build their messages from these constants.
+PERSONAL_ADDED = "нэмсэн"
+PERSONAL_UPDATED = "засварласан"
+PERSONAL_DELETED = "устгасан"
+PERSONAL_LIST_VERBS = (PERSONAL_ADDED, PERSONAL_UPDATED, PERSONAL_DELETED)
+LEAVE_RECORDED = "Чөлөө бүртгэсэн"
+LEAVE_EDITED = "Чөлөө засварласан"
+LEAVE_CANCELLED = "Чөлөө цуцалсан"
+LEAVE_MISTAKE_REMOVED = "Буруу бүртгэсэн тул хассан"
+LEAVE_BALANCE_EDITED = "Амралтын эрх засварласан"
+LEAVE_REQUESTED = "Чөлөө хүссэн"
+LEAVE_REQUEST_STEP_APPROVED = "Чөлөөний хүсэлтийн шат батлагдсан"
+LEAVE_REQUEST_APPROVED = "Чөлөөний хүсэлт батлагдсан"
+LEAVE_REQUEST_REJECTED = "Чөлөөний хүсэлт татгалзсан"
+LEAVE_REQUEST_WITHDRAWN = "Чөлөөний хүсэлт буцаасан"
+HOLIDAY_RECOUNT = "Баярын өдөр өөрчлөгдсөн тул дахин тооцсон"
+LEAVE_HEADER_STARTS = (
+    LEAVE_RECORDED,
+    LEAVE_EDITED,
+    LEAVE_CANCELLED,
+    LEAVE_MISTAKE_REMOVED,
+    LEAVE_BALANCE_EDITED,
+    LEAVE_REQUESTED,
+    LEAVE_REQUEST_STEP_APPROVED,
+    LEAVE_REQUEST_APPROVED,
+    LEAVE_REQUEST_REJECTED,
+    LEAVE_REQUEST_WITHDRAWN,
+    HOLIDAY_RECOUNT,
+)
 
 
 class ActivityEntry(models.Model):
@@ -556,6 +626,22 @@ class ActivityEntry(models.Model):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise PermissionError("Activity log is append-only")
+
+    @property
+    def header_change(self) -> dict[str, str] | None:
+        """The change the activity header shows: the first one, or None when the header shows the message.
+
+        Entries of an HR order show their message. So do the Task 12 writers: their changes are shown in the
+        drawer, but their header stays the message as before.
+        """
+        if not self.changes or self.order_id:
+            return None
+        if self.message.startswith(LEAVE_HEADER_STARTS):
+            return None
+        if any(f": {verb} — " in self.message for verb in PERSONAL_LIST_VERBS):
+            return None
+        first: dict[str, str] = self.changes[0]
+        return first
 
 
 class SetupItem(models.Model):
@@ -595,6 +681,28 @@ class CompanySettings(models.Model):
         "Захирлын нэр", max_length=25, blank=True, help_text="Тушаал гаргасан албан тушаалтны анхны утга."
     )
 
+    # Which changes need an HR order (D-052). Off = the change applies on its date with no order step (the
+    # organisation keeps that order on paper). All on by default: nothing changes until an admin turns one off.
+    order_hired = models.BooleanField(
+        "Ажилд орсон", default=True, help_text="Хөдөлмөрийн практикт ажилд авах нь тушаалаар батлагддаг."
+    )
+    order_department = models.BooleanField("Хэлтэс, салбар шилжсэн", default=True)
+    order_position = models.BooleanField("Албан тушаал сольсон", default=True)
+    order_fired = models.BooleanField(
+        "Ажлаас гарсан", default=True, help_text="Хөдөлмөрийн практикт ажлаас чөлөөлөх нь тушаалаар батлагддаг."
+    )
+    order_pension = models.BooleanField("Тэтгэвэрт гарсан", default=True)
+    order_type_changed = models.BooleanField("Төрөл солигдсон", default=True)
+
+    ORDER_FLAGS = {
+        OrderType.HIRED.value: "order_hired",
+        OrderType.DEPARTMENT.value: "order_department",
+        OrderType.POSITION.value: "order_position",
+        OrderType.FIRED.value: "order_fired",
+        OrderType.PENSION.value: "order_pension",
+        OrderType.TYPE_CHANGED.value: "order_type_changed",
+    }
+
     class Meta:
         verbose_name = "Байгууллагын тохиргоо"
         verbose_name_plural = "Байгууллагын тохиргоо"
@@ -607,3 +715,79 @@ class CompanySettings(models.Model):
     def get(cls) -> "CompanySettings":
         row, _ = cls.objects.get_or_create(pk=1)
         return row
+
+    def requires_order(self, order_type: int) -> bool:
+        """Whether a change of this order type goes through an HR order in this install."""
+        return bool(getattr(self, self.ORDER_FLAGS[order_type]))
+
+
+STAFF_IMPORT_DATE_FORMATS = [
+    ("iso", "ОО-СС-ӨӨ (2026-01-31)"),
+    ("slash", "ОО/СС/ӨӨ (2026/01/31)"),
+    ("dmy", "ӨӨ.СС.ОО (31.01.2026)"),
+]
+
+
+class StaffImportSettings(models.Model):
+    """Single row (pk=1): the saved column mapping, fixed values and date format of the staff Excel import,
+    so the next import starts from the last one."""
+
+    mapping = models.JSONField("Баганы холбоо", default=dict, blank=True)  # normalised heading -> field key
+    defaults = models.JSONField("Тогтмол утгууд", default=dict, blank=True)  # field key -> value string
+    date_format = models.CharField("Огнооны хэлбэр", max_length=10, choices=STAFF_IMPORT_DATE_FORMATS, default="iso")
+
+    class Meta:
+        verbose_name = "Ажилтны excel импортын тохиргоо"
+        verbose_name_plural = "Ажилтны excel импортын тохиргоо"
+        default_permissions = ("change", "view")
+
+    def __str__(self) -> str:
+        return "Ажилтны excel импортын тохиргоо"
+
+    @classmethod
+    def get(cls) -> "StaffImportSettings":
+        row, _ = cls.objects.get_or_create(pk=1)
+        return row
+
+
+class StaffImportDraft(models.Model):
+    """One uploaded staff Excel file on its way through the import: the file bytes, the chosen sheet and
+    column mapping, and the counts once it is imported."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Импортлосон хэрэглэгч",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    created_at = models.DateTimeField("Оруулсан огноо", auto_now_add=True)
+    filename = models.CharField("Файлын нэр", max_length=200)
+    data = models.BinaryField("Excel файл")
+    sheet = models.CharField("Хуудас", max_length=31, blank=True)
+    header_rows = models.PositiveSmallIntegerField("Толгойн мөрийн тоо", default=1)
+    mapping = models.JSONField("Баганы холбоо", default=dict, blank=True)  # column index (str) -> field key
+    defaults = models.JSONField("Тогтмол утгууд", default=dict, blank=True)  # field key -> value string
+    date_format = models.CharField("Огнооны хэлбэр", max_length=10, choices=STAFF_IMPORT_DATE_FORMATS, default="iso")
+    state = models.CharField(
+        "Төлөв",
+        max_length=10,
+        choices=[("uploaded", "Оруулсан"), ("running", "Импортолж буй"), ("imported", "Импортолсон")],
+        default="uploaded",
+    )
+    created_count = models.PositiveIntegerField("Нэмэгдсэн", default=0)
+    duplicate_count = models.PositiveIntegerField("Давхардсан", default=0)
+    rejected_count = models.PositiveIntegerField("Алдаатай", default=0)
+    rejected_file = models.BinaryField("Алдаатай мөрийн файл", null=True, blank=True)
+    started_at = models.DateTimeField("Импорт эхэлсэн огноо", null=True, blank=True)
+    finished_at = models.DateTimeField("Дууссан огноо", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Ажилтны excel импорт"
+        verbose_name_plural = "Ажилтны excel импорт"
+        default_permissions = ()
+
+    def __str__(self) -> str:
+        return self.filename
