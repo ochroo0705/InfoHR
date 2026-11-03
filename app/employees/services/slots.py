@@ -102,11 +102,11 @@ def check(
     return SlotResult(kind=kind, year=on.year, posts=posts, used=used, free=posts - used)
 
 
-def no_posts_message(position: Position, branch: Branch, year: int) -> str:
-    """No post is planned for this position, branch and year at all: say so and point to where one is added.
-    Shared with the vacancy budget line, so both screens give the same hint."""
+def no_posts_message(position: Position, branch: Branch, year: int, kind: str) -> str:
+    """No post of this kind is planned for this position, branch and year: say which kind, and point to where one is
+    added. Shared with the vacancy budget line, so both screens give the same hint."""
     return (
-        f"{position.name}, {branch.name}, {year} онд орон тоо төлөвлөөгүй байна. "
+        f"{position.name}, {branch.name}, {KIND_LABELS.get(kind, kind)}, {year} онд орон тоо төлөвлөөгүй байна. "
         "«Орон тооны төлөвлөгөө» хэсэгт нэмнэ үү."
     )
 
@@ -117,7 +117,7 @@ def _blocked_message(position: Position, branch: Branch | None, result: SlotResu
             f"Орон тоо шалгахын тулд салбар сонгоно уу: {position.name}, {result.year} он. Салбаргүй орон тоо байхгүй."
         )
     if result.posts == 0:  # nothing planned is not «full»: the fix is to add a post, not to free one
-        return no_posts_message(position, branch, result.year)
+        return no_posts_message(position, branch, result.year, result.kind)
     return (
         f"Орон тоо дүүрсэн байна: {position.name}, {branch.name}, "
         f"{KIND_LABELS.get(result.kind, result.kind)}, {result.year} он. "

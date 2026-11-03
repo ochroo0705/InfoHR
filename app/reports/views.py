@@ -85,22 +85,18 @@ def _row(user: User | AnonymousUser, entry: Entry) -> Row | None:
     return Row(entry=entry, link=True, empty=empty)
 
 
-def _search_text(entry: Entry) -> str:
-    """What the catalogue search matches, lower case: the same text the page's search box filters on."""
-    return " ".join([entry.title, entry.old_form, entry.description, *entry.aliases]).lower()
-
-
 @login_required
 def catalogue(request: HttpRequest) -> HttpResponse:
     if not request.user.has_perm("reports.view_reports"):
         raise PermissionDenied
-    # ?q= filters the cards on the server too, so a link with a search word opens already filtered.
+    # Every card is drawn; ?q= only prefills the search box, and the page's own filter applies it on load.
+    # Dropping cards here would leave them missing after the box is cleared.
     q = request.GET.get("q", "").strip()[:200]
     sections: list[Section] = []
     for code, title in GROUPS:
         rows: list[Row] = []
         for entry in CATALOGUE:
-            if entry.group != code or (q and q.lower() not in _search_text(entry)):
+            if entry.group != code:
                 continue
             row = _row(request.user, entry)
             if row is not None:

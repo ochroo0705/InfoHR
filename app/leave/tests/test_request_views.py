@@ -521,7 +521,7 @@ def test_request_check_works_outside_a_transaction_and_warns_over_balance(
         reverse("leave:request_check"), _form_data(annual, start_date="2027-11-02", end_date="2027-11-30")
     )
     assert resp.status_code == 200
-    assert "Үлдэгдэл" in resp.content.decode()
+    assert "Үлдэгдэл хүрэлцэхгүй: " in resp.content.decode()  # the over-balance warning itself, not any balance word
 
 
 def test_withdraw_own_waiting_request(actor: User, employee: Employee, sick: LeaveTypeRow, approval: None) -> None:
@@ -680,3 +680,63 @@ def test_detail_explains_hr_override(
     monkeypatch.setattr("leave.views_requests.can_act", lambda user, req, day: (True, True))
     body = _client(manager).get(_detail(req)).content.decode()
     assert "Удирдлагын оронд батлав" in body
+
+
+def _approved_on(
+    employee: Employee, leave_type: LeaveTypeRow, actor: User, manager: User, start: date, end: date
+) -> LeaveRequest:
+    req = request_service.submit(employee, leave_type, start, end, "", actor, TODAY)
+    assert _client(manager).post(reverse("leave:request_approve", args=[req.pk]), {}).status_code == 204
+    req.refresh_from_db()
+    assert req.status == RequestStatus.APPROVED and req.assign_id is not None
+    return req
+
+
+def _listed(viewer: Client, status: str) -> set[int]:
+    resp = viewer.get(reverse("leave:requests"), {"tab": "all", "status": status})
+    assert resp.status_code == 200
+    return {row.req.pk for row in resp.context["items"]}
+
+
+@pytest.fixture
+def leave_outcomes(actor: User, employee: Employee, sick: LeaveTypeRow, manager: User) -> dict[str, LeaveRequest]:
+    """Three approved requests: one normal, one whose leave was cancelled before it started, one whose leave
+    was cancelled after it started (a mistake)."""
+    normal = _approved_on(employee, sick, actor, manager, date(2026, 11, 2), date(2026, 11, 3))
+    cancelled = _approved_on(employee, sick, actor, manager, date(2026, 11, 9), date(2026, 11, 10))
+    records.cancel(
+        LeaveAssign.objects.get(pk=cancelled.assign_id),
+        writes.snapshot(LeaveAssign.objects.get(pk=cancelled.assign_id)),
+        "Төлөвлөгөө өөрчлөгдсөн",
+        actor,
+        TODAY,
+    )
+    mistake = _approved_on(employee, sick, actor, manager, date(2026, 11, 16), date(2026, 11, 17))
+    records.cancel(
+        LeaveAssign.objects.get(pk=mistake.assign_id),
+        writes.snapshot(LeaveAssign.objects.get(pk=mistake.assign_id)),
+        "Буруу оруулсан",
+        actor,
+        date(2026, 11, 20),
+    )
+    return {"normal": normal, "cancelled": cancelled, "mistake": mistake}
+
+
+def test_approved_filter_leaves_out_cancelled_and_mistake_leave(leave_outcomes: dict[str, LeaveRequest]) -> None:
+    viewer = _client(_hr_viewer("hr_filter_approved"))
+    assert _listed(viewer, "approved") == {leave_outcomes["normal"].pk}
+
+
+def test_cancelled_and_mistake_filters_return_only_their_requests(leave_outcomes: dict[str, LeaveRequest]) -> None:
+    viewer = _client(_hr_viewer("hr_filter_outcomes"))
+    assert _listed(viewer, "cancelled") == {leave_outcomes["cancelled"].pk}
+    assert _listed(viewer, "mistake") == {leave_outcomes["mistake"].pk}
+
+
+def test_status_dropdown_offers_cancelled_and_mistake() -> None:
+    body = _client(_hr_viewer("hr_filter_options")).get(reverse("leave:requests"), {"tab": "all"}).content.decode()
+    assert 'value="cancelled"' in body and ">Цуцалсан</option>" in body
+    assert 'value="mistake"' in body and ">Буруу бүртгэсэн</option>" in body
+    assert (
+        body.index(">Батлагдсан</option>") < body.index(">Цуцалсан</option>") < body.index(">Буруу бүртгэсэн</option>")
+    )

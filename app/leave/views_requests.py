@@ -12,7 +12,7 @@ from accounts.models import User
 from config import batching
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Max
+from django.db.models import Exists, Max, OuterRef, QuerySet
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.html import format_html
@@ -39,6 +39,13 @@ from leave.services.approvers import (
 from leave.services.records import LeaveError
 from leave.views import _done, _require, _user, today
 
+# Status filters of the «Бүгд» list: the request's own statuses, then two views of an approved request whose leave
+# HR cancelled. They split as the row shows them (rows.leave_status): «Буруу бүртгэсэн» is a cancelled leave with
+# `LeaveExt.mistake`, «Цуцалсан» the other cancelled ones. Values do not clash with RequestStatus.
+LEAVE_CANCELLED = "cancelled"
+LEAVE_MISTAKE = "mistake"
+STATUS_FILTERS = [*RequestStatus.choices, (LEAVE_CANCELLED, "Цуцалсан"), (LEAVE_MISTAKE, "Буруу бүртгэсэн")]
+
 
 @dataclass
 class Row:
@@ -55,31 +62,11 @@ def _rows(reqs: list[LeaveRequest], day: date) -> list[Row]:
     waiting = [r for r in reqs if r.status == RequestStatus.WAITING]
     rules = approvers_many(waiting, day) if waiting else {}
     since = _waiting_since(waiting)
-    leave_status = _leave_status(reqs)
+    leave_status = rows.leave_status(reqs)
     return [
         Row(r, rules[r.pk].rule.label if r.pk in rules else "", since.get(r.pk), leave_status.get(r.pk, ""))
         for r in reqs
     ]
-
-
-def _leave_status(reqs: list[LeaveRequest]) -> dict[int, str]:
-    """An approved request whose leave HR later cancelled («Цуцалсан») or marked a mistake («Буруу бүртгэсэн»)
-    shows that state in the list. The request keeps its approved status: only the display reads the leave row."""
-    approved = [r for r in reqs if r.status == RequestStatus.APPROVED and r.assign_id]
-    if not approved:
-        return {}
-    ids = [r.assign_id for r in approved]
-    assigns = LeaveAssign.objects.in_bulk(ids)
-    exts = LeaveExt.objects.in_bulk(ids)
-    shown: dict[int, str] = {}
-    for r in approved:
-        assign = assigns.get(r.assign_id)
-        if assign is None or assign.status != LeaveAssign.CANCELLED:
-            continue
-        ext = exts.get(r.assign_id)
-        state = rows.State.MISTAKE if ext is not None and ext.mistake else rows.State.CANCELLED
-        shown[r.pk] = state.value
-    return shown
 
 
 def _waiting_since(waiting: list[LeaveRequest]) -> dict[int, datetime]:
@@ -97,6 +84,27 @@ def _waiting_since(waiting: list[LeaveRequest]) -> dict[int, datetime]:
         for r in later:
             since[r.pk] = last.get((r.pk, r.current_step - 1), r.created_at)
     return since
+
+
+def _cancelled_leave() -> QuerySet[LeaveAssign]:
+    return LeaveAssign.objects.filter(pk=OuterRef("assign_id"), status=LeaveAssign.CANCELLED)
+
+
+def _mistake_leave() -> QuerySet[LeaveExt]:
+    return LeaveExt.objects.filter(pk=OuterRef("assign_id"), mistake=True)
+
+
+def _by_status(qs: QuerySet[LeaveRequest], status: str) -> QuerySet[LeaveRequest]:
+    """Filter the list by a status value of STATUS_FILTERS, in SQL (the list is paged). A request with no linked
+    leave (`assign_id` empty) counts as not cancelled."""
+    approved = qs.filter(status=RequestStatus.APPROVED)
+    if status == RequestStatus.APPROVED:
+        return approved.filter(~Exists(_cancelled_leave()))
+    if status == LEAVE_MISTAKE:
+        return approved.filter(Exists(_cancelled_leave()), Exists(_mistake_leave()))
+    if status == LEAVE_CANCELLED:
+        return approved.filter(Exists(_cancelled_leave()), ~Exists(_mistake_leave()))
+    return qs.filter(status=status)
 
 
 def _visible_request(user: User, pk: int, day: date) -> tuple[LeaveRequest, bool, bool]:
@@ -119,11 +127,11 @@ def requests_list(request: HttpRequest) -> HttpResponse:
     if tab == "all":
         _require(access.can_view(user))
         status = request.GET.get("status", "")
-        if status not in RequestStatus.values:
+        if status not in {value for value, _ in STATUS_FILTERS}:
             status = ""
         qs = visible_requests(user).select_related("employee", "leave_type").order_by("-created_at", "-pk")
         if status:
-            qs = qs.filter(status=status)
+            qs = _by_status(qs, status)
 
         def fetch_all(offset: int, size: int) -> tuple[list[LeaveRequest], bool]:
             page = list(qs[offset : offset + size + 1])
@@ -143,7 +151,7 @@ def requests_list(request: HttpRequest) -> HttpResponse:
         "next_query": batch.next_query,
         "tab": tab,
         "status": status,
-        "statuses": RequestStatus.choices,
+        "statuses": STATUS_FILTERS,
         "can_all": access.can_view(user),
         "filters": request.GET,
     }
@@ -240,7 +248,7 @@ def _modal(
         "employee": req.employee,
         "job": job,
         "waiting": waiting,
-        "status_label": _leave_status([req]).get(req.pk) or req.get_status_display(),
+        "status_label": rows.leave_status([req]).get(req.pk) or req.get_status_display(),
         "rule": approvers(req, day).rule.label if waiting else "",
         "may": may,
         "override": override,

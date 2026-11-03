@@ -61,20 +61,29 @@ def test_built_report_is_a_link_and_marks_empty_source(
     assert "бүртгэл алга" in page
 
 
-def test_catalogue_q_filters_the_cards_on_the_server(client: Client, login_as: Callable[..., User]) -> None:
+def test_catalogue_q_prefills_the_box_and_keeps_every_card(client: Client, login_as: Callable[..., User]) -> None:
+    """?q= only prefills the search box: every card is in the HTML, so clearing the box brings them all back."""
     login_as(client, "HR")
     word = "ээлжийн амралт"
     page = client.get("/reports/", {"q": "ЭЭЛЖИЙН АМРАЛТ"}).content.decode()  # case does not matter
     assert 'value="ЭЭЛЖИЙН АМРАЛТ"' in page  # the search box is prefilled with the word
     assert "Ээлжийн амралт: эрх, эдэлсэн, үлдсэн" in page
-    expected = sum(
-        1 for e in CATALOGUE if word in " ".join([e.title, e.old_form, e.description, *e.aliases]).lower()
-    )
-    assert 0 < expected < len(CATALOGUE)
-    assert page.count("data-report-card data-search=") == expected  # only the matching cards are drawn
+    matching = sum(1 for e in CATALOGUE if word in " ".join([e.title, e.old_form, e.description, *e.aliases]).lower())
+    assert 0 < matching < len(CATALOGUE)
+    everything = client.get("/reports/").content.decode().count("data-report-card data-search=")
+    assert page.count("data-report-card data-search=") == everything  # no card is left out by the search word
+    assert everything > matching
 
     nothing = client.get("/reports/", {"q": "zzzz-нет-такой"}).content.decode()
-    assert nothing.count("data-report-card data-search=") == 0
+    assert 'value="zzzz-нет-такой"' in nothing
+    assert nothing.count("data-report-card data-search=") == everything
+
+
+def test_catalogue_q_is_html_escaped_in_the_box(client: Client, login_as: Callable[..., User]) -> None:
+    login_as(client, "HR")
+    page = client.get("/reports/", {"q": '"><script>x</script>'}).content.decode()
+    assert "<script>x</script>" not in page
+    assert "&quot;&gt;&lt;script&gt;x&lt;/script&gt;" in page
 
 
 def test_catalogue_heading_says_macs_not_the_old_program(client: Client, login_as: Callable[..., User]) -> None:

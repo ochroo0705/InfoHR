@@ -143,11 +143,12 @@ def test_sector_years_refuses_negative(client: Client, hired: Employee) -> None:
     assert Employee.objects.get(pk=hired.pk).sector_years == 0
 
 
-def test_branch_is_not_addable(client: Client, hired: Employee) -> None:
+def test_branch_is_addable(client: Client, hired: Employee) -> None:
+    # T-038: Салбар is on the Lists page (registry), so its dropdown takes a new entry like any other list.
     login_as(client, "HR")
     html = _page(client, hired)
     branch_select = html[html.index('name="branch"') - 300 : html.index('name="branch"') + 300]
-    assert "data-add-url" not in branch_select
+    assert 'data-add-url="/lists/branch/quick/"' in branch_select
 
 
 # Read-only MACS fields: shown, never written from the form

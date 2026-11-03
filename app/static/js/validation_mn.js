@@ -38,7 +38,11 @@
     "invalid",
     function (e) {
       var el = e.target;
-      if (!el || !el.setCustomValidity || !el.validity || el.validity.customError) return;
+      if (!el || !el.setCustomValidity || !el.validity) return;
+      // Our own old message (set when the field was last checked, then changed by script): drop it and judge the
+      // field as it is now, so a field that became valid is not refused with a stale text.
+      if (el.hasAttribute && el.hasAttribute(MARK)) unmark(el);
+      if (el.validity.customError) return;
       var text = message(el);
       if (!text) return;
       el.setCustomValidity(text);
@@ -85,4 +89,19 @@
     },
     true
   );
+
+  // A form that is submitted by script (requestSubmit) or by htmx does not always pass a click or Enter: these two
+  // paths start it the same way. A submit event only comes when the form was valid, so no error is hidden by it.
+  document.addEventListener(
+    "submit",
+    function (e) {
+      if (e.target && e.target.tagName === "FORM") clearForm(e.target);
+    },
+    true
+  );
+  document.addEventListener("htmx:beforeRequest", function (e) {
+    var el = e.detail && e.detail.elt;
+    var form = el && (el.tagName === "FORM" ? el : el.form || (el.closest && el.closest("form")));
+    if (form) clearForm(form);
+  });
 })();

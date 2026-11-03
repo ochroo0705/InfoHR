@@ -15,7 +15,7 @@ from enum import StrEnum
 from django.db.models import Exists, OuterRef, QuerySet
 from macs.models import Employee, Entitlement, LeaveAssign, LeaveTypeRow
 
-from leave.models import GrantKind, LeaveExt, LeaveGrantExt, LeaveTypeExt
+from leave.models import GrantKind, LeaveExt, LeaveGrantExt, LeaveRequest, LeaveTypeExt, RequestStatus
 from leave.services import calendar
 from leave.services.writes import AssignSnapshot, snapshot
 
@@ -27,6 +27,26 @@ class State(StrEnum):
     CANCELLED = "Цуцалсан"
     MISTAKE = "Буруу бүртгэсэн"
     REJECTED = "Татгалзсан"
+
+
+def leave_status(reqs: list[LeaveRequest]) -> dict[int, str]:
+    """An approved request whose leave HR later cancelled («Цуцалсан») or marked a mistake («Буруу бүртгэсэн»)
+    shows that state in the list. The request keeps its approved status: only the display reads the leave row."""
+    approved = [r for r in reqs if r.status == RequestStatus.APPROVED and r.assign_id]
+    if not approved:
+        return {}
+    ids = [r.assign_id for r in approved]
+    assigns = LeaveAssign.objects.in_bulk(ids)
+    exts = LeaveExt.objects.in_bulk(ids)
+    shown: dict[int, str] = {}
+    for r in approved:
+        assign = assigns.get(r.assign_id)
+        if assign is None or assign.status != LeaveAssign.CANCELLED:
+            continue
+        ext = exts.get(r.assign_id)
+        state = State.MISTAKE if ext is not None and ext.mistake else State.CANCELLED
+        shown[r.pk] = state.value
+    return shown
 
 
 @dataclass(frozen=True)

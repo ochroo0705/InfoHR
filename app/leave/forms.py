@@ -189,7 +189,7 @@ class LeaveTypeForm(StyledForm):
         label="Ажилтан хүсэлт гаргана",
         required=False,
         initial=True,
-        help_text="Унтраавал ажилтан өөрөө хүсэлт гаргаж чадахгүй; HR шууд бүртгэнэ.",
+        help_text="Унтраавал ажилтан өөрөө хүсэлт гаргаж чадахгүй; шууд бүртгэнэ.",
     )
 
 

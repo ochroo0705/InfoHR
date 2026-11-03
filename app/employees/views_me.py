@@ -101,7 +101,8 @@ def _my_tasks(user: User, day: date) -> list[dict[str, Any]]:
 
 
 def _own_requests(employee: Employee, day: date) -> list[dict[str, Any]]:
-    """The most recent own requests with their state and, while waiting, the rule that picks the approver."""
+    """The most recent own requests with their state (a cancelled or mistaken leave shows that) and, while waiting, the
+    rule that picks the approver."""
     reqs = list(
         LeaveRequest.objects.filter(employee=employee)
         .select_related("leave_type")
@@ -109,7 +110,10 @@ def _own_requests(employee: Employee, day: date) -> list[dict[str, Any]]:
     )
     waiting = [r for r in reqs if r.status == RequestStatus.WAITING]
     rules = approvers_many(waiting, day) if waiting else {}
-    return [{"req": r, "rule": rules[r.pk].rule.label if r.pk in rules else ""} for r in reqs]
+    shown = rows.leave_status(reqs)  # «Цуцалсан» / «Буруу бүртгэсэн» as the requests list shows it
+    return [
+        {"req": r, "rule": rules[r.pk].rule.label if r.pk in rules else "", "status": shown.get(r.pk, "")} for r in reqs
+    ]
 
 
 @login_required

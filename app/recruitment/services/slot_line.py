@@ -63,7 +63,7 @@ def describe(
     numbers = f"{on.year} он · орон тоо {result.posts} · ажиллаж буй {result.used} · сул {result.free}"
     available = result.free - reserved
     if result.posts == 0:  # nothing planned: the hint to add a post, not «no free post left»
-        warning = slots.no_posts_message(position, branch, on.year)
+        warning = slots.no_posts_message(position, branch, on.year, MAIN)
     elif result.free <= 0:
         warning = "Сул орон тоо алга."
     elif available <= 0:

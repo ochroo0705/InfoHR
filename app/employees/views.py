@@ -1796,7 +1796,9 @@ def order_cancel(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
             return _done(employee)
         except OrderError as error:
             form.add_error(None, "; ".join(error.errors.values()))
-    hint = "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана."
+    hint = (
+        "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана. Ажилд авсан бүртгэл өөрөө хэвээр үлдэнэ."
+    )
     return _modal(
         request,
         f"Тушаал цуцлах: {order.get_order_type_display()} № {order.number}",

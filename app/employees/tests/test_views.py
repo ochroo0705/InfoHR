@@ -124,7 +124,9 @@ def test_future_hire_listed_as_upcoming(client: Client, actor: User, job_values:
     body = client.get("/employees/?view=table").content.decode()
     assert str(emp.code) not in body  # not working yet: the default list («Одоо ажиллаж буй») leaves them out
     body = client.get("/employees/?view=table&state=upcoming").content.decode()
-    assert str(emp.code) in body and "Ажилд орох" in body
+    # the row's state badge is «Ажилд орох: <start date>» (the dropdown also holds the word, so check the badge)
+    start = (timezone.localdate() + timedelta(days=5)).isoformat()
+    assert str(emp.code) in body and f"Ажилд орох: {start}" in body
 
 
 def test_employee_role_list_shows_only_self(client: Client, hired: Employee) -> None:

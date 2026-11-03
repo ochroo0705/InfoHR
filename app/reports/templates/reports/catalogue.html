@@ -55,7 +55,7 @@
       none.classList.toggle('hidden', shown > 0);
     }
     input.addEventListener('input', filter);
-    filter(); // a ?q= search arrives already filtered by the server; this only sets the empty note
+    filter(); // applies a ?q= search word that the server prefilled into the box, and sets the empty note
   })();
 </script>
 {% endblock %}

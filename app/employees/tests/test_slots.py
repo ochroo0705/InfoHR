@@ -93,6 +93,17 @@ def test_switch_on_without_a_row_refuses(position: Position, branch: Branch, act
         assert part in message
 
 
+def test_no_posts_message_names_the_kind_that_is_missing(position: Position, branch: Branch, actor: User) -> None:
+    """Only main posts planned, a temporary hire: the message says the temporary kind has no post, not a generic gap."""
+    _switch()
+    _row(position, branch, 2, kind=slot_kind.MAIN)
+    with pytest.raises(slots.SlotBlocked) as blocked:
+        _gate(position, branch, actor, contract=True)
+    message = blocked.value.message
+    assert "Түр" in message and "төлөвлөөгүй" in message and "Орон тооны төлөвлөгөө» хэсэгт" in message
+    assert "Үндсэн" not in message
+
+
 def test_message_when_no_posts_are_planned(position: Position, branch: Branch, actor: User) -> None:
     _switch()  # no row at all: the post was never planned, so the message says so and points to the field
     with pytest.raises(slots.SlotBlocked) as blocked:

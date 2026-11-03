@@ -14,10 +14,10 @@ from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
-from leave.models import LeaveRequest, LeaveSettings, LeaveTypeExt, RequestStatus
+from leave.models import LeaveExt, LeaveRequest, LeaveSettings, LeaveTypeExt, RequestStatus
 from leave.services import ledger
 from leave.services import requests as request_service
-from macs.models import LeaveTypeRow
+from macs.models import LeaveAssign, LeaveTypeRow
 
 from employees import attention
 from employees.models import Employee, JobRecord
@@ -186,6 +186,48 @@ def test_me_page_lists_own_requests_with_state_and_reason(actor: User, hired: Em
     body = _client(_staff("staff", hired)).get(reverse("me")).content.decode()
     assert "2027-02-01" in body
     assert "Ачаалал их байна" in body
+
+
+def _approved_then_cancelled(hired: Employee, sick: LeaveTypeRow, actor: User, mistake: bool) -> None:
+    """An approved request whose leave HR later cancelled (or marked a mistake): the request stays approved."""
+    assign = LeaveAssign.objects.create(
+        employee_id=hired.pk,
+        leave_type=sick,
+        status=LeaveAssign.CANCELLED,
+        adays=1,
+        date1=date(2027, 2, 1),
+        date2=date(2027, 2, 1),
+    )
+    LeaveExt.objects.create(assign_id=assign.pk, mistake=mistake, cancel_reason="Тест", created_by=actor)
+    LeaveRequest.objects.create(
+        employee=hired,
+        leave_type=sick,
+        start_date=date(2027, 2, 1),
+        end_date=date(2027, 2, 1),
+        working_days=1,
+        status=RequestStatus.APPROVED,
+        assign_id=assign.pk,
+        step1_manager=True,
+        step_count=1,
+        created_by=actor,
+    )
+
+
+def test_me_page_shows_cancelled_leave_as_cancelled_not_approved(
+    actor: User, hired: Employee, sick: LeaveTypeRow
+) -> None:
+    """The person's own page shows the same state as the staff request list, not the request's approved status."""
+    _approval(True)
+    _approved_then_cancelled(hired, sick, actor, mistake=False)
+    body = _client(_staff("staff_cancel", hired)).get(reverse("me")).content.decode()
+    assert ">Цуцалсан</span>" in body and ">Батлагдсан</span>" not in body
+
+
+def test_me_page_shows_mistake_leave_as_mistake(actor: User, hired: Employee, sick: LeaveTypeRow) -> None:
+    _approval(True)
+    _approved_then_cancelled(hired, sick, actor, mistake=True)
+    body = _client(_staff("staff_mistake", hired)).get(reverse("me")).content.decode()
+    assert ">Буруу бүртгэсэн</span>" in body and ">Батлагдсан</span>" not in body
 
 
 def test_me_page_fixed_queries(actor: User, hired: Employee, sick: LeaveTypeRow) -> None:

@@ -77,7 +77,10 @@ def test_cancel_form_asks_only_for_a_reason_and_saves(hr: Client, hired: Employe
     promotion, _ = promoted(hr, hired, actor)
     page = hr.get(cancel_url(hired, promotion)).content.decode()
     assert "Цуцлах шалтгаан" in page and "cancel_order_no" not in page
-    assert "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана." in page
+    assert (
+        "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана. Ажилд авсан бүртгэл өөрөө хэвээр үлдэнэ."
+        in page
+    )
     assert hr.post(cancel_url(hired, promotion), {}).status_code == 200  # the reason is required
     assert hr.post(cancel_url(hired, promotion), {"reason": "Буруу"}).status_code == 204
     promotion.refresh_from_db()
@@ -117,7 +120,10 @@ def test_order_cancel_dialog_has_cancel_button(hr: Client, hired: Employee, acto
     hire, _ = promoted(hr, hired, actor)
     body = hr.get(cancel_url(hired, hire)).content.decode()
     assert ">Цуцлах</button>" in body and "Хадгалах" not in body
-    assert "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана." in body
+    assert (
+        "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана. Ажилд авсан бүртгэл өөрөө хэвээр үлдэнэ."
+        in body
+    )
 
 
 def test_event_cancel_dialog_has_cancel_button(hr: Client, hired: Employee, actor: User) -> None:

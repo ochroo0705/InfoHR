@@ -408,6 +408,7 @@ class Cell:
     off: bool
     leave: LeaveRow | None
     color: str = ""
+    long_leave: bool = False  # on «Урт чөлөөтэй» (job status), with no counted leave that day and a working day
 
 
 MIN_YEAR, MAX_YEAR = 1900, 2100
@@ -426,6 +427,10 @@ def _month(value: str | None, fallback: date) -> date:
 def _color(lv: LeaveRow) -> str:
     """Annual leave is violet; every other counted leave is amber (one colour per kind the screen can tell apart)."""
     return "bg-violet-200" if lv.type_ext.uses_annual_balance else "bg-amber-200"
+
+
+# Long leave (maternity and the like) is sky, the same colour as the «Урт чөлөөтэй» state chip (employees/_state.html).
+LONG_LEAVE_COLOR = "bg-sky-200"
 
 
 @login_required
@@ -455,7 +460,16 @@ def team_calendar(request: HttpRequest) -> HttpResponse:
             hit = next((lv for lv in mine if lv.start <= d <= lv.end), None)
             off = not calendar.is_working_day(d, holidays)
             color = _color(hit) if hit and not off else ""
-            cells.append(Cell(d, off, hit if not off else None, color))
+            # Counted leave wins; long leave shows only on a working day with no counted leave (in memory, no query).
+            long = (
+                not off
+                and hit is None
+                and (job := listing.prefetched_job_on(e, d)) is not None
+                and job.status == JobStatus.LONG_LEAVE
+            )
+            if long:
+                color = LONG_LEAVE_COLOR
+            cells.append(Cell(d, off, hit if not off else None, color, long_leave=long))
         lines.append((e, cells))
     prev_m = (first - timedelta(days=1)).strftime("%Y-%m") if first.year > MIN_YEAR else ""
     next_m = (last + timedelta(days=1)).strftime("%Y-%m") if last.year < MAX_YEAR else ""

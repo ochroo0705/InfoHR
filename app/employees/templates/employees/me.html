@@ -102,7 +102,7 @@
           <div class="font-medium">{{ r.leave_type }}</div>
           <div class="text-sm text-slate-500">{{ r.start_date|date:"Y-m-d" }} – {{ r.end_date|date:"Y-m-d" }} · {{ r.working_days }} өдөр</div>
         </div>
-        <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {% if r.status == 'approved' %}bg-emerald-100 text-emerald-800{% elif r.status == 'rejected' %}bg-red-100 text-red-700{% elif r.status == 'waiting' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}">{{ r.get_status_display }}{% if r.status == 'waiting' %} · шат {{ r.current_step }}/{{ r.step_count }}{% endif %}</span>
+        <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {% if q.status %}bg-slate-100 text-slate-600{% elif r.status == 'approved' %}bg-emerald-100 text-emerald-800{% elif r.status == 'rejected' %}bg-red-100 text-red-700{% elif r.status == 'waiting' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}">{{ q.status|default:r.get_status_display }}{% if r.status == 'waiting' %} · шат {{ r.current_step }}/{{ r.step_count }}{% endif %}</span>
       </div>
       {% if r.status == 'waiting' and q.rule %}<p class="mt-1 text-xs text-slate-500">Батлах: {{ q.rule }}</p>{% endif %}
       {% if r.status == 'rejected' and r.reason %}<p class="mt-1 text-sm text-red-700">Шалтгаан: {{ r.reason }}</p>{% endif %}
