@@ -476,7 +476,13 @@ def test_personal_tab_sections_in_anketa_order(client: Client, hired: Employee) 
     # the menu links follow the same order, and each group header sits right before its first entry
     menu = [body.index(f'href="#sec-{name}"') for name in ANKETA_ORDER]
     assert menu == sorted(menu)
-    for key, first in (("basic", "identity"), ("edu", "education"), ("award", "award"), ("health", "body"), ("other", "other")):
+    for key, first in (
+        ("basic", "identity"),
+        ("edu", "education"),
+        ("award", "award"),
+        ("health", "body"),
+        ("other", "other"),
+    ):
         assert body.index(f'data-group="{key}"') < body.index(f'href="#sec-{first}"')
 
 
@@ -512,7 +518,7 @@ def test_personal_tab_has_no_emp_form_inputs(client: Client, hired: Employee) ->
         end = body.index('id="activity-backdrop"', start)
     assert 'form="emp-form"' not in body[start:end]
     assert 'id="personal-nav"' not in body[start:end]  # the section menu lives in the page rail
-    assert 'id="personal-nav"' in body[body.index('id="emp-rail"'):start]
+    assert 'id="personal-nav"' in body[body.index('id="emp-rail"') : start]
 
 
 def test_personal_tab_comes_last_in_rail_and_tab_bar(client: Client, hired: Employee) -> None:
@@ -925,7 +931,8 @@ def _add_rows(client: Client, employee: Employee, lists: dict[str, Any], numbers
 # this page, savepoints and sync rows), so the count depends on test order. The warm-up request below absorbs it.
 # With one waiting change the page costs more again: see WAITING_ONE_QUERIES below.
 # 169 since the nav link also asks whether requests still wait while approval is off (spec 5.1): one cheap query.
-PERSONAL_TAB_QUERIES = 169
+# 171 since the offboarding panel (checklists.views.section_context): one checklist lookup + one template lookup.
+PERSONAL_TAB_QUERIES = 171
 
 
 def test_personal_tab_query_count(
@@ -951,7 +958,8 @@ def test_personal_tab_query_count(
 # 167 since the data-scope lookup: one AccessScope row per request (Task 3, data-scope plan).
 # 169 since Task 6 (see PERSONAL_TAB_QUERIES: 168 + the waiting-change lookups).
 # 170 with the nav query above.
-WAITING_ONE_QUERIES = 170
+# 172 with the offboarding panel's two lookups (see PERSONAL_TAB_QUERIES).
+WAITING_ONE_QUERIES = 172
 
 
 def test_personal_tab_query_count_with_one_waiting_change(
@@ -1235,7 +1243,9 @@ def test_body_group_label_after_complaint(client: Client, hired: Employee) -> No
     page = _menu(full)  # the page also shows the group as a divider (UI_RULES §8)
     assert page.count("Эрүүл мэнд, цэрэг") == 1
     group = page.index("Эрүүл мэнд, цэрэг")
-    assert page[: group].rindex('<li class="menu-group') > page.index('href="#sec-complaint"')  # header opens its own <li>
+    assert page[:group].rindex('<li class="menu-group') > page.index(
+        'href="#sec-complaint"'
+    )  # header opens its own <li>
     complaint, entry = (page.index(f'href="#sec-{s}"') for s in ("complaint", "body"))
     assert complaint < group < entry
     assert "Эрүүл мэндийн үзлэг</span>" in page

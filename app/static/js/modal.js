@@ -76,6 +76,56 @@
     tryClose(shell);
   });
 
+  // One modal per trigger (UI_RULES §6): a pop-up opened from the body is tagged with its request path
+  // (data-modal-src) once swapped in. A click for a path whose pop-up is already open, or whose request is still on
+  // its way, sends nothing. Another path (a quick-add pop-up over another pop-up) is never blocked.
+  var pending = {};
+
+  function fromBody(evt) {
+    return !!evt.detail && evt.detail.target === document.body && !!evt.detail.pathInfo;
+  }
+
+  function isOpen(path) {
+    var all = document.querySelectorAll("div.fixed[data-modal-src]");
+    for (var i = 0; i < all.length; i++) if (all[i].getAttribute("data-modal-src") === path) return true;
+    return false;
+  }
+
+  document.addEventListener("htmx:beforeRequest", function (evt) {
+    if (evt.defaultPrevented || !fromBody(evt)) return;  // another listener already stopped it
+    var path = evt.detail.pathInfo.requestPath;
+    if (pending[path] || isOpen(path)) {
+      evt.preventDefault();  // htmx does not send the request
+      return;
+    }
+    pending[path] = true;
+    // loadend fires on the request itself, so the mark goes even if the trigger was removed mid-flight
+    // (htmx's own afterRequest then reaches no listener on the document).
+    var xhr = evt.detail.xhr;
+    if (xhr && xhr.addEventListener) xhr.addEventListener("loadend", function () { delete pending[path]; });
+  });
+
+  // htmx runs beforeSwap and afterSwap back to back for one swap, so the body children seen just before the swap are
+  // enough to find the overlay that this swap added (not one another script appended while the request was out).
+  var beforeSwapKids = null;
+  document.addEventListener("htmx:beforeSwap", function (evt) {
+    beforeSwapKids = fromBody(evt) ? Array.prototype.slice.call(document.body.children) : null;
+  });
+
+  document.addEventListener("htmx:afterSwap", function (evt) {
+    var before = beforeSwapKids;
+    beforeSwapKids = null;
+    if (!before || !fromBody(evt)) return;
+    var kids = document.body.children;
+    for (var i = kids.length - 1; i >= 0; i--) {
+      if (before.indexOf(kids[i]) >= 0) continue;  // already there before this swap
+      if (kids[i].matches("div.fixed") && !kids[i].hasAttribute("data-modal-src")) {
+        kids[i].setAttribute("data-modal-src", evt.detail.pathInfo.requestPath);
+        break;
+      }
+    }
+  });
+
   function start() {
     scan(document.body);
     new MutationObserver(function (records) {

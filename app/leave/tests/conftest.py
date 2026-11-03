@@ -6,9 +6,20 @@ import pytest
 from accounts.models import User
 from employees.models import Department, Employee, Position
 from employees.services import history, macs_writes
+from employees.tests.conftest import _no_offboarding_templates  # noqa: F401 (autouse: no checklist gate in leave tests)
 from macs.models import LeaveTypeRow
 
 from leave.models import LeaveSettings, LeaveTypeExt
+
+
+@pytest.fixture(autouse=True)
+def _no_request_time_daily_sync(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DailySyncMiddleware runs the sync (and, with the grants switch on, writes an automatic grant) on the first
+    signed-in request of each process. Whether a given test saw it depended on which test ran first. Leave tests
+    that want the sync call sync_all_employees themselves."""
+    from employees import daily_sync
+
+    monkeypatch.setattr(daily_sync, "_needs_sync", lambda request: False)
 
 
 @pytest.fixture

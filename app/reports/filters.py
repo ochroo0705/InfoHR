@@ -23,7 +23,12 @@ from macs.models import (
     PresentType,
 )
 
-STATES: dict[str, str] = {"working": "Ажиллаж байгаа", "left": "Гарсан", "all": "Бүгд"}
+STATES: dict[str, str] = {
+    "working": "Ажиллаж байгаа",
+    "upcoming": "Удахгүй ажилд орох",
+    "left": "Гарсан",
+    "all": "Бүгд",
+}
 GENDERS: dict[str, str] = {"M": "Эрэгтэй", "F": "Эмэгтэй"}
 # Movement kinds the change filter offers: the rows B1 and B2 show (ChangeType labels).
 MOVEMENT_KINDS: dict[str, str] = {

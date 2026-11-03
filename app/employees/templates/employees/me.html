@@ -59,6 +59,14 @@
 </section>
 {% endif %}
 
+{% if tasks %}
+<section class="mt-6">
+  <h2 class="sec-title mb-2"><a href="{% url 'checklists:mine' %}" class="hover:underline">Миний даалгавар</a> <span class="text-sm font-normal text-slate-500">{{ tasks|length }}</span></h2>
+  {% url 'me' as next_url %}
+  {% include "checklists/_my_tasks.html" %}
+</section>
+{% endif %}
+
 <section class="mt-6">
   <h2 class="sec-title mb-2">Ээлжийн амралт</h2>
   {% leave_start_missing employee as start_missing %}
@@ -72,16 +80,15 @@
     <li class="flex items-center justify-between gap-3 px-4 py-3">
       <span class="min-w-0">
         <span class="block font-medium">{{ p.start|date:"Y-m-d" }} – {{ p.end|date:"Y-m-d" }}{% if p.current %} <span class="ml-1 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">Одоо</span>{% else %} <span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Ирэх</span>{% endif %}</span>
-        <span class="block text-xs text-slate-500">Эрх {{ p.granted|floatformat:"-1" }} · авсан {{ p.taken|floatformat:"-1" }}</span>
+        <span class="block text-xs text-slate-500">Эрх {{ p.granted|floatformat:"-1" }} · Авсан {{ p.taken|floatformat:"-1" }} · <span class="font-semibold {% if p.left < 0 %}text-red-700{% else %}text-slate-700{% endif %}">Үлдэгдэл {{ p.left|floatformat:"-1" }} хоног</span></span>
       </span>
-      <span class="shrink-0 text-lg font-semibold {% if p.left < 0 %}text-red-700{% else %}text-slate-800{% endif %}">{{ p.left|floatformat:"-1" }} хоног</span>
     </li>
     {% endif %}{% empty %}
     <li class="px-4 py-3 text-sm text-slate-400">Ажлын жил эхлээгүй байна.</li>
     {% endfor %}
   </ul>
   {% endif %}
-  {% if leave_nowhere %}<p class="mt-2 text-sm text-amber-700">Хугацаа тодорхойгүй чөлөө: {{ leave_nowhere|length }}</p>{% endif %}
+  {% if leave_nowhere %}<p class="mt-2 text-sm text-amber-700">Эрхийн хугацаагүй чөлөө: {{ leave_nowhere|length }}<span class="block text-xs text-slate-500">Энэ огноонд амралтын эрх бүртгэгдээгүй.</span></p>{% endif %}
 </section>
 
 <section class="mt-6">

@@ -6,6 +6,7 @@
     <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
       {% csrf_token %}
       {% if everyone %}<input type="hidden" name="everyone" value="1">{% else %}{% for p in people %}<input type="hidden" name="ids" value="{{ p.pk }}">{% endfor %}{% endif %}
+      {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
       {% for field in form %}
       <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
         {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}

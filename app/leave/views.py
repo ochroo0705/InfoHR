@@ -470,6 +470,7 @@ def team_calendar(request: HttpRequest) -> HttpResponse:
             "prev": prev_m,
             "next": next_m,
             "this_month": today().strftime("%Y-%m") if first != today().replace(day=1) else "",
+            "today": today(),
             "department": department,
             "departments": Department.objects.exclude(ext__active=False),
             "not_configured": _not_configured(),

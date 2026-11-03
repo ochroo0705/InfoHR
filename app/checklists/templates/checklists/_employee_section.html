@@ -1,0 +1,23 @@
+{# One checklist panel (`panel`, from checklists.views.section_context) of the employee page, in the Work tab after the leave block, once per kind: section title and framed table (UI_RULES §4, §7e). Plain POST forms: the answer redirects back to the Work tab. #}
+<section class="mt-10" data-checklist data-checklist-kind="{{ panel.kind }}">
+  <div class="mb-3 flex items-center gap-2">
+    <h3 class="sec-title mr-auto">{{ panel.heading }}</h3>
+    {% if panel.checklist %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700" data-checklist-progress>{{ panel.done }} / {{ panel.total }}</span>{% endif %}
+    {% if panel.can_cancel %}<form method="post" action="{% url 'checklists:cancel' panel.checklist.pk %}" class="inline">{% csrf_token %}<button type="submit" class="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50">Цуцлах</button></form>{% endif %}
+  </div>
+  {% if panel.checklist %}
+  <p class="mb-2 text-xs text-slate-500">{{ panel.checklist.template_name }} · {{ panel.date_caption }} {{ panel.checklist.anchor_day|date:"Y-m-d" }}{% if panel.checklist.state == "completed" %} · <span class="font-medium text-emerald-700">Дууссан</span>{% endif %}</p>
+  <div class="ptable"><table>
+    <thead><tr><th>Даалгавар</th><th>Хариуцагч</th><th>Хугацаа</th><th>Биелэлт</th><th class="w-px"></th></tr></thead>
+    <tbody>{% for row in panel.rows %}{% include "checklists/_task_row.html" %}{% endfor %}</tbody>
+  </table></div>
+  {% elif panel.can_start %}
+  <form method="post" action="{% url 'checklists:start' employee.pk %}" class="flex flex-wrap items-end gap-3">
+    {% csrf_token %}
+    <label class="text-sm"><span class="block text-slate-500">Сүүлийн ажлын өдөр</span>
+      <input type="date" name="anchor_day" value="{{ panel.today|date:'Y-m-d' }}" required class="rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm">
+    </label>
+    <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Жагсаалт эхлүүлэх</button>
+  </form>
+  {% endif %}
+</section>

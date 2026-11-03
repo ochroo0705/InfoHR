@@ -17,14 +17,14 @@
       {% if order.event.note %}<dt class="text-slate-500">Тайлбар</dt><dd>{{ order.event.note }}</dd>{% endif %}
       {% if change_status == 'cancelled' %}<dt class="text-slate-500">Цуцалсан шалтгаан</dt><dd>{{ order.event.cancel_reason|default:"—" }}</dd>{% endif %}
     </dl>
-    <h3 class="mt-5 mb-2 flex items-center gap-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал {% if order.number %}№ {{ order.number }}{% else %}<span class="font-normal italic text-amber-700">дугаар хүлээгдэж байна</span>{% endif %} <span class="ml-auto font-normal">{% include "employees/_order_state.html" with legacy=None %}</span></h3>
+    <h3 class="mt-5 mb-2 flex items-center gap-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал {% if order.number %}№ {{ order.number }}{% if order.date %} / {{ order.date|date:"Y" }}{% endif %}{% else %}<span class="font-normal italic text-amber-700">дугаар хүлээгдэж байна</span>{% endif %} <span class="ml-auto font-normal">{% include "employees/_order_state.html" with legacy=None %}</span></h3>
     <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
       <dt class="text-slate-500">Төрөл</dt><dd>{{ order.get_order_type_display }}</dd>
       <dt class="text-slate-500">Огноо</dt><dd>{{ order.date|date:"Y-m-d"|default:"—" }}</dd>
       <dt class="text-slate-500">Агуулга</dt><dd>{{ order.summary|default:"—" }}</dd>
       <dt class="text-slate-500">Гаргасан</dt><dd>{{ order.issued_by|default:"—" }}</dd>
       <dt class="text-slate-500">Гарын үсэгтэй файл</dt>
-      <dd>{% if not can_open_scan %}<span class="text-slate-400">Цалингийн эрх шаардлагатай</span>{% elif order.file %}<a href="{% url 'employees:order_file' employee.pk order.pk %}" target="_blank" rel="noopener" class="text-violet-700 hover:underline">Файл харах</a>{% else %}<span class="text-slate-400">хавсаргаагүй</span>{% endif %}</dd>
+      <dd>{% if not can_open_scan %}<span class="text-slate-400">Зөвхөн цалингийн эрхтэй хэрэглэгч харна</span>{% elif order.file %}<a href="{% url 'employees:order_file' employee.pk order.pk %}" target="_blank" rel="noopener" class="text-violet-700 hover:underline">Файл харах</a>{% else %}<span class="text-slate-400">хавсаргаагүй</span>{% endif %}</dd>
       {% if order.state == 'cancelled' %}
       <dt class="text-slate-500">Цуцалсан</dt>
       <dd>{{ order.cancel_reason|default:"—" }}{% if order.cancel_order_no %} · цуцлах тушаал: {% if links.cancelled_by %}<a href="#" hx-get="{% url 'employees:order_detail' employee.pk links.cancelled_by.pk %}" hx-target="body" hx-swap="beforeend" hx-on::after-request="this.closest('div.fixed').remove()" class="text-violet-700 hover:underline">№ {{ order.cancel_order_no }}</a>{% else %}№ {{ order.cancel_order_no }}{% endif %}{% endif %}</dd>

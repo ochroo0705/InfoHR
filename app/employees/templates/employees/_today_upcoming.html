@@ -1,0 +1,6 @@
+{% for u in upcoming %}
+<div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm last:border-0">
+  <span>{% if u.kind == "birthday" %}Төрсөн өдөр{% else %}{{ u.years }} жилийн ой{% endif %} · <a href="{% url 'employees:detail' u.row.employee.pk %}" class="text-violet-700 hover:underline">{{ u.row.employee.full_name }}</a></span>
+  <span class="text-slate-500">{{ u.on|date:"Y-m-d" }}</span>
+</div>
+{% empty %}<p class="text-sm text-slate-400">Ойрын 30 хоногт {% if kind == "birthday" %}төрсөн өдөр{% else %}ажилд орсны ой{% endif %} алга.</p>{% endfor %}

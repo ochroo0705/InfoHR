@@ -1,0 +1,42 @@
+<div class="mb-5 grid gap-5 lg:grid-cols-[3fr_2fr]">
+  {% if away_strip.show_leave %}
+  <section class="card-soft p-4" data-away-strip aria-labelledby="away-title">
+    <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <h2 id="away-title" class="sec-title">Чөлөөтэй</h2>
+      <span class="text-xs text-slate-500">{{ away_strip.days.0.day|date:"Y-m-d" }} – {% with last_day=away_strip.days|last %}{{ last_day.day|date:"Y-m-d" }}{% endwith %}</span>
+      <a href="{% url 'leave:calendar' %}" class="ml-auto text-xs text-violet-700 hover:underline">Бүтэн хуанли →</a>
+    </div>
+    <div class="grid grid-cols-7 gap-1 sm:grid-cols-14">
+      {% for c in away_cells %}
+      {% if c.day.off or c.count is None %}
+      <div class="rounded-md px-1 py-1.5 text-center text-xs leading-tight {{ c.shade }}{% if c.day.is_today %} ring-2 ring-violet-600{% endif %}"{% if c.day.holiday %} title="{{ c.day.holiday }}"{% endif %}{% if c.day.is_today %} data-today{% endif %}>
+        <span class="block font-semibold">{{ c.day.day.day }}</span>
+        <span class="block">{{ c.day.day|date:"D" }}</span>
+      </div>
+      {% else %}
+      <button type="button" hx-get="{% url 'employees:today_away' %}?day={{ c.day.day|date:'Y-m-d' }}" hx-target="#away-names" aria-label="{{ c.day.day|date:'Y-m-d' }}: {{ c.count }} хүн чөлөөтэй" title="{{ c.day.day|date:'Y-m-d' }}: {{ c.count }} хүн чөлөөтэй" class="rounded-md px-1 py-1.5 text-center text-xs leading-tight hover:ring-2 hover:ring-violet-300 {{ c.shade }}{% if c.day.is_today %} ring-2 ring-violet-600{% endif %}"{% if c.day.is_today %} data-today{% endif %}>
+        <span class="block font-semibold">{{ c.day.day.day }}</span>
+        <span class="block tabular-nums">{{ c.count }}</span>
+      </button>
+      {% endif %}
+      {% endfor %}
+    </div>
+    <p class="mt-3 text-sm text-slate-700" data-away-today>{% if away_strip.today_split %}Өнөөдөр: {% for name, n in away_strip.today_split %}{{ name }} {{ n }}{% if not forloop.last %} · {% endif %}{% endfor %}{% elif away_strip.days.0.off %}Өнөөдөр амралтын өдөр{% else %}Өнөөдөр чөлөөтэй хүн алга.{% endif %}</p>
+    <div id="away-names" class="mt-2" aria-live="polite"></div>
+  </section>
+  {% endif %}
+
+  <section class="card-soft p-4{% if not away_strip.show_leave %} lg:col-span-2{% endif %}" data-upcoming aria-labelledby="upcoming-title">
+    <h2 id="upcoming-title" class="sec-title mb-2">Ойрын 30 хоног</h2>
+    <div class="divide-y divide-slate-100 text-sm">
+      {% if show_birthdays %}<div>
+        <button type="button" hx-get="{% url 'employees:today_upcoming' %}?kind=birthday" hx-target="#upcoming-birthday" aria-controls="upcoming-birthday" aria-expanded="false" hx-on::before-request="if(this.getAttribute('aria-expanded')==='true'){event.preventDefault();document.getElementById('upcoming-birthday').replaceChildren();this.setAttribute('aria-expanded','false');this.querySelector('[data-arrow]').textContent='▸'}" hx-on::after-request="if(event.detail.successful){this.setAttribute('aria-expanded','true');this.querySelector('[data-arrow]').textContent='▾'}" class="flex w-full items-center rounded py-1.5 text-left text-slate-700 hover:bg-slate-50">Төрсөн өдөр {{ upcoming_counts.birthday }} <span data-arrow>▸</span></button>
+        <div id="upcoming-birthday" aria-live="polite"></div>
+      </div>{% endif %}
+      <div>
+        <button type="button" hx-get="{% url 'employees:today_upcoming' %}?kind=anniversary" hx-target="#upcoming-anniversary" aria-controls="upcoming-anniversary" aria-expanded="false" hx-on::before-request="if(this.getAttribute('aria-expanded')==='true'){event.preventDefault();document.getElementById('upcoming-anniversary').replaceChildren();this.setAttribute('aria-expanded','false');this.querySelector('[data-arrow]').textContent='▸'}" hx-on::after-request="if(event.detail.successful){this.setAttribute('aria-expanded','true');this.querySelector('[data-arrow]').textContent='▾'}" class="flex w-full items-center rounded py-1.5 text-left text-slate-700 hover:bg-slate-50">Ажилласан жилийн ой {{ upcoming_counts.anniversary }} <span data-arrow>▸</span></button>
+        <div id="upcoming-anniversary" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+</div>

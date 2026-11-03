@@ -69,3 +69,12 @@ def test_admin_singleton_no_second_row_no_delete() -> None:
     CompanySettings.get()
     assert admin.has_add_permission(request) is False
     assert admin.has_delete_permission(request, CompanySettings.get()) is False
+
+
+def test_str_names_the_company_when_set() -> None:
+    """The admin success message («… амжилттай») uses str(), so it names the company."""
+    assert str(_company("Жишээ-1 ХХК")) == "Жишээ-1 ХХК"
+
+
+def test_str_falls_back_to_the_title_without_a_name() -> None:
+    assert str(CompanySettings.get()) == "Байгууллагын тохиргоо"

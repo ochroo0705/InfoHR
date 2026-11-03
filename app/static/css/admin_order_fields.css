@@ -1,0 +1,14 @@
+/* «Талбаруудын тайлбар» pop-up on the order template admin page (employees/_order_fields_help.html). */
+.of-open { margin-left: .5rem; padding: .15rem .6rem; border: 1px solid #0f7c86; border-radius: 999px; color: #0f7c86; font-size: .75rem; cursor: pointer; }
+.of-open:hover { background: #0f7c8622; }
+.of-dialog { margin: auto; width: min(44rem, 94vw); max-height: 85vh; padding: 0; border: 1px solid #8884; border-radius: .75rem; background: #fff; color: #111827; overflow: auto; }
+.of-dialog::backdrop { background: #0008; }
+html.dark .of-dialog { background: #111827; color: #e5e7eb; }
+.of-head { display: flex; justify-content: space-between; align-items: center; padding: .75rem 1rem; position: sticky; top: 0; background: inherit; border-bottom: 1px solid #8884; }
+.of-close { padding: .2rem .75rem; border: 1px solid #8886; border-radius: .5rem; font-size: .8rem; cursor: pointer; }
+.of-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.of-table td { padding: .4rem 1rem; vertical-align: top; border-bottom: 1px solid #8882; }
+.of-table td:first-child { white-space: nowrap; }
+.of-table code { color: #0f7c86; }
+html.dark .of-table code { color: #54aab0; }
+.of-group th { padding: .6rem 1rem .2rem; text-align: left; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; opacity: .65; }

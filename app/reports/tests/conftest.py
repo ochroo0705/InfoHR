@@ -13,7 +13,14 @@ from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from employees.models import Employee, Event, ensure_ext
 from employees.services import history, macs_writes
-from employees.tests.conftest import actor, hire_values, hired, job_values, named  # noqa: F401 (fixtures)
+from employees.tests.conftest import (  # noqa: F401 (fixtures; _no_offboarding_templates is autouse)
+    _no_offboarding_templates,
+    actor,
+    hire_values,
+    hired,
+    job_values,
+    named,
+)
 from employees.tests.helpers import record_signed
 from macs.models import FiredReason
 

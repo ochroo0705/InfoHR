@@ -108,7 +108,7 @@ LEAVER_COLUMNS: tuple[Column, ...] = (
 
 MOVEMENTS = Report(
     key="movements",
-    title="Ажилчдын шилжилт хөдөлгөөний тайлан",
+    title="Орсон, шилжсэн, гарсан",
     filters=("branch", "department", "change", "period"),
     columns=MOVEMENT_COLUMNS,
     default_columns=tuple(c.key for c in MOVEMENT_COLUMNS),
@@ -121,7 +121,7 @@ MOVEMENTS = Report(
 
 HISTORY = Report(
     key="history",
-    title="Шилжилт хөдөлгөөний жагсаалт",
+    title="Ажлын түүх: бүх өөрчлөлт",
     filters=("employee", "department", "period"),
     columns=MOVEMENT_COLUMNS,
     default_columns=tuple(c.key for c in MOVEMENT_COLUMNS),

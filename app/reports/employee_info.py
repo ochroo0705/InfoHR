@@ -42,7 +42,7 @@ def _note(f: Filters) -> str:
 REPORT = dataclasses.replace(
     staff_list.REPORT,
     key="employee-info",
-    title="Ажилчдын мэдээлэл",
+    title="Ажилтны товч анкет",
     filters=("state", "as_of", "branch", "department"),
     filter_needs={},
     default_columns=DEFAULT,

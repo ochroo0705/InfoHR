@@ -90,7 +90,7 @@ def test_eligibility_warning(actor: User, annual: LeaveTypeRow) -> None:
 def test_no_grant_period_warns_and_needs_reason(employee: Employee, annual: LeaveTypeRow, grants_on: None) -> None:
     c = records.check(d(employee, annual, date(2027, 6, 7), date(2027, 6, 8)), TODAY)
     assert c.period is None and c.needs_override and c.balance_after == -2
-    assert any("амралтын эрх олдсонгүй" in w for w in c.warnings)
+    assert "Энэ огноонд амралтын эрх олдсонгүй (Эрхийн хугацаагүй чөлөө)." in c.warnings
 
 
 def test_sick_leave_has_no_balance(employee: Employee, sick: LeaveTypeRow) -> None:

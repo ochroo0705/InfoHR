@@ -59,7 +59,7 @@ GIVEN_COLUMNS: tuple[Column, ...] = (
 
 GIVEN = Report(
     key="gifts-given",
-    title="Хүүхдэд бэлэг олгосон жагсаалт",
+    title="Олгосон бэлгүүд",
     filters=("year", "present_type"),
     columns=GIVEN_COLUMNS,
     default_columns=tuple(c.key for c in GIVEN_COLUMNS),
@@ -134,7 +134,7 @@ def _due_note(f: Filters) -> str:
 
 DUE = Report(
     key="gifts-due",
-    title="Хүүхдэд бэлэг олгох",
+    title="Бэлэг авах хүүхдүүд (энэ жил)",
     filters=("year", "age_range", "present_type"),
     columns=DUE_COLUMNS,
     default_columns=tuple(c.key for c in DUE_COLUMNS),

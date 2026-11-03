@@ -15,7 +15,7 @@ pytestmark = pytest.mark.django_db
 def test_seed_demo_builds_company(settings: SettingsWrapper) -> None:
     settings.DEBUG = True
     call_command("seed_demo", stdout=StringIO())
-    assert Employee.objects.count() == 10
+    assert Employee.objects.count() == 13
     for login, role in [("director", "Admin"), ("hr", "HR"), ("accountant", "Accountant"), ("bold", "Employee")]:
         assert User.objects.get(username=login).groups.filter(name=role).exists()
     today = timezone.localdate()

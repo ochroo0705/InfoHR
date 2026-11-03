@@ -98,6 +98,8 @@ EXPECTED: dict[str, Rule] = {
     "set_language": PUBLIC,  # Django language switch; no HR data
     # --- employees (employees/urls.py) ---
     "employees:today": LOGIN_ONLY,  # Today page: rows come from visible_employees (own record only for Employee)
+    "employees:today_away": LOGIN_ONLY,  # fragment: rows from visible_employees; names need the leave right
+    "employees:today_upcoming": LOGIN_ONLY,  # fragment: rows from visible_employees; birthdays need the personal right
     "employees:list": LOGIN_ONLY,  # rows from visible_employees; register no. only with view_personal
     "employees:orders": LOGIN_ONLY,  # order register rows come from visible_employees (order_register.py:85)
     "employees:orders_print": LOGIN_ONLY,  # same rows as the register
@@ -142,6 +144,10 @@ EXPECTED: dict[str, Rule] = {
     "employees:personal_add": ("macs.manage_employees", "macs.view_personal"),
     "employees:personal_edit": ("macs.manage_employees", "macs.view_personal"),
     "employees:personal_delete": ("macs.manage_employees", "macs.view_personal"),
+    "employees:slots": ("employees.manage_position_slots",),
+    "employees:slot_add": ("employees.manage_position_slots",),
+    "employees:slot_edit": ("employees.manage_position_slots",),
+    "employees:slot_delete": ("employees.manage_position_slots",),
     # --- leave (leave/urls.py); record = record_leave AND view_leave (leave/access.py) ---
     # Requests (spec 5.6, 5.7): the gate is per request or per own record, checked in the view, not a plain right.
     "leave:requests": LOGIN_ONLY,  # the user's own queue; the «Бүгд» tab is 403 without view_leave (in the view)
@@ -167,6 +173,30 @@ EXPECTED: dict[str, Rule] = {
     "leave:type_add": ("leave.manage_leave_settings",),
     "leave:type_edit": ("leave.manage_leave_settings",),
     "leave:type_delete": ("leave.manage_leave_settings",),
+    # --- checklists (checklists/urls.py): POST only; the gate is per task or per employee, checked in the view, and
+    # every refusal is a 404 so the answer never says a task exists (offboarding-checklist spec) ---
+    "checklists:tick": LOGIN_ONLY,  # POST; 404 unless the user is an owner of that open task (owners.can_tick)
+    "checklists:untick": LOGIN_ONLY,  # POST; 404 unless manage_employees and the employee is visible (data scope)
+    "checklists:start": LOGIN_ONLY,  # POST; 404 unless the employee is visible and the user may record a termination
+    "checklists:cancel": LOGIN_ONLY,  # POST; 404 unless manage_employees and the checklist is visible (data scope)
+    "checklists:mine": LOGIN_ONLY,  # GET; the user's own open tasks, empty for a non-owner
+    # --- recruitment (recruitment/urls.py): objects come from recruitment.services.visibility (404 for what the user
+    # may not see); a visible object's manage-only action is 403 for a hiring manager (access.require_manage) ---
+    "recruitment:vacancies": LOGIN_ONLY,  # rows come from visible_vacancies (hiring managers: their own vacancies only)
+    "recruitment:vacancy_add": ("recruitment.manage_recruitment",),
+    "recruitment:vacancy_slot_line": ("recruitment.manage_recruitment",),  # the pop-up's budget line (advisory)
+    "recruitment:vacancy_detail": LOGIN_ONLY,  # 404 unless the vacancy is visible
+    "recruitment:vacancy_edit": LOGIN_ONLY,  # 404 unless visible, then 403 without manage_recruitment
+    "recruitment:candidate_add": LOGIN_ONLY,  # 404 unless the vacancy is visible, then 403 without manage_recruitment
+    "recruitment:candidate_detail": LOGIN_ONLY,  # 404 unless the candidate is visible (visible_candidates)
+    "recruitment:candidate_convert": LOGIN_ONLY,  # 404 unless visible, then 403 without manage_recruitment; GET only
+    "recruitment:purge": ("recruitment.manage_recruitment",),
+    "recruitment:candidate_move": LOGIN_ONLY,  # POST; 404 unless visible, then 403 without manage_recruitment
+    "recruitment:candidate_reject": LOGIN_ONLY,  # 404 unless visible, then 403 without manage_recruitment
+    "recruitment:candidate_reopen": LOGIN_ONLY,  # POST; 404 unless visible, then 403 without manage_recruitment
+    "recruitment:candidate_comment": LOGIN_ONLY,  # POST; 404 unless visible; hiring managers may comment
+    "recruitment:candidate_file_upload": LOGIN_ONLY,  # POST; 404 unless visible, then 403 without manage_recruitment
+    "recruitment:candidate_file": LOGIN_ONLY,  # private CV download; 404 unless the candidate is visible
     # --- reports (reports/urls.py); each report's own `needs` are checked by registry.can_open, see test 5 ---
     "reports:catalogue": ("reports.view_reports",),
     "reports:report": ("reports.view_reports",),
@@ -213,6 +243,8 @@ NOT_PROVEN: dict[str, str] = {
     "leave:cancel": "needs a leave request of the probe user (_own_leave); not built here",
     "leave:type_edit": "needs a leave type row (LeaveTypeRow); not built here",
     "leave:type_delete": "needs a leave type row (LeaveTypeRow); not built here",
+    "employees:slot_edit": "needs a position-slot row (nazg, by pk); not built here",
+    "employees:slot_delete": "needs a position-slot row (nazg, by pk); not built here",
     "lists:edit": "needs a list entry of a lookup list (pk); not built here",
     "lists:delete": "needs a list entry of a lookup list (pk); not built here",
 }
@@ -534,6 +566,8 @@ def test_not_proven_set_is_exact() -> None:
             "employees:import_run",
             "employees:personal_delete",
             "employees:personal_edit",
+            "employees:slot_delete",
+            "employees:slot_edit",
             "lists:delete",
             "lists:edit",
             "leave:cancel",

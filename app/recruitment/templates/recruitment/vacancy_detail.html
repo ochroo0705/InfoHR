@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ vacancy.title }}{% endblock %}
+{% block content %}
+<p class="text-sm"><a href="{% url 'recruitment:vacancies' %}" class="text-violet-700 hover:underline">← Ажилд авах</a></p>
+<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+  <h1 class="text-xl font-semibold">{{ vacancy.title }}</h1>
+  {% include "recruitment/_vacancy_status.html" with status=vacancy.status label=vacancy.get_status_display %}
+  <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+    {% if can_manage %}
+    <button hx-get="{% url 'recruitment:vacancy_edit' vacancy.pk %}" hx-target="body" hx-swap="beforeend" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Засах</button>
+    {% if is_open %}<button hx-get="{% url 'recruitment:candidate_add' vacancy.pk %}" hx-target="body" hx-swap="beforeend" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Ажил хүсэгч нэмэх</button>{% endif %}
+    {% endif %}
+  </div>
+</div>
+<div class="card-soft mt-3 grid gap-x-6 gap-y-2 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+  <div><div class="text-xs text-slate-500">Албан тушаал</div>{{ vacancy.position.name }}</div>
+  <div><div class="text-xs text-slate-500">Хэлтэс</div>{{ vacancy.department.name }}</div>
+  <div><div class="text-xs text-slate-500">Салбар</div>{{ vacancy.branch.name|default:"—" }}</div>
+  <div><div class="text-xs text-slate-500">Авах хүний тоо</div>{{ vacancy.headcount }}</div>
+  <div><div class="text-xs text-slate-500">Авах эцсийн хугацаа</div>{{ vacancy.deadline|date:"Y-m-d"|default:"—" }}</div>
+  <div><div class="text-xs text-slate-500">Ажил эхлэх огноо</div>{{ vacancy.desired_start|date:"Y-m-d"|default:"—" }}</div>
+  {% if vacancy.description %}<div class="sm:col-span-2 lg:col-span-4"><div class="text-xs text-slate-500">Тайлбар</div><p class="whitespace-pre-line">{{ vacancy.description }}</p></div>{% endif %}
+</div>
+{% if slot_line %}<div class="mt-3">{% include "recruitment/_slot_line.html" with line=slot_line %}</div>{% endif %}
+{% if can_manage and not is_open %}<p class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Энэ ажлын байр нээлттэй биш тул ажил хүсэгч нэмэх боломжгүй. «Засах» дарж төлөвийг «Нээлттэй» болгоно уу.</p>{% endif %}
+<section id="cand-list" class="mt-5">
+  <h2 class="sec-title mb-2">Ажил хүсэгчид</h2>
+  {% include "recruitment/_stage_bar.html" %}
+  <div class="card-soft mt-2 overflow-x-auto px-4 pb-2">
+    <table class="w-full text-sm">
+      <thead class="text-left text-slate-500"><tr><th class="py-2">Нэр</th><th>Шат</th><th>Утас</th><th>Эх сурвалж</th><th>Нэмсэн</th></tr></thead>
+      <tbody>{% include "recruitment/_candidate_rows.html" %}</tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

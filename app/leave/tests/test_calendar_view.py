@@ -52,3 +52,44 @@ def test_this_month_button_only_away_from_current_month(monkeypatch: pytest.Monk
     assert "Энэ сар" not in c.get("/leave/calendar/?month=2026-10").content.decode()
     away = c.get("/leave/calendar/?month=2027-03").content.decode()
     assert "Энэ сар" in away and 'hx-get="?month=2026-10"' in away
+
+
+def test_calendar_title_names_the_page_once(actor: User) -> None:
+    c = Client()
+    c.force_login(actor)
+    body = c.get(reverse("leave:calendar"), {"month": "2026-11"}).content.decode()
+    assert "<title>Чөлөөний хуанли · Info HR</title>" in body
+
+
+def test_calendar_highlights_today(actor: User, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("leave.views.today", lambda: date(2026, 11, 3))
+    c = Client()
+    c.force_login(actor)
+    body = c.get(reverse("leave:calendar"), {"month": "2026-11"}).content.decode()
+    assert 'data-today="2026-11-03"' in body
+    assert body.count("data-today=") == 1
+
+
+def test_calendar_legend_explains_every_mark(actor: User) -> None:
+    c = Client()
+    c.force_login(actor)
+    body = c.get(reverse("leave:calendar"), {"month": "2026-11"}).content.decode()
+    assert "data-calendar-legend" in body
+    legend = body.split("data-calendar-legend", 1)[1].split("</div>", 1)[0]
+    for text in ("Ээлжийн амралт", "Бусад чөлөө", "Ажлын бус өдөр", "Улаан тоо", "Өнөөдөр"):
+        assert text in legend
+
+
+def test_leave_running_past_the_window_is_drawn(employee: Employee, annual: LeaveTypeRow, actor: User) -> None:
+    # Long maternity-style leave: starts before November and ends after it.
+    records.record(
+        Draft(employee, annual, date(2026, 10, 1), date(2027, 2, 28), override_reason="Тест"), actor, date(2026, 9, 20)
+    )
+    u = User.objects.create_user("acc2", password="x-long-pass-123")  # noqa: S106
+    u.groups.add(Group.objects.get(name="Accountant"))
+    c = Client()
+    c.force_login(u)
+    resp = c.get(reverse("leave:calendar"), {"month": "2026-11"})
+    line = next(cells for e, cells in resp.context["lines"] if e.pk == employee.pk)
+    working = [cell for cell in line if not cell.off]
+    assert working and all(cell.leave is not None for cell in working)

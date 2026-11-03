@@ -10,7 +10,7 @@ from django.db.models import IntegerField, Max
 from django.db.models.functions import Cast, Substr
 from lists.models import DEATH, MeaningfulEntry
 from lists.usage import usage_count
-from macs.models import Command, EmployeeHistory, Movement
+from macs.models import Branch, Command, EmployeeHistory, Movement, NazgRow
 
 from employees.models import (
     Department,
@@ -611,3 +611,42 @@ def reactivate_department(department: Department) -> None:
 def reactivate_position(position: Position) -> None:
     """Show an inactive position in the dropdowns again (its HR extension row, as the admin does)."""
     PositionExt.objects.update_or_create(position=position, defaults={"active": True})
+
+
+class SlotKeyTaken(ValueError):
+    """Another `nazg` row already holds this kind + year + branch + position (the table's unique key)."""
+
+    def __init__(self, row: NazgRow) -> None:
+        super().__init__("Энэ орон тооны мөр аль хэдийн байна.")
+        self.row = row
+
+
+def _slot_key_holder(position: Position, branch: Branch, kind: str, year: int) -> NazgRow | None:
+    return NazgRow.objects.filter(position=position, branch=branch, kind=kind, year=year).first()
+
+
+@transaction.atomic
+def save_slot_row(
+    *, position: Position, branch: Branch, kind: str, year: int, qty: int, row: NazgRow | None = None
+) -> NazgRow:
+    """Create or update one position-slot row (`nazg`). One row per key: a key another row holds is refused
+    (SlotKeyTaken), whether found by the check or by the table's unique constraint (two saves at once)."""
+    holder = _slot_key_holder(position, branch, kind, year)
+    if holder is not None and (row is None or holder.pk != row.pk):
+        raise SlotKeyTaken(holder)
+    try:
+        with transaction.atomic():
+            if row is None:
+                return NazgRow.objects.create(position=position, branch=branch, kind=kind, year=year, qty=qty)
+            row.position, row.branch, row.kind, row.year, row.qty = position, branch, kind, year, qty
+            row.save()
+            return row
+    except IntegrityError as exc:
+        held = _slot_key_holder(position, branch, kind, year)
+        if held is None:
+            raise
+        raise SlotKeyTaken(held) from exc
+
+
+def delete_slot_row(row: NazgRow) -> None:
+    NazgRow.objects.filter(pk=row.pk).delete()

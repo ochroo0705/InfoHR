@@ -163,7 +163,7 @@ class Bank(_NamedList):
 
 
 class Branch(_NamedList):
-    """Салбар (production branch). Lookup only: HR never adds rows here (not on the Lists page)."""
+    """Салбар (production branch). Edited on the Lists page; `status` 1 = in use (the column default)."""
 
     id = models.AutoField(primary_key=True, db_column="branch_id")
     name = models.CharField("Салбар", max_length=25, db_column="description")

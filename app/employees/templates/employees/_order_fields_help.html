@@ -1,0 +1,13 @@
+{# Help of the order template file field (employees.admin.OrderTemplateForm): a short line, and a pop-up that explains each placeholder. Styles: static/css/admin_order_fields.css. #}
+Загвар дотор <code>{% templatetag openvariable %} орлуулагч {% templatetag closevariable %}</code> бичиж ашиглана. Анхдагч загварт буцахын тулд «Clear» гэж чагтална.
+<button type="button" class="of-open" onclick="this.nextElementSibling.showModal()">Талбаруудын тайлбар</button>
+<dialog class="of-dialog" onclick="if(event.target===this)this.close()">
+  <div class="of-head"><strong>Загварт ашиглах талбарууд</strong>
+    <button type="button" class="of-close" onclick="this.closest('dialog').close()">Хаах</button></div>
+  <table class="of-table"><tbody>
+    {% for group, items in groups.items %}
+    <tr class="of-group"><th colspan="2">{{ group }}</th></tr>
+    {% for name, meaning in items %}<tr><td><code>{% templatetag openvariable %} {{ name }} {% templatetag closevariable %}</code></td><td>{{ meaning }}</td></tr>{% endfor %}
+    {% endfor %}
+  </tbody></table>
+</dialog>

@@ -1,8 +1,8 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
   <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
-    <h2 class="mb-4 text-lg font-semibold">{% if mistake %}Буруу бүртгэсэн{% else %}Чөлөө цуцлах{% endif %}</h2>
+    <h2 class="mb-4 text-lg font-semibold">{% if mistake %}Буруу гэж тэмдэглэх{% else %}Чөлөө цуцлах{% endif %}</h2>
     <p class="mb-3 text-sm text-slate-600">{{ row.leave_type }} {{ row.start|date:"Y-m-d" }} – {{ row.end|date:"Y-m-d" }}</p>
-    {% if mistake %}<p class="mb-3 text-sm text-slate-600">Энэ чөлөө эхэлсэн эсвэл дууссан тул цуцлах биш, буруу бүртгэснийг засна.{% if row.type_ext.uses_annual_balance %} Хоног нь үлдэгдэлд буцна.{% endif %}</p>{% endif %}
+    {% if mistake %}<p class="mb-3 text-sm text-slate-600">Эхэлсэн чөлөөг устгахгүй, буруу бүртгэл гэж тэмдэглэнэ.{% if row.type_ext.uses_annual_balance %} Үлдэгдэл буцаж нэмэгдэнэ.{% endif %}</p>{% endif %}
     <form hx-post="{% url 'leave:cancel' row.id %}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
       {% csrf_token %}
       {% include "leave/_loaded.html" %}
@@ -11,7 +11,7 @@
         {{ form.reason }}{% for e in form.reason.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
-        <button class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white">{% if mistake %}Буруу бүртгэсэн{% else %}Цуцлах{% endif %}</button>
+        <button class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white">{% if mistake %}Буруу гэж тэмдэглэх{% else %}Цуцлах{% endif %}</button>
       </div>
     </form>
   </div>

@@ -23,6 +23,6 @@
     <input type="date" name="to" value="{{ filters.to }}" placeholder="Дуусах" aria-label="Дуусах огноо" class="w-28 sm:w-36 rounded-lg border-0 px-2 py-2 text-sm focus:ring-0 focus:outline-none">
   </div>
 </form>
-<div class="card-soft mt-3 overflow-x-auto px-4 pb-2"><table class="w-full text-sm"><thead class="text-left text-slate-500"><tr><th class="py-2">Ажилтан</th><th>Төрөл</th><th>Хугацаа</th><th class="text-right">Ажлын өдөр</th><th class="pl-6">Тайлбар</th><th></th></tr></thead>
+<div class="card-soft mt-3 overflow-x-auto px-3 pb-2 md:px-4"><table class="w-full text-sm"><thead class="sr-only text-left text-slate-500 md:not-sr-only md:table-header-group"><tr><th class="py-2">Ажилтан</th><th>Төрөл</th><th>Хугацаа</th><th class="text-right">Ажлын өдөр</th><th class="pl-6">Тайлбар</th><th></th></tr></thead>
 <tbody id="rows">{% include "leave/_rows.html" %}</tbody></table></div>
 {% endblock %}

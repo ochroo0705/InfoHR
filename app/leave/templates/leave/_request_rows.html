@@ -6,7 +6,7 @@
   <td class="text-right">{{ r.working_days }}</td>
   <td class="pl-6">{% if r.status == 'waiting' %}{{ r.current_step }}/{{ r.step_count }}{% else %}—{% endif %}</td>
   <td class="pl-6 text-slate-500">{{ row.rule|default:"—" }}</td>
-  <td class="pl-6">{{ r.get_status_display }}</td>
+  <td class="pl-6">{% if row.status %}{{ row.status }}{% else %}{{ r.get_status_display }}{% endif %}</td>
   <td class="pl-6 text-slate-500">{% if r.status == 'waiting' %}{{ row.since|date:"Y-m-d" }}{% else %}—{% endif %}</td>
 </tr>
 {% endwith %}{% endfor %}{% if not items and not offset %}<tr><td colspan="8" class="py-6 text-center text-slate-400">Хүсэлт олдсонгүй</td></tr>{% endif %}

@@ -1,0 +1,13 @@
+{% if no_data %}
+<p class="text-xs text-slate-400">{{ no_data_text }}</p>
+{% else %}
+<figure class="m-0">
+  <svg viewBox="-4 -4 {{ width|add:8 }} {{ height|add:8 }}" role="img" aria-label="{{ label }}" class="h-16 w-full overflow-visible" preserveAspectRatio="none" data-line-chart>
+    {% for run in polylines %}
+    <polyline points="{{ run }}" fill="none" class="stroke-violet-600" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+    {% endfor %}
+    {% if last_dot %}<circle cx="{{ last_dot.0|stringformat:'g' }}" cy="{{ last_dot.1|stringformat:'g' }}" r="3" class="fill-violet-600"></circle>{% endif %}
+  </svg>
+  <figcaption class="mt-1 flex justify-between text-xs text-slate-500"><span>{{ first_label }}</span><span>{{ last_label }}</span></figcaption>
+</figure>
+{% endif %}

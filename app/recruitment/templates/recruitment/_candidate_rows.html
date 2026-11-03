@@ -1,0 +1,10 @@
+{% for c in rows %}
+<tr class="cursor-pointer border-t border-slate-100 hover:bg-violet-50" onclick="location.href='{% url 'recruitment:candidate_detail' c.pk %}'">
+  <td class="py-2"><a href="{% url 'recruitment:candidate_detail' c.pk %}" class="font-medium hover:text-violet-700 hover:underline" onclick="event.stopPropagation()">{{ c.surname }} {{ c.given_name }}</a></td>
+  <td>{% include "recruitment/_stage_chip.html" with stage=c.stage label=c.get_stage_display %}</td>
+  <td class="text-slate-600">{{ c.phone|default:"—" }}</td>
+  <td class="text-slate-600">{{ c.source|default:"—" }}</td>
+  <td class="whitespace-nowrap text-slate-500">{{ c.created_at|date:"Y-m-d" }}</td>
+</tr>
+{% endfor %}{% if not rows and not offset %}<tr><td colspan="5" class="py-6 text-center text-slate-400">Ажил хүсэгч олдсонгүй</td></tr>{% endif %}
+{% if next_query %}{% url 'recruitment:vacancy_detail' vacancy.pk as more_url %}{% include "_more_batch.html" with url=more_url kind="tr" colspan=5 %}{% endif %}

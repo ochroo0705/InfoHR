@@ -1,0 +1,11 @@
+{% for line in rows %}
+<tr class="cursor-pointer border-t border-slate-100 hover:bg-violet-50" hx-get="{% url 'employees:slot_edit' line.row.pk %}" hx-target="body" hx-swap="beforeend">
+  <td class="py-2 font-medium">{{ line.row.position.name }}</td>
+  <td>{{ line.row.branch.name }}</td>
+  <td>{% if line.row.kind == "Temporary" %}Түр{% else %}Үндсэн{% endif %}</td>
+  <td class="text-right">{{ line.posts }}</td>
+  <td class="text-right">{{ line.used }}</td>
+  <td class="text-right {% if line.free < 0 %}font-medium text-red-600{% elif line.free == 0 %}text-amber-700{% endif %}">{{ line.free }}</td>
+</tr>
+{% endfor %}{% if not rows and not offset %}<tr><td colspan="6" class="py-6 text-center text-slate-400">{{ year }} оны орон тоо бүртгэгдээгүй</td></tr>{% endif %}
+{% if next_query %}{% url 'employees:slots' as more_url %}{% include "_more_batch.html" with url=more_url kind="tr" colspan=6 %}{% endif %}

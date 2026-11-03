@@ -347,8 +347,10 @@ def first_per_employee(qs: QuerySet[Any]) -> dict[int, Any]:
 
 def _kept(r: listing.Row, f: Filters, day: date, today: date) -> bool:
     """Whether a row passes the state, department, position, branch and gender filters."""
-    if f.state == "working" and (r.state == "left" or (r.state == "upcoming" and day != today)):
-        return False  # a person hired after `day` is not on staff on that day
+    if f.state == "working" and not listing.is_working(r):
+        return False  # not working on `day`: left, or hired after `day` (those are under the «upcoming» filter)
+    if f.state == "upcoming" and r.state != "upcoming":
+        return False
     if day != today and r.legacy and r.employee.first_hire_date is not None and r.employee.first_hire_date > day:
         return False  # no Info HR job history: the first hire date is the only record of when they started
     if f.state == "left" and r.state != "left":
@@ -444,7 +446,7 @@ def _note(f: Filters) -> str:
 
 REPORT = Report(
     key="staff-list",
-    title="Ажилчдын жагсаалт",
+    title="Ажилтны хүснэгт",
     filters=("state", "as_of", "branch", "department", "position", "gender"),
     filter_needs={"gender": PERSONAL},
     columns=COLUMNS,

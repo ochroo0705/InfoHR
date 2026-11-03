@@ -13,6 +13,7 @@ from django.urls import reverse
 from leave.models import LeaveSettings
 from lists.registry import LISTS
 from macs.models import FiredReason
+from reports.catalogue import CATALOGUE
 from reports.models import SavedView
 from reports.registry import REPORTS, can_open
 
@@ -53,16 +54,20 @@ def test_screens_with_empty_query_list_every_allowed_screen(listed: Employee) ->
     titles = [s.title for s in palette.screens(hr, "")]
     expected = [
         "Өнөөдөр",
+        "Миний даалгавар",
         "Ажилтнууд",
         "Тушаалын бүртгэл",
         "Чөлөө, амралт",
         "Багийн хуанли",
         "Амралтын үлдэгдэл",
+        "Ажилд авах",
         "Тайлан",
         "Ажилтны бүртгэл",
     ]
     if hr.has_perm("lists.manage_lists"):
         expected.append("Жагсаалтууд")
+    if hr.has_perm("employees.manage_position_slots"):
+        expected.append("Орон тооны төлөвлөгөө")
     assert titles == expected
     assert ("Жагсаалтууд" in titles) == hr.has_perm("lists.manage_lists")
 
@@ -89,7 +94,7 @@ def test_reports_are_found_by_a_word_of_their_title(listed: Employee) -> None:
     hr = _user("HR", "pal_rep1")
     found = palette.screens(hr, "мэдээлэл")
     assert [s for s in found if s.title.startswith("Тайлан · ")] == [
-        palette.Screen("Тайлан · Ажилчдын мэдээлэл", reverse("reports:report", args=["employee-info"]))
+        palette.Screen("Тайлан · Ажилтны товч анкет", reverse("reports:report", args=["employee-info"]))
     ]
     assert reverse("reports:report", args=["employee-info"]) == "/reports/employee-info/"
 
@@ -108,8 +113,17 @@ def test_typing_tailan_finds_the_catalogue_and_only_reports_with_the_word_in_the
     assert palette.Screen("Тайлан", reverse("reports:catalogue")) in found
     reports = [s.title for s in found if s.title.startswith("Тайлан · ")]
     assert reports  # some report titles end in «тайлан», so they are found by their own title
-    assert all("тайлан" in t.removeprefix("Тайлан · ").casefold() for t in reports)
-    assert "Тайлан · Ажилчдын мэдээлэл" not in reports  # the «Тайлан · » prefix is not searched
+    former = {f"Тайлан · {r.title}": " ".join(e.aliases) for e in CATALOGUE if (r := REPORTS.get(e.key))}
+    assert all(  # the current title, or the report's former name, has the word
+        "тайлан" in (t.removeprefix("Тайлан · ") + " " + former.get(t, "")).casefold() for t in reports
+    )
+    assert "Тайлан · Ажилтны товч анкет" not in reports  # the «Тайлан · » prefix is not searched
+
+
+def test_a_renamed_report_is_still_found_by_its_former_name(listed: Employee) -> None:
+    hr = _user("HR", "pal_rep8")
+    found = [s.title for s in palette.screens(hr, "хүүхдийн судалгаа")]
+    assert "Тайлан · Ажилтнуудын хүүхдүүд" in found
 
 
 def test_a_user_without_report_access_finds_no_reports(listed: Employee) -> None:
@@ -179,13 +193,36 @@ def test_actions_with_empty_query_list_both_in_order(listed: Employee) -> None:
     assert hr.has_perm("leave.record_leave") and hr.has_perm("leave.view_leave")
     assert hr.has_perm("macs.manage_employees")
     assert reverse("leave:add") == "/leave/new/"
-    assert palette.actions(hr, "") == [
+    expected = [
         palette.Action("Чөлөө бүртгэх", "/leave/new/", True),
         palette.Action("Ажилтан нэмэх", "/employees/new/", False),
         palette.Action("Ажилтан импортлох", reverse("employees:import"), False),
         palette.Action("Тушаалын бүртгэл хэвлэх", reverse("employees:orders_print"), False),
-        palette.Action("Нууц үг солих", reverse("password_change"), False),
     ]
+    if hr.has_perm("recruitment.manage_recruitment"):
+        expected.append(palette.Action("Ажлын байр нээх", reverse("recruitment:vacancy_add"), True))
+    if hr.has_perm("employees.manage_position_slots"):
+        expected.append(palette.Action("Орон тоо нэмэх", reverse("employees:slot_add"), True))
+    expected.append(palette.Action("Нууц үг солих", reverse("password_change"), False))
+    assert palette.actions(hr, "") == expected
+
+
+def test_vacancy_and_slot_actions_follow_their_rights(listed: Employee) -> None:
+    plain = _user("Employee", "pal_act7")
+    assert not {"Ажлын байр нээх", "Орон тоо нэмэх"} & {a.title for a in palette.actions(plain, "")}
+    manager = User.objects.create_user("pal_act8", password="x-long-pass-123")  # noqa: S106
+    for app, codename in (("recruitment", "manage_recruitment"), ("employees", "manage_position_slots")):
+        manager.user_permissions.add(Permission.objects.get(codename=codename, content_type__app_label=app))
+    manager = User.objects.get(pk=manager.pk)  # drop the cached permissions
+    assert palette.actions(manager, "ажлын") == [
+        palette.Action("Ажлын байр нээх", reverse("recruitment:vacancy_add"), True)
+    ]
+    assert palette.actions(manager, "тоо") == [palette.Action("Орон тоо нэмэх", reverse("employees:slot_add"), True)]
+
+
+def test_my_tasks_screen_is_listed_for_everyone_signed_in(listed: Employee) -> None:
+    emp = _user("Employee", "pal_tasks")
+    assert palette.Screen("Миний даалгавар", reverse("checklists:mine")) in palette.screens(emp, "даалгавар")
 
 
 def test_actions_hide_what_the_user_may_not_use(listed: Employee) -> None:
@@ -208,7 +245,7 @@ def test_leave_action_needs_both_record_and_view_leave(listed: Employee) -> None
 def test_actions_match_typed_words(listed: Employee) -> None:
     hr = _user("HR", "pal_act5")
     assert palette.actions(hr, "бүртгэх") == [palette.Action("Чөлөө бүртгэх", reverse("leave:add"), True)]
-    assert palette.actions(hr, "НЭМЭХ") == [palette.Action("Ажилтан нэмэх", reverse("employees:add"), False)]
+    assert palette.actions(hr, "АЖИЛТАН НЭМЭХ") == [palette.Action("Ажилтан нэмэх", reverse("employees:add"), False)]
     assert palette.actions(hr, "zzzz") == []
     assert palette.actions(hr, "бүртгэх нэмэх") == []  # every word must match
 
@@ -1446,7 +1483,7 @@ def test_my_page_is_offered_only_to_a_user_with_an_own_record(listed: Employee) 
     staff = _fresh(staff)
     screens = palette.screens(staff, "")
     assert screens[0] == palette.Screen("Миний хуудас", reverse("me"))  # their home page comes first
-    assert palette.screens(staff, "миний") == [palette.Screen("Миний хуудас", reverse("me"))]
+    assert palette.screens(staff, "миний хуудас") == [palette.Screen("Миний хуудас", reverse("me"))]
     hr = _user("HR", "pal_new1b")
     link_login(_hire_simple(), hr)
     titles = [s.title for s in palette.screens(_fresh(hr), "")]
@@ -1496,7 +1533,11 @@ def test_logs_are_offered_by_their_own_rights(listed: Employee) -> None:
     assert employee_log in palette.screens(hr, "")
     assert (system_log in palette.screens(hr, "")) == hr.has_perm("accounts.view_audit")
     # The employee list is offered to everyone, as in the top bar; it shows only who the user may see.
-    assert palette.screens(auditor, "") == [palette.Screen("Ажилтнууд", reverse("employees:list")), system_log]
+    assert palette.screens(auditor, "") == [
+        palette.Screen("Миний даалгавар", reverse("checklists:mine")),
+        palette.Screen("Ажилтнууд", reverse("employees:list")),
+        system_log,
+    ]
     assert palette.screens(auditor, "бүртгэл") == [system_log]
 
 

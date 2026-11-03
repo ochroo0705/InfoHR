@@ -177,7 +177,7 @@ ABSENCE_COLUMNS: tuple[Column, ...] = (
 
 ABSENCES: Report = Report(
     key="absences",
-    title="Амралт, чөлөөний тайлан",
+    title="Чөлөөний түүх (хугацаагаар)",
     filters=("period", "absence_type", "department"),
     columns=ABSENCE_COLUMNS,
     default_columns=tuple(c.key for c in ABSENCE_COLUMNS),
@@ -234,7 +234,7 @@ TOTALS_COLUMNS: tuple[Column, ...] = (
 
 TOTALS: Report = Report(
     key="absence-totals",
-    title="Чөлөө, таслалт, хоцролтын тайлан",
+    title="Чөлөө, таслалт, хоцролтын нийлбэр",
     filters=("period", "department"),
     columns=TOTALS_COLUMNS,
     default_columns=tuple(c.key for c in TOTALS_COLUMNS),

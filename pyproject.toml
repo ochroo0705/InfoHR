@@ -35,3 +35,6 @@ DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["app"]
 testpaths = ["app"]
 python_files = ["tests.py", "test_*.py", "tests_*.py"]
+markers = [
+    "real_daily_sync: keep the request-time DailySyncMiddleware sync on (employees tests turn it off by default)",
+]

@@ -7,6 +7,7 @@
       {% if leave_id %}<input type="hidden" name="leave_id" value="{{ leave_id }}">{% endif %}
       {% include "leave/_loaded.html" %}
       {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+      {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
       <div class="grid gap-3 md:grid-cols-2" hx-post="{% url 'leave:check' %}" hx-trigger="change" hx-target="#leave-check" hx-swap="innerHTML" hx-include="closest form">
         {% for field in form %}
         <label class="block text-sm {% if field.name == 'note' or field.name == 'override_reason' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}

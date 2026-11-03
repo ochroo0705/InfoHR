@@ -1,0 +1,6 @@
+{# Budget line of a vacancy (recruitment.services.slot_line). Pass `line` (SlotLine or None). Advisory only. #}
+{% if line %}
+<div class="rounded-lg px-3 py-2 text-sm {% if line.warning %}bg-amber-50 text-amber-800{% else %}bg-slate-50 text-slate-700{% endif %}">
+  {% if line.numbers %}Орон тоо: {{ line.numbers }}{% endif %}{% if line.numbers and line.warning %} — {% endif %}{{ line.warning }}
+</div>
+{% endif %}

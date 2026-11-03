@@ -1,5 +1,6 @@
 """The top bar menu groups (accounts/nav.py): which links each role sees, and which one is marked as open."""
 
+from datetime import date
 from typing import Any
 
 import pytest
@@ -32,13 +33,14 @@ def _shape(groups: list[NavGroup]) -> dict[str, list[str]]:
 
 
 @pytest.mark.django_db
-def test_hr_gets_five_groups_with_menus() -> None:
+def test_hr_gets_six_groups_with_menus() -> None:
     assert _shape(_nav(_user("nav_hr", "HR"), own_record=True)) == {
         "today": ["Өнөөдөр"],
         "employees": ["Ажилтнууд", "Тушаалын бүртгэл"],
         "leave": ["Чөлөө, амралт"],
+        "recruitment": ["Ажилд авах"],
         "reports": ["Тайлан", "Бүртгэл"],
-        "settings": ["Жагсаалтууд"],
+        "settings": ["Жагсаалтууд", "Орон тооны төлөвлөгөө"],
     }
 
 
@@ -103,6 +105,61 @@ def test_page_draws_menus_and_the_user_menu() -> None:
     client = Client()
     client.force_login(user)
     body = client.get(reverse("employees:today")).content.decode()
-    assert body.count("data-nav-menu") == 4  # «Ажилтнууд» and «Тайлан» menus + the theme menu + the user menu
+    assert body.count("data-nav-menu") == 5  # 3 menus + the theme menu + the user menu
     assert f'href="{reverse("password_change")}"' in body
     assert f'action="{reverse("logout")}"' in body
+
+
+@pytest.mark.django_db
+def test_recruitment_link_shows_for_hr_and_hiring_managers_only() -> None:
+    from employees.tests.conftest import hire_values
+    from recruitment.models import Vacancy
+
+    hr = _user("nav_rec_hr", "HR")
+    assert "recruitment" in _shape(_nav(hr))
+    stranger = _user("nav_rec_stranger", "Employee")
+    assert "recruitment" not in _shape(_nav(stranger, own_record=True))
+    # A hiring manager (an employee linked to the login, named on a vacancy) gets the link; before that, none.
+    from employees.services import history, macs_writes
+
+    position, department = macs_writes.save_position("Нягтлан"), macs_writes.save_department("Санхүү")
+    job = {
+        "position": position,
+        "department": department,
+        "employee_type": "full_time",
+        "status": "active",
+        "contract_type": "open_ended",
+    }
+    employee = history.hire(hire_values("УБ99887766"), {}, start=date(2026, 1, 5), job=job, salary=None, by=hr)
+    employee.ext.user = stranger
+    employee.ext.save()
+    assert "recruitment" not in _shape(_nav(stranger, own_record=True))
+    Vacancy.objects.create(
+        title="V",
+        position=position,
+        department=department,
+        hiring_manager=employee,
+    )
+    groups = {g.key: g for g in _nav(User.objects.get(pk=stranger.pk), own_record=True)}
+    assert groups["recruitment"].single is not None
+    assert groups["recruitment"].single.url == reverse("recruitment:vacancies")
+
+
+@pytest.mark.django_db
+def test_recruitment_check_runs_once_per_request(django_assert_num_queries: Any) -> None:
+    stranger = _user("nav_rec_once", "Employee")
+    request = RequestFactory().get("/employees/")
+    request.user = stranger
+    request.resolver_match = resolve("/employees/")
+    top_nav(request, False, NO_REQUESTS)
+    with django_assert_num_queries(0):
+        top_nav(request, False, NO_REQUESTS)
+
+
+@pytest.mark.django_db
+def test_base_page_loads_modal_and_mongolian_validation_scripts() -> None:
+    client = Client()
+    client.force_login(_user("nav_scripts", "HR"))
+    body = client.get(reverse("employees:today")).content.decode()
+    assert 'src="/static/js/modal.js' in body  # pop-up closing and one-modal-per-trigger rule (UI_RULES §6)
+    assert 'src="/static/js/validation_mn.js' in body  # Mongolian browser validation text (UI_RULES §2)

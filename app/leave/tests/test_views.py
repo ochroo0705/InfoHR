@@ -89,6 +89,13 @@ def test_negative_balance_without_reason_rerenders_form(employee: Employee, annu
     assert r.status_code == 200 and "шалтгаан" in r.content.decode() and not LeaveAssign.objects.exists()
 
 
+# No wrapping transaction (ensure_grants must open its own); serialized_rollback keeps the seeded roles.
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_check_endpoint_works_outside_a_transaction(employee: Employee, annual: LeaveTypeRow) -> None:
+    r = _client(_in_group("HR")).post(reverse("leave:check"), _post(employee, annual))
+    assert r.status_code == 200
+
+
 def test_conflict_message_on_duplicate(employee: Employee, annual: LeaveTypeRow) -> None:
     hr = _client(_in_group("HR"))
     assert hr.post(reverse("leave:add"), _post(employee, annual)).status_code == 204
@@ -342,9 +349,9 @@ def test_list_labels_cancel_by_start_date(employee: Employee, annual: LeaveTypeR
         comment="",
     )
     page = c.get("/leave/?status=all").content.decode()
-    assert "Буруу бүртгэсэн</button>" in page and "Цуцлах</button>" in page
+    assert "Буруу гэж тэмдэглэх</button>" in page and "Цуцлах</button>" in page
     modal = c.get(f"/leave/{past.pk}/cancel/").content.decode()
-    assert "цуцлах биш, буруу бүртгэснийг засна" in modal
+    assert "Эхэлсэн чөлөөг устгахгүй, буруу бүртгэл гэж тэмдэглэнэ." in modal
 
 
 def test_settings_page_lists_types(annual: LeaveTypeRow) -> None:
@@ -410,3 +417,36 @@ def test_huge_days_refused_not_500(employee: Employee, annual: LeaveTypeRow) -> 
 def test_leave_list_links_to_the_annual_leave_report() -> None:
     body = _client(_in_group("HR")).get(reverse("leave:list")).content.decode()
     assert 'href="/reports/annual-leave/"' in body and "Тайлан гаргах" in body
+
+
+def test_approver_dropdown_shows_role_names_in_mongolian() -> None:
+    """The role is shown by its Mongolian name («Хүний нөөц»); the group name in the database stays «HR»."""
+    body = _client(_in_group("Admin")).get(reverse("leave:settings")).content.decode()
+    hr = Group.objects.get(name="HR")
+    assert f'value="group:{hr.pk}">Хүний нөөц</option>' in body
+    assert f'value="group:{hr.pk}">HR</option>' not in body
+
+
+def test_register_form_leave_type_select_has_an_accessible_name(employee: Employee, annual: LeaveTypeRow) -> None:
+    body = _client(_in_group("HR")).get(reverse("leave:add")).content.decode()
+    assert 'aria-label="Чөлөөний төрөл"' in body
+
+
+def test_list_rows_stack_as_cards_below_md(employee: Employee, annual: LeaveTypeRow) -> None:
+    LeaveAssign.objects.create(
+        employee=employee,
+        leave_type=annual,
+        date1=date(2026, 11, 16),
+        date2=date(2026, 11, 20),
+        status=LeaveAssign.APPROVED,
+        adays=5,
+        comment="",
+    )
+    page = _client(_in_group("HR")).get("/leave/?status=all").content.decode()
+    # Below md the header is hidden and each row is a block card; from md the normal table comes back.
+    assert 'class="sr-only text-left text-slate-500 md:not-sr-only md:table-header-group"' in page  # names still read
+    for label in ("Ажилтан: ", "Төрөл: ", "Хугацаа: ", "Ажлын өдөр: "):  # each cell names itself below md
+        assert f'<span class="text-slate-500 md:hidden">{label}</span>' in page
+    assert "md:table-row md:my-0" in page and "block my-2 rounded-lg border" in page
+    assert 'class="block whitespace-nowrap py-0.5 md:table-cell"><span class="text-slate-500 md:hidden">Хугацаа: </span>2026-11-16 – 2026-11-20</td>' in page
+    assert 'class="block pt-1 text-left md:table-cell md:pt-0 md:text-right"' in page  # actions sit below

@@ -222,6 +222,26 @@ def _leave_requests_waiting(user: User, today: date) -> list[Attention]:
     ]
 
 
+def _tasks_waiting(user: User, today: date) -> list[Attention]:
+    """Users who own open checklist tasks (either kind) are told how many wait for them, linking to their task list."""
+    from checklists.services import owners  # local import: checklists depends on employees, not the reverse
+
+    if not owners.may_have_tasks(user, today):  # cheap pre-check before the tasks are worked out
+        return []
+    count = len(owners.my_tasks(user, today))
+    if count == 0:
+        return []
+    return [
+        Attention(
+            None,
+            f"{count} даалгавар таныг хүлээж байна",
+            "checklist_tasks",
+            DUE,
+            url=reverse("checklists:mine"),
+        )
+    ]
+
+
 def items(user: User, rows: list[Row], today: date) -> list[Attention]:
     can_manage = access.can_manage(user)
     can_salary = access.can_view_salary(user)
@@ -230,6 +250,7 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
         + _leave_not_configured(user)
         + _approval_role_removed(user)
         + _leave_requests_waiting(user, today)
+        + _tasks_waiting(user, today)
     )
     from leave import access as leave_access  # local import: leave depends on employees, not the reverse
     from leave.services import entitlement as leave_entitlement
@@ -354,8 +375,9 @@ def _sorted(out: list[Attention]) -> list[Attention]:
     return out
 
 
-# A group shows this many items; the rest load on demand behind "+N" (a box with every item was 770 KB at 300 staff).
-GROUP_LIMIT = 10
+# An open group shows this many items; the rest load on demand behind «Бүгдийг харах (N) →»
+# (a box with every item was 770 KB at 300 staff).
+GROUP_LIMIT = 3
 
 # Group headings per (kind, urgency); a kind not listed falls back to its first item's text.
 GROUP_LABELS: dict[tuple[str, int], str] = {
@@ -378,6 +400,7 @@ GROUP_LABELS: dict[tuple[str, int], str] = {
     ("bank", MISSING): "Банкны мэдээлэл дутуу",
     ("lists_death", MISSING): "Жагсаалтын утга дутуу",
     ("leave_requests", DUE): "Чөлөөний хүсэлт батлах",
+    ("checklist_tasks", DUE): "Даалгавар таныг хүлээж байна",
 }
 
 
@@ -398,8 +421,13 @@ class Group:
         return self.items[:GROUP_LIMIT]
 
     @property
+    def nearest(self) -> date | None:
+        """The earliest date among the group's items (None for groups without dates), for the closed line."""
+        return min((a.due for a in self.items if a.due is not None), default=None)
+
+    @property
     def more(self) -> int:
-        """How many items sit behind the "+N" button."""
+        """How many items sit behind the «Бүгдийг харах» button."""
         return max(0, len(self.items) - GROUP_LIMIT)
 
 

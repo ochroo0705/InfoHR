@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Any
 
+from accounts.roles import ROLE_LABELS
 from django import forms
 from django.contrib.auth.models import Group
 from django.db.models import Q, QuerySet
@@ -39,6 +40,7 @@ class LeaveForm(StyledForm):
         super().__init__(*args, **kwargs)
         self.fields["leave_type"].queryset = active_types(current_type)  # type: ignore[attr-defined]
         self.fields["employee"].queryset = employees  # type: ignore[attr-defined]
+        self.fields["leave_type"].widget.attrs["aria-label"] = "Чөлөөний төрөл"
 
     def draft(self, leave_id: int | None = None, loaded: AssignSnapshot | None = None) -> Draft:
         d = self.cleaned_data
@@ -166,11 +168,29 @@ class BulkGrantForm(GrantForm):
 
 class LeaveTypeForm(StyledForm):
     name = forms.CharField(label="Нэр", max_length=200)
-    is_paid = forms.BooleanField(label="Цалинтай", required=False)
-    uses_annual_balance = forms.BooleanField(label="Ээлжийн амралтаас хасна", required=False)
-    is_active = forms.BooleanField(label="Идэвхтэй", required=False, initial=True)
-    order = forms.IntegerField(label="Дараалал", min_value=0, max_value=32767, initial=0)
-    staff_may_request = forms.BooleanField(label="Ажилтан хүсэлт гаргана", required=False, initial=True)
+    is_paid = forms.BooleanField(
+        label="Цалинтай", required=False, help_text="Тэмдэглэгээ: энэ төрлийн чөлөө цалинтай эсэхийг харуулна."
+    )
+    uses_annual_balance = forms.BooleanField(
+        label="Ээлжийн амралтаас хасна",
+        required=False,
+        help_text="Авсан хоног ээлжийн амралтын эрх, үлдэгдлээс хасагдана.",
+    )
+    is_active = forms.BooleanField(
+        label="Идэвхтэй",
+        required=False,
+        initial=True,
+        help_text="Унтраавал чөлөө бүртгэх жагсаалтад энэ төрөл харагдахгүй. Өмнөх бүртгэл хэвээр үлдэнэ.",
+    )
+    order = forms.IntegerField(
+        label="Жагсаалтад гарах дараалал", min_value=0, max_value=32767, initial=0
+    )
+    staff_may_request = forms.BooleanField(
+        label="Ажилтан хүсэлт гаргана",
+        required=False,
+        initial=True,
+        help_text="Унтраавал ажилтан өөрөө хүсэлт гаргаж чадахгүй; HR шууд бүртгэнэ.",
+    )
 
 
 MANAGER_CHOICE = "manager"
@@ -209,7 +229,7 @@ class ApprovalSettingsForm(StyledForm):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        roles = [(f"{GROUP_PREFIX}{g.pk}", g.name) for g in Group.objects.order_by("name")]
+        roles = [(f"{GROUP_PREFIX}{g.pk}", ROLE_LABELS.get(g.name, g.name)) for g in Group.objects.order_by("name")]
         manager = [(MANAGER_CHOICE, "Шууд удирдлага")]
         step1 = self.fields["step1"]
         step2 = self.fields["step2"]

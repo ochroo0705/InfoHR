@@ -1,0 +1,11 @@
+{# One task of the offboarding panel. Expects `row` (checklists.views.TaskRow) and `employee`. #}
+<tr>
+  <td class="{% if row.task.done_at %}text-slate-500{% endif %}">{{ row.task.title }}{% if not row.task.required %} <span class="rounded bg-slate-100 px-1.5 text-xs text-slate-600">Заавал биш</span>{% endif %}</td>
+  <td class="whitespace-nowrap">{{ row.owner_label }}</td>
+  <td class="whitespace-nowrap {% if row.overdue %}font-medium text-red-700{% endif %}">{{ row.task.due_on|date:"Y-m-d" }}</td>
+  <td class="whitespace-nowrap text-xs text-slate-500">{% if row.task.done_at %}<span class="font-medium text-emerald-700">Хийгдсэн</span> · {{ row.task.done_by.get_full_name|default:row.task.done_by.username }}, {{ row.task.done_at|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+  <td class="whitespace-nowrap text-right">
+    {% if row.can_tick %}<form method="post" action="{% url 'checklists:tick' row.task.pk %}" class="inline">{% csrf_token %}<button type="submit" class="rounded-lg bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-700">Хийгдсэн</button></form>{% endif %}
+    {% if row.can_untick %}<form method="post" action="{% url 'checklists:untick' row.task.pk %}" class="inline">{% csrf_token %}<button type="submit" class="rounded px-2 py-1 text-sm text-slate-500 hover:bg-violet-50 hover:text-violet-700">Буцаах</button></form>{% endif %}
+  </td>
+</tr>

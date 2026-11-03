@@ -8,7 +8,8 @@ from django.utils import timezone
 from macs.models import FiredReason
 
 from employees import access
-from employees.models import ActivityEntry, Department, Employee, Event, JobRecord, Position, SalaryRecord
+from employees.forms import EventForm
+from employees.models import ActivityEntry, Department, Employee, Event, EventType, JobRecord, Position, SalaryRecord
 from employees.services import events, history
 from employees.services.events import EventError
 from employees.services.orders import OrderError
@@ -463,3 +464,11 @@ def test_expected_return_rules(hired: Employee, actor: User, lead: Position) -> 
     assert "expected_return" in errs
     rec(hired, actor, "leave_start", PAST, reason="unpaid")  # optional
     assert events.leave_until(hired, PAST + timedelta(days=1)) is None
+
+
+def test_event_form_rejects_impossible_date() -> None:
+    form = EventForm(
+        EventType.PROMOTION, data={"effective": "2026-13-45", "position": "", "department": "", "reason": ""}
+    )
+    assert not form.is_valid()
+    assert form.errors["effective"]

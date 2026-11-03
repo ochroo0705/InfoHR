@@ -10,7 +10,9 @@ from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
-from employees import listing
+from employees import access, listing
+from employees import today as today_facts
+from employees.listing import employee_rows
 from employees.models import PERSONAL_FIELDS, Employee, EmployeeExt
 from employees.services import history
 from employees.tests.conftest import hire_values
@@ -38,6 +40,24 @@ def test_includes_people_without_hr_record_and_skips_never_worked(
 def test_state_filter_matches_employee_list(hr_user: User, hired: Employee, left_employee: Employee) -> None:
     assert {s.row.employee.pk for s in rows(hr_user, Filters())} == {hired.pk}
     assert {s.row.employee.pk for s in rows(hr_user, Filters(state="left"))} == {left_employee.pk}
+
+
+def test_staff_list_and_today_agree_on_working_count(
+    hr_user: User, hired: Employee, actor: User, job_values: dict[str, Any]
+) -> None:
+    today = timezone.localdate()
+    history.hire(  # hired, but starts in five days: not working now, so neither count may include them
+        hire_values(register_no="УБ55500002"),
+        {},
+        start=today + timedelta(days=5),
+        job=job_values,
+        salary=Decimal("1000000"),
+        by=actor,
+    )
+    dashboard_rows = employee_rows(access.visible_employees(hr_user).filter(ext__isnull=False), today)
+    assert today_facts.headcount(dashboard_rows) == len(rows(hr_user, Filters())) == 1
+    upcoming = rows(hr_user, Filters(state="upcoming"))  # the future start has its own filter
+    assert [s.row.state for s in upcoming] == ["upcoming"]
 
 
 def test_as_of_date_uses_history(hr_user: User, hired: Employee, actor: User) -> None:

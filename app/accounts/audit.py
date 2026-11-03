@@ -19,6 +19,8 @@ class Category(models.TextChoices):
     SETTINGS = "settings", "Тохиргоо"
     IMPORT = "import", "Импорт, MACS"
     EXPORT = "export", "Экспорт, татаж авалт"
+    # Employee records and the checklists built on them. No DB field has choices, so no migration.
+    HR = "hr", "Ажилтан, HR"
 
 
 # Action code -> Mongolian label. Codes are stored in the database; labels are for screens.
@@ -47,6 +49,25 @@ ACTIONS: dict[str, str] = {
     "export_log": "Бүртгэл экспортолсон",
     "print_page": "Хуудас хэвлэсэн",
     "download_order": "Тушаал татсан",
+    "position_slot_overridden": "Орон тоо дүүрсэн ч ажилд авахыг зөвшөөрсөн",
+    "position_slot_added": "Орон тооны мөр нэмсэн",
+    "position_slot_changed": "Орон тооны мөр өөрчилсөн",
+    "position_slot_deleted": "Орон тооны мөр устгасан",
+    "checklist_started": "Ажлаас гарах жагсаалт эхлүүлсэн",
+    "checklist_task_ticked": "Жагсаалтын даалгаврыг биелсэн гэж тэмдэглэсэн",
+    "checklist_task_unticked": "Жагсаалтын даалгаврын биелэлтийг буцаасан",
+    "checklist_cancelled": "Ажлаас гарах жагсаалт цуцалсан",
+    "vacancy_created": "Ажлын байр нээсэн",
+    "vacancy_changed": "Ажлын байр өөрчилсөн",
+    "candidate_added": "Ажил хүсэгч нэмсэн",
+    "candidate_moved": "Ажил хүсэгчийг шат шилжүүлсэн",
+    "candidate_rejected": "Ажил хүсэгчийг татгалзсан",
+    "candidate_reopened": "Ажил хүсэгчийг дахин нээсэн",
+    "candidate_hired": "Ажил хүсэгчийг ажилд авсан",
+    "candidate_commented": "Ажил хүсэгчид сэтгэгдэл бичсэн",
+    "candidate_file_added": "Ажил хүсэгчийн файл нэмсэн",
+    "candidate_file_downloaded": "Ажил хүсэгчийн файл татсан",
+    "candidates_purged": "Хуучин ажил хүсэгчдыг устгасан",
 }
 
 

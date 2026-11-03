@@ -122,6 +122,8 @@ def test_future_hire_listed_as_upcoming(client: Client, actor: User, job_values:
     )
     login_as(client, "HR")
     body = client.get("/employees/?view=table").content.decode()
+    assert str(emp.code) not in body  # not working yet: the default list («Одоо ажиллаж буй») leaves them out
+    body = client.get("/employees/?view=table&state=upcoming").content.decode()
     assert str(emp.code) in body and "Ажилд орох" in body
 
 

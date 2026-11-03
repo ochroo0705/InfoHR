@@ -10,8 +10,8 @@
       <div><dt class="text-slate-500">Хугацаа</dt><dd>{{ req.start_date|date:"Y-m-d" }} – {{ req.end_date|date:"Y-m-d" }}</dd></div>
       <div><dt class="text-slate-500">Ажлын өдөр</dt><dd>{{ req.working_days }}</dd></div>
       {% if waiting %}
-      <div><dt class="text-slate-500">Шат</dt><dd>{{ req.current_step }}/{{ req.step_count }} · {{ rule }}{% if override %} <span class="text-amber-700">(эрхээр)</span>{% endif %}</dd></div>
-      {% if balance and balance.balance_after is not None %}<div><dt class="text-slate-500">Үлдэгдэл (чөлөөний дараа)</dt><dd>{{ balance.balance_after }}</dd></div>{% endif %}
+      <div><dt class="text-slate-500">Шат</dt><dd>{{ req.current_step }}/{{ req.step_count }} · {{ rule }}{% if override %} <span class="text-amber-700">(эрхээр)</span> <span class="block text-xs text-slate-500">Удирдлагын оронд батлав</span>{% endif %}</dd></div>
+      {% if balance and balance.balance_after is not None %}<div><dt class="text-slate-500">Энэ чөлөөг авсны дараах үлдэгдэл</dt><dd>{{ balance.balance_after }}</dd></div>{% endif %}
       {% endif %}
       <div><dt class="text-slate-500">Гаргасан</dt><dd>{{ req.created_at|date:"Y-m-d" }}</dd></div>
     </dl>
@@ -20,7 +20,7 @@
     {% if balance %}
       {% for w in balance.warnings %}<p class="mt-2 text-sm text-amber-700">{{ w }}</p>{% endfor %}
     {% endif %}
-    {% if not waiting %}<p class="mt-3 text-sm text-slate-500">Энэ хүсэлт шийдэгдсэн: {{ req.get_status_display }}{% if req.reason %} · {{ req.reason }}{% endif %}</p>{% endif %}
+    {% if not waiting %}<p class="mt-3 text-sm text-slate-500">Энэ хүсэлт шийдэгдсэн: {{ status_label }}{% if req.reason %} · {{ req.reason }}{% endif %}</p>{% endif %}
 
     <h3 class="mt-5 text-sm font-semibold text-slate-700">Нэг хэлтсийн бусад</h3>
     {% if others %}

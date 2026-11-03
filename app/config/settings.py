@@ -17,6 +17,7 @@ environ.Env.read_env(BASE_DIR.parent / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])  # e.g. https://host.ts.net behind a tunnel
 
 INSTALLED_APPS = [
     "unfold",  # admin theme; must come before django.contrib.admin
@@ -31,6 +32,8 @@ INSTALLED_APPS = [
     "macs",
     "employees",
     "leave",
+    "checklists",
+    "recruitment",
     "lists",
     "reports",
     "logs",
@@ -97,6 +100,7 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 ORDER_FILES_ROOT = BASE_DIR / "private" / "orders"
 ORDER_FILE_MAX_MB = 10
+RECRUITMENT_FILES_ROOT = BASE_DIR / "private" / "recruitment"  # candidate CVs (app/private/ is gitignored)
 ORDER_TEMPLATES_DIR = BASE_DIR.parent / "order_templates"  # Word templates of the six order types
 # Request header that carries the client IP behind a reverse proxy (e.g. "HTTP_X_FORWARDED_FOR").
 # Empty = use REMOTE_ADDR. Used by the system log only. The proxy must APPEND the client's IP to this
@@ -213,6 +217,11 @@ UNFOLD = {
                         "title": "Тушаалын загварууд",
                         "icon": "description",
                         "link": reverse_lazy("admin:employees_ordertemplate_changelist"),
+                    },
+                    {
+                        "title": "Жагсаалтын загвар",
+                        "icon": "checklist",
+                        "link": reverse_lazy("admin:checklists_checklisttemplate_changelist"),
                     },
                 ],
             },

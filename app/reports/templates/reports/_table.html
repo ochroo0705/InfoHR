@@ -10,7 +10,7 @@
     </thead>
     <tbody>
       {% if table.count == 0 %}
-      <tr><td colspan="{{ heads|length }}" class="py-6 text-center text-slate-400">Олдсонгүй</td></tr>
+      <tr><td colspan="{{ heads|length }}" class="py-6 text-center text-slate-400">Өгөгдөл олдсонгүй</td></tr>
       {% elif filters.group %}
         {% for label, rows in table.groups %}
           <tr><td colspan="{{ heads|length }}" class="font-semibold text-slate-900">{{ label }} · {{ rows|length }}</td></tr>

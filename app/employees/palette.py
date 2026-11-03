@@ -116,6 +116,20 @@ def _sees_requests(user: User) -> bool:
     return leave_access.can_view(user) or (may_decide(user, day) and bool(waiting_for_cached(user, day)))
 
 
+def _sees_recruitment(user: User) -> bool:
+    """The top bar's «Ажилд авах» rule: the user manages recruitment or is a vacancy's hiring manager."""
+    from recruitment.services.visibility import sees_recruitment  # local import: recruitment imports employees
+
+    return _per_user(user, "recruitment", lambda: sees_recruitment(user))
+
+
+def _manages_recruitment(user: User) -> bool:
+    """The vacancy form's rule (recruitment/views.vacancy_add): the user manages recruitment."""
+    from recruitment.services.visibility import can_manage  # local import: recruitment imports employees
+
+    return can_manage(user)
+
+
 def _may_request_leave(user: User) -> bool:
     """The rule of the leave request form (leave/views_requests._requester): own record, the right, approval on."""
     from leave.services.approvers import approval_enabled  # local import: import cycle, as above
@@ -137,16 +151,19 @@ def _allowed(user: User, need: Need) -> bool:
 _CATALOGUE: tuple[tuple[str, str, Need], ...] = (
     ("Өнөөдөр", "employees:today", "macs.view_employees"),  # as the top bar; HR's home page, so first for them
     ("Миний хуудас", "me", _has_own_record),  # first for staff without the employee right: their home page
+    ("Миний даалгавар", "checklists:mine", ""),  # works without an employee record too (checklists/views.mine)
     ("Ажилтнууд", "employees:list", ""),
     ("Тушаалын бүртгэл", "employees:orders", "macs.view_employees"),
     ("Чөлөө, амралт", "leave:list", "leave.view_leave"),
     ("Хүсэлт", "leave:requests", _sees_requests),
     ("Багийн хуанли", "leave:calendar", "leave.view_leave"),
     ("Амралтын үлдэгдэл", "leave:balances", "leave.view_leave"),
+    ("Ажилд авах", "recruitment:vacancies", _sees_recruitment),
     ("Тайлан", "reports:catalogue", "reports.view_reports"),
     ("Ажилтны бүртгэл", "logs:employee", "macs.view_employees"),
     ("Системийн бүртгэл", "logs:system", "accounts.view_audit"),
     ("Жагсаалтууд", "lists:index", "lists.manage_lists"),
+    ("Орон тооны төлөвлөгөө", "employees:slots", "employees.manage_position_slots"),
 )
 
 # The icon of a fixed screen where it is not the plain page icon (keyed by URL name).
@@ -172,6 +189,8 @@ _ACTIONS: tuple[tuple[str, str, tuple[Need, ...], bool], ...] = (
     ("Ажилтан нэмэх", "employees:add", ("macs.manage_employees",), False),
     ("Ажилтан импортлох", "employees:import", ("macs.manage_employees",), False),  # access.can_manage
     ("Тушаалын бүртгэл хэвлэх", "employees:orders_print", ("macs.view_employees",), False),  # as the register screen
+    ("Ажлын байр нээх", "recruitment:vacancy_add", (_manages_recruitment,), True),
+    ("Орон тоо нэмэх", "employees:slot_add", ("employees.manage_position_slots",), True),
     ("Нууц үг солих", "password_change", (), False),
 )
 
@@ -337,13 +356,17 @@ def _list_screens(user: User, words: list[str]) -> list[Screen]:
 
 
 def _report_screens(user: User, words: list[str]) -> list[Screen]:
-    """Reports the user may open whose own title contains every typed word (the «Тайлан · » prefix is not searched)."""
+    """Reports the user may open whose own title (or former name) contains every typed word (the «Тайлан · » prefix is
+    not searched)."""
     from reports import registry  # local import: employees must not import reports at module level (import cycle)
+    from reports.catalogue import CATALOGUE
 
+    former = {entry.key: " ".join(entry.aliases) for entry in CATALOGUE}  # old names are found too
     found: list[tuple[str, Screen]] = [
         (report.title, Screen(f"Тайлан · {report.title}", reverse("reports:report", args=[report.key])))
         for report in registry.REPORTS.values()
-        if all(w in _fold(report.title) for w in words) and registry.can_open(user, report)
+        if all(w in _fold(f"{report.title} {former.get(report.key, '')}") for w in words)
+        and registry.can_open(user, report)
     ]
     return _ranked(words, found)[:REPORT_LIMIT]
 

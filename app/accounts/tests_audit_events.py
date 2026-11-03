@@ -57,7 +57,7 @@ def test_report_excel_is_logged_with_title_and_row_count(client: Client, hired: 
 
     [row] = _rows("export_report")
     assert row.category == "export" and row.actor == user
-    assert row.message.startswith("Ажилчдын жагсаалт") and "1 мөр" in row.message
+    assert row.message.startswith("Ажилтны хүснэгт") and "1 мөр" in row.message
 
 
 def test_refused_excel_download_is_not_logged(client: Client, hired: Any) -> None:

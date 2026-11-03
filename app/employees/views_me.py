@@ -90,6 +90,16 @@ def _waiting_queue(user: User, day: date) -> list[dict[str, Any]]:
     return [{"req": req, "step": f"{req.current_step}/{req.step_count}"} for req in waiting_for_cached(user, day)]
 
 
+def _my_tasks(user: User, day: date) -> list[dict[str, Any]]:
+    """Open checklist tasks (onboarding and offboarding) the user owns, earliest first.
+    `may_have_tasks` is the cheap test: a user who owns no task pays nothing more."""
+    from checklists.services import owners  # local import: checklists depends on employees, not the reverse
+
+    if not owners.may_have_tasks(user, day):
+        return []
+    return [{"task": task, "overdue": task.due_on < day} for task in owners.my_tasks(user, day)]
+
+
 def _own_requests(employee: Employee, day: date) -> list[dict[str, Any]]:
     """The most recent own requests with their state and, while waiting, the rule that picks the approver."""
     reqs = list(
@@ -129,6 +139,7 @@ def me_page(request: HttpRequest) -> HttpResponse:
         "recorded": recorded,
         "requests": _own_requests(employee, day),
         "queue": _waiting_queue(user, day),
+        "tasks": _my_tasks(user, day),
     }
     return render(request, "employees/me.html", context)
 

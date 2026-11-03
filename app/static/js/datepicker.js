@@ -139,7 +139,8 @@
     input.type = "text";
     input.inputMode = "numeric";
     input.autocomplete = "off";
-    if (!input.placeholder) input.placeholder = "ОООО-СС-ӨӨ";
+    if (!input.placeholder) input.placeholder = "ЖЖЖЖ-СС-ӨӨ";
+    if (!input.title) input.title = "Жил-сар-өдөр";
     input.maxLength = 10;
     var wrap = el("span", "dp-wrap");
     input.parentNode.insertBefore(wrap, input);
@@ -168,7 +169,8 @@
   }
 
   function init(root) {
-    (root.matches && root.matches('input[type="date"]') ? [root] : root.querySelectorAll('input[type="date"]')).forEach(enhance);
+    var sel = 'input[type="date"], input[data-datepicker]';
+    (root.matches && root.matches(sel) ? [root] : root.querySelectorAll(sel)).forEach(enhance);
   }
   document.addEventListener("DOMContentLoaded", function () { init(document); });
   document.addEventListener("htmx:load", function (e) { init(e.detail.elt); });

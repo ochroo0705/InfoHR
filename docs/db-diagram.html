@@ -715,6 +715,12 @@ const DATA = [
     "type": "varchar(25)",
     "pk": false,
     "null": true
+   },
+   {
+    "name": "parent_id",
+    "type": "smallint",
+    "pk": false,
+    "null": true
    }
   ],
   "why": "Production departments (Хэлтэс). Job history and the employee row point here."
@@ -1256,8 +1262,14 @@ const DATA = [
     "null": true
    },
    {
+    "name": "income",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
     "name": "grade_perc",
-    "type": "numeric(7,2)",
+    "type": "numeric(7, 2)",
     "pk": false,
     "null": false
    }
@@ -1555,6 +1567,90 @@ const DATA = [
    {
     "name": "command_ident",
     "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "workphone",
+    "type": "varchar(14)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "homephone",
+    "type": "varchar(14)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "email",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "passport",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "ecode",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "ndno",
+    "type": "varchar(14)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "emdno",
+    "type": "varchar(14)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "working_year",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "foreign_emp",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "country_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "education_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "graduate_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "insur_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "command_description",
+    "type": "varchar(100)",
     "pk": false,
     "null": true
    }
@@ -3382,107 +3478,6 @@ const DATA = [
   "why": "Production contacts. The Яаралтай үед холбогдох list (sub-project 4)."
  },
  {
-  "table": "emp_talents",
-  "model": "(raw SQL)",
-  "app": "macs",
-  "managed": false,
-  "label": "Авьяас (ажилтны)",
-  "cols": [
-   {
-    "name": "emp_ident",
-    "type": "integer",
-    "pk": false,
-    "null": false,
-    "fk": "employee"
-   },
-   {
-    "name": "talent_ident",
-    "type": "integer",
-    "pk": false,
-    "null": false,
-    "fk": "talents"
-   },
-   {
-    "name": "trained_year",
-    "type": "smallint",
-    "pk": false,
-    "null": true
-   },
-   {
-    "name": "description",
-    "type": "varchar(200)",
-    "pk": false,
-    "null": true
-   }
-  ],
-  "why": "Production talents, one row per employee + talent (no id column, so raw SQL). The Авьяас list (sub-project 4)."
- },
- {
-  "table": "emp_vacation",
-  "model": "(raw SQL)",
-  "app": "macs",
-  "managed": false,
-  "label": "Ээлжийн амралт (жилээр)",
-  "cols": [
-   {
-    "name": "emp_ident",
-    "type": "integer",
-    "pk": true,
-    "null": false,
-    "fk": "employee"
-   },
-   {
-    "name": "xmonth",
-    "type": "smallint",
-    "pk": false,
-    "null": true
-   },
-   {
-    "name": "dep_ident",
-    "type": "integer",
-    "pk": false,
-    "null": true
-   },
-   {
-    "name": "myear",
-    "type": "smallint",
-    "pk": true,
-    "null": false
-   },
-   {
-    "name": "mmonth",
-    "type": "smallint",
-    "pk": true,
-    "null": false
-   },
-   {
-    "name": "is_vacation",
-    "type": "varchar(12)",
-    "pk": false,
-    "null": true
-   },
-   {
-    "name": "v_day",
-    "type": "smallint",
-    "pk": false,
-    "null": false
-   },
-   {
-    "name": "start_date",
-    "type": "timestamp",
-    "pk": false,
-    "null": true
-   },
-   {
-    "name": "end_date",
-    "type": "timestamp",
-    "pk": false,
-    "null": true
-   }
-  ],
-  "why": "Production per-year annual leave total. HR keeps it in step when annual leave is recorded (Q-13). Accessed by raw SQL."
- },
- {
   "table": "employees_employeeext",
   "model": "employees.EmployeeExt",
   "app": "employees",
@@ -4338,6 +4333,48 @@ const DATA = [
     "type": "varchar(25)",
     "pk": false,
     "null": false
+   },
+   {
+    "name": "order_hired",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "order_department",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "order_position",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "order_fired",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "order_pension",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "order_type_changed",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "enforce_position_slots",
+    "type": "boolean",
+    "pk": false,
+    "null": false
    }
   ],
   "why": "Created for company details printed on HR orders (name, director). One row, edited in admin."
@@ -4377,6 +4414,12 @@ const DATA = [
    {
     "name": "order",
     "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "staff_may_request",
+    "type": "boolean",
     "pk": false,
     "null": false
    }
@@ -4494,6 +4537,38 @@ const DATA = [
    },
    {
     "name": "auto_annual_grant",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "approval1_group_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "auth_group"
+   },
+   {
+    "name": "approval1_manager",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "approval2_group_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "auth_group"
+   },
+   {
+    "name": "approval2_manager",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "approval_role_removed",
     "type": "boolean",
     "pk": false,
     "null": false
@@ -4633,6 +4708,1617 @@ const DATA = [
    }
   ],
   "why": "Created so a user can save a report's filters, columns and sort under a name and open it again."
+ },
+ {
+  "table": "accounts_accessscope",
+  "model": "accounts.AccessScope",
+  "app": "accounts",
+  "managed": true,
+  "label": "Үзэх хүрээ",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "user_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "limited",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "branch_ids",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "department_ids",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "include_sub_departments",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "own_team",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Which employees a user may see. No row, or limited=False, means no limit (the default for every user). The ids are stored as plain lists: branches and departments are not foreign keys here, so a deleted branch or department id just stops matching anything."
+ },
+ {
+  "table": "accounts_systemlogentry",
+  "model": "accounts.SystemLogEntry",
+  "app": "accounts",
+  "managed": true,
+  "label": "Системийн бүртгэл",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "actor_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "actor_name",
+    "type": "varchar(150)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "category",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "action",
+    "type": "varchar(40)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "target_type",
+    "type": "varchar(60)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "target_label",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "message",
+    "type": "text",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "changes",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "ip",
+    "type": "inet",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "System log (audit trail): who did what, when, from which IP. Never edited or deleted. Deleting a User does not delete its log rows: the actor FK is SET_NULL, and Django's collector updates it without going through AppendOnlyLogQuerySet. That rewrite is intended; actor_name keeps the username, so the entry still says who did it."
+ },
+ {
+  "table": "checklists_checklist",
+  "model": "checklists.Checklist",
+  "app": "checklists",
+  "managed": true,
+  "label": "Жагсаалт",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_id",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "kind",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "template_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "checklists_checklisttemplate"
+   },
+   {
+    "name": "template_name",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "anchor_day",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "state",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "created_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "completed_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "event_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "employees_event"
+   }
+  ],
+  "why": "Created for onboarding / offboarding checklists: one checklist run for one employee, built from a template."
+ },
+ {
+  "table": "checklists_checklisttask",
+  "model": "checklists.ChecklistTask",
+  "app": "checklists",
+  "managed": true,
+  "label": "Жагсаалтын даалгавар",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "checklist_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "checklists_checklist"
+   },
+   {
+    "name": "position",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "title",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "group_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "auth_group"
+   },
+   {
+    "name": "manager",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "due_on",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "required",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "done_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "done_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   }
+  ],
+  "why": "Created for the tasks of one checklist run: who does it, due date, done or not."
+ },
+ {
+  "table": "checklists_checklisttemplate",
+  "model": "checklists.ChecklistTemplate",
+  "app": "checklists",
+  "managed": true,
+  "label": "Жагсаалтын загвар",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "kind",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "name",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "is_default",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "reasons",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "active",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created for reusable checklist templates (e.g. new-hire onboarding) that a checklist is started from."
+ },
+ {
+  "table": "checklists_checklisttemplatetask",
+  "model": "checklists.ChecklistTemplateTask",
+  "app": "checklists",
+  "managed": true,
+  "label": "Загварын даалгавар",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "template_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "checklists_checklisttemplate"
+   },
+   {
+    "name": "position",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "title",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "group_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "auth_group"
+   },
+   {
+    "name": "manager",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "due_offset_days",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "required",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created for the task lines of a checklist template, copied into each new checklist."
+ },
+ {
+  "table": "employees_ordertemplate",
+  "model": "employees.OrderTemplate",
+  "app": "employees",
+  "managed": true,
+  "label": "Тушаалын загвар",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "order_type",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "file",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "updated_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   }
+  ],
+  "why": "The install's own Word template of one order type (D-053). No file = the bundled starter template."
+ },
+ {
+  "table": "employees_staffimportdraft",
+  "model": "employees.StaffImportDraft",
+  "app": "employees",
+  "managed": true,
+  "label": "Ажилтны excel импорт",
+  "cols": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "created_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "filename",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "data",
+    "type": "bytea",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "sheet",
+    "type": "varchar(31)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "header_rows",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "mapping",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "defaults",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "date_format",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "state",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "created_count",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "duplicate_count",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "rejected_count",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "rejected_file",
+    "type": "bytea",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "started_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "finished_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "One uploaded staff Excel file on its way through the import: the file bytes, the chosen sheet and column mapping, and the counts once it is imported."
+ },
+ {
+  "table": "employees_staffimportsettings",
+  "model": "employees.StaffImportSettings",
+  "app": "employees",
+  "managed": true,
+  "label": "Ажилтны excel импортын тохиргоо",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "mapping",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "defaults",
+    "type": "jsonb",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "date_format",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Single row (pk=1): the saved column mapping, fixed values and date format of the staff Excel import, so the next import starts from the last one."
+ },
+ {
+  "table": "factory_accident",
+  "model": "macs.FactoryAccidentRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Үйлдвэрлэлийн осол",
+  "cols": [
+   {
+    "name": "faccident_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "faccident",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "faccident_type",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "empid",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "accident_date",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "group_accident",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "facc_type",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "facc_reason",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "facc_result",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "name",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(150)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "branch_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "branch"
+   }
+  ],
+  "why": "Үйлдвэрлэлийн осол, хортой нөлөөлөл (table `factory_accident`). `kind` is `accident` or `toxic`."
+ },
+ {
+  "table": "hr_addedvalbudg",
+  "model": "macs.AddedValBudgetRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Нэмэгдэх гүйцэтгэлийн төлөвлөгөө",
+  "cols": [
+   {
+    "name": "stat_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "byear",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "emp_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "dep_ident",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget1",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget2",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget3",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget4",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget5",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget6",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget7",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget8",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget9",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget10",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget11",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "budget12",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec1",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec2",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec3",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec4",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec5",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec6",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec7",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec8",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec9",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec10",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec11",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "exec12",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Нэмэгдэх гүйцэтгэлийн төлөвлөгөө, биелэлт (table `hr_addedvalbudg`): one row per indicator, person, department and year, with 12 monthly budget (norm) and execution columns. The production key is composite (stat_ident, byear, emp_ident, dep_ident). `pk` is the composite key; never look a row up by `pk` alone, filter by the four fields."
+ },
+ {
+  "table": "hr_addedvalstat",
+  "model": "macs.AddedValStat",
+  "app": "macs",
+  "managed": false,
+  "label": "Нэмэгдэх гүйцэтгэлийн үзүүлэлт",
+  "cols": [
+   {
+    "name": "stat_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "stat_type",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "type_descr",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "rownum",
+    "type": "smallint",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "percentm",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Нэмэгдэх гүйцэтгэлийн үзүүлэлт (table `hr_addedvalstat`): one indicator and its monthly weight (`percentm`)."
+ },
+ {
+  "table": "hr_loan",
+  "model": "macs.LoanRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Ажилтны зээл",
+  "cols": [
+   {
+    "name": "loan_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "emp_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "get_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "end_date",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "amount",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "pay_permonth",
+    "type": "numeric(14, 2)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "loanref1_ident",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "loan_refs"
+   }
+  ],
+  "why": "Ажилтны зээл (table `hr_loan`). Read only here."
+ },
+ {
+  "table": "income",
+  "model": "macs.IncomeLevel",
+  "app": "macs",
+  "managed": false,
+  "label": "Орлогын түвшин",
+  "cols": [
+   {
+    "name": "income_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "income_level",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "c1",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "c2",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Орлогын түвшин (table `income`): per-person income band, `lower < x <= upper`."
+ },
+ {
+  "table": "info",
+  "model": "macs.InfoRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Байгууллагын мэдээлэл",
+  "cols": [
+   {
+    "name": "registerno",
+    "type": "varchar(20)",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "orgtype_code",
+    "type": "varchar(2)",
+    "pk": false,
+    "null": true
+   }
+  ],
+  "why": "Байгууллагын мэдээлэл (table `info`): only the key and the organisation type code are mirrored."
+ },
+ {
+  "table": "leave_leaverequest",
+  "model": "leave.LeaveRequest",
+  "app": "leave",
+  "managed": true,
+  "label": "Чөлөөний хүсэлт",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "employee_id",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "employee"
+   },
+   {
+    "name": "leave_type_id",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "leave_type"
+   },
+   {
+    "name": "start_date",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "end_date",
+    "type": "date",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "working_days",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "note",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "status",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "current_step",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "step1_group_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "auth_group"
+   },
+   {
+    "name": "step2_group_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "auth_group"
+   },
+   {
+    "name": "step1_manager",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "step2_manager",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "step_count",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "reason",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "assign_id",
+    "type": "integer",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "created_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "A leave request from a staff member, waiting for approval or already decided."
+ },
+ {
+  "table": "leave_leaverequestaction",
+  "model": "leave.LeaveRequestAction",
+  "app": "leave",
+  "managed": true,
+  "label": "Чөлөөний хүсэлтийн түүх",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "request_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "leave_leaverequest"
+   },
+   {
+    "name": "step",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "action",
+    "type": "varchar(20)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "override",
+    "type": "boolean",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "reason",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "One entry in the history of a leave request (submitted, approved, rejected, withdrawn)."
+ },
+ {
+  "table": "loan_refs",
+  "model": "macs.LoanRefRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Зээлийн үндэслэл",
+  "cols": [
+   {
+    "name": "ref_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "description",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Зээлийн үндэслэл (table `loan_refs`)."
+ },
+ {
+  "table": "nazg",
+  "model": "macs.NazgRow",
+  "app": "macs",
+  "managed": false,
+  "label": "Нормативт орон тоо",
+  "cols": [
+   {
+    "name": "nazg_id",
+    "type": "integer",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "nazg_type",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "qty",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "rep_year",
+    "type": "integer",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "occupation_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "occupation"
+   },
+   {
+    "name": "branch_ident",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "branch"
+   }
+  ],
+  "why": "Нормативт орон тоо (table `nazg`): budgeted posts per kind, position, branch and year."
+ },
+ {
+  "table": "recruitment_candidate",
+  "model": "recruitment.Candidate",
+  "app": "recruitment",
+  "managed": true,
+  "label": "Горилогч",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "vacancy_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "recruitment_vacancy"
+   },
+   {
+    "name": "surname",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "given_name",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "phone",
+    "type": "varchar(50)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "email",
+    "type": "varchar(254)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "source",
+    "type": "varchar(100)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "notes",
+    "type": "text",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "stage",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "reject_reason",
+    "type": "text",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "closed_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "employee_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "employee"
+   },
+   {
+    "name": "created_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created for recruitment: one person applying for a vacancy, with the stage they are in."
+ },
+ {
+  "table": "recruitment_candidatecomment",
+  "model": "recruitment.CandidateComment",
+  "app": "recruitment",
+  "managed": true,
+  "label": "Сэтгэгдэл",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "candidate_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "recruitment_candidate"
+   },
+   {
+    "name": "text",
+    "type": "text",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "A comment on a candidate (append-only)."
+ },
+ {
+  "table": "recruitment_candidateevent",
+  "model": "recruitment.CandidateEvent",
+  "app": "recruitment",
+  "managed": true,
+  "label": "Горилогчийн түүх",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "candidate_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "recruitment_candidate"
+   },
+   {
+    "name": "from_stage",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "to_stage",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "note",
+    "type": "text",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "One stage move (append-only). from_stage is empty for the first row (candidate added)."
+ },
+ {
+  "table": "recruitment_candidatefile",
+  "model": "recruitment.CandidateFile",
+  "app": "recruitment",
+  "managed": true,
+  "label": "Горилогчийн файл",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "candidate_id",
+    "type": "bigint",
+    "pk": false,
+    "null": false,
+    "fk": "recruitment_candidate"
+   },
+   {
+    "name": "file",
+    "type": "varchar(500)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "name",
+    "type": "varchar(255)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "uploaded_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "uploaded_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created for files attached to a candidate (CV, certificates)."
+ },
+ {
+  "table": "recruitment_recruitmentsettings",
+  "model": "recruitment.RecruitmentSettings",
+  "app": "recruitment",
+  "managed": true,
+  "label": "Ажилд авах тохиргоо",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "retention_months",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Single row (pk=1). Admin edits it in the admin."
+ },
+ {
+  "table": "recruitment_vacancy",
+  "model": "recruitment.Vacancy",
+  "app": "recruitment",
+  "managed": true,
+  "label": "Нээлттэй ажлын байр",
+  "cols": [
+   {
+    "name": "id",
+    "type": "bigint",
+    "pk": true,
+    "null": false
+   },
+   {
+    "name": "title",
+    "type": "varchar(200)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "position_id",
+    "type": "integer",
+    "pk": false,
+    "null": false,
+    "fk": "occupation"
+   },
+   {
+    "name": "department_id",
+    "type": "smallint",
+    "pk": false,
+    "null": false,
+    "fk": "deps"
+   },
+   {
+    "name": "branch_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "branch"
+   },
+   {
+    "name": "headcount",
+    "type": "smallint",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "hiring_manager_id",
+    "type": "integer",
+    "pk": false,
+    "null": true,
+    "fk": "employee"
+   },
+   {
+    "name": "deadline",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "desired_start",
+    "type": "date",
+    "pk": false,
+    "null": true
+   },
+   {
+    "name": "description",
+    "type": "text",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "status",
+    "type": "varchar(10)",
+    "pk": false,
+    "null": false
+   },
+   {
+    "name": "created_by_id",
+    "type": "bigint",
+    "pk": false,
+    "null": true,
+    "fk": "accounts_user"
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "pk": false,
+    "null": false
+   }
+  ],
+  "why": "Created for recruitment: an open position HR is hiring for."
  }
 ];
 const LIMIT = 14;
@@ -4650,7 +6336,7 @@ const groups=[
  {title:'Production · code lists', f:isLookup, cols:3},
  {title:'Production · employee data', f:t=>t.o==='prod'&&!isLookup(t), cols:4},
  {title:'New · employee record', f:t=>t.app==='employees', cols:3},
- {title:'New · leave, lists, reports', f:t=>['leave','lists','reports'].includes(t.app), cols:1},
+ {title:'New · leave, lists, reports, checklists, recruitment', f:t=>['leave','lists','reports','checklists','recruitment'].includes(t.app), cols:2},
  {title:'New · users & permissions', f:t=>t.o==='auth', cols:1},
 ];
 const world=document.getElementById('world'), svg=document.getElementById('links');

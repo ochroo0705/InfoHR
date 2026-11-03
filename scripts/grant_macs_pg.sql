@@ -15,7 +15,7 @@ grant insert, update on customer to info_hr_app;
 grant references on all tables in schema public to info_hr_app;
 grant delete on emp_photo, deps, occupation, marital_status, country, nationality, niigmiin_garal,
   apartment_cond, carown_cond, voting_work, clothes_size_type, citytown, district, education,
-  graduate, insur_type, banks, shifts, fired_reason, movement, employee_history to info_hr_app;
+  graduate, insur_type, banks, branch, shifts, fired_reason, movement, employee_history to info_hr_app;
 grant usage, select on all sequences in schema public to info_hr_app;
 -- Leave module (sub-project 3): the app writes these production tables directly.
 -- leave_assign is cancelled by status, never deleted; leave_type and hr_legalholidays are deleted
@@ -52,3 +52,5 @@ create extension if not exists btree_gist schema hr;
 -- HR orders: command rows are inserted and updated, never deleted (cancelled orders keep their row).
 grant select, insert, update on command to info_hr_app;
 grant usage, select on sequence gen_command_id to info_hr_app;
+-- Position slots (Орон тооны төлөвлөгөө): the screen adds, edits and deletes `nazg` rows (budgeted posts).
+grant delete on nazg to info_hr_app;

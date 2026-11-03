@@ -7,8 +7,10 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Model
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
+from django.template.loader import render_to_string
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.utils.safestring import SafeString, mark_safe
 from lists.usage import usage_count
 from unfold.admin import ModelAdmin
 
@@ -151,6 +153,7 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
                 "fields": tuple(CompanySettings.ORDER_FLAGS.values()),
             },
         ),
+        ("Орон тоо", {"fields": ("enforce_position_slots",)}),
     )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
@@ -163,20 +166,26 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
 MAX_TEMPLATE_BYTES = 5 * 1024 * 1024
 
 
+def _placeholder_help(order_type: int) -> SafeString:
+    """The field's help: one short line, and a small button that opens a pop-up with what each placeholder of this
+    order type means."""
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for group, name, meaning in order_docs.placeholder_help_for(order_type):
+        groups.setdefault(group, []).append((name, meaning))
+    return mark_safe(render_to_string("employees/_order_fields_help.html", {"groups": groups}))  # noqa: S308
+
+
 class OrderTemplateForm(forms.ModelForm):  # type: ignore[type-arg]
     class Meta:
         model = OrderTemplate
         fields = ["file"]
-        help_texts = {
-            "file": "Загвар доторх зөвхөн эдгээр орлуулагчийг ашиглана: "
-            + ", ".join("{{ " + name + " }}" for name in order_docs.PLACEHOLDERS)
-            + ". Анхдагч загварт буцахын тулд «Clear» гэж чагтална."
-        }
-        help_texts = {
-            "file": "Загвар доторх зөвхөн эдгээр орлуулагчийг ашиглана: "
-            + ", ".join("{{ " + name + " }}" for name in order_docs.PLACEHOLDERS)
-            + ". Анхдагч загварт буцахын тулд «Clear» гэж чагтална."
-        }
+
+    class Media:
+        css = {"all": ("css/admin_order_fields.css",)}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["file"].help_text = _placeholder_help(self.instance.order_type)
 
     def clean_file(self) -> Any:
         value = self.cleaned_data.get("file")

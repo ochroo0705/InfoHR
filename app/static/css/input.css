@@ -61,6 +61,8 @@
 @source "../../lists/templates";
 @source "../../reports/templates";
 @source "../../logs/templates";
+@source "../../recruitment/templates";
+@source "../../checklists/templates";
 @source "../../employees/templatetags";
 @source "../js/modal.js";
 

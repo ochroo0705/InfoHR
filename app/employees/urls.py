@@ -1,12 +1,14 @@
 from django.urls import path
 
-from . import views
+from . import views, views_slots
 from .staff_import import views as import_views
 
 app_name = "employees"
 
 urlpatterns = [
     path("today/", views.today_page, name="today"),
+    path("today/away/", views.today_away, name="today_away"),
+    path("today/upcoming/", views.today_upcoming, name="today_upcoming"),
     path("", views.employee_list, name="list"),
     path("orders/", views.orders_page, name="orders"),
     path("orders/print/", views.orders_print, name="orders_print"),
@@ -15,6 +17,10 @@ urlpatterns = [
     path("new/", views.employee_add, name="add"),
     path("attention/", views.attention_toggle, name="attention"),
     path("attention/more/", views.attention_more, name="attention_more"),
+    path("slots/", views_slots.slot_list, name="slots"),
+    path("slots/add/", views_slots.slot_add, name="slot_add"),
+    path("slots/<int:pk>/edit/", views_slots.slot_edit, name="slot_edit"),
+    path("slots/<int:pk>/delete/", views_slots.slot_delete, name="slot_delete"),
     path("check-register/", views.check_register, name="check_register"),
     path("districts/", views.district_options, name="district_options"),
     path("palette/", views.palette_search, name="palette"),

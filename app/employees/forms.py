@@ -199,6 +199,7 @@ class EmployeeForm(StyledForm):
             field = built[name]
             field.required = name in REQUIRED
             self.fields[name] = field
+        self.fields["first_hire_date"].help_text = "Байгууллагад анх орсон өдөр; дахин орсон бол эхний огноо"
         self.register_optional = employee is not None and not employee.register_no and bool(employee.passport_no)
         if employee is not None:
             self._relax_stored_blanks(initial)
@@ -458,8 +459,18 @@ class SetSalaryForm(StyledForm):
     amount = MoneyField(label="Үндсэн цалин")
 
 
+def slot_override_field() -> forms.CharField:
+    """Shown only to holders of employees.override_position_slots (a posted value without the right is ignored)."""
+    return forms.CharField(
+        label="Орон тооны хязгаарыг давах шалтгаан",
+        required=False,
+        max_length=200,
+        widget=forms.TextInput(attrs={"class": INPUT}),
+    )
+
+
 class HireJobForm(StyledModelForm):
-    start = forms.DateField(label="Ажилд орох огноо")
+    start = forms.DateField(label="Ажилд орох огноо", help_text="Одоогийн ажлын гэрээ эхэлсэн өдөр")
     branch = forms.ModelChoiceField(Branch.objects.all(), label="Ажилладаг салбар", required=False)
 
     class Meta:
@@ -478,6 +489,8 @@ class HireJobForm(StyledModelForm):
             default = default_branch(user)  # the hirer's own branch, pre-selected on a fresh form
             self.fields["branch"].initial = default.pk if default is not None else None
         self.fields["status"].initial = "active"
+        if user is not None and user.has_perm("employees.override_position_slots"):
+            self.fields["slot_override"] = slot_override_field()
 
 
 class HireExtrasForm(StyledForm):
@@ -594,6 +607,7 @@ def _job_field(name: str) -> forms.Field:
             empty_value=None,
             required=False,
             label="Ажилтны төрлийн код",
+            help_text="Ажилтны төрөл: үндсэн, гэрээт (хугацаатай) эсвэл туршилтын.",
         )
     if name == "contract_type":
         return forms.ChoiceField(choices=ContractType.choices, label="Гэрээний төрөл")
@@ -664,8 +678,22 @@ class EventForm(StyledForm):
             if isinstance(field, forms.DateField):
                 field.widget = forms.DateInput(attrs={"type": "date", "class": INPUT}, format="%Y-%m-%d")
             self.fields[name] = field
+        if "emptype" in self.fields:  # an empty type keeps the stored one, except on a rehire (events.py:430-432)
+            self.fields["emptype"].help_text += (
+                " Хоосон үлдээвэл гэрээний төрлөөс хамаарч тогтоно."
+                if type == EventType.REHIRE
+                else " Хоосон үлдээвэл одоогийн төрөл хэвээр үлдэнэ."
+            )
         if "fired_reason" in self.fields:
             mark_addable({"fired_reason": self.fields["fired_reason"]})  # typing, addable dropdown (UI_RULES §2a)
+        if type == EventType.TERMINATION and user is not None and user.has_perm("checklists.override_offboarding"):
+            self.fields["offboarding_override"] = forms.CharField(
+                label="Жагсаалтыг алгасах шалтгаан",
+                required=False,
+                widget=forms.TextInput(attrs={"class": INPUT}),
+            )
+        if type == EventType.REHIRE and user is not None and user.has_perm("employees.override_position_slots"):
+            self.fields["slot_override"] = slot_override_field()
 
 
 # --- Personal tab: one form per row of the six personal lists (production tables, spec §4-§5) ---

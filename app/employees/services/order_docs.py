@@ -96,6 +96,75 @@ PLACEHOLDERS = (
     "termination_reason",
 )
 
+# What each placeholder holds, for the «Талбарууд» pop-up on the template admin page: (group, name, meaning).
+# A test keeps the names in step with PLACEHOLDERS.
+PLACEHOLDER_HELP: tuple[tuple[str, str, str], ...] = (
+    ("Тушаал", "company_name", "Байгууллагын нэр («Компанийн тохиргоо»-с)."),
+    ("Тушаал", "director_name", "Захирлын нэр («Компанийн тохиргоо»-с)."),
+    ("Тушаал", "issued_by", "Тушаал гаргасан хүн. Хоосон бол захирлын нэр орно."),
+    ("Тушаал", "order_number", "Тушаалын дугаар. Дугаар өгөөгүй бол «______» гарна."),
+    ("Тушаал", "order_date", "Тушаалын огноо, «өдөр» гэж төгсөнө (2026 оны 11 дүгээр сарын 3-ны өдөр)."),
+    ("Тушаал", "order_summary", "Тушаалын агуулга (гарчиг). Хоосон бол тухайн төрлийн стандарт текст орно."),
+    ("Ажилтан", "employee_full_name", "Ажилтны овог, нэр бүтнээрээ."),
+    ("Ажилтан", "employee_short_name", "Овгийн эхний үсэг, нэр (Б. Энхбаяр)."),
+    ("Ажилтан", "employee_number", "Ажилтны код."),
+    ("Ажилтан", "register_number", "Регистрийн дугаар."),
+    ("Ажил", "department", "Хэлтэс (өөрчлөлтийн дараах)."),
+    ("Ажил", "position", "Албан тушаал (өөрчлөлтийн дараах)."),
+    ("Ажил", "employee_type", "Ажилтны төрөл, хөдөлмөрийн хэлбэр (өөрчлөлтийн дараах)."),
+    (
+        "Ажил",
+        "effective_date",
+        "Хүчин төгөлдөр болох огноо. Загвар «өдрөөс эхлэн» гэж үргэлжлүүлнэ (2026 оны 11 дүгээр сарын 1-ний).",
+    ),
+    ("Өмнөх ба шинэ", "old_department", "Өмнөх хэлтэс."),
+    ("Өмнөх ба шинэ", "new_department", "Шинэ хэлтэс."),
+    ("Өмнөх ба шинэ", "old_position", "Өмнөх албан тушаал."),
+    ("Өмнөх ба шинэ", "new_position", "Шинэ албан тушаал."),
+    ("Өмнөх ба шинэ", "old_employee_type", "Өмнөх ажилтны төрөл."),
+    ("Өмнөх ба шинэ", "new_employee_type", "Шинэ ажилтны төрөл."),
+    ("Бусад", "probation_end", "Туршилтын хугацаа дуусах огноо. Зөвхөн ажилд авах тушаалд, туршилттай ажилтанд гарна."),
+    ("Бусад", "salary", "Үндсэн цалин. Зөвхөн ажилд авах тушаалд, цалин харах эрхтэй хэрэглэгчид гарна."),
+    ("Бусад", "termination_reason", "Ажлаас гарсан шалтгаан (жижиг үсгээр эхэлнэ)."),
+)
+
+
+# Placeholders every order type fills, and the extra ones that fill for each type (the template page lists only these).
+# Any name in PLACEHOLDERS is still accepted in an upload; one outside its type's list simply stays empty.
+COMMON_PLACEHOLDERS = (
+    "company_name",
+    "director_name",
+    "issued_by",
+    "order_number",
+    "order_date",
+    "order_summary",
+    "employee_full_name",
+    "employee_short_name",
+    "employee_number",
+    "register_number",
+    "effective_date",
+)
+EXTRA_PLACEHOLDERS: dict[OrderType, tuple[str, ...]] = {
+    OrderType.HIRED: ("department", "position", "employee_type", "probation_end", "salary"),
+    OrderType.DEPARTMENT: ("old_department", "new_department", "position", "employee_type"),
+    OrderType.POSITION: ("department", "old_position", "new_position", "employee_type"),
+    OrderType.FIRED: ("department", "position", "termination_reason"),
+    OrderType.PENSION: ("department", "position", "termination_reason"),
+    OrderType.TYPE_CHANGED: ("department", "position", "old_employee_type", "new_employee_type"),
+}
+
+
+def placeholders_for(order_type: OrderType | int) -> tuple[str, ...]:
+    """The placeholders that fill for this order type, in the order of PLACEHOLDERS."""
+    wanted = {*COMMON_PLACEHOLDERS, *EXTRA_PLACEHOLDERS[OrderType(order_type)]}
+    return tuple(name for name in PLACEHOLDERS if name in wanted)
+
+
+def placeholder_help_for(order_type: OrderType | int) -> tuple[tuple[str, str, str], ...]:
+    """PLACEHOLDER_HELP rows (group, name, meaning) of the placeholders that fill for this order type."""
+    names = set(placeholders_for(order_type))
+    return tuple(row for row in PLACEHOLDER_HELP if row[1] in names)
+
 
 def starter_path(order_type: OrderType | int) -> Path:
     """The bundled starter template of an order type (the one every new install starts with)."""
@@ -135,7 +204,8 @@ def check_template(data: bytes) -> list[str]:
         return ["Файл нь Word (.docx) загвар биш эсвэл гэмтсэн байна."]
     unknown = sorted(name for name in used if name not in PLACEHOLDERS)
     if unknown:
-        return [f"Танигдаагүй орлуулагч: {', '.join(unknown)}. Зөвшөөрөгдсөн нэрсийг хуудасны дээд хэсгээс харна уу."]
+        names = ", ".join(unknown)
+        return [f"Танигдаагүй орлуулагч: {names}. Зөвшөөрөгдсөн нэрсийг «Талбаруудын тайлбар» товчоор харна уу."]
     try:
         _render(io.BytesIO(data), {name: f"[{name}]" for name in PLACEHOLDERS})
     except OrderDocError:

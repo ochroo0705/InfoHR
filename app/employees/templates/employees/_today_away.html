@@ -1,0 +1,7 @@
+<h3 class="mb-1 text-xs font-medium text-slate-500" data-away-day>{{ day|date:"Y-m-d" }}</h3>
+{% for a in away %}
+<div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm last:border-0">
+  <a href="{% url 'employees:detail' a.row.employee.pk %}" class="text-violet-700 hover:underline">{{ a.row.employee.full_name }}</a>
+  <span class="text-right text-slate-500">{{ a.label }} · {{ a.until|date:"Y-m-d" }} хүртэл</span>
+</div>
+{% empty %}<p class="text-sm text-slate-400">Энэ өдөр чөлөөтэй хүн алга.</p>{% endfor %}

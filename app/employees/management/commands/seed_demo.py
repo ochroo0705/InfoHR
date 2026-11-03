@@ -27,6 +27,7 @@ from lists.models import DEATH, MONGOLIA, MeaningfulEntry
 from macs.models import (
     AddressRow,
     Bank,
+    Branch,
     City,
     ContactType,
     Country,
@@ -49,10 +50,26 @@ from macs.models import (
     TalentKind,
 )
 
+from employees.management.commands import _demo_scenarios
 from employees.models import Employee, EmployeeExt, ensure_ext
 from employees.services import history, macs_writes, personal_writes, records
 
-DEMO_PASSWORD = "Demo-InfoHR-2026"  # noqa: S105 — local demo database only (DEBUG-gated)
+DEMO_PASSWORD = "demo1234"  # noqa: S105 — local demo database only (DEBUG-gated)
+
+BRANCHES = ["Төв салбар", "Дархан салбар"]
+DEFAULT_BRANCH = BRANCHES[0]
+
+
+def _when(value: Any, today: date) -> date | None:
+    """A date, or ("ago", years, days): that many years back from today, then `days` forward (so a birthday or a work
+    anniversary falls near today whenever the demo is built), or an int: that many days from today."""
+    if isinstance(value, tuple):
+        _, years, days = value
+        return today.replace(year=today.year - years, day=min(today.day, 28)) + timedelta(days=days)
+    if isinstance(value, int):
+        return today + timedelta(days=value)
+    return value  # type: ignore[no-any-return]
+
 
 FIRED_REASONS = [
     "Өөрийн хүсэлтээр",
@@ -64,6 +81,7 @@ FIRED_REASONS = [
 ]
 DEPARTMENTS = ["Удирдлага", "Санхүү", "Хүний нөөц", "Програм хангамж", "Борлуулалт", "Техникийн дэмжлэг"]
 POSITIONS = [
+    "Дадлагжигч",
     "Гүйцэтгэх захирал",
     "Ерөнхий нягтлан бодогч",
     "Нягтлан бодогч",
@@ -210,13 +228,14 @@ PEOPLE: list[dict[str, Any]] = [
         given="Ганзориг",
         clan="",
         reg="УЗ95060201",
-        birth=date(1995, 6, 2),
+        birth=("ago", 31, 4),  # birthday in four days
         gender="male",
         phone="86117799",
         email="ganzorig@example.mn",
         start=date(2021, 10, 4),
         pos="Техникийн дэмжлэгийн инженер",
         dept="Техникийн дэмжлэг",
+        branch="Дархан салбар",
         type="full_time",
         contract="open_ended",
         salary="2600000",
@@ -233,7 +252,7 @@ PEOPLE: list[dict[str, Any]] = [
         gender="female",
         phone="99551234",
         email="nomin@example.mn",
-        start=date(2020, 3, 16),
+        start=("ago", 6, 9),  # six-year work anniversary in nine days
         pos="Нягтлан бодогч",
         dept="Санхүү",
         type="full_time",
@@ -279,6 +298,65 @@ PEOPLE: list[dict[str, Any]] = [
         salary=None,
         address="БГД, 16-р хороо, 120 мянгат 3-14",
     ),
+    dict(
+        login=None,
+        role=None,
+        family="Сүхбаатарын",
+        given="Анар",
+        clan="",
+        reg="УЯ03070515",
+        birth=date(2003, 7, 5),
+        gender="male",
+        phone="88112299",
+        email="anar@example.mn",
+        start=-40,  # an intern who started 40 days ago
+        pos="Дадлагжигч",
+        dept="Програм хангамж",
+        type="intern",
+        contract="fixed_term",
+        salary=None,
+        address="БЗД, 15-р хороо, Дамбадаржаа 9-12",
+        ext={"probation_end": -20},
+    ),
+    dict(
+        login=None,
+        role=None,
+        family="Лхагвасүрэнгийн",
+        given="Билгүүн",
+        clan="",
+        reg="УС91041208",
+        birth=date(1991, 4, 12),
+        gender="male",
+        phone="99224411",
+        email="bilguun@example.mn",
+        start=-200,
+        pos="Програм хөгжүүлэгч",
+        dept="Програм хангамж",
+        type="contract",
+        contract="fixed_term",
+        salary="2200000",
+        address="ЧД, 1-р хороо, Сүхбаатарын талбай 3",
+        branch="Дархан салбар",
+    ),
+    dict(
+        login=None,
+        role=None,
+        family="Дашдоржийн",
+        given="Дашдорж",
+        clan="",
+        reg="УД61021033",
+        birth=date(1961, 2, 10),
+        gender="male",
+        phone="99774433",
+        email="",
+        start=date(2008, 5, 5),
+        pos="Жолооч",
+        dept="Удирдлага",
+        type="part_time",
+        contract="open_ended",
+        salary="1500000",
+        address="СХД, 6-р хороо, 22-р байр 8",
+    ),
 ]
 
 # Personal lists: the street-prefix code in each address (the old program's "СБД, ...") -> district of Ulaanbaatar.
@@ -302,6 +380,9 @@ EMERGENCY = {
     "Номин": ("Алтангэрэл", "Эцэг", "99007799"),
     "Мөнх-Эрдэнэ": ("Баасанжав", "Ах", "91008800"),
     "Хулан": ("Энхтайван", "Эцэг", "85009911"),
+    "Анар": ("Сүхбаатар", "Эцэг", "88002200"),
+    "Билгүүн": ("Лхагвасүрэн", "Эцэг", "99002211"),
+    "Дашдорж": ("Дашдоржийн Цэцэг", "Эхнэр", "99002233"),
 }
 FAMILY_RELATIONS = {"Эцэг": "dad", "Эх": "mother", "Эхнэр": "spouse", "Нөхөр": "spouse", "Ах": "other"}  # fm_type codes
 EDUCATION_TYPES = ["Бакалавр", "Магистр"]
@@ -329,7 +410,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"Demo өгөгдөл үүслээ: {Employee.objects.count()} ажилтан. "
-                "Нэвтрэх: admin / director / hr / accountant / bold (нууц үг: seed_demo.py дахь DEMO_PASSWORD)."
+                "Нэвтрэх: admin / director / hr / accountant / bold / auditor / darkhan_hr (нууц үг: demo1234)."
             )
         )
 
@@ -361,6 +442,7 @@ class Command(BaseCommand):
         present_types = {name: _list_entry(PresentType, name) for name in PRESENT_TYPES}
         contact_type = _list_entry(ContactType, CONTACT_TYPE)
 
+        branches = {name: _list_entry(Branch, name, status=1) for name in BRANCHES}
         depts = {name: macs_writes.save_department(name) for name in DEPARTMENTS}
         inactive = macs_writes.save_department(DEPARTMENT_INACTIVE)
         inactive.ext.active = False
@@ -368,15 +450,20 @@ class Command(BaseCommand):
         positions = {name: macs_writes.save_position(name) for name in POSITIONS}
 
         people: dict[str, Employee] = {}
+        starts: dict[int, date] = {}
+        users: dict[str, User] = {}
         for p in PEOPLE:
-            start = p["start"] or today + timedelta(days=14)  # one upcoming hire
+            birth = _when(p["birth"], today)
+            assert birth is not None  # noqa: S101
+            start = _when(p["start"], today) or today + timedelta(days=14)  # one upcoming hire
             emp = history.hire(
                 {
                     "family_name": p["family"],
                     "given_name": p["given"],
                     "clan_name": p["clan"],
                     "register_no": p["reg"],
-                    "birth_date": p["birth"],
+                    "birth_date": birth,
+                    "branch": branches[p.get("branch", DEFAULT_BRANCH)],
                     "gender": "M" if p["gender"] == "male" else "F",
                     "work_phone": p["phone"],
                     "email": p["email"],
@@ -386,7 +473,7 @@ class Command(BaseCommand):
                     "work_schedule": shift,
                     "work_conditions": 1,
                 },
-                {},
+                {k: _when(v, today) for k, v in p.get("ext", {}).items()},
                 start=start,
                 address={
                     "city_id": ulaanbaatar.pk,
@@ -413,13 +500,14 @@ class Command(BaseCommand):
                 by=system,
             )
             people[p["given"]] = emp
+            starts[emp.pk] = start
             records.update_salary_insurance(
                 emp,
                 {
                     "bank": _list_entry(Bank, "Хаан банк" if len(people) % 2 else "Голомт банк"),
-                    "account_no": f"50{emp.pk:02d}{p['birth']:%y%m%d}12",
-                    "social_insurance_no": f"НД{p['birth']:%Y}{emp.pk:04d}",
-                    "health_insurance_no": f"ЭМ{p['birth']:%Y}{emp.pk:04d}",
+                    "account_no": f"50{emp.pk:02d}{birth:%y%m%d}12",
+                    "social_insurance_no": f"НД{birth:%Y}{emp.pk:04d}",
+                    "health_insurance_no": f"ЭМ{birth:%Y}{emp.pk:04d}",
                     "insured_category": _list_entry(InsuredCategory, "Хөдөлмөрийн гэрээгээр ажиллагч"),
                     "taxpayer_no": p["reg"],
                 },
@@ -434,6 +522,7 @@ class Command(BaseCommand):
                 ext = ensure_ext(emp)
                 ext.user = user
                 ext.save(update_fields=["user"])
+                users[p["given"]] = user
 
         director = ensure_ext(people["Энхбаяр"]).user or system
         hr = ensure_ext(people["Оюунчимэг"]).user or system
@@ -478,23 +567,6 @@ class Command(BaseCommand):
             note="Туршилтын үр дүнгээр нэмсэн",
             by=accountant,
         )
-        history.change_job(
-            people["Ариунаа"],
-            effective=date(2026, 8, 15),
-            changes={"status": "long_leave"},
-            change_type="correction",
-            note="Жирэмсний болон амаржсаны амралт",
-            by=hr,
-        )
-        history.change_job(
-            people["Мөнх-Эрдэнэ"],
-            effective=date(2026, 5, 1),
-            changes={"status": "left"},
-            change_type="correction",
-            note="Өөрийн хүсэлтээр ажлаас чөлөөлөгдсөн",
-            by=hr,
-        )
-
         records.add_note(people["Тэмүүлэн"], text="Дипломын нотариатаар баталгаажуулсан хуулбар дутуу.", by=hr)
         records.add_note(people["Болд"], text="AWS гэрчилгээний сургалтад хамрагдах хүсэлт гаргасан.", by=hr)
         records.add_note(people["Хулан"], text="Ажилд орохоос өмнө эрүүл мэндийн үзлэгийн хуудас авчрах.", by=hr)
@@ -551,7 +623,26 @@ class Command(BaseCommand):
         )
 
         self._seed_new_personal_lists(people["Энхбаяр"], hr)
-        self._seed_leave(people, today, hr)
+        types = self._seed_leave(people, today, hr)
+        _demo_scenarios.run(
+            {
+                "people": people,
+                "users": users,
+                "branches": branches,
+                "depts": depts,
+                "positions": positions,
+                "reasons": reasons,
+                "types": types,
+                "hr": hr,
+                "director": director,
+                "accountant": accountant,
+                "system": system,
+                "today": today,
+                "starts": starts,
+                "list_entry": _list_entry,
+                "password": DEMO_PASSWORD,
+            }
+        )
 
     def _seed_new_personal_lists(self, director: Employee, by: User) -> None:
         """One dropdown entry per new list table, then one row of each new personal kind for the director."""
@@ -659,7 +750,7 @@ class Command(BaseCommand):
         for kind, values in rows:
             personal_writes.add(kind, director, values, {}, by)
 
-    def _seed_leave(self, people: dict[str, Employee], today: date, by: User) -> None:
+    def _seed_leave(self, people: dict[str, Employee], today: date, by: User) -> dict[str, LeaveTypeRow]:
         """Leave types, holidays and leaves: production rows, plus a few old-style rows written without an ext row."""
         types: dict[str, LeaveTypeRow] = {}
         for code, name, paid, annual, order in LEAVE_TYPES:
@@ -674,7 +765,7 @@ class Command(BaseCommand):
         # Old-style rows: no ext row, the way the old program wrote them (status NULL / adays NULL, rejected).
         year_start, year_end = date(today.year, 1, 1), date(today.year, 12, 31)
         leave_writes.write_old_style_grant(
-            people["Болд"], types["annual"], year_start, year_end, 15, "Хуучин системээс"
+            people["Болд"], types["annual"], year_start, year_end, 15, ""
         )
         leave_writes.write_old_style_assign(
             people["Болд"],
@@ -721,17 +812,14 @@ class Command(BaseCommand):
         LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": True})
         bold_user = ensure_ext(people["Болд"]).user or by
         director_user = ensure_ext(people["Энхбаяр"]).user or by
-        self._demo_request(
-            people["Болд"], bold_user, types["annual"], monday_next + timedelta(days=14), 2, "", today
-        )
+        self._demo_request(people["Болд"], bold_user, types["annual"], monday_next + timedelta(days=14), 2, "", today)
         self._demo_request(
             people["Тэмүүлэн"], by, types["personal"], monday_next + timedelta(days=21), 1, "Эмнэлгийн үзлэг", today
         )
-        declined = self._demo_request(
-            people["Ариунаа"], by, types["unpaid"], today - timedelta(days=10), 1, "", today
-        )
+        declined = self._demo_request(people["Ариунаа"], by, types["unpaid"], today - timedelta(days=10), 1, "", today)
         if declined is not None:
             leave_requests.reject(declined, director_user, "Тухайн үед ажлын ачаалал их байсан", today)
+        return types
 
     def _demo_request(
         self, employee: Employee, by: User, leave_type: Any, start: date, days: int, note: str, today: date

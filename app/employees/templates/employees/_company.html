@@ -1,0 +1,28 @@
+{% load charts %}
+<section class="card-soft mb-5 p-4" data-company aria-labelledby="company-title">
+  <div class="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <h2 id="company-title" class="sec-title">Компанийн байдал</h2>
+    {% if company.partial_scope %}<span class="rounded-full bg-violet-50 px-2 text-xs font-medium text-violet-700" data-company-scope>Таны харах ажилтнууд</span>{% endif %}
+    <span class="ml-auto flex gap-3 text-sm text-slate-700"><span>Энэ сард орсон {{ company.hires_month }}</span><span>Гарсан {{ company.leavers_month }}</span></span>
+  </div>
+  {% if company.partial_history %}<p class="mb-2 text-xs text-slate-500">MACS-ийн ажилтны түүх бүрэн биш тул график ойролцоо</p>{% endif %}
+  <div class="mt-3 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div>
+      {% with p=company.headcount|last %}<h3 class="mb-1 flex items-baseline justify-between gap-2 text-xs font-medium text-slate-600"><span>Ажилтны тоо, 12 сар</span><span class="text-sm font-semibold tabular-nums text-slate-800">{% if p.value is not None %}{{ p.value }}{% endif %}</span></h3>{% endwith %}
+      {% line_chart company.headcount "" "Ажилтны тоо, 12 сар" %}
+    </div>
+    <div>
+      {% with p=company.turnover|last %}<h3 class="mb-1 flex items-baseline justify-between gap-2 text-xs font-medium text-slate-600"><span>Сарын эргэлт</span><span class="text-sm font-semibold tabular-nums text-slate-800">{% if p.value is not None %}{{ p.value }}%{% endif %}</span></h3>{% endwith %}
+      {% line_chart company.turnover "%" "Сарын эргэлт" %}
+      <p class="mt-1 text-xs text-slate-400">Сарын эргэлт = гарсан ÷ сарын дундаж ажилтны тоо</p>
+    </div>
+    <div>
+      <h3 class="mb-1 text-xs font-medium text-slate-600">Хэлтсээр</h3>
+      {% bar_chart company.departments "Хэлтсээр" %}
+    </div>
+    <div>
+      <h3 class="mb-1 text-xs font-medium text-slate-600">Ажилласан хугацаа</h3>
+      {% bar_chart company.tenure "Ажилласан хугацаа" %}
+    </div>
+  </div>
+</section>

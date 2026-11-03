@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from accounts.models import User
 from django.utils import timezone
+from employees.slot_kind import kind_of
 from macs.models import NazgRow, OccupationKind, Position
 
 from reports import survey_common
@@ -16,7 +17,6 @@ from reports.types import Column, Report
 
 KIND_LABELS: dict[str, str] = {"Main": "Үндсэн", "Temporary": "Түр"}
 KIND_ORDER: dict[str, int] = {"Main": 0, "Temporary": 1}
-CONTRACT = "yes"  # Employee.contract_flag value of contract staff
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ def _rows(user: User, f: Filters) -> list[NazgLine]:
         job = p.row.job
         if job is None or job.position_id is None:
             continue  # no position: nothing to count against
-        kind = "Temporary" if p.row.employee.contract_flag == CONTRACT else "Main"
+        kind = kind_of(p.row.employee)
         executed[(kind, job.position_id)] += 1
 
     positions: dict[int, Position] = Position.objects.in_bulk({pos for _, pos in budget})

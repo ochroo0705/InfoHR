@@ -4,6 +4,7 @@
 <h1 class="mb-4 text-xl font-semibold">Ажилтан нэмэх</h1>
 {% for e in person.non_field_errors %}<p class="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
 <form id="add-form" method="post" enctype="multipart/form-data" hx-post="{{ request.path }}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML" class="space-y-6 pb-24">{% csrf_token %}
+  {% if candidate_id %}<input type="hidden" name="candidate" value="{{ candidate_id }}">{% endif %}
   <div class="flex flex-col gap-6 md:flex-row">
     <nav role="tablist" aria-label="Табууд" class="flex gap-1 overflow-x-auto md:w-52 md:shrink-0 md:flex-col md:overflow-visible">
       <button type="button" role="tab" data-tab-btn="basic" onclick="showTab('basic')" class="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100">Үндсэн <span data-badge="basic" class="ml-auto rounded-full px-1.5 text-xs font-semibold"></span></button>
@@ -23,7 +24,7 @@
           {% include "employees/_add_field.html" with field=person.birth_date %}
           {% include "employees/_add_field.html" with field=person.gender %}
           {% include "employees/_add_field.html" with field=person.photo %}
-          {% if person.is_bound and person.errors %}<p class="-mt-1 text-xs text-slate-500 md:col-span-2 lg:col-span-3">Зургаа дахин сонгоно уу</p>{% endif %}
+          {% if person.is_bound and person.errors and photo_sent %}<p class="-mt-1 text-xs text-slate-500 md:col-span-2 lg:col-span-3">Зургаа дахин сонгоно уу</p>{% endif %}
           {% include "employees/_add_field.html" with field=person.work_phone %}
           {% include "employees/_add_field.html" with field=person.private_phone %}
           {% include "employees/_add_field.html" with field=person.phone2 %}

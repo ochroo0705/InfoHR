@@ -39,7 +39,7 @@ def _note(f: Filters) -> str:
 
 REPORT = Report(
     key="ages",
-    title="Ажилтнуудын насны судалгаа",
+    title="Насны бүлгээр",
     filters=("state", "as_of", "branch", "department"),
     columns=COLUMNS,
     default_columns=tuple(c.key for c in COLUMNS),

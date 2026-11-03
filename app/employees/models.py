@@ -694,6 +694,18 @@ class CompanySettings(models.Model):
     order_pension = models.BooleanField("Тэтгэвэрт гарсан", default=True)
     order_type_changed = models.BooleanField("Төрөл солигдсон", default=True)
 
+    # Hire and rehire are refused when the position has no free slot (position + branch + year) in the budget
+    # table. Off by default: with "no row = zero slots", switching it on at upgrade would stop all hiring.
+    enforce_position_slots = models.BooleanField(
+        "Орон тоогоор хязгаарлах",
+        default=False,
+        help_text=(
+            "Идэвхжүүлвэл албан тушаал, салбар, оны орон тоо дүүрсэн үед ажилд авах, дахин авахыг хориглоно "
+            "(орон тоог давах эрхтэй хэрэглэгч шалтгаан бичиж зөвшөөрч болно). "
+            "Орон тооны мөр байхгүй бол орон тоо 0 гэж үзнэ."
+        ),
+    )
+
     ORDER_FLAGS = {
         OrderType.HIRED.value: "order_hired",
         OrderType.DEPARTMENT.value: "order_department",
@@ -707,9 +719,14 @@ class CompanySettings(models.Model):
         verbose_name = "Байгууллагын тохиргоо"
         verbose_name_plural = "Байгууллагын тохиргоо"
         default_permissions = ("change", "view")
+        permissions = [
+            ("manage_position_slots", "Орон тооны төлөвлөгөө засах"),
+            ("override_position_slots", "Орон тоо дүүрсэн үед ажилд авахыг зөвшөөрөх"),
+        ]
 
     def __str__(self) -> str:
-        return "Байгууллагын тохиргоо"
+        # The admin success message («… амжилттай») names the row with this: show the company once it is set.
+        return self.name or "Байгууллагын тохиргоо"
 
     @classmethod
     def get(cls) -> "CompanySettings":

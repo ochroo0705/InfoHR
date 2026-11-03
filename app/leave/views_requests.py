@@ -21,10 +21,11 @@ from employees.access import own_employee
 from employees.models import Employee, JobRecord
 from employees.scope import restriction
 from employees.services import history
+from macs.models import LeaveAssign
 
 from leave import access
 from leave.forms import ApproveForm, RejectForm, RequestForm
-from leave.models import ActionKind, LeaveRequest, LeaveRequestAction, RequestStatus, type_ext
+from leave.models import ActionKind, LeaveExt, LeaveRequest, LeaveRequestAction, RequestStatus, type_ext
 from leave.services import ledger, rows
 from leave.services import requests as request_service
 from leave.services.approvers import (
@@ -46,6 +47,7 @@ class Row:
     req: LeaveRequest
     rule: str
     since: datetime | None = None
+    status: str = ""  # shown instead of the request's own status when its leave was cancelled or marked a mistake
 
 
 def _rows(reqs: list[LeaveRequest], day: date) -> list[Row]:
@@ -53,7 +55,31 @@ def _rows(reqs: list[LeaveRequest], day: date) -> list[Row]:
     waiting = [r for r in reqs if r.status == RequestStatus.WAITING]
     rules = approvers_many(waiting, day) if waiting else {}
     since = _waiting_since(waiting)
-    return [Row(r, rules[r.pk].rule.label if r.pk in rules else "", since.get(r.pk)) for r in reqs]
+    leave_status = _leave_status(reqs)
+    return [
+        Row(r, rules[r.pk].rule.label if r.pk in rules else "", since.get(r.pk), leave_status.get(r.pk, ""))
+        for r in reqs
+    ]
+
+
+def _leave_status(reqs: list[LeaveRequest]) -> dict[int, str]:
+    """An approved request whose leave HR later cancelled («Цуцалсан») or marked a mistake («Буруу бүртгэсэн»)
+    shows that state in the list. The request keeps its approved status: only the display reads the leave row."""
+    approved = [r for r in reqs if r.status == RequestStatus.APPROVED and r.assign_id]
+    if not approved:
+        return {}
+    ids = [r.assign_id for r in approved]
+    assigns = LeaveAssign.objects.in_bulk(ids)
+    exts = LeaveExt.objects.in_bulk(ids)
+    shown: dict[int, str] = {}
+    for r in approved:
+        assign = assigns.get(r.assign_id)
+        if assign is None or assign.status != LeaveAssign.CANCELLED:
+            continue
+        ext = exts.get(r.assign_id)
+        state = rows.State.MISTAKE if ext is not None and ext.mistake else rows.State.CANCELLED
+        shown[r.pk] = state.value
+    return shown
 
 
 def _waiting_since(waiting: list[LeaveRequest]) -> dict[int, datetime]:
@@ -214,6 +240,7 @@ def _modal(
         "employee": req.employee,
         "job": job,
         "waiting": waiting,
+        "status_label": _leave_status([req]).get(req.pk) or req.get_status_display(),
         "rule": approvers(req, day).rule.label if waiting else "",
         "may": may,
         "override": override,

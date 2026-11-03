@@ -27,6 +27,7 @@
   <div><dt class="text-slate-500">Салбарт ажилласан жил</dt><dd>{% if form %}{% field form.sector_years "w-20" soft=True %}{% else %}{{ employee.sector_years }}{% endif %}</dd></div>
 </dl>
 <h3 class="sec-title mt-10 mb-3">Хуучин системээс (MACS)</h3>
+<p class="-mt-2 mb-3 text-sm text-slate-500">MACS-аас шилжүүлсэн мэдээлэл</p>
 <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
   <div><dt class="text-slate-500">MACS гэрээний дугаар</dt><dd>{{ employee.contract_no|default:"—" }}</dd></div>
   <div><dt class="text-slate-500">MACS гэрээний хугацаа</dt><dd>{{ employee.contract_start|date:"Y-m-d"|default:"—" }} – {{ employee.contract_end|date:"Y-m-d"|default:"" }}</dd></div>
@@ -44,7 +45,7 @@
     <tr class="{% if w.order %}cursor-pointer hover:bg-violet-50{% endif %}"{% if w.order %} hx-get="{% url 'employees:order_detail' employee.pk w.order.pk %}" hx-target="body" hx-swap="beforeend"{% endif %}>
       <td>{{ w.label }}</td>
       <td class="whitespace-nowrap">{{ w.event.effective|date:"Y-m-d" }}</td>
-      <td class="whitespace-nowrap">{% if not w.order %}<span class="text-slate-400">—</span>{% elif w.order.number %}№ {{ w.order.number }}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}</td>
+      <td class="whitespace-nowrap">{% if not w.order %}<span class="text-slate-400">—</span>{% elif w.order.number %}№ {{ w.order.number }}{% if w.order.date %} / {{ w.order.date|date:"Y" }}{% endif %}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}</td>
       <td>{% include "employees/_awaiting_chip.html" %}</td>
       <td class="text-right">{% if w.cancellable %}<button onclick="event.stopPropagation()" hx-get="{% url 'employees:event_cancel' employee.pk w.event.pk %}" hx-target="#modal" class="rounded px-2 py-1 text-red-600 hover:bg-red-50">Цуцлах</button>{% endif %}</td>
     </tr>{% endfor %}</tbody>
@@ -57,7 +58,7 @@
     <tr class="{% if job.is_cancelled %} text-slate-400 line-through{% endif %}{% if job.order %} cursor-pointer hover:bg-violet-50{% endif %}"{% if job.order %} hx-get="{% url 'employees:order_detail' employee.pk job.order.pk %}" hx-target="body" hx-swap="beforeend"{% endif %}>
       <td>{{ job.label }}{% if job.scheduled %} <span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800 no-underline">Төлөвлөсөн</span>{% endif %}</td>
       {% if job.is_cancelled %}<td>—</td><td>—</td><td>—</td>{% else %}<td>{{ job.position }}</td><td>{{ job.department }}</td><td>{{ job.get_status_display }}</td>{% endif %}
-      <td class="whitespace-nowrap">{% if not job.order %}<span class="text-slate-400">—</span>{% elif job.order.number %}№ {{ job.order.number }}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}{% if job.order.state == 'cancelled' and job.order.cancel_order_no %} <span class="text-xs no-underline">(цуцалсан: № {{ job.order.cancel_order_no }})</span>{% endif %}</td>
+      <td class="whitespace-nowrap">{% if not job.order %}<span class="text-slate-400">—</span>{% elif job.order.number %}№ {{ job.order.number }}{% if job.order.date %} / {{ job.order.date|date:"Y" }}{% endif %}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}{% if job.order.state == 'cancelled' and job.order.cancel_order_no %} <span class="text-xs no-underline">(цуцалсан: № {{ job.order.cancel_order_no }})</span>{% endif %}</td>
       <td>{% if job.order %}{% include "employees/_order_state.html" with order=job.order legacy=None %}{% endif %}</td>
       <td class="whitespace-nowrap">{% if job.is_cancelled %}{{ job.effective|date:"Y-m-d" }}{% else %}{{ job.period.lower|date:"Y-m-d" }} –{% if job.period.upper %} {{ job.period.upper|date:"Y-m-d" }}{% elif job.status == "long_leave" and job.event.expected_return %} <span class="text-slate-500">({{ job.event.expected_return|date:"Y-m-d" }} буцна)</span>{% elif not job.scheduled %} одоо{% endif %}{% endif %}</td>
       <td class="text-right">{% if job.is_cancelled %}{% elif job.cancellable %}<button onclick="event.stopPropagation()" hx-get="{% url 'employees:event_cancel' employee.pk job.event_id %}" hx-target="#modal" class="rounded px-2 py-1 text-red-600 hover:bg-red-50">Цуцлах</button>{% elif can_manage and not job.locked %}<button onclick="event.stopPropagation()" hx-get="{% url 'employees:correct_job' employee.pk job.pk %}" hx-target="#modal" class="text-violet-700 hover:underline">Засвар</button>{% endif %}</td>
@@ -65,3 +66,4 @@
 </table></div>
 {% include "employees/_orders.html" %}
 {% if leave_visible %}{% include "leave/_employee_section.html" %}{% endif %}
+{% for panel in checklist_panels %}{% include "checklists/_employee_section.html" %}{% endfor %}

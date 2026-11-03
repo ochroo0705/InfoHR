@@ -10,6 +10,8 @@ from typing import Any
 from django.http import HttpRequest
 from django.urls import reverse
 
+SLOT_PAGES = ("slots", "slot_add", "slot_edit", "slot_delete")  # the position-slot screen (settings group)
+
 
 @dataclass(frozen=True)
 class NavItem:
@@ -41,6 +43,17 @@ class NavGroup:
         return self.items[0] if len(self.items) == 1 else None
 
 
+def _sees_recruitment(request: HttpRequest) -> bool:
+    """Whether the «Ажилд авах» link shows: asked once per request (kept on the request), as the other nav checks."""
+    cached: bool | None = getattr(request, "_sees_recruitment", None)
+    if cached is None:
+        from recruitment.services.visibility import sees_recruitment  # local import: recruitment imports accounts
+
+        cached = bool(request.user.is_authenticated and sees_recruitment(request.user))
+        request._sees_recruitment = cached  # type: ignore[attr-defined]
+    return cached
+
+
 def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, Any]) -> list[NavGroup]:
     """The groups of the top bar for this user, in order; groups with no link the user may open are left out.
 
@@ -52,6 +65,7 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
     app = match.app_name if match else ""
     name = match.url_name if match else ""
     sees_staff = user.has_perm("macs.view_employees")
+    sees_recruitment = _sees_recruitment(request)
 
     def group(key: str, label: str, *items: NavItem | None) -> NavGroup | None:
         shown = tuple(item for item in items if item is not None)
@@ -71,7 +85,7 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             NavItem(
                 "Ажилтнууд",
                 reverse("employees:list"),
-                app == "employees" and name not in ("today", "orders", "orders_print"),
+                app == "employees" and name not in ("today", "orders", "orders_print", *SLOT_PAGES),
                 icon="people",
                 hint="Жагсаалт, хайлт, хувийн хэрэг",
             ),
@@ -109,6 +123,19 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             else None,
         ),
         group(
+            "recruitment",
+            "Ажилд авах",
+            NavItem(
+                "Ажилд авах",
+                reverse("recruitment:vacancies"),
+                app == "recruitment",
+                icon="people",
+                hint="Ажлын байр, ажил хүсэгчид",
+            )
+            if sees_recruitment
+            else None,
+        ),
+        group(
             "reports",
             "Тайлан",
             NavItem(
@@ -135,6 +162,15 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             "Тохиргоо",
             NavItem("Жагсаалтууд", reverse("lists:index"), app == "lists", icon="list", hint="Сонголтын жагсаалтууд")
             if user.has_perm("lists.manage_lists")
+            else None,
+            NavItem(
+                "Орон тооны төлөвлөгөө",
+                reverse("employees:slots"),
+                app == "employees" and name in SLOT_PAGES,
+                icon="people",
+                hint="Албан тушаал, салбар тус бүрийн орон тоо",
+            )
+            if user.has_perm("employees.manage_position_slots")
             else None,
             NavItem("Админ хэсэг", reverse("admin:index"), icon="gear", hint="Хэрэглэгч, эрх, тохиргоо")
             if getattr(user, "is_staff", False)

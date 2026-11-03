@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Хуудас олдсонгүй{% endblock %}
+{% block content %}
+<div class="mx-auto mt-16 max-w-md text-center">
+  <p class="text-sm font-semibold text-violet-700">404</p>
+  <h1 class="mt-2 text-xl font-semibold">Хуудас олдсонгүй</h1>
+  <p class="mt-3 text-sm text-slate-600">Хаяг буруу байна эсвэл хуудас өөр газар шилжсэн байж магадгүй.</p>
+  <a href="{% url 'home' %}" class="mt-6 inline-block rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Нүүр хуудас руу буцах</a>
+</div>
+{% endblock %}

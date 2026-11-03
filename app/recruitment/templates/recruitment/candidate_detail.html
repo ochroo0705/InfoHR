@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ candidate.surname }} {{ candidate.given_name }}{% endblock %}
+{% block main_width %}max-w-4xl px-4{% endblock %}
+{% block content %}
+<p class="text-sm"><a href="{% url 'recruitment:vacancy_detail' vacancy.pk %}" class="text-violet-700 hover:underline">← {{ vacancy.title }}</a></p>
+<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+  <h1 class="text-xl font-semibold">{{ candidate.surname }} {{ candidate.given_name }}</h1>
+  {% if candidate.stage == "rejected" or candidate.stage == "withdrawn" %}{% include "recruitment/_stage_chip.html" with stage=candidate.stage label=candidate.get_stage_display %}{% endif %}
+</div>
+
+{% if notice %}<p class="mt-3 rounded bg-red-50 p-2 text-sm text-red-700">{{ notice }}</p>{% endif %}
+
+<div class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm">
+  {% if candidate.stage != "rejected" and candidate.stage != "withdrawn" %}
+  <ol class="flex flex-wrap items-center gap-1" aria-label="Шат">
+    {% for key, label, state in progress %}
+    <li class="flex items-center gap-1">
+      {% if not forloop.first %}<span class="text-slate-300">›</span>{% endif %}
+      {% if key in move_to %}<button hx-post="{% url 'recruitment:candidate_move' candidate.pk %}" hx-vals='{"to": "{{ key }}"}' hx-target="#stage-msg" hx-swap="innerHTML" title="{{ label }} шат руу шилжүүлэх" class="rounded-full border px-3 py-1 {% if state == 'done' %}border-violet-200 bg-violet-50 text-violet-800{% else %}border-slate-300 text-slate-600{% endif %} hover:bg-violet-50">{% if state == 'done' %}✓ {% endif %}{{ label }}</button>
+      {% else %}<span class="rounded-full border px-3 py-1 {% if state == 'current' %}border-violet-600 bg-violet-600 font-medium text-white{% elif state == 'done' %}border-violet-200 bg-violet-50 text-violet-800{% else %}border-transparent text-slate-400{% endif %}">{% if state == 'done' %}✓ {% endif %}{{ label }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+  <span class="ml-auto flex items-center gap-2">
+  {% if can_reject %}<button hx-get="{% url 'recruitment:candidate_reject' candidate.pk %}" hx-target="body" hx-swap="beforeend" class="rounded-lg border border-slate-300 px-4 py-2 text-red-600 hover:bg-red-50">Татгалзах</button>{% endif %}
+  {% if can_convert %}<a href="{% url 'recruitment:candidate_convert' candidate.pk %}" class="rounded-lg bg-violet-600 px-4 py-2 text-white hover:bg-violet-700">Ажилд авах</a>{% endif %}
+  {% if can_reopen %}<button hx-post="{% url 'recruitment:candidate_reopen' candidate.pk %}" hx-target="#stage-msg" hx-swap="innerHTML" class="rounded-lg bg-violet-600 px-4 py-2 text-white hover:bg-violet-700">Дахин нээх</button>{% endif %}
+  </span>
+</div>
+<div id="stage-msg" class="mt-2"></div>
+
+<div class="card-soft mt-3 grid gap-x-6 gap-y-2 p-4 text-sm sm:grid-cols-2">
+  <div><div class="text-xs text-slate-500">Ажлын байр</div><a href="{% url 'recruitment:vacancy_detail' vacancy.pk %}" class="text-violet-700 hover:underline">{{ vacancy.title }}</a></div>
+  <div><div class="text-xs text-slate-500">Эх сурвалж</div>{{ candidate.source|default:"—" }}</div>
+  <div><div class="text-xs text-slate-500">Утас</div>{{ candidate.phone|default:"—" }}</div>
+  <div><div class="text-xs text-slate-500">И-мэйл</div>{{ candidate.email|default:"—" }}</div>
+  {% if candidate.notes %}<div class="sm:col-span-2"><div class="text-xs text-slate-500">Тэмдэглэл</div><p class="whitespace-pre-line">{{ candidate.notes }}</p></div>{% endif %}
+  {% if candidate.reject_reason %}<div class="sm:col-span-2"><div class="text-xs text-slate-500">Татгалзсан шалтгаан</div><p class="whitespace-pre-line">{{ candidate.reject_reason }}</p></div>{% endif %}
+  {% if employee_visible %}<div class="sm:col-span-2"><div class="text-xs text-slate-500">Ажилтан</div><a href="{% url 'employees:detail' candidate.employee_id %}" class="text-violet-700 hover:underline">Ажилтны хуудас нээх</a></div>{% endif %}
+</div>
+
+<section class="mt-5"><h2 class="sec-title mb-2">Файл</h2>{% include "recruitment/_files.html" %}</section>
+
+<section class="mt-5"><h2 class="sec-title mb-2">Сэтгэгдэл</h2>{% include "recruitment/_comments.html" %}</section>
+
+<section class="mt-5">
+  <h2 class="sec-title mb-2">Шатны түүх</h2>
+  <div class="ptable"><table class="w-full text-sm">
+    <thead><tr><th class="text-left">Огноо</th><th class="text-left">Шат</th><th class="text-left">Тайлбар</th><th class="text-left">Хэн</th></tr></thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="whitespace-nowrap">{{ e.at|date:"Y-m-d H:i" }}</td>
+        <td>{% if e.from_stage %}{{ e.get_from_stage_display }} → {% endif %}{{ e.get_to_stage_display }}</td>
+        <td class="text-slate-600">{{ e.note|default:"—" }}</td>
+        <td class="text-slate-500">{{ e.by.get_full_name|default:e.by.username|default:"—" }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="4" class="py-6 text-center text-slate-400">Түүх бүртгэгдээгүй</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

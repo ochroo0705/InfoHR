@@ -1,7 +1,8 @@
 import io
 import logging
 import re
-from datetime import date
+from collections.abc import Mapping
+from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
@@ -14,6 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import Q, QuerySet
+from django.forms.utils import ErrorDict
 from django.http import (
     FileResponse,
     Http404,
@@ -34,7 +36,7 @@ from macs.models import Absence, Command
 from reports.registry import can_open
 from reports.staff_list import REPORT as STAFF_LIST
 
-from employees import access, attention, palette, sections, stale
+from employees import access, attention, company_stats, palette, sections, stale
 from employees import today as facts
 from employees.forms import (
     BIRTH_FIELDS,
@@ -58,13 +60,14 @@ from employees.forms import (
     SetSalaryForm,
 )
 from employees.images import attach_photo_digests
-from employees.listing import STATE_LABELS, Row, current_salary, employee_rows, row_for
+from employees.listing import STATE_LABELS, Row, current_salary, employee_rows, is_working, row_for
 from employees.models import (
     EXT_FIELDS,
     PERSONAL_FIELDS,
     ActivityEntry,
     ChangeType,
     CompanySettings,
+    ContractType,
     Department,
     Employee,
     EmployeeType,
@@ -87,6 +90,7 @@ from employees.services import (
     personal_rows,
     records,
     setup,
+    slots,
 )
 from employees.services import personal_writes as pw
 from employees.services.events import ALLOWED_FIELDS, SALARY_TYPES, EventError
@@ -128,7 +132,7 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     today = timezone.localdate()
     rows = employee_rows(qs, today)
     state = request.GET.get("state", "")
-    rows = [r for r in rows if r.state == state] if state else [r for r in rows if r.state != "left"]
+    rows = [r for r in rows if r.state == state] if state else [r for r in rows if is_working(r)]  # not upcoming
     dept = request.GET.get("department", "")
     if dept:
         rows = [r for r in rows if r.job and str(r.job.department_id) == dept]
@@ -174,19 +178,47 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     return response
 
 
+AWAY_SHADES = ((10, "bg-sky-600 text-white"), (5, "bg-sky-400"))  # (% of headcount at least, class), darkest first
+
+
+def away_cells(strip: facts.AwayStrip, headcount: int) -> list[SimpleNamespace]:
+    """One cell per day of the Today strip, with its shade: 0 people sky-50, 1 or more sky-200, from 5 % of the
+    headcount sky-400, from 10 % sky-600; a weekend or public holiday is slate-100 and not clickable."""
+    cells = []
+    for day, count in zip(strip.days, strip.counts, strict=True):
+        if day.off or count is None:
+            shade = "bg-slate-100 text-slate-400"
+        elif count == 0:
+            shade = "bg-sky-50 text-slate-500"
+        else:
+            shade = next(
+                (cls for pct, cls in AWAY_SHADES if headcount and count * 100 >= pct * headcount),
+                "bg-sky-200",
+            )
+        cells.append(SimpleNamespace(day=day, count=count, shade=shade))
+    return cells
+
+
 @login_required
 def today_page(request: HttpRequest) -> HttpResponse:
-    """Home page: what needs HR's eye today (attention list, who is away, upcoming dates)."""
+    """Home page: tiles, the attention box, who is away (counts), upcoming dates (counts), company figures.
+
+    Names of people away or with a birthday are not on the page; they load per click through the fragments."""
     user, today = _user(request), timezone.localdate()
     rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
+    facts.prime_exts(rows)  # one query for every HR row: the attention rules read it per person
+    headcount = facts.headcount(rows)
+    strip = facts.away_strip(user, rows, today)
     context: dict[str, Any] = {
         "today": today,
-        "headcount": facts.headcount(rows),
+        "headcount": headcount,
         "away": facts.away_on(user, rows, today),
         "pending_orders": facts.pending_orders(user, rows),
-        "upcoming": facts.upcoming(user, rows, today),
-        "timeline": facts.away_timeline(user, rows, today),
-        "can_open_leave": leave_access.can_record(user),
+        "away_strip": strip,
+        "away_cells": away_cells(strip, headcount),
+        "upcoming_counts": facts.upcoming_counts(facts.upcoming(user, rows, today)),
+        "show_birthdays": user.has_perm("macs.view_personal"),  # without it the count is always 0: no line
+        "company": company_stats.company(user, rows, today),
         "attention_open": True,
     }
     context.update(_attention_context(user, attention.items(user, rows, today)))
@@ -195,11 +227,47 @@ def today_page(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_GET
+def today_away(request: HttpRequest) -> HttpResponse:
+    """The names of people away on one day of the Today strip (`?day=YYYY-MM-DD`, inside the 14-day window)."""
+    user, today = _user(request), timezone.localdate()
+    try:
+        day = date.fromisoformat(request.GET.get("day", ""))
+    except ValueError:
+        raise Http404 from None
+    if not today <= day < today + timedelta(days=facts.WINDOW_DAYS):
+        raise Http404
+    rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
+    facts.prime_exts(rows)
+    response = render(request, "employees/_today_away.html", {"away": facts.away_on_day(user, rows, day), "day": day})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@login_required
+@require_GET
+def today_upcoming(request: HttpRequest) -> HttpResponse:
+    """The birthdays or the work anniversaries in the next 30 days (`?kind=birthday|anniversary`)."""
+    user, today = _user(request), timezone.localdate()
+    kind = request.GET.get("kind", "")
+    if kind not in ("birthday", "anniversary"):
+        raise Http404
+    rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
+    facts.prime_exts(rows)  # the personal-data check reads each person's HR row (own record)
+    found = [u for u in facts.upcoming(user, rows, today) if u.kind == kind]
+    response = render(request, "employees/_today_upcoming.html", {"upcoming": found, "kind": kind})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@login_required
 @require_POST
 def attention_toggle(request: HttpRequest) -> HttpResponse:
     """ "Мэдлээ" / "Дахин харуулах" on one Анхаарах item; returns the box."""
     user, today = _user(request), timezone.localdate()
-    found = attention.items(user, employee_rows(access.visible_employees(user), today), today)
+    rows = employee_rows(access.visible_employees(user), today)
+    facts.prime_exts(rows)  # one query for every HR row: the attention rules read it per person
+    found = attention.items(user, rows, today)
     keys = set(request.POST.getlist("key"))
     picked = [a for a in found if a.key in keys]
     if not picked:
@@ -215,9 +283,10 @@ def attention_toggle(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_GET
 def attention_more(request: HttpRequest) -> HttpResponse:
-    """The items of one Анхаарах group past the first `GROUP_LIMIT`, loaded when «+N» is pressed."""
+    """The items of one Анхаарах group past the first `GROUP_LIMIT`, loaded when «Бүгдийг харах» is pressed."""
     user, today = _user(request), timezone.localdate()
     rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
+    facts.prime_exts(rows)  # one query for every HR row: the attention rules read it per person
     shown, _ = attention.split(user, attention.items(user, rows, today))
     kind, urgency = request.GET.get("kind", ""), request.GET.get("urgency", "")
     found = next((g for g in attention.group(shown) if g.kind == kind and str(g.urgency) == urgency), None)
@@ -301,6 +370,13 @@ def _awaiting_rows(employee: Employee, user: User, can_salary: bool) -> list[Any
 
 def leave_today() -> date:
     return timezone.localdate()
+
+
+def _checklist_section(user: User, employee: Employee, today: date) -> dict[str, object]:
+    """Context of the employee page's checklist panels (`checklist_visible` False when the user sees none of them)."""
+    from checklists.views import section_context  # local: checklists imports employees
+
+    return section_context(user, employee, today)
 
 
 def _leave_section(user: User, employee: Employee, today: date) -> dict[str, object]:
@@ -475,6 +551,7 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
         **_activity_context(activity),
         "can_manage": can_manage,
         **_leave_section(user, employee, leave_today()),
+        **_checklist_section(user, employee, today),
         "can_view_salary": can_salary,
         "can_manage_salary": access.can_manage_salary(user),
         "can_view_personal": can_view_personal,
@@ -502,12 +579,82 @@ def employee_detail(request: HttpRequest, pk: int) -> HttpResponse:
     return response
 
 
+def _start_onboarding(employee: Employee, job_values: dict[str, Any], start: date, user: User) -> None:
+    """The hire is committed: start its onboarding checklist (tracking only; never fails the hire)."""
+    from checklists.services import onboarding  # local: checklists imports employees
+
+    employee_type = job_values.get("employee_type")
+    onboarding.start_for_hire(
+        employee, start_date=start, employee_type=str(employee_type) if employee_type else None, by=user
+    )
+
+
+HIRE_PREFILL_PERSON = ("family_name", "given_name", "private_phone", "email")
+HIRE_PREFILL_JOB = ("position", "department", "branch", "start")
+
+
+def _prefill_hire_forms(values: Mapping[str, str], person: EmployeeForm, job: HireJobForm) -> None:
+    """Start a fresh hire form from GET values (the recruitment «Ажилд авах» link); only these named fields, and the
+    form still validates everything on POST. A bad date or id is dropped."""
+    for name in HIRE_PREFILL_PERSON:
+        if values.get(name):
+            person.initial[name] = values[name].strip()
+    for name in ("position", "department", "branch"):
+        if values.get(name, "").isdigit() and values[name].isascii():
+            job.initial[name] = int(values[name])
+    try:
+        job.initial["start"] = date.fromisoformat(values.get("start", ""))
+    except ValueError:
+        pass
+
+
+def _convertible_candidate(user: User, raw: str | None) -> Any:
+    from recruitment.services import convert  # local: recruitment imports employees
+
+    return convert.convertible(user, raw)
+
+
+CANDIDATE_GONE = "Энэ ажил хүсэгч аль хэдийн ажилд авагдсан эсвэл хаагдсан байна. Хуудсыг дахин нээнэ үү."
+
+
+class _CandidateGone(Exception):
+    """The posted candidate cannot be converted any more; the hire is rolled back."""
+
+
+def _visible_candidate(user: User, raw: str | None) -> bool:
+    from recruitment.services import convert  # local: recruitment imports employees
+
+    return convert.visible(user, raw) is not None
+
+
+def _link_candidate_locked(candidate_id: int, employee: Employee, user: User) -> None:
+    """Inside the hire transaction: lock the candidate and link it, or raise `_CandidateGone` (rolls the hire back)."""
+    from recruitment.services import convert, pipeline  # local: recruitment imports employees
+
+    locked = convert.lock_convertible(candidate_id)
+    if locked is None:
+        raise _CandidateGone
+    try:
+        pipeline.mark_hired(locked, employee, by=user)
+    except pipeline.PipelineError as error:
+        raise _CandidateGone from error
+
+
 @login_required
 def employee_add(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_manage(user))
     person = HirePersonForm(request.POST or None, request.FILES or None)
     job = HireJobForm(request.POST or None, user=user)
+    # Convert from recruitment: the candidate this hire may link to (a bad or foreign value is ignored silently).
+    posted = request.POST if request.method == "POST" else request.GET
+    candidate = _convertible_candidate(user, posted.get("candidate"))
+    cid = candidate.pk if candidate is not None else None
+    # A candidate this user sees but can no longer convert (hired in another tab, closed) must not be dropped
+    # silently on POST: that would hire the person twice. Only a missing, bad or foreign value is ignored.
+    gone = request.method == "POST" and candidate is None and _visible_candidate(user, posted.get("candidate"))
+    if request.method != "POST":
+        _prefill_hire_forms(request.GET, person, job)
     extras = HireExtrasForm(request.POST or None)
     allow_salary = access.can_manage_salary(user)
     si = SalaryInsuranceForm(request.POST or None, prefix="si") if allow_salary else None
@@ -516,6 +663,11 @@ def employee_add(request: HttpRequest) -> HttpResponse:
     # An install that keeps hire orders on paper (CompanySettings, D-052) gets no order fields and no order.
     hire_order = orders.requires_order(OrderType.HIRED.value)
     order_form = OrderFieldsForm(request.POST or None, prefix="order") if hire_order else None
+    if gone:
+        person.add_error(None, CANDIDATE_GONE)
+        return _hire_form(
+            request, person, job, extras, allow_salary, si, address, contact, order_form, status=400, candidate_id=None
+        )
     if (
         request.method == "POST"
         and person.is_valid()
@@ -536,6 +688,15 @@ def employee_add(request: HttpRequest) -> HttpResponse:
         contact_values = contact.values()[0] if contact.filled() else None
         try:
             with transaction.atomic():
+                slots.gate(  # inside the hire transaction: the budget rows stay locked until the hire commits
+                    position=job_values["position"],
+                    branch=columns["branch"],
+                    contract_flag=_hire_contract_flag(job_values, ext),
+                    on=job.cleaned_data["start"],
+                    override_reason=job.cleaned_data.get("slot_override", ""),
+                    by=user,
+                    employee_label=f"{columns.get('family_name', '')} {columns.get('given_name', '')}".strip(),
+                )
                 employee = history.hire(
                     columns,
                     ext,
@@ -572,17 +733,87 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                         "username": login.username,
                         "password": password,
                     }
+                if cid is not None:  # locked and re-checked here, so two posts cannot both hire this candidate
+                    _link_candidate_locked(cid, employee, user)
+        except slots.SlotBlocked as error:  # nothing was written: the gate runs before the hire
+            person.add_error(None, error.message)
+            return _hire_form(
+                request,
+                person,
+                job,
+                extras,
+                allow_salary,
+                si,
+                address,
+                contact,
+                order_form,
+                status=400,
+                candidate_id=cid,
+            )
+        except _CandidateGone:  # the hire is rolled back; nothing was saved
+            request.session.pop(ONE_TIME_LOGIN_KEY, None)
+            person.add_error(None, CANDIDATE_GONE)
+            return _hire_form(
+                request,
+                person,
+                job,
+                extras,
+                allow_salary,
+                si,
+                address,
+                contact,
+                order_form,
+                status=400,
+                candidate_id=None,
+            )
         except pw.PersonalConflict as error:  # the hire is rolled back with the address or contact
             person.add_error(None, str(error))
-            return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, status=400)
+            return _hire_form(
+                request,
+                person,
+                job,
+                extras,
+                allow_salary,
+                si,
+                address,
+                contact,
+                order_form,
+                status=400,
+                candidate_id=cid,
+            )
         except OrderError as error:  # the hire is rolled back with its order
             if order_form is not None:
                 order_form.add_service_errors(error.errors)
-            return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, status=400)
+            return _hire_form(
+                request,
+                person,
+                job,
+                extras,
+                allow_salary,
+                si,
+                address,
+                contact,
+                order_form,
+                status=400,
+                candidate_id=cid,
+            )
         except (IntegrityError, DataError) as exc:
             person.add_error(None, DB_REFUSED)
             logger.warning("employee write refused: %s", exc)
-            return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, status=400)
+            return _hire_form(
+                request,
+                person,
+                job,
+                extras,
+                allow_salary,
+                si,
+                address,
+                contact,
+                order_form,
+                status=400,
+                candidate_id=cid,
+            )
+        _start_onboarding(employee, job_values, job.cleaned_data["start"], user)
         _remember_warning(request, HrOrder.objects.filter(employee=employee, is_hire=True).first())
         # A limited user may hire outside their scope: that page would 404, so the list opens instead.
         if access.visible_employees(user).filter(pk=employee.pk).exists():
@@ -594,7 +825,17 @@ def employee_add(request: HttpRequest) -> HttpResponse:
             response["HX-Redirect"] = url
             return response
         return redirect(url)
-    return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form)
+    return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, candidate_id=cid)
+
+
+def _hire_contract_flag(job_values: dict[str, Any], ext: dict[str, Any]) -> str:
+    """The MACS contract flag the hire will get, from the submitted values (as history.hire derives the type)."""
+    emptype = job_values.get("emptype")
+    if emptype is None:
+        emptype = (
+            9 if ext.get("probation_end") else 5 if job_values.get("contract_type") == ContractType.FIXED_TERM else 1
+        )
+    return macs_writes.EMPTYPE_FLAGS.get(emptype, ("", "no", None))[1]
 
 
 def _hire_form(
@@ -608,8 +849,10 @@ def _hire_form(
     contact: HireContactForm,
     order_form: OrderFieldsForm | None,
     status: int = 200,
+    candidate_id: int | None = None,
 ) -> HttpResponse:
     context = {
+        "candidate_id": candidate_id,
         "person": person,
         "job": job,
         "extras": extras,
@@ -618,6 +861,8 @@ def _hire_form(
         "address": address,
         "contact": contact,
         "order_form": order_form,
+        # the photo hint asks for a picture again only when this failed POST carried one
+        "photo_sent": bool(request.FILES.get("photo")),
     }
     # htmx ignores 4xx responses, so the in-place error swap always answers 200 there.
     return render(request, "employees/add.html", context, status=200 if request.headers.get("HX-Request") else status)
@@ -683,8 +928,11 @@ def _done(employee: Employee) -> HttpResponse:
     return response
 
 
-def _modal(request: HttpRequest, title: str, form: object, action: str, hint: str = "") -> HttpResponse:
-    return render(request, "employees/_modal.html", {"title": title, "form": form, "action": action, "hint": hint})
+def _modal(
+    request: HttpRequest, title: str, form: object, action: str, hint: str = "", submit_label: str = "Хадгалах"
+) -> HttpResponse:
+    context = {"title": title, "form": form, "action": action, "hint": hint, "submit_label": submit_label}
+    return render(request, "employees/_modal.html", context)
 
 
 def _require(allowed: bool) -> None:
@@ -1198,6 +1446,14 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
             if "prev_effective" in request.GET and f"order-{name}" in request.GET
         }
         order_form = OrderFieldsForm(request.POST or None, prefix="order", initial=typed_order)
+    # A date typed in an open form (GET), read by the form itself: DateField takes more formats than ISO.
+    typed_date: EventForm | None = None
+    if request.method == "GET" and request.GET.get("effective") and not request.GET.get("summary"):
+        typed_date = EventForm(
+            type, request.GET, with_salary=with_salary, start_missing=missing, user=user, employee=employee
+        )
+        typed_date.full_clean()
+    prev_value: str | None = None  # the hidden prev_effective, when it must differ from the form's date
     if request.method == "POST":
         form = EventForm(
             type, request.POST, with_salary=with_salary, start_missing=missing, user=user, employee=employee
@@ -1218,6 +1474,16 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
                 if order_form is not None
                 else {}
             )
+            if type == EventType.TERMINATION:
+                from checklists.services import gate  # local: checklists imports employees
+
+                fired = data.get("fired_reason")
+                gate.prepare(
+                    employee, reason=str(fired.pk) if fired is not None else None, anchor_day=data["effective"], by=user
+                )
+                order_kwargs["offboarding_override"] = data.get("offboarding_override", "")
+            if type == EventType.REHIRE:
+                order_kwargs["slot_override"] = data.get("slot_override", "")
             try:
                 event = events.record(
                     employee,
@@ -1244,6 +1510,12 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
                     else:
                         form.add_error(name if name in form.fields else None, message)
         effective = form.cleaned_data.get("effective") if hasattr(form, "cleaned_data") else None
+        # The hidden prev_effective must be a real date or empty: the typed text would break the next date change.
+        if effective is not None:
+            prev_value = effective.isoformat()
+        else:
+            previous_valid = _parse_day(request.POST.get("prev_effective"))
+            prev_value = previous_valid.isoformat() if previous_valid else ""
         summary = _event_summary(employee, form)
     elif request.GET.get("summary"):
         form = EventForm(
@@ -1251,8 +1523,18 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
         )
         form.full_clean()
         return render(request, "employees/_event_summary.html", {"summary": _event_summary(employee, form)})
+    elif typed_date is not None and "effective" in typed_date.errors:
+        # A date typed but not real (2026-13-45): keep what was typed and show the error, never replace it with today.
+        # The hidden prev_effective stays the last real date, so a correction keeps what was typed meanwhile.
+        form = typed_date
+        # Only the date's own error: the other fields are untouched while the date is still being typed.
+        form._errors = ErrorDict((name, errs) for name, errs in typed_date.errors.items() if name == "effective")
+        effective = None
+        summary = ""
+        previous_valid = _parse_day(request.GET.get("prev_effective"))
+        prev_value = previous_valid.isoformat() if previous_valid else ""
     else:
-        effective = _parse_day(request.GET.get("effective")) or today
+        effective = typed_date.cleaned_data["effective"] if typed_date is not None else today
         initial = _event_initial(employee, type, effective, with_salary)
         initial["reason"] = request.GET.get("reason", "")
         initial["note"] = request.GET.get("note", "")
@@ -1285,6 +1567,10 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
             "hx-params": "not csrfmiddlewaretoken",
         }
     )
+    if form.is_bound and "effective" in form.errors:
+        # A date box would blank the value it cannot hold: a text box keeps it, and datepicker.js still enhances it.
+        form.fields["effective"].widget.input_type = "text"
+        form.fields["effective"].widget.attrs["data-datepicker"] = ""
     placement = type in events.PLACEMENT_TYPES
     context = {
         "title": events.PLACEMENT_LABEL if placement else EventType(type).label,
@@ -1295,6 +1581,7 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
         if placement
         else [],
         "form": form,
+        "prev_effective": prev_value,
         "order_form": order_form,
         "action": request.path,
         "summary": summary,
@@ -1326,10 +1613,21 @@ def event_cancel(request: HttpRequest, pk: int, event_id: int) -> HttpResponse:
         except EventError as error:
             for name, message in error.errors.items():
                 form.add_error(name if name in form.fields else None, message)
-    hint = ""
+    hint = "Өөрчлөлт цуцлагдсан гэж түүхэнд үлдэнэ."
+    if order is not None:
+        hint = "Өөрчлөлт болон түүний тушаал цуцлагдсан гэж түүхэнд үлдэнэ."
+    if event.applied_at is not None:  # events.cancel undoes the job and salary rows of an applied change
+        hint += " Өөрчлөлт аль хэдийн бүртгэгдсэн бол ажилтны албан тушаал, цалин өмнөх утгад буцна."
     if order is not None and order.state == OrderState.SIGNED:
-        hint = f"Цуцлах дугаар нь № {order.number} тушаалыг хүчингүй болгосон ШИНЭ тушаалын дугаар."
-    return _modal(request, f"Цуцлах: {event.get_type_display()} ({event.effective:%Y-%m-%d})", form, request.path, hint)
+        hint += f" Цуцлах дугаар нь № {order.number} тушаалыг хүчингүй болгосон ШИНЭ тушаалын дугаар."
+    return _modal(
+        request,
+        f"Цуцлах: {event.get_type_display()} ({event.effective:%Y-%m-%d})",
+        form,
+        request.path,
+        hint,
+        submit_label="Цуцлах",
+    )
 
 
 # --- Orders (тушаал) ---
@@ -1498,9 +1796,14 @@ def order_cancel(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
             return _done(employee)
         except OrderError as error:
             form.add_error(None, "; ".join(error.errors.values()))
-    hint = "Өөрчлөлт өөрөө хэвээр үлдэнэ."
+    hint = "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана."
     return _modal(
-        request, f"Тушаал цуцлах: {order.get_order_type_display()} № {order.number}", form, request.path, hint
+        request,
+        f"Тушаал цуцлах: {order.get_order_type_display()} № {order.number}",
+        form,
+        request.path,
+        hint,
+        submit_label="Цуцлах",
     )
 
 

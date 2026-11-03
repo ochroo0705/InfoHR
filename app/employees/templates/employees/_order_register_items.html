@@ -2,7 +2,7 @@
 {% for r in rows %}
     <tr class="cursor-pointer border-t border-slate-100 hover:bg-violet-50{% if r.state == 'cancelled' %} text-slate-400 line-through{% endif %}" {% if r.order_id %}hx-get="{% url 'employees:order_detail' r.employee_id r.order_id %}" hx-target="body" hx-swap="beforeend"{% else %}onclick="location.href='{% url 'employees:detail' r.employee_id %}'"{% endif %}>
       {% if can_manage %}<td class="w-8" onclick="event.stopPropagation()">{% if r.order_id and r.state != 'cancelled' %}<input type="checkbox" value="{{ r.order_id }}" aria-label="Тушаал сонгох" class="order-pick rounded border-slate-300">{% endif %}</td>{% endif %}
-      <td class="py-2 whitespace-nowrap">{% if r.number %}№ {{ r.number }}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}</td>
+      <td class="py-2 whitespace-nowrap">{% if r.number %}№ {{ r.number }}{% if r.date %} / {{ r.date|date:"Y" }}{% endif %}{% else %}<span class="italic text-amber-700 no-underline">дугаар хүлээгдэж байна</span>{% endif %}</td>
       <td class="whitespace-nowrap">{{ r.date|date:"Y-m-d"|default:"—" }}</td>
       <td>{{ r.employee_name }}</td>
       <td>{{ r.department }}</td>

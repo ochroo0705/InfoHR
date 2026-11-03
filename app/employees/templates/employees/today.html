@@ -27,32 +27,9 @@
   </a>
 </div>
 
-{% include "employees/_away_timeline.html" %}
+{% include "employees/_attention.html" %}
 
-<div class="grid gap-5 lg:grid-cols-[3fr_2fr]">
-  <div>{% include "employees/_attention.html" %}</div>
+{% include "employees/_today_strip.html" %}
 
-  <div class="space-y-5">
-    <section class="card-soft p-4" aria-labelledby="away-title">
-      <h2 id="away-title" class="sec-title mb-2">Өнөөдөр чөлөөтэй</h2>
-      {% for a in away %}
-      <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm last:border-0">
-        <a href="{% url 'employees:detail' a.row.employee.pk %}" class="text-violet-700 hover:underline">{{ a.row.employee.full_name }}</a>
-        <span class="text-right text-slate-500">{{ a.label }} · {{ a.until|date:"Y-m-d" }} хүртэл</span>
-      </div>
-      {% empty %}<p class="text-sm text-slate-400">Өнөөдөр чөлөөтэй хүн алга.</p>{% endfor %}
-      {% if perms.leave.view_leave %}<a href="{% url 'leave:calendar' %}" class="mt-2 inline-block text-xs text-violet-700 hover:underline">Багийн хуанли →</a>{% endif %}
-    </section>
-
-    <section class="card-soft p-4" aria-labelledby="upcoming-title">
-      <h2 id="upcoming-title" class="sec-title mb-2">Ойрын 30 хоног</h2>
-      {% for u in upcoming %}
-      <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm last:border-0">
-        <span>{% if u.kind == "birthday" %}Төрсөн өдөр{% else %}{{ u.years }} жилийн ой{% endif %} · <a href="{% url 'employees:detail' u.row.employee.pk %}" class="text-violet-700 hover:underline">{{ u.row.employee.full_name }}</a></span>
-        <span class="text-slate-500">{{ u.on|date:"Y-m-d" }}</span>
-      </div>
-      {% empty %}<p class="text-sm text-slate-400">Ойрын 30 хоногт төрсөн өдөр, ойн огноо алга.</p>{% endfor %}
-    </section>
-  </div>
-</div>
+{% if company %}{% include "employees/_company.html" %}{% endif %}
 {% endblock %}

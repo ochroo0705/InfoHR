@@ -1,10 +1,10 @@
-"""Demo database helper: a separate database `info_hr_demo` filled with Mongolian demo data.
+"""The one HR database, `info_hr_demo`, filled with Mongolian demo data (the project's only database since 2026-11-03).
 
 Usage (from the repo root, venv active):
     python scripts/demo.py reset   # drop + create info_hr_demo, migrate, seed_demo
     python scripts/demo.py run     # runserver on http://localhost:8001 against info_hr_demo
 
-Your real dev database (info_hr) is never touched.
+`.env` DATABASE_URL points at the same database, so `manage.py` and the tests (test_info_hr_demo) use it too.
 """
 
 import os
@@ -32,11 +32,12 @@ def reset() -> None:
     import psycopg
 
     db = settings.DATABASES["default"]
-    # Connect to the main database to drop/create the demo one (the app role has CREATEDB and owns it).
+    # Connect to the maintenance database to drop/create the demo one (the app role has CREATEDB and owns it);
+    # it cannot drop the database it is connected to.
     with psycopg.connect(
         host=db["HOST"],
         port=db["PORT"] or 5432,
-        dbname=db["NAME"],
+        dbname="postgres",
         user=db["USER"],
         password=db["PASSWORD"],
         autocommit=True,

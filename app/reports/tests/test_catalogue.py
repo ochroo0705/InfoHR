@@ -28,7 +28,7 @@ def test_view_reports_granted_by_role(client: Client, login_as: Callable[..., Us
 def test_catalogue_lists_every_report_greyed_until_built(client: Client, login_as: Callable[..., User]) -> None:
     login_as(client, "HR")
     page = client.get("/reports/").content.decode()
-    assert "Ээлжийн амралтын тайлан" in page and "frmVacReport" in page
+    assert "Ээлжийн амралт: эрх, эдэлсэн, үлдсэн" in page and "frmVacReport" in page
     assert page.count("удахгүй") == 33 - len(REPORTS)  # stays true as later tasks register reports
     assert 'href="/reports/performance/"' in page  # built (phase 5, task 8): a link, not greyed
 
@@ -59,3 +59,27 @@ def test_built_report_is_a_link_and_marks_empty_source(
     page = client.get("/reports/").content.decode()
     assert 'href="/reports/annual-leave/"' in page
     assert "бүртгэл алга" in page
+
+
+def test_catalogue_q_filters_the_cards_on_the_server(client: Client, login_as: Callable[..., User]) -> None:
+    login_as(client, "HR")
+    word = "ээлжийн амралт"
+    page = client.get("/reports/", {"q": "ЭЭЛЖИЙН АМРАЛТ"}).content.decode()  # case does not matter
+    assert 'value="ЭЭЛЖИЙН АМРАЛТ"' in page  # the search box is prefilled with the word
+    assert "Ээлжийн амралт: эрх, эдэлсэн, үлдсэн" in page
+    expected = sum(
+        1 for e in CATALOGUE if word in " ".join([e.title, e.old_form, e.description, *e.aliases]).lower()
+    )
+    assert 0 < expected < len(CATALOGUE)
+    assert page.count("data-report-card data-search=") == expected  # only the matching cards are drawn
+
+    nothing = client.get("/reports/", {"q": "zzzz-нет-такой"}).content.decode()
+    assert nothing.count("data-report-card data-search=") == 0
+
+
+def test_catalogue_heading_says_macs_not_the_old_program(client: Client, login_as: Callable[..., User]) -> None:
+    login_as(client, "HR")
+    page = client.get("/reports/").content.decode()
+    assert "MACS-ийн бүх тайлан" in page
+    assert "MACS-д байсан тайлангууд, шинэ системд хэвээр" in page
+    assert "Хуучин програмын бүх тайлан" not in page

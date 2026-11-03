@@ -1,0 +1,17 @@
+{# The user's own open tasks as one rounded card (My page, checklists:mine). Expects `tasks` (list of {task, overdue}) and `next_url` (where a tick returns to). #}
+<ul class="divide-y divide-slate-100 overflow-hidden rounded-xl bg-surface shadow-sm">
+  {% for t in tasks %}{% with task=t.task %}
+  <li class="flex items-center justify-between gap-3 px-4 py-3">
+    <span class="min-w-0">
+      <span class="block font-medium">{{ task.title }}</span>
+      <span class="block text-sm text-slate-500">{{ task.checklist.employee.full_name }} · <span class="rounded bg-slate-100 px-1.5 text-xs text-slate-600">{{ task.checklist.get_kind_display }}</span></span>
+      <span class="block text-sm {% if t.overdue %}font-medium text-red-700{% else %}text-slate-500{% endif %}">Хугацаа {{ task.due_on|date:"Y-m-d" }}</span>
+    </span>
+    <form method="post" action="{% url 'checklists:tick' task.pk %}" class="shrink-0">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хийгдсэн</button>
+    </form>
+  </li>
+  {% endwith %}{% endfor %}
+</ul>

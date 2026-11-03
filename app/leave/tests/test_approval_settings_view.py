@@ -195,3 +195,12 @@ def test_attention_item_clears_after_save() -> None:
     admin = _in_group("Admin")
     _client(admin).post(reverse("leave:settings"), {"step1": "manager", "step2": ""})
     assert REMOVED_TEXT not in _attention_texts(admin)
+
+
+def test_type_form_explains_order_and_checkboxes(annual: LeaveTypeRow) -> None:
+    body = _client(_in_group("Admin")).get(reverse("leave:type_edit", args=[annual.pk])).content.decode()
+    assert "Жагсаалтад гарах дараалал" in body
+    assert "Тэмдэглэгээ: энэ төрлийн чөлөө цалинтай эсэхийг харуулна." in body
+    assert "Авсан хоног ээлжийн амралтын эрх, үлдэгдлээс хасагдана." in body
+    assert "Унтраавал чөлөө бүртгэх жагсаалтад энэ төрөл харагдахгүй." in body
+    assert "Унтраавал ажилтан өөрөө хүсэлт гаргаж чадахгүй; HR шууд бүртгэнэ." in body

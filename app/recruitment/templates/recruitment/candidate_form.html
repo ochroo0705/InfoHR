@@ -1,0 +1,27 @@
+{# Add candidate pop-up (UI_RULES 6). With `error` and no form (vacancy not open) it only explains why. #}
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-1 text-lg font-semibold">{{ title }}</h2>
+    <p class="mb-4 text-sm text-slate-500">{{ vacancy.title }}</p>
+    {% if form %}
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+      {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+      <div class="grid gap-3 md:grid-cols-2">{% for field in form %}
+        <label class="block text-sm {% if field.name == 'notes' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
+          {{ field }}{% for e in field.errors %}<span class="block text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}</div>
+      <datalist id="{{ source_list_id }}">{% for s in source_suggestions %}<option value="{{ s }}">{% endfor %}</datalist>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
+      </div>
+    </form>
+    {% else %}
+    <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ error }}</p>
+    <div class="flex justify-end pt-4">
+      <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Хаах</button>
+    </div>
+    {% endif %}
+  </div>
+</div>

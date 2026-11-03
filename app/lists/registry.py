@@ -41,6 +41,7 @@ LISTS: dict[str, ListSpec] = {
         ListSpec("bank", m.Bank, "Банк"),
         ListSpec("shift", m.Shift, "Ажлын цагийн хуваарь"),
         ListSpec("fired_reason", m.FiredReason, "Ажлаас гарсан шалтгаан"),
+        ListSpec("branch", m.Branch, "Салбар"),
         ListSpec("office", m.Office, "Алба"),
         ListSpec("section", m.Section, "Хэсэг"),
         ListSpec("family_relation", m.FamilyRelation, "Гэр бүлийн хамаарал", ("fm_type",)),

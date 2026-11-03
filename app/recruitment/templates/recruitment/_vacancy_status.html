@@ -1,0 +1,4 @@
+{# Vacancy status chip. Pass `status` (VacancyStatus value) and `label`. #}
+{% if status == "open" %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">{{ label }}</span>
+{% elif status == "filled" %}<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">{{ label }}</span>
+{% else %}<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">{{ label }}</span>{% endif %}

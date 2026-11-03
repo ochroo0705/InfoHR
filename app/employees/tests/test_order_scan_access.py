@@ -21,6 +21,7 @@ from employees.tests.test_views import login_as
 pytestmark = pytest.mark.django_db
 
 PDF = b"%PDF-1.4\n%test\n"
+NEUTRAL = "Зөвхөн цалингийн эрхтэй хэрэглэгч харна"  # shown instead of the scan field without the salary right
 
 
 def scan_url(emp: Employee, order: HrOrder) -> str:
@@ -52,19 +53,22 @@ def test_hr_cannot_open_a_hire_scan_and_sees_no_link(hired: Employee, actor: Use
     assert hr.get(scan_url(hired, order)).status_code == 403
     body = hr.get(detail_url(hired, order)).content.decode()
     assert scan_url(hired, order) not in body
-    assert "Цалингийн эрх шаардлагатай" in body
+    assert NEUTRAL in body
     assert scan_url(hired, order) not in hr.get(f"/employees/{hired.pk}/").content.decode()
 
 
-def test_hr_sees_the_same_placeholder_with_or_without_a_scan(hired: Employee, actor: User) -> None:
-    """The detail page does not reveal whether a scan exists: HR gets the same placeholder before and after one."""
+def test_hr_sees_the_same_neutral_text_with_or_without_a_scan(hired: Employee, actor: User) -> None:
+    """OQ-080: the detail page does not reveal whether a signed scan exists. Without the salary right the same
+    neutral line shows before and after a scan is attached; no attachment wording and no link appear."""
     hr = as_user("HR", "hr_placeholder")
     pending = HrOrder.objects.get(employee=hired, is_hire=True)  # no file yet
     before = hr.get(detail_url(hired, pending)).content.decode()
-    assert "Цалингийн эрх шаардлагатай" in before and "хавсаргаагүй" not in before
+    assert NEUTRAL in before
+    assert "хавсаргаагүй" not in before and "Файл хавсаргасан" not in before
     order = signed_hire(hired, actor)  # the same order, now with a scan
     after = hr.get(detail_url(hired, order)).content.decode()
-    assert "Цалингийн эрх шаардлагатай" in after and "хавсаргаагүй" not in after
+    assert NEUTRAL in after
+    assert "хавсаргаагүй" not in after and "Файл хавсаргасан" not in after
     assert scan_url(hired, order) not in after
 
 

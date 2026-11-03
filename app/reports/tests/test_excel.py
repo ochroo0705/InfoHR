@@ -37,7 +37,7 @@ def _remove_export_switch() -> None:
 def test_excel_matches_screen(client: Client, login_hr: User, hired: Employee) -> None:
     resp = client.get("/reports/staff-list/excel/?cols=code&cols=first_hire_date")
     ws = _sheet(resp.content)
-    assert ws["A1"].value == "Ажилчдын жагсаалт"
+    assert ws["A1"].value == "Ажилтны хүснэгт"
     assert [c.value for c in ws[4]] == ["Код", "Ажилд орсон"]
     assert ws["B5"].value.date() == date(2026, 1, 5) and ws["B5"].number_format == "yyyy-mm-dd"
 

@@ -1,5 +1,7 @@
 import re
 from datetime import date, timedelta
+from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from accounts.models import User
@@ -115,3 +117,31 @@ def test_section_uses_the_page_title_and_framed_table(employee: Employee, annual
     assert '<div class="ptable"><table>' in section and "uppercase" not in section
     assert ">Ажлын жил</th>" in section and ">15</td>" in section
     assert body.index('id="tab-work"') < title < body.index('id="tab-personal"')  # inside the Work tab only
+
+
+def test_section_old_system_phrase_shown_once_when_comment_says_it(employee: Employee, annual: LeaveTypeRow) -> None:
+    """A grant whose comment is «Хуучин системээс» shows the phrase once: the comment, not the badge as well."""
+    start, end = _current_year(employee)
+    writes.write_old_style_grant(employee, annual, start, end, 15, "Хуучин системээс")
+    body = _hr().get(reverse("employees:detail", args=[employee.pk])).content.decode()
+    assert body.count("· Хуучин системээс") == 1
+    assert 'px-1.5 text-slate-600">Хуучин системээс' not in body
+
+
+def test_section_old_system_badge_kept_without_comment(employee: Employee, annual: LeaveTypeRow) -> None:
+    start, end = _current_year(employee)
+    writes.write_old_style_grant(employee, annual, start, end, 15, "")
+    body = _hr().get(reverse("employees:detail", args=[employee.pk])).content.decode()
+    assert 'px-1.5 text-slate-600">Хуучин системээс' in body
+
+
+def test_macs_section_says_where_the_data_came_from(employee: Employee) -> None:
+    body = _hr().get(reverse("employees:detail", args=[employee.pk])).content.decode()
+    assert "MACS-аас шилжүүлсэн мэдээлэл" in body
+
+
+def test_section_names_leave_without_period(monkeypatch: pytest.MonkeyPatch, employee: Employee) -> None:
+    nowhere = [SimpleNamespace(start=date(2027, 6, 7), end=date(2027, 6, 8), days=Decimal("2"), from_old_system=False)]
+    monkeypatch.setattr(ledger, "periods", lambda employee, day: ([], nowhere))
+    body = _hr().get(reverse("employees:detail", args=[employee.pk])).content.decode()
+    assert "Эрхийн хугацаагүй чөлөө" in body and "Хугацаа тодорхойгүй" not in body

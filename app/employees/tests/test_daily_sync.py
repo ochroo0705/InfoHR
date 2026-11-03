@@ -13,6 +13,8 @@ from employees import daily_sync
 from employees.daily_sync import DailySyncMiddleware
 from employees.models import DailySync
 
+pytestmark = pytest.mark.real_daily_sync  # these tests drive the middleware: keep the request-time sync on
+
 TODAY = date(2026, 10, 16)
 TOMORROW = date(2026, 10, 17)
 

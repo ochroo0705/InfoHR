@@ -15,10 +15,13 @@ NEVER_WORKED = {2, 4}
 LEGACY_NOT_WORKING = NEVER_WORKED | {3}
 STATE_LABELS: dict[str, str] = {
     "active": "Ажиллаж байгаа",
-    "upcoming": "Ажилд орох",
+    "upcoming": "Удахгүй ажилд орох",
     "long_leave": "Урт чөлөөтэй",
     "left": "Гарсан",
 }
+# The one definition of "working now", used by the Today headcount, the staff list and the employee list: a job that
+# holds today (so its start is not after today). A person with a future start is «upcoming», not working yet.
+WORKING_STATES = ("active", "long_leave")
 
 
 @dataclass
@@ -27,6 +30,11 @@ class Row:
     job: JobRecord | None
     state: str  # active / long_leave / left / upcoming
     legacy: bool = False  # no HR job history: `job` is read from the MACS row and is not saved
+
+
+def is_working(row: Row) -> bool:
+    """Whether this person is working on the day the row was read on (see WORKING_STATES)."""
+    return row.state in WORKING_STATES
 
 
 def legacy_job(employee: Employee) -> JobRecord:

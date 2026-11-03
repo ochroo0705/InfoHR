@@ -1,13 +1,17 @@
-from datetime import timedelta
+import re
+from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from accounts.models import User
+from django.conf import settings
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from macs.models import FiredReason
 
+from employees.forms import EventForm
 from employees.models import Employee, Event, Position
 from employees.services import events
 
@@ -373,3 +377,100 @@ def test_past_waiting_change_is_not_the_next_event(client: Client, hired: Employ
     assert event.applied_at is None
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     assert "Ажлын түүхээс харах, цуцлах" not in body
+
+
+def test_impossible_date_typed_is_kept_not_replaced_with_today(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    response = client.get(
+        url(hired, "promotion"), {"effective": "2026-13-45", "prev_effective": "2026-03-01", "reason": ""}
+    )
+    form = response.context["form"]
+    assert form.errors["effective"]  # the date's own error
+    assert form["effective"].value() == "2026-13-45"
+    assert 'value="2026-13-45"' in response.content.decode()
+
+
+def test_correcting_a_bad_date_keeps_fields_typed_meanwhile(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    typed = {k: str(v) for k, v in promote_data(hired, reason="Сайн ажилласан").items()}
+    bad = client.get(url(hired, "promotion"), {**typed, "effective": "2026-13-45", "prev_effective": tomorrow_plus()})
+    hidden = re.search(r'name="prev_effective" value="([^"]*)"', bad.content.decode())
+    assert hidden is not None and hidden.group(1) == tomorrow_plus()  # the last real date, not the typed text
+    corrected = {
+        **typed,
+        "effective": (timezone.localdate() + timedelta(days=40)).isoformat(),
+        "prev_effective": hidden.group(1),
+    }
+    html = client.get(url(hired, "promotion"), corrected).content.decode()
+    assert f'<option value="{typed["position"]}" selected' in html  # typed while the date was bad: kept
+    assert "Сайн ажилласан" in html
+
+
+def test_failed_submit_with_bad_date_keeps_fields_typed_meanwhile(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    typed = {k: str(v) for k, v in promote_data(hired, reason="Сайн ажилласан").items()}
+    failed = client.post(
+        url(hired, "promotion"), {**typed, "effective": "2026-13-45", "prev_effective": tomorrow_plus()}
+    )
+    assert failed.status_code == 200 and Event.objects.count() == 0
+    hidden = re.search(r'name="prev_effective" value="([^"]*)"', failed.content.decode())
+    assert hidden is not None and hidden.group(1) == tomorrow_plus()  # the last real date, not the typed text
+    corrected = {
+        **typed,
+        "effective": (timezone.localdate() + timedelta(days=40)).isoformat(),
+        "prev_effective": hidden.group(1),
+    }
+    html = client.get(url(hired, "promotion"), corrected).content.decode()
+    assert f'<option value="{typed["position"]}" selected' in html
+    assert "Сайн ажилласан" in html
+
+
+def test_bad_date_shows_only_the_date_error_and_keeps_the_calendar(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    response = client.get(url(hired, "promotion"), {"effective": "2026-13-45", "prev_effective": tomorrow_plus()})
+    assert set(response.context["form"].errors) == {"effective"}  # no required-field errors on untouched fields
+    body = response.content.decode()
+    assert re.search(r'<input[^>]*type="text"[^>]*data-datepicker', body)  # datepicker.js still enhances this box
+    assert "input[data-datepicker]" in Path(settings.BASE_DIR, "static", "js", "datepicker.js").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_a_valid_date_in_another_format_is_not_treated_as_bad(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    response = client.get(url(hired, "promotion"), {"effective": "03/01/2026"})
+    assert "effective" not in response.context["form"].errors
+    assert response.context["form"].initial["effective"] == date(2026, 3, 1)
+
+
+def test_validation_error_keeps_salary_value(client: Client, hired: Employee) -> None:
+    login_as(client, "Admin", "adm")
+    job = hired.job_records.get()
+    data = {
+        "effective": tomorrow_plus(),
+        "position": job.position_id,
+        "department": job.department_id,
+        "manager": "",
+        "reason": "",
+        "note": "",
+        "salary": "5,300,000",
+    }
+    body = client.post(url(hired, "transfer"), data).content.decode()
+    assert "Хэлтэс, албан тушаал эсвэл удирдлагын аль нэгийг өөрчилнө үү." in body
+    assert 'value="5,300,000"' in body
+    assert Event.objects.count() == 0
+
+
+def test_contract_form_explains_employee_type_code(client: Client, hired: Employee) -> None:
+    login_as(client, "HR")
+    body = client.get(url(hired, "contract")).content.decode()
+    assert "Ажилтны төрөл: үндсэн, гэрээт (хугацаатай) эсвэл туршилтын." in body
+    assert "Хоосон үлдээвэл одоогийн төрөл хэвээр үлдэнэ." in body
+
+
+def test_emptype_hint_matches_what_an_empty_choice_does() -> None:
+    """A contract keeps the stored type when left empty; a rehire takes its type from the contract type."""
+    base = "Ажилтны төрөл: үндсэн, гэрээт (хугацаатай) эсвэл туршилтын."
+    assert EventForm("contract").fields["emptype"].help_text == base + " Хоосон үлдээвэл одоогийн төрөл хэвээр үлдэнэ."
+    rehire = EventForm("rehire").fields["emptype"].help_text
+    assert rehire == base + " Хоосон үлдээвэл гэрээний төрлөөс хамаарч тогтоно."

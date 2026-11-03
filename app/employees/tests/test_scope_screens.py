@@ -313,9 +313,15 @@ def test_today_counts_and_lists_only_scoped_people(
     ctx = response.context
     assert ctx["headcount"] == 1
     assert [a.row.employee.pk for a in ctx["away"]] == [inside.pk]
-    assert {u.row.employee.pk for u in ctx["upcoming"]} == {inside.pk}
+    assert ctx["upcoming_counts"]["birthday"] == 1  # both have a birthday in 3 days; only the inside one counts
     assert {a.employee.pk for a in ctx["attention"] if a.employee is not None} == {inside.pk}
-    assert {line.row.employee.pk for line in ctx["timeline"].lines} == {inside.pk}
+    strip = ctx["away_strip"]  # both are on leave today
+    if not strip.days[0].off:
+        assert strip.counts[0] == 1
+        assert sum(n for _, n in strip.today_split) == 1
+    company = ctx["company"]
+    assert company is not None and company.partial_scope
+    assert company.headcount[-1].value == 1
     assert OUT_FAMILY not in response.content.decode()
 
 

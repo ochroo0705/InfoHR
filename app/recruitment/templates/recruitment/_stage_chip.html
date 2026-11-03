@@ -1,0 +1,6 @@
+{# Candidate stage chip. Pass `stage` (Stage value) and `label`. #}
+{% if stage == "hired" %}<span class="whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">{{ label }}</span>
+{% elif stage == "rejected" %}<span class="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800">{{ label }}</span>
+{% elif stage == "withdrawn" %}<span class="whitespace-nowrap rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">{{ label }}</span>
+{% elif stage == "new" %}<span class="whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">{{ label }}</span>
+{% else %}<span class="whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-800">{{ label }}</span>{% endif %}

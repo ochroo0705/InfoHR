@@ -10,6 +10,31 @@ from employees.models import Employee, EmployeeExt, ensure_ext
 from employees.services import history, macs_writes
 
 
+@pytest.fixture(autouse=True)
+def _no_offboarding_templates(request: pytest.FixtureRequest) -> None:
+    """The migration seeds an offboarding checklist template that gates every termination. The event tests of this
+    app are about the events, so they run without it; the gate has its own tests in app/checklists."""
+    if request.node.get_closest_marker("django_db") is None and "db" not in request.fixturenames:
+        return
+    request.getfixturevalue("db")
+    from checklists.models import ChecklistTemplate
+
+    ChecklistTemplate.objects.update(active=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_request_time_daily_sync(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """DailySyncMiddleware runs the sync (it rewrites contract and job columns from the job records) on the first
+    signed-in request of each process, so whichever test made that request saw the rewrite and a test that wrote a
+    column straight into the row failed when run alone. Tests call sync_all_employees themselves when they want it;
+    the ones that exercise the middleware opt back in with @pytest.mark.real_daily_sync."""
+    if request.node.get_closest_marker("real_daily_sync") is not None:
+        return
+    from employees import daily_sync
+
+    monkeypatch.setattr(daily_sync, "_needs_sync", lambda request: False)
+
+
 @pytest.fixture
 def actor(db: None) -> User:
     return User.objects.create_user("hr_actor", password="x-long-pass-123")  # noqa: S106

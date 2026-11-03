@@ -10,7 +10,7 @@
           {% for kind_url, label, selected in kinds %}<option value="{{ kind_url }}"{% if selected %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select></label>{% endif %}
       {# Swapped on its own when the date changes (hx-select on the date input). #}
-      <div id="event-body" class="space-y-3"><input type="hidden" name="prev_effective" value="{{ form.effective.value|date:'Y-m-d'|default:form.effective.value|default:'' }}">
+      <div id="event-body" class="space-y-3"><input type="hidden" name="prev_effective" value="{% if prev_effective is not None %}{{ prev_effective }}{% else %}{{ form.effective.value|date:'Y-m-d'|default:form.effective.value|default:'' }}{% endif %}">
       <label class="block text-sm">{{ form.effective.label }} *
         {{ form.effective }}{% for e in form.effective.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
       {% if when == "past" %}<p class="rounded bg-amber-50 p-2 text-sm text-amber-800">Өнгөрсөн огноо — түүх засагдана</p>
@@ -19,7 +19,7 @@
         <div id="event-summary">{% include "employees/_event_summary.html" %}</div>
         <div class="grid gap-3 md:grid-cols-2">{% for field in form %}{% if field.name != "effective" %}
           <label class="block text-sm {% if field.name == 'reason' or field.name == 'note' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
-            {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endif %}{% endfor %}</div>
+            {{ field }}{% if field.help_text %}<span class="block text-xs text-slate-500">{{ field.help_text }}</span>{% endif %}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endif %}{% endfor %}</div>
       </div>
       </div>
       {% if order_form %}<div class="grid gap-3 md:grid-cols-2">{% include "employees/_order_fields.html" %}</div>{% endif %}

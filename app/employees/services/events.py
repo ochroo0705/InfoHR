@@ -1,5 +1,6 @@
 """The only doorway for HR events (spec B). Every function is atomic."""
 
+import logging
 from datetime import date
 from decimal import Decimal
 from enum import Enum
@@ -33,6 +34,8 @@ from employees.scope import manager_error
 from employees.services import history, macs_writes, orders
 from employees.services.history import HistoryError
 from employees.services.orders import OrderError
+
+logger = logging.getLogger(__name__)
 
 _PLACEMENT = ("position", "department", "manager")
 _CONTRACT = ("emptype", "contract_type", "contract_no", "contract_start", "contract_end")
@@ -292,6 +295,88 @@ def _mark_pensioner(employee: Employee, event: Event) -> None:
         ext.save(update_fields=["is_pensioner"])
 
 
+def _offboarding_gate(employee: Employee, fired_reason: FiredReason | None, override: str, by: User) -> None:
+    from checklists.services import gate  # local: checklists imports employees
+
+    try:
+        gate.check(
+            employee,
+            reason=str(fired_reason.pk) if fired_reason is not None else None,
+            override_reason=override,
+            by=by,
+        )
+    except gate.GateBlocked as exc:
+        raise EventError({"__all__": exc.message}) from exc
+
+
+def _slot_gate(
+    employee: Employee, changes: dict[str, Any], current: JobRecord, effective: date, override: str, by: User
+) -> dict[str, Any]:
+    """A rehire takes a post like a hire does: the position, the contract kind and the date come from the submitted
+    values, the branch from the person's production row. Raises EventError when no slot is free. Returns what the
+    gate used (`slot_position`, `slot_branch`, `slot_contract`) so a rehire that waits for its signed order can be
+    stored with it: slots counts waiting rehires from these keys, the same way the gate read them."""
+    from employees.services import slots
+
+    position = changes.get("position") or current.position
+    flag = macs_writes.EMPTYPE_FLAGS.get(changes.get("emptype", 1), ("", "no", None))[1]
+    try:
+        slots.gate(
+            position=position,
+            branch=employee.branch,  # type: ignore[arg-type]  # the field reads as its set type
+            contract_flag=flag,
+            on=effective,
+            override_reason=override,
+            by=by,
+            employee_label=str(employee.code),
+            exclude_employee=employee,
+        )
+    except slots.SlotBlocked as exc:
+        raise EventError({"__all__": exc.message}) from exc
+    return {
+        "slot_position": position.pk if position is not None else None,
+        "slot_branch": employee.branch_id,
+        "slot_contract": flag,
+    }
+
+
+def _start_onboarding(employee: Employee, event: Event, by: User) -> None:
+    """A rehire that is in force starts an onboarding checklist (tracking only; never fails the rehire)."""
+    if event.type != EventType.REHIRE:
+        return
+    from checklists.services import onboarding  # local: checklists imports employees
+
+    job = history.job_on(employee, event.effective)
+    onboarding.start_for_hire(
+        employee, start_date=event.effective, employee_type=job.employee_type if job else None, by=by
+    )
+
+
+def _cancel_onboarding_for_leaver(employee: Employee, event: Event, by: User) -> None:
+    """A termination in force closes the leaver's open onboarding checklist (tracking only; never fails the event)."""
+    if event.type != EventType.TERMINATION:
+        return
+    _cancel_open_onboarding(employee, by=by, reason="Ажлаас гарсан")
+
+
+def _cancel_open_onboarding(employee: Employee, *, by: User, reason: str, anchor_day: date | None = None) -> None:
+    from checklists.models import ChecklistKind  # local: checklists imports employees
+    from checklists.services import lifecycle
+
+    try:
+        lifecycle.cancel_open(employee, ChecklistKind.ONBOARDING, by=by, reason=reason, anchor_day=anchor_day)
+    except Exception:
+        logger.warning("onboarding checklist was not cancelled for employee %s", employee.pk, exc_info=True)
+
+
+def _complete_checklist(employee: Employee, event: Event) -> None:
+    if event.type != EventType.TERMINATION:
+        return
+    from checklists.services import lifecycle  # local: checklists imports employees
+
+    lifecycle.complete_for_event(employee, event)
+
+
 @transaction.atomic
 def record(
     employee: Employee,
@@ -312,6 +397,8 @@ def record(
     order_date: date | None = None,
     order_summary: str = "",
     order_issued_by: str = "",
+    offboarding_override: str = "",
+    slot_override: str = "",
 ) -> Event:
     Employee.objects.select_for_update().get(pk=employee.pk)
     try:
@@ -350,8 +437,13 @@ def record(
         salary is not None and employee.salary_records.filter(period__startswith__gt=effective).exists()
     ):
         raise EventError({"__all__": LATER_CHANGE})
+    if event_type == EventType.TERMINATION:
+        _offboarding_gate(employee, fired_reason, offboarding_override, by)
     current = history.job_on(employee, effective)
     assert current is not None  # _validate guarantees it  # noqa: S101
+    slot_keys: dict[str, Any] = {}
+    if event_type == EventType.REHIRE:
+        slot_keys = _slot_gate(employee, changes, current, effective, slot_override, by)
     reason = reason.strip()
     order_type = orders.order_type_for(event_type, pension, current, new, employee, effective)
     if order_type is not None:
@@ -376,7 +468,7 @@ def record(
             pension=pension,
             created_by=by,
             applied_at=None,
-            proposed={"job": _dump_changes(new), "salary": None if salary is None else str(salary)},
+            proposed={"job": _dump_changes(new), "salary": None if salary is None else str(salary), **slot_keys},
         )
         try:
             orders.create_for_change(
@@ -392,6 +484,7 @@ def record(
             )
         except OrderError as exc:
             raise EventError({f"order_{k}" if k != "__all__" else k: v for k, v in exc.errors.items()}) from exc
+        _complete_checklist(employee, event)
         waiting = f"{ChangeType(event_type.change_type).label} · {effective:%Y-%m-%d}-нээс"
         ActivityEntry.objects.create(
             employee=employee,
@@ -415,6 +508,7 @@ def record(
         applied_at=timezone.now(),
     )
     _mark_pensioner(employee, event)
+    _complete_checklist(employee, event)
     try:
         if new:
             history.change_job(
@@ -449,6 +543,8 @@ def record(
         salary=salary,
         old_salary=old_salary,
     )
+    _start_onboarding(employee, event, by)
+    _cancel_onboarding_for_leaver(employee, event, by)
     return event
 
 
@@ -543,6 +639,8 @@ def apply_waiting(event: Event, *, by: User) -> None:
         salary=salary,
         old_salary=old_salary,
     )
+    _start_onboarding(employee, event, by)
+    _cancel_onboarding_for_leaver(employee, event, by)
 
 
 def leave_until(employee: Employee, today: date) -> date | None:
@@ -592,6 +690,9 @@ def cancel(event: Event, *, reason: str, by: User, cancel_order_no: str = "") ->
             type=EventType.CONTRACT, pension=True, cancelled_at__isnull=True, applied_at__isnull=False
         ).exists()
         ext.save(update_fields=["is_pensioner"])
+    if was_applied and event.type == EventType.REHIRE:
+        # The rehire started (or moved) the onboarding checklist on its date; a rehire that still waited started none.
+        _cancel_open_onboarding(event.employee, by=by, reason="Дахин ажилд авахыг цуцалсан", anchor_day=event.effective)
     message = f"Цуцалсан: {event.get_type_display()} ({event.effective:%Y-%m-%d}) — {reason}"
     waiting = event.applied_at is None
     proposed = (event.proposed or {}) if waiting else {}

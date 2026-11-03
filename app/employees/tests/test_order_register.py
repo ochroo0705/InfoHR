@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.test import Client
+from django.urls import reverse
 from macs.models import Command, Employee
 
 from employees.models import CompanySettings, HrOrder, OrderState, OrderType
@@ -128,3 +129,21 @@ def test_out_of_range_filters_are_ignored(hr: Client, hired: Employee, path: str
     assert resp.status_code == 200
     body = resp.content.decode()
     assert "Үлдэнэ" in body and "Хуучин үлдэнэ" in body
+
+
+def test_order_number_shows_its_year_in_list_and_detail(hr: Client, hired: Employee) -> None:
+    HrOrder.objects.filter(employee=hired).delete()
+    order = make_order(hired, "1", date(2026, 1, 9))
+    body = hr.get("/employees/orders/").content.decode()
+    assert "№ 1 / 2026" in body
+    assert ">Тушаалын огноо<" in body  # the date column header
+    detail = hr.get(reverse("employees:order_detail", args=[hired.pk, order.pk])).content.decode()
+    assert "№ 1 / 2026" in detail
+    assert "Хүчинтэй огноо" in detail
+
+
+def test_order_year_shows_on_the_work_tab_and_other_orders(hr: Client, hired: Employee) -> None:
+    HrOrder.objects.filter(employee=hired).delete()
+    make_order(hired, "7", date(2026, 2, 3))  # no change behind it: listed under «Бусад тушаал»
+    body = hr.get(reverse("employees:detail", args=[hired.pk])).content.decode()
+    assert "№ 7 / 2026" in body

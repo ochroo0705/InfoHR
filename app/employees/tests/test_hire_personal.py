@@ -4,6 +4,7 @@ from datetime import date
 from typing import Any
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 from macs.models import AddressRow, City, ContactRow, ContactType, District
@@ -193,3 +194,24 @@ def test_hire_page_district_empty_without_city(hr_client: Client, place: dict[st
     wrap = body[start : body.index("</label>", start)]  # the address district select only (birth place is separate)
     assert "<select" in wrap
     assert "Баянгол" not in wrap
+
+
+def test_add_form_explains_the_two_hire_dates(hr_client: Client) -> None:
+    body = hr_client.get(reverse("employees:add")).content.decode()
+    assert "Одоогийн ажлын гэрээ эхэлсэн өдөр" in body
+    assert "Байгууллагад анх орсон өдөр; дахин орсон бол эхний огноо" in body
+
+
+def test_photo_hint_only_after_a_failed_post_with_a_file(hr_client: Client, place: dict[str, Any]) -> None:
+    # A failed POST (no family name) that sent a photo: the hint asks for the photo again.
+    data = hire_post(place)
+    data.pop("family_name")
+    data["photo"] = SimpleUploadedFile("face.jpg", b"not really a picture", content_type="image/jpeg")
+    with_file = hr_client.post("/employees/new/", data).content.decode()
+    assert "Зургаа дахин сонгоно уу" in with_file
+
+    # The same failed POST without a photo: no hint, the file was never sent.
+    data = hire_post(place)
+    data.pop("family_name")
+    without_file = hr_client.post("/employees/new/", data).content.decode()
+    assert "Зургаа дахин сонгоно уу" not in without_file

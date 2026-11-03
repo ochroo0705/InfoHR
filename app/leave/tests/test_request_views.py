@@ -9,10 +9,11 @@ from django.test import Client, RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from employees.models import Employee, EmployeeExt, JobRecord
-from macs.models import Entitlement, LeaveTypeRow
+from macs.models import Entitlement, LeaveAssign, LeaveTypeRow
 
+from leave.forms import REQUEST_BACKWARDS
 from leave.models import ActionKind, LeaveRequest, LeaveRequestAction, LeaveSettings, LeaveTypeExt, RequestStatus
-from leave.services import records
+from leave.services import records, writes
 from leave.services import requests as request_service
 from leave.services.records import Draft
 from leave.templatetags import leave_tags
@@ -483,6 +484,23 @@ def test_request_end_before_start_is_refused(
     assert not LeaveRequest.objects.exists()
 
 
+def test_request_form_shows_backwards_dates_message(
+    actor: User, employee: Employee, sick: LeaveTypeRow, approval: None
+) -> None:
+    resp = _client(_staff_login(employee)).post(
+        reverse("leave:request_new"), _form_data(sick, start_date="2027-11-05", end_date="2027-11-02")
+    )
+    assert resp.status_code == 200
+    assert REQUEST_BACKWARDS in resp.content.decode()
+    assert not LeaveRequest.objects.exists()
+
+
+def test_request_submit_refreshes_the_page(actor: User, employee: Employee, sick: LeaveTypeRow, approval: None) -> None:
+    resp = _client(_staff_login(employee)).post(reverse("leave:request_new"), _form_data(sick))
+    assert resp.status_code == 204
+    assert resp["HX-Refresh"] == "true"
+
+
 def test_request_check_is_post_only_and_previews(
     actor: User, employee: Employee, sick: LeaveTypeRow, approval: None
 ) -> None:
@@ -492,6 +510,18 @@ def test_request_check_is_post_only_and_previews(
     assert resp.status_code == 200
     assert "ажлын өдөр" in resp.content.decode()
     assert not LeaveRequest.objects.exists()
+
+
+# No wrapping transaction (ensure_grants must open its own); serialized_rollback keeps the seeded roles.
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_request_check_works_outside_a_transaction_and_warns_over_balance(
+    actor: User, employee: Employee, annual: LeaveTypeRow, grants_on: None, approval: None
+) -> None:
+    resp = _client(_staff_login(employee)).post(
+        reverse("leave:request_check"), _form_data(annual, start_date="2027-11-02", end_date="2027-11-30")
+    )
+    assert resp.status_code == 200
+    assert "Үлдэгдэл" in resp.content.decode()
 
 
 def test_withdraw_own_waiting_request(actor: User, employee: Employee, sick: LeaveTypeRow, approval: None) -> None:
@@ -572,3 +602,81 @@ def test_refused_approve_shows_reason_field(actor: User, employee: Employee, sic
     resp = c.post(reverse("leave:request_approve", args=[req.pk]), {"step": "2"})
     assert "өөр шатанд шилжсэн" in resp.content.decode()
     assert 'name="override_reason"' in resp.content.decode()
+
+
+def _hr_viewer(name: str) -> User:
+    """An HR user with the list right («Бүгд») and the people right, and no approver role."""
+    viewer = _user(name)
+    viewer.user_permissions.add(
+        Permission.objects.get(codename="view_leave", content_type__app_label="leave"),
+        Permission.objects.get(codename="view_employees", content_type__app_label="macs"),
+    )
+    return viewer
+
+
+def _approved(employee: Employee, sick: LeaveTypeRow, actor: User, manager: User) -> LeaveRequest:
+    req = _waiting(employee, sick, actor)
+    assert _client(manager).post(reverse("leave:request_approve", args=[req.pk]), {}).status_code == 204
+    req.refresh_from_db()
+    assert req.status == RequestStatus.APPROVED and req.assign_id is not None
+    return req
+
+
+def test_cancelled_leave_shows_cancelled_in_request_list(
+    actor: User, employee: Employee, sick: LeaveTypeRow, manager: User
+) -> None:
+    req = _approved(employee, sick, actor, manager)
+    leave = LeaveAssign.objects.get(pk=req.assign_id)
+    records.cancel(leave, writes.snapshot(leave), "Төлөвлөгөө өөрчлөгдсөн", actor, TODAY)
+    body = _client(_hr_viewer("hr_cancel")).get(reverse("leave:requests") + "?tab=all").content.decode()
+    assert ">Цуцалсан</td>" in body and ">Батлагдсан</td>" not in body  # the status filter also has the word
+    req.refresh_from_db()
+    assert req.status == RequestStatus.APPROVED  # the request itself is not changed
+
+
+def test_mistake_leave_shows_mistake_in_request_list(
+    actor: User, employee: Employee, sick: LeaveTypeRow, manager: User
+) -> None:
+    req = _approved(employee, sick, actor, manager)
+    leave = LeaveAssign.objects.get(pk=req.assign_id)
+    records.cancel(leave, writes.snapshot(leave), "Буруу оруулсан", actor, date(2026, 11, 5))  # already started
+    body = _client(_hr_viewer("hr_mistake")).get(reverse("leave:requests") + "?tab=all").content.decode()
+    assert ">Буруу бүртгэсэн</td>" in body and ">Батлагдсан</td>" not in body
+
+
+def test_hr_sees_pending_request_of_in_scope_person_under_all(
+    actor: User, employee: Employee, sick: LeaveTypeRow, approval: None
+) -> None:
+    """R1-A11: «Бүгд» lists a pending request of an in-scope person for HR (not only the approver's own queue)."""
+    _waiting(employee, sick, actor)
+    body = _client(_hr_viewer("hr_all_pending")).get(reverse("leave:requests") + "?tab=all").content.decode()
+    assert employee.full_name in body and ">Хүлээгдэж буй</td>" in body
+
+
+def test_cancelled_leave_shows_cancelled_in_request_popup(
+    actor: User, employee: Employee, sick: LeaveTypeRow, manager: User
+) -> None:
+    req = _approved(employee, sick, actor, manager)
+    leave = LeaveAssign.objects.get(pk=req.assign_id)
+    records.cancel(leave, writes.snapshot(leave), "Төлөвлөгөө өөрчлөгдсөн", actor, TODAY)
+    body = _client(_hr_viewer("hr_popup_cancel")).get(_detail(req)).content.decode()
+    assert "Энэ хүсэлт шийдэгдсэн: Цуцалсан" in body and "Энэ хүсэлт шийдэгдсэн: Батлагдсан" not in body
+
+
+def test_detail_explains_hr_override(
+    monkeypatch: pytest.MonkeyPatch, actor: User, employee: Employee, annual: LeaveTypeRow, manager: User
+) -> None:
+    """An HR override is named as one: «(эрхээр)» with the line that HR approved it instead of the manager."""
+    req = LeaveRequest.objects.create(
+        employee=employee,
+        leave_type=annual,
+        start_date=date(2026, 11, 2),
+        end_date=date(2026, 11, 3),
+        working_days=2,
+        step1_manager=True,
+        step_count=1,
+        created_by=actor,
+    )
+    monkeypatch.setattr("leave.views_requests.can_act", lambda user, req, day: (True, True))
+    body = _client(manager).get(_detail(req)).content.decode()
+    assert "Удирдлагын оронд батлав" in body

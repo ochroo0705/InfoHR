@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
@@ -265,7 +266,7 @@ def test_most_urgent_first_and_rest_folded(
     emergency = next(g for g in groups if g.kind == "emergency")
     assert not emergency.dated and len(emergency.items) >= 12
     assert "Гэрээ дууссан" in html and f"Яаралтай үед холбогдох хүн дутуу · {len(emergency.items)}" in html
-    assert f">+{len(emergency.items) - attention.GROUP_LIMIT}</button>" in html  # chips past ten wait behind "+N"
+    assert f"Бүгдийг харах ({len(emergency.items) - attention.GROUP_LIMIT}) →" in html  # past three wait behind it
     assert html.count("group/chip inline-flex") == attention.GROUP_LIMIT * sum(
         1 for g in groups if not g.dated and len(g.items) >= attention.GROUP_LIMIT
     ) + sum(len(g.items) for g in groups if not g.dated and len(g.items) < attention.GROUP_LIMIT)
@@ -276,7 +277,7 @@ def _many_without_contact(actor: User, job_values: dict[str, Any], count: int) -
         history.hire(hire_values(f"УБ771122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
 
 
-def test_a_group_shows_ten_items_and_loads_the_rest_on_request(
+def test_a_group_shows_three_items_and_loads_the_rest_on_request(
     client: Client, emp: Employee, actor: User, job_values: dict[str, Any]
 ) -> None:
     _many_without_contact(actor, job_values, 14)
@@ -287,7 +288,7 @@ def test_a_group_shows_ten_items_and_loads_the_rest_on_request(
     emergency = next(g for g in groups if g.kind == "emergency")
     assert len(emergency.items) > attention.GROUP_LIMIT
     page = client.get(reverse("employees:today")).content.decode()
-    assert f">+{len(emergency.items) - attention.GROUP_LIMIT}</button>" in page
+    assert f"Бүгдийг харах ({len(emergency.items) - attention.GROUP_LIMIT}) →" in page
     more = client.get(reverse("employees:attention_more"), {"kind": "emergency", "urgency": str(emergency.urgency)})
     assert more.status_code == 200 and more["Cache-Control"] == "no-store"
     body = more.content.decode()
@@ -317,6 +318,72 @@ def test_a_dated_group_loads_the_rest_as_lines(
         reverse("employees:attention_more"), {"kind": "contract", "urgency": str(ending.urgency)}
     ).content.decode()
     assert body.count("<li") == len(ending.items) - attention.GROUP_LIMIT
+
+
+def _attention_group_tags(html: str) -> list[str]:
+    return re.findall(r"<details data-attention-group[^>]*>", html)
+
+
+def _contract_people(actor: User, job_values: dict[str, Any], ends: list[date]) -> None:
+    for i, end in enumerate(ends):
+        person = history.hire(
+            hire_values(f"УБ551122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor
+        )
+        person.job_records.update(contract_end=end)
+
+
+def test_groups_are_closed_except_overdue(
+    client: Client, emp: Employee, actor: User, job_values: dict[str, Any]
+) -> None:
+    today = timezone.localdate()
+    emp.job_records.update(contract_end=today - timedelta(days=10))  # overdue
+    _contract_people(actor, job_values, [today + timedelta(days=5)])  # due soon
+    login_as(client, "HR")
+    tags = _attention_group_tags(client.get(reverse("employees:today")).content.decode())
+    assert len(tags) >= 2
+    overdue = [t for t in tags if " open" in t]
+    assert len(overdue) == 1 and 'data-urgency="0"' in overdue[0]
+    assert all('data-urgency="0"' not in t for t in tags if t not in overdue)
+
+
+def test_summary_shows_nearest_date_for_dated_groups_only(
+    client: Client, emp: Employee, actor: User, job_values: dict[str, Any]
+) -> None:
+    today = timezone.localdate()
+    _contract_people(actor, job_values, [today + timedelta(days=9), today + timedelta(days=4)])
+    login_as(client, "HR")
+    html = client.get(reverse("employees:today")).content.decode()
+    pattern = r'<details data-attention-group data-kind="(\w+)"[^>]*>\s*<summary[^>]*>(.*?)</summary>'
+    by_kind = {m.group(1): m.group(2) for m in re.finditer(pattern, html, re.S)}
+    nearest = _fmt(today + timedelta(days=4))
+    assert nearest in by_kind["contract"] and _fmt(today + timedelta(days=9)) not in by_kind["contract"]
+    assert "text-slate-500" in by_kind["contract"]
+    assert "emergency" in by_kind and not re.search(r"\d{4}-\d{2}-\d{2}", by_kind["emergency"])
+
+
+def test_count_in_the_summary_ignores_items_hidden_with_Мэдлээ(  # noqa: N802
+    client: Client, emp: Employee, actor: User, job_values: dict[str, Any]
+) -> None:
+    _many_without_contact(actor, job_values, 3)
+    hr = login_as(client, "HR")
+    today = timezone.localdate()
+    found = attention.items(hr, employee_rows(Employee.objects.all(), today), today)
+    keys = [a.key for a in found if a.kind == "emergency"]
+    assert len(keys) == 3
+    client.post(reverse("employees:attention"), {"key": keys[0], "action": "dismiss"})
+    html = client.get(reverse("employees:today")).content.decode()
+    assert "Яаралтай үед холбогдох хүн дутуу · 2" in html
+
+
+def test_scheduled_changes_still_show_on_the_page(client: Client, emp: Employee, actor: User) -> None:
+    real_today = timezone.localdate()
+    record_signed(
+        emp, type="termination", effective=real_today + timedelta(days=6), changes={}, salary=None,
+        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
+    )  # fmt: skip
+    login_as(client, "HR")
+    html = client.get(reverse("employees:today")).content.decode()
+    assert "Ажлаас гарах · 1" in html and "data-attention-group" in html
 
 
 def test_attention_more_needs_login_and_a_real_group(client: Client, emp: Employee) -> None:
@@ -683,9 +750,7 @@ def test_approver_sees_waiting_requests_item(
     boss_user = User.objects.create_user("boss_login", password="x-long-pass-123")  # noqa: S106
     _approval_on_with_waiting_request(emp, boss_user, actor, annual_type, job_values)
     matches = [a for a in attention.items(boss_user, [], TODAY) if a.kind == "leave_requests"]
-    assert [(a.text, a.url) for a in matches] == [
-        ("1 чөлөөний хүсэлт таныг хүлээж байна", reverse("leave:requests"))
-    ]
+    assert [(a.text, a.url) for a in matches] == [("1 чөлөөний хүсэлт таныг хүлээж байна", reverse("leave:requests"))]
 
 
 def test_non_approver_has_no_requests_item(

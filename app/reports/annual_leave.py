@@ -90,7 +90,7 @@ COLUMNS: tuple[Column, ...] = (
 
 REPORT = Report(
     key="annual-leave",
-    title="Ээлжийн амралтын тайлан",
+    title="Ээлжийн амралт: эрх, эдэлсэн, үлдсэн",
     filters=("as_of", "branch", "department"),
     columns=COLUMNS,
     default_columns=tuple(c.key for c in COLUMNS),

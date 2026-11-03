@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Орон тооны төлөвлөгөө{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+  <h1 class="text-xl font-semibold">Орон тооны төлөвлөгөө — {{ year }}</h1>
+  <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+    <a href="?year={{ year|add:'-1' }}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">← {{ year|add:"-1" }}</a>
+    <a href="?year={{ year|add:'1' }}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">{{ year|add:"1" }} →</a>
+    <button hx-get="{% url 'employees:slot_add' %}?year={{ year }}" hx-target="body" hx-swap="beforeend" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Нэмэх</button>
+  </div>
+</div>
+<p class="mt-2 text-sm text-slate-500">Албан тушаал, салбар, төрөл (үндсэн эсвэл түр), оны хувьд хэдэн хүн авч болохыг энд бүртгэнэ. «Ашиглаж буй» нь тухайн орон тоонд ажиллаж буй, мөн тухайн оны дотор ажилд орох хүмүүсийн тоо.</p>
+<div class="mt-3 rounded-lg border border-slate-200 p-3 text-sm">
+  <span class="font-medium">Орон тоогоор хязгаарлах:</span>
+  {% if enforce %}<span class="rounded bg-green-50 px-2 py-0.5 text-green-700">Асаалттай</span> — орон тоо дүүрсэн үед ажилд авах, дахин авахыг хориглоно.
+  {% else %}<span class="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Унтраалттай</span> — орон тоо шалгахгүй, зөвхөн төлөвлөгөө хөтөлнө.{% endif %}
+  <a href="{{ settings_url }}" class="ml-1 text-violet-700 hover:underline">Байгууллагын тохиргоо</a>
+</div>
+<div class="card-soft mt-3 overflow-x-auto px-4 pb-2">
+  <table class="w-full text-sm">
+    <thead class="text-left text-slate-500"><tr>
+      <th class="py-2">Албан тушаал</th><th>Салбар</th><th>Төрөл</th>
+      <th class="text-right">Орон тоо</th><th class="text-right">Ашиглаж буй</th><th class="text-right">Сул</th>
+    </tr></thead>
+    <tbody id="rows">{% include "employees/_slot_rows.html" %}</tbody>
+    {% if totals.posts or totals.used or rows %}<tfoot><tr class="border-t-2 border-slate-200 font-medium">
+      <td class="py-2" colspan="3">Нийт</td><td class="text-right">{{ totals.posts }}</td><td class="text-right">{{ totals.used }}</td><td class="text-right">{{ totals.free }}</td>
+    </tr></tfoot>{% endif %}
+  </table>
+</div>
+{% endblock %}

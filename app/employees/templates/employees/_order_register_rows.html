@@ -1,5 +1,5 @@
 {# Rows of the order register; an Info HR order opens its detail pop-up, a MACS row the employee page. #}
 <table class="w-full text-sm">
-  <thead class="text-left text-slate-500"><tr>{% if can_manage %}<th class="w-8"><input type="checkbox" id="order-pick-all" aria-label="Бүгдийг сонгох" class="rounded border-slate-300"></th>{% endif %}<th class="py-2 whitespace-nowrap">Дугаар</th><th class="whitespace-nowrap">Огноо</th><th>Ажилтан</th><th>Хэлтэс</th><th>Тушаалын утга</th><th class="whitespace-nowrap">Төлөв</th></tr></thead>
+  <thead class="text-left text-slate-500"><tr>{% if can_manage %}<th class="w-8"><input type="checkbox" id="order-pick-all" aria-label="Бүгдийг сонгох" class="rounded border-slate-300"></th>{% endif %}<th class="py-2 whitespace-nowrap">Дугаар</th><th class="whitespace-nowrap">Тушаалын огноо</th><th>Ажилтан</th><th>Хэлтэс</th><th>Тушаалын утга</th><th class="whitespace-nowrap">Төлөв</th></tr></thead>
   <tbody>{% include "employees/_order_register_items.html" %}</tbody>
 </table>

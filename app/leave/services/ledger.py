@@ -21,7 +21,7 @@ from leave.services import entitlement, rows, writes
 from leave.services.rows import GrantRow, LeaveRow
 
 NOT_CONFIGURED = "Ээлжийн амралтын төрлийг сонгоогүй байна"
-NO_PERIOD_LABEL = "Хугацаа тодорхойгүй"
+NO_PERIOD_LABEL = "Эрхийн хугацаагүй чөлөө"
 
 
 class LedgerError(Exception):
@@ -78,11 +78,11 @@ def _overlaps(a_start: date, a_end: date, b_start: date, b_end: date) -> bool:
     return a_start <= b_end and b_start <= a_end
 
 
-@transaction.atomic
 def _is_intern(employee: Employee, today: date) -> bool:
     return employee.job_records.filter(period__contains=today, employee_type=EmployeeType.INTERN).exists()
 
 
+@transaction.atomic  # select_for_update below needs a transaction, also when records.check calls this outside one
 def ensure_grants(employee: Employee, today: date) -> None:
     """With the switch on, write the law's annual grant for the current employment year if nothing covers it.
 

@@ -26,7 +26,7 @@
       <tr><td colspan="5" class="border-0 pt-0 text-xs text-slate-500">
         {% if p.doubled %}<p class="mb-1 font-medium text-amber-700">Энэ хугацаанд давхардсан эрх байна. Нэгийг нь гараар хасна уу.</p>{% endif %}
         <ul class="space-y-0.5">
-          {% for g in p.grants %}<li>{{ g.kind.label }}: <span class="text-slate-700">{{ g.days|floatformat:"-1" }} хоног</span>{% if g.breakdown %} = {{ g.breakdown }}{% endif %}{% if g.comment %} · {{ g.comment }}{% endif %}{% if g.from_old_system %} <span class="rounded bg-slate-100 px-1.5 text-slate-600">Хуучин системээс</span>{% endif %}</li>{% endfor %}
+          {% for g in p.grants %}<li>{{ g.kind.label }}: <span class="text-slate-700">{{ g.days|floatformat:"-1" }} хоног</span>{% if g.breakdown %} = {{ g.breakdown }}{% endif %}{% if g.comment %} · {{ g.comment }}{% endif %}{% if g.from_old_system and g.comment != "Хуучин системээс" %} <span class="rounded bg-slate-100 px-1.5 text-slate-600">Хуучин системээс</span>{% endif %}</li>{% endfor %}
           {% for l in p.leaves %}<li>Авсан: <span class="text-slate-700">{{ l.start|date:"Y-m-d" }} – {{ l.end|date:"Y-m-d" }}, {{ l.days|floatformat:"-1" }} өдөр</span>{% if l.from_old_system %} <span class="rounded bg-slate-100 px-1.5 text-slate-600">Хуучин системээс</span>{% endif %}</li>{% endfor %}
         </ul>
       </td></tr>
@@ -40,7 +40,7 @@
   {% elif leave_configured and not start_missing %}<p class="text-sm text-slate-400">Ажлын жил эхлээгүй байна.</p>{% endif %}
   {% if leave_nowhere %}
   <div class="border-t border-slate-100 py-3 text-sm">
-    <span class="font-medium text-amber-700">Хугацаа тодорхойгүй</span>
+    <span class="font-medium text-amber-700">Эрхийн хугацаагүй чөлөө</span>
     <ul class="mt-1 text-slate-600">
       {% for l in leave_nowhere %}<li>Авсан: {{ l.start|date:"Y-m-d" }} – {{ l.end|date:"Y-m-d" }}, {{ l.days|floatformat:"-1" }} өдөр{% if l.from_old_system %} <span class="rounded bg-slate-100 px-1.5 text-xs text-slate-600">Хуучин системээс</span>{% endif %}</li>{% endfor %}
     </ul>

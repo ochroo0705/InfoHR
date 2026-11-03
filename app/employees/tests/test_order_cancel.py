@@ -7,8 +7,9 @@ import pytest
 from accounts.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
+from django.utils import timezone
 
-from employees.models import ActivityKind, Employee, EventType, HrOrder, OrderState
+from employees.models import ActivityKind, Employee, Event, EventType, HrOrder, OrderState
 from employees.services import orders
 
 from .conftest import link_login
@@ -76,7 +77,7 @@ def test_cancel_form_asks_only_for_a_reason_and_saves(hr: Client, hired: Employe
     promotion, _ = promoted(hr, hired, actor)
     page = hr.get(cancel_url(hired, promotion)).content.decode()
     assert "Цуцлах шалтгаан" in page and "cancel_order_no" not in page
-    assert "Өөрчлөлт өөрөө хэвээр үлдэнэ" in page
+    assert "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана." in page
     assert hr.post(cancel_url(hired, promotion), {}).status_code == 200  # the reason is required
     assert hr.post(cancel_url(hired, promotion), {"reason": "Буруу"}).status_code == 204
     promotion.refresh_from_db()
@@ -109,3 +110,28 @@ def test_detail_pop_up_offers_cancel_only_for_a_registered_order(hr: Client, hir
     assert "Тушаал цуцлах" not in body and "Шинэ тушаалаар солих" not in body
     HrOrder.objects.filter(pk=promotion.pk).update(state=OrderState.CANCELLED)
     assert "Тушаал цуцлах" not in hr.get(detail).content.decode()
+
+
+def test_order_cancel_dialog_has_cancel_button(hr: Client, hired: Employee, actor: User) -> None:
+    """The cancel pop-up says «Цуцлах» (not «Хадгалах») and says the order stays in the history."""
+    hire, _ = promoted(hr, hired, actor)
+    body = hr.get(cancel_url(hired, hire)).content.decode()
+    assert ">Цуцлах</button>" in body and "Хадгалах" not in body
+    assert "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана." in body
+
+
+def test_event_cancel_dialog_has_cancel_button(hr: Client, hired: Employee, actor: User) -> None:
+    _, change_order = promoted(hr, hired, actor)
+    body = hr.get(f"/employees/{hired.pk}/event/{change_order.event_id}/cancel/").content.decode()
+    assert ">Цуцлах</button>" in body and "Хадгалах" not in body
+    assert "түүхэнд үлдэнэ" in body
+    assert "өмнөх утгад буцна" not in body  # a change not yet applied wrote nothing to undo
+
+
+def test_applied_change_dialog_says_the_values_go_back(hr: Client, hired: Employee, actor: User) -> None:
+    """events.cancel undoes the job and salary rows of an applied change, so the pop-up says so."""
+    _, change_order = promoted(hr, hired, actor)
+    Event.objects.filter(pk=change_order.event_id).update(applied_at=timezone.now())
+    body = hr.get(f"/employees/{hired.pk}/event/{change_order.event_id}/cancel/").content.decode()
+    assert "Өөрчлөлт аль хэдийн бүртгэгдсэн бол ажилтны албан тушаал, цалин өмнөх утгад буцна." in body
+    assert "түүхэнд үлдэнэ" in body and ">Цуцлах</button>" in body

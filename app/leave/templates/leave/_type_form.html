@@ -4,9 +4,10 @@
     <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
       {% csrf_token %}
       {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+      {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
       {% for field in form %}
       <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
-        {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}
+        {{ field }}{% if field.help_text %}<span class="block text-xs text-slate-500">{{ field.help_text }}</span>{% endif %}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
         <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Хадгалах</button>

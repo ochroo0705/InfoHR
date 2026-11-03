@@ -117,3 +117,20 @@ def test_landing_page_goes_to_today_for_admin() -> None:
     user.groups.add(Group.objects.get(name=ADMIN))
     response = _client(User.objects.get(pk=user.pk)).get("/")
     assert response["Location"] == "/employees/today/"
+
+
+def test_auditor_and_employee_roles_hold_no_recruitment_or_checklist_rights() -> None:
+    for name in (AUDITOR, EMPLOYEE):
+        keys = _perm_keys(name)
+        assert ("recruitment", "manage_recruitment") not in keys
+        assert ("checklists", "manage_checklists") not in keys
+        assert ("checklists", "override_offboarding") not in keys
+        user = User.objects.create_user(f"no_rights_{name}", password=PASSWORD)  # noqa: S106
+        user.groups.add(Group.objects.get(name=name))
+        fresh = User.objects.get(pk=user.pk)
+        for perm in (
+            "recruitment.manage_recruitment",
+            "checklists.manage_checklists",
+            "checklists.override_offboarding",
+        ):
+            assert not fresh.has_perm(perm)

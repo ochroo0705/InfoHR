@@ -70,7 +70,7 @@ COLUMNS: tuple[Column, ...] = (
 
 REPORT = Report(
     key="leave-requests",
-    title="Чөлөө хүссэн жагсаалт",
+    title="Чөлөөний хүсэлтүүд",
     filters=("period", "leave_state", "leave_type", "department"),
     columns=COLUMNS,
     default_columns=tuple(c.key for c in COLUMNS),

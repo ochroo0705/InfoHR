@@ -1,4 +1,4 @@
-"""The «Тайлан» catalogue page (every old-program report, grouped, with a search box) and the shared report page."""
+"""The «Тайлан» catalogue page (every MACS report, grouped, with a search box) and the shared report page."""
 
 from dataclasses import dataclass, replace
 from typing import Any
@@ -85,20 +85,29 @@ def _row(user: User | AnonymousUser, entry: Entry) -> Row | None:
     return Row(entry=entry, link=True, empty=empty)
 
 
+def _search_text(entry: Entry) -> str:
+    """What the catalogue search matches, lower case: the same text the page's search box filters on."""
+    return " ".join([entry.title, entry.old_form, entry.description, *entry.aliases]).lower()
+
+
 @login_required
 def catalogue(request: HttpRequest) -> HttpResponse:
     if not request.user.has_perm("reports.view_reports"):
         raise PermissionDenied
+    # ?q= filters the cards on the server too, so a link with a search word opens already filtered.
+    q = request.GET.get("q", "").strip()[:200]
     sections: list[Section] = []
     for code, title in GROUPS:
         rows: list[Row] = []
         for entry in CATALOGUE:
-            row = _row(request.user, entry) if entry.group == code else None
+            if entry.group != code or (q and q.lower() not in _search_text(entry)):
+                continue
+            row = _row(request.user, entry)
             if row is not None:
                 rows.append(row)
         if rows:
             sections.append(Section(title=title, rows=rows))
-    return render(request, "reports/catalogue.html", {"sections": sections})
+    return render(request, "reports/catalogue.html", {"sections": sections, "q": q})
 
 
 @dataclass(frozen=True)

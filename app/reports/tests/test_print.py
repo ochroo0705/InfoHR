@@ -5,6 +5,7 @@ import pytest
 from accounts.models import User
 from django.test import Client
 from employees.models import CompanySettings, Employee
+from django.urls import reverse
 from macs.models import Department
 
 pytestmark = pytest.mark.django_db
@@ -36,7 +37,7 @@ def test_print_has_company_title_filters_and_two_columns(
     dept = Department.objects.get(name="Санхүү")
     page = client.get(f"{PRINT}?{TWO_COLUMNS}&department={dept.pk}").content.decode()
     assert company_name in page
-    assert "Ажилчдын жагсаалт" in page
+    assert "Ажилтны хүснэгт" in page
     assert "Хэлтэс: Санхүү" in page
     assert _headers(page) == ["Код", "Ажилтан"]
     assert "size: A4 portrait" in page
@@ -106,3 +107,14 @@ def test_print_shows_personal_columns_and_gender_line_for_hr(
     login_as(client, "HR")
     page = client.get(f"{PRINT}?gender=F&cols=code&cols=clan_name&cols=gender").content.decode()
     assert "Ургийн овог" in page and "Хүйс: Эмэгтэй" in page
+
+
+def test_empty_result_says_no_data_on_screen_and_in_print(
+    client: Client, login_as: Callable[..., User], hired: Employee
+) -> None:
+    login_as(client, "HR")
+    empty = {"department": 999999}  # a department with no people: the table is empty
+    screen = client.get(reverse("reports:report", args=["staff-list"]), empty).content.decode()
+    printed = client.get(reverse("reports:print", args=["staff-list"]), empty).content.decode()
+    assert "Өгөгдөл олдсонгүй" in screen and "Өгөгдөл олдсонгүй" in printed
+    assert "Энэ шүүлтүүрээр" not in screen + printed

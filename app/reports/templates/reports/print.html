@@ -33,7 +33,7 @@
   </thead>
   <tbody>
     {% if table.count == 0 %}
-    <tr><td colspan="{{ heads|length }}">Олдсонгүй</td></tr>
+    <tr><td colspan="{{ heads|length }}">Өгөгдөл олдсонгүй</td></tr>
     {% else %}
       {% for label, rows in table.groups %}
         {% if table.filters.group %}

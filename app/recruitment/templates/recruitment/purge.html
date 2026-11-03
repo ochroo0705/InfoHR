@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Татгалзсан ажил хүсэгч цэвэрлэх{% endblock %}
+{% block main_width %}max-w-4xl px-4{% endblock %}
+{% block content %}
+<p class="text-sm"><a href="{% url 'recruitment:vacancies' %}" class="text-violet-700 hover:underline">← Ажилд авах</a></p>
+<h1 class="mt-2 text-xl font-semibold">Татгалзсан ажил хүсэгч цэвэрлэх</h1>
+<p class="mt-2 text-sm text-slate-600">
+  Татгалзсан эсвэл өөрөө татгалзсан ажил хүсэгчийг {{ months }} сарын дараа устгана (файл, сэтгэгдэлтэй нь). Автоматаар устгахгүй: энд дарж баталгаажуулна.
+  {% if is_admin %}<a href="{% url 'admin:recruitment_recruitmentsettings_changelist' %}" class="text-violet-700 hover:underline">Хадгалах хугацаа өөрчлөх</a>{% else %}Хугацааг админ өөрчилнө.{% endif %}
+</p>
+{% if done is not None %}<p class="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800" role="status">Устгасан: {{ done }} ажил хүсэгч.</p>{% endif %}
+
+<div class="card-soft mt-3 overflow-x-auto px-4 pb-2">
+  <table class="w-full text-sm">
+    <thead class="text-left text-slate-500"><tr><th class="py-2">Ажил хүсэгч</th><th>Ажлын байр</th><th>Шат</th><th>Хаагдсан огноо</th></tr></thead>
+    <tbody>
+      {% for c in rows %}
+      <tr>
+        <td class="py-1.5">{{ c.surname }} {{ c.given_name }}</td>
+        <td>{{ c.vacancy.title }}</td>
+        <td>{{ c.get_stage_display }}</td>
+        <td class="whitespace-nowrap">{{ c.closed_at|date:"Y-m-d" }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="4" class="py-6 text-center text-slate-400">Цэвэрлэх ажил хүсэгч олдсонгүй</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if rows %}
+<form method="post" class="mt-4 flex items-center justify-end gap-3" onsubmit="return confirm('{{ rows|length }} ажил хүсэгчийг бүрмөсөн устгах уу?')">{% csrf_token %}
+  <span class="text-sm text-slate-600">{{ rows|length }} ажил хүсэгч</span>
+  <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">Устгах</button>
+</form>
+{% endif %}
+{% endblock %}

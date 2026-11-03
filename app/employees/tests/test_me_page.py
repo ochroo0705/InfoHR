@@ -2,6 +2,7 @@
 
 from datetime import date, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -14,6 +15,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from leave.models import LeaveRequest, LeaveSettings, LeaveTypeExt, RequestStatus
+from leave.services import ledger
 from leave.services import requests as request_service
 from macs.models import LeaveTypeRow
 
@@ -296,3 +298,24 @@ def test_waiting_request_stays_visible_to_approver_after_approval_is_switched_of
     assert f'href="{reverse("leave:requests")}"' in body  # nav link
     items = attention._leave_requests_waiting(boss_user, timezone.localdate())
     assert [a.kind for a in items] == ["leave_requests"]
+
+
+def test_me_balance_line_reads_granted_taken_left(monkeypatch: pytest.MonkeyPatch, hired: Employee) -> None:
+    period = SimpleNamespace(
+        start=date(2026, 1, 1), end=date(2026, 12, 31), current=True, upcoming=False,
+        granted=Decimal("15"), taken=Decimal("8"), left=Decimal("7"),
+    )  # fmt: skip
+    monkeypatch.setattr(ledger, "periods", lambda employee, day: ([period], []))
+    monkeypatch.setattr(ledger, "annual_configured", lambda: True)
+    body = _client(_staff("staff", hired)).get(reverse("me")).content.decode()
+    assert "Эрх 15 · Авсан 8 · " in body and "Үлдэгдэл 7 хоног" in body
+
+
+def test_me_leave_without_period_has_label_and_hint(monkeypatch: pytest.MonkeyPatch, hired: Employee) -> None:
+    nowhere = [SimpleNamespace(start=date(2026, 3, 1), end=date(2026, 3, 2), days=Decimal("2"), from_old_system=False)]
+    monkeypatch.setattr(ledger, "periods", lambda employee, day: ([], nowhere))
+    monkeypatch.setattr(ledger, "annual_configured", lambda: True)
+    body = _client(_staff("staff", hired)).get(reverse("me")).content.decode()
+    assert "Эрхийн хугацаагүй чөлөө: 1" in body
+    assert "Энэ огноонд амралтын эрх бүртгэгдээгүй." in body
+    assert "Хугацаа тодорхойгүй" not in body
