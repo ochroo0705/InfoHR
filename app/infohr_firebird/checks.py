@@ -1,0 +1,110 @@
+"""Django system checks for the Firebird engine (firebird3-foundation plan, Task 10a).
+
+Each registered check does nothing unless settings.DATABASES["default"]["ENGINE"] is infohr_firebird,
+so the PostgreSQL run gets no output from this module. Only HR-owned models are checked: managed
+models outside the MACS app (MACS tables are unmanaged mappings of the existing Firebird file).
+The message builders take a list of model classes, so they can be tested on synthetic models.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Iterator
+from typing import Any
+
+from django.apps import apps
+from django.conf import settings
+from django.core.checks import CheckMessage, Error, Tags, register
+from django.core.checks import Warning as CheckWarning
+from django.db import models
+
+ENGINE = "infohr_firebird"
+MACS_APP_LABEL = "macs"
+MAX_DECIMAL_DIGITS = 9  # dialect 1 stores wider NUMERIC as a double and returns floats
+BIG_FIELD_TYPES = (models.BigIntegerField, models.PositiveBigIntegerField, models.DurationField)
+AUTO_FIELD_TYPES = (models.AutoField, models.BigAutoField, models.SmallAutoField)  # ids are mapped on purpose
+
+
+def _enabled() -> bool:
+    return str(settings.DATABASES["default"]["ENGINE"]) == ENGINE
+
+
+def _hr_fields(
+    model_classes: Iterable[type[models.Model]],
+) -> Iterator[tuple[type[models.Model], models.Field[Any, Any]]]:
+    for model in model_classes:
+        meta = model._meta
+        if not meta.managed or meta.app_label == MACS_APP_LABEL:
+            continue
+        for field in meta.local_fields:
+            yield model, field
+
+
+def wide_decimal_messages(model_classes: Iterable[type[models.Model]]) -> list[CheckMessage]:
+    messages: list[CheckMessage] = []
+    for model, field in _hr_fields(model_classes):
+        if isinstance(field, models.DecimalField) and (field.max_digits or 0) > MAX_DECIMAL_DIGITS:
+            messages.append(
+                CheckWarning(
+                    f"{model._meta.label}.{field.name} is a DecimalField with max_digits={field.max_digits}.",
+                    hint=(
+                        f"Firebird SQL dialect 1 returns numbers with more than {MAX_DECIMAL_DIGITS} digits "
+                        "as floats. Keep max_digits at 9 or less, or accept float rounding on this field."
+                    ),
+                    obj=model,
+                    id="infohr_firebird.W001",
+                )
+            )
+    return messages
+
+
+def big_integer_messages(model_classes: Iterable[type[models.Model]]) -> list[CheckMessage]:
+    messages: list[CheckMessage] = []
+    for model, field in _hr_fields(model_classes):
+        if not isinstance(field, BIG_FIELD_TYPES) or isinstance(field, AUTO_FIELD_TYPES):
+            continue
+        if isinstance(field, models.DurationField):
+            hint = (
+                "Firebird SQL dialect 1 has no BIGINT, and a DurationField stores microseconds that do not "
+                "fit a 32-bit integer, so this column cannot be created."
+            )
+        else:
+            hint = "Firebird SQL dialect 1 stores this as a 32-bit INTEGER: values above 2,147,483,647 overflow."
+        messages.append(
+            CheckWarning(
+                f"{model._meta.label}.{field.name} is a {type(field).__name__}.",
+                hint=hint,
+                obj=model,
+                id="infohr_firebird.W002",
+            )
+        )
+    return messages
+
+
+@register(Tags.models)
+def check_wide_decimals(app_configs: object, **kwargs: object) -> list[CheckMessage]:
+    if not _enabled():
+        return []
+    return wide_decimal_messages(apps.get_models(include_auto_created=True))
+
+
+@register(Tags.models)
+def check_big_integers(app_configs: object, **kwargs: object) -> list[CheckMessage]:
+    if not _enabled():
+        return []
+    return big_integer_messages(apps.get_models(include_auto_created=True))
+
+
+@register(Tags.models)
+def check_table_prefix(app_configs: object, **kwargs: object) -> list[CheckMessage]:
+    if not _enabled() or settings.HR_TABLE_PREFIX:
+        return []
+    return [
+        Error(
+            "HR_TABLE_PREFIX is empty while DB_ENGINE is firebird.",
+            hint=(
+                "The MACS database already has HR_* tables. Set DJANGO_HR_TABLE_PREFIX=IHR_ "
+                "(the default in firebird mode) so HR tables never collide with them."
+            ),
+            id="infohr_firebird.E001",
+        )
+    ]

@@ -80,7 +80,7 @@ class SystemLogEntry(models.Model):
     keeps the username, so the entry still says who did it.
     """
 
-    at = models.DateTimeField("Огноо", auto_now_add=True)
+    at = models.DateTimeField("Огноо", auto_now_add=True, db_column="at_time")
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL, verbose_name="Хэн", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )

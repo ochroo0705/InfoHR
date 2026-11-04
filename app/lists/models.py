@@ -8,7 +8,7 @@ class MeaningfulEntry(models.Model):
     """Which list entry carries a meaning the code relies on (spec §5), chosen by an HR admin."""
 
     key = models.CharField(max_length=50, unique=True)
-    value = models.IntegerField()
+    value = models.IntegerField(db_column="entry_value")
 
     class Meta:
         permissions = [("manage_lists", "Жагсаалт засах")]

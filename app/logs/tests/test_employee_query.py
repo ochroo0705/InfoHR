@@ -83,7 +83,7 @@ def _set_at(entry: ActivityEntry, when: datetime) -> None:
     # The log is append-only in the ORM (AppendOnlyQuerySet.update raises), so the test moves the timestamp in SQL.
     with connection.cursor() as cursor:
         cursor.execute(
-            f'UPDATE "{ActivityEntry._meta.db_table}" SET "at" = %s WHERE id = %s',  # noqa: S608
+            f'UPDATE "{ActivityEntry._meta.db_table}" SET "at_time" = %s WHERE id = %s',  # noqa: S608
             [when, entry.pk],
         )
 

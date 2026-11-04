@@ -56,7 +56,7 @@ class ChecklistTemplate(models.Model):
 
 class ChecklistTemplateTask(models.Model):
     template = models.ForeignKey(ChecklistTemplate, on_delete=models.CASCADE, related_name="tasks")
-    position = models.PositiveSmallIntegerField("Дараалал", default=0)
+    position = models.PositiveSmallIntegerField("Дараалал", default=0, db_column="position_no")
     title = models.CharField("Даалгавар", max_length=200)
     # Exactly one owner: a role group, or the direct manager. PROTECT: a role used by a template cannot vanish.
     group = models.ForeignKey(
@@ -121,7 +121,7 @@ class Checklist(models.Model):
 
 class ChecklistTask(models.Model):
     checklist = models.ForeignKey(Checklist, on_delete=models.CASCADE, related_name="tasks")
-    position = models.PositiveSmallIntegerField("Дараалал", default=0)
+    position = models.PositiveSmallIntegerField("Дараалал", default=0, db_column="position_no")
     title = models.CharField("Даалгавар", max_length=200)
     group = models.ForeignKey(
         "auth.Group", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="Эрхийн бүлэг"

@@ -46,7 +46,7 @@ class LeaveTypeExt(models.Model):
     is_paid = models.BooleanField("Цалинтай", default=False)
     uses_annual_balance = models.BooleanField("Ээлжийн амралтаас хасна", default=False)
     is_active = models.BooleanField("Идэвхтэй", default=True)
-    order = models.PositiveSmallIntegerField("Дараалал", default=0)
+    order = models.PositiveSmallIntegerField("Дараалал", default=0, db_column="sort_order")
     staff_may_request = models.BooleanField("Ажилтан хүсэлт гаргана", default=True)
 
     class Meta:
@@ -259,7 +259,7 @@ class LeaveRequestAction(models.Model):
     by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     override = models.BooleanField("Онцгой эрхээр", default=False)
     reason = models.CharField("Шалтгаан", max_length=200, blank=True)
-    at = models.DateTimeField("Огноо", auto_now_add=True)
+    at = models.DateTimeField("Огноо", auto_now_add=True, db_column="at_time")
 
     class Meta:
         verbose_name = "Чөлөөний хүсэлтийн түүх"

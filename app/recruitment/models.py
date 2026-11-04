@@ -133,7 +133,7 @@ class CandidateEvent(models.Model):
     to_stage = models.CharField("Шат", max_length=10, choices=Stage.choices)
     note = models.TextField("Тайлбар", blank=True)
     by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
-    at = models.DateTimeField(auto_now_add=True)
+    at = models.DateTimeField(auto_now_add=True, db_column="at_time")
 
     class Meta:
         verbose_name = "Ажил хүсэгчийн түүх"
@@ -151,7 +151,7 @@ class CandidateComment(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name="comments")
     text = models.TextField("Сэтгэгдэл")
     by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
-    at = models.DateTimeField(auto_now_add=True)
+    at = models.DateTimeField(auto_now_add=True, db_column="at_time")
 
     class Meta:
         verbose_name = "Сэтгэгдэл"

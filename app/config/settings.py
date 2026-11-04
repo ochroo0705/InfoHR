@@ -4,6 +4,7 @@ from pathlib import Path
 
 import django_stubs_ext
 import environ
+from django.core.exceptions import ImproperlyConfigured
 from django.templatetags.static import static
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
@@ -72,14 +73,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Own schema "hr" in the shared info_hr database (playbook 3A: own schema next to the ERP).
-# Falls back to public only in throwaway test databases; info_hr.public is not writable by the app role.
-DATABASES = {"default": env.db("DATABASE_URL")}
-# Optional: same server and login, another database (used by scripts/demo.py for info_hr_demo).
-if env.str("DJANGO_DB_NAME", default=""):
-    DATABASES["default"]["NAME"] = env.str("DJANGO_DB_NAME")
-DATABASES["default"]["OPTIONS"] = {"options": "-c search_path=hr,public"}
-
 AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [  # user decision 2026-10-15: 8+ characters with upper, lower and a digit
@@ -91,6 +84,65 @@ LANGUAGE_CODE = "mn"
 LANGUAGES = [("mn", "Монгол"), ("en", "English")]
 LOCALE_PATHS = [BASE_DIR / "locale"]  # compile with scripts/compile_messages.py
 TIME_ZONE = "Asia/Ulaanbaatar"
+
+# Database engine (firebird3-foundation plan, Task 10a). "postgres" = the Info HR database (default);
+# "firebird" = the MACS Firebird 3 file (SQL dialect 1), where HR tables get the IHR_ prefix.
+DB_ENGINE = env.str("DB_ENGINE", default="postgres")
+if DB_ENGINE == "postgres":
+    # Own schema "hr" in the shared info_hr database (playbook 3A: own schema next to the ERP).
+    # Falls back to public only in throwaway test databases; info_hr.public is not writable by the app role.
+    DATABASES = {"default": env.db("DATABASE_URL")}
+    # Optional: same server and login, another database (used by scripts/demo.py for info_hr_demo).
+    if env.str("DJANGO_DB_NAME", default=""):
+        DATABASES["default"]["NAME"] = env.str("DJANGO_DB_NAME")
+    DATABASES["default"]["OPTIONS"] = {"options": "-c search_path=hr,public"}
+elif DB_ENGINE == "firebird":
+    # Driver options, added only when set: the Firebird client library (default: the backend's Firebird 3
+    # install path) and the SQL dialect (default 1, the dialect MACS uses).
+    FIREBIRD_CLIENT_LIBRARY = env.str("FIREBIRD_CLIENT_LIBRARY", default="")
+    FIREBIRD_DIALECT = env.str("FIREBIRD_DIALECT", default="")
+    firebird_options = {"charset": "UTF8", "lock_timeout": 3}
+    if FIREBIRD_CLIENT_LIBRARY:
+        firebird_options["fb_client_library"] = FIREBIRD_CLIENT_LIBRARY
+    if FIREBIRD_DIALECT:
+        firebird_options["sql_dialect"] = env.int("FIREBIRD_DIALECT")
+    DATABASES = {
+        "default": {
+            "ENGINE": "infohr_firebird",
+            "HOST": env.str("FIREBIRD_HOST", default=""),
+            "PORT": env.str("FIREBIRD_PORT", default=""),
+            "NAME": env.str("FIREBIRD_NAME"),
+            "USER": env.str("FIREBIRD_USER", default="SYSDBA"),
+            "PASSWORD": env.str("FIREBIRD_PASSWORD", default=""),
+            # Dialect 1 has no timezone type: with USE_TZ, times are read and written as local
+            # wall-clock time in this zone, as MACS does (ruling R12). Required for Firebird.
+            "TIME_ZONE": TIME_ZONE,
+            "OPTIONS": firebird_options,
+        }
+    }
+    # django.contrib.postgres is dropped and the backend app added: its system checks and fb_guard command come from it.
+    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "django.contrib.postgres"] + ["infohr_firebird"]
+    # fields.E180 says the backend has no native JSON type. The backend stores JSON as text, which
+    # round-trips (firebird3-foundation Task 4), so the check is silenced rather than lying in the feature flag.
+    SILENCED_SYSTEM_CHECKS = ["fields.E180"]
+    # Firebird migration set (ruling R26): these five apps use generated initial migrations (migrations_fb),
+    # because the PostgreSQL history creates columns named with reserved words before renaming them. The
+    # PostgreSQL history is never edited; macs and the contrib apps keep theirs.
+    MIGRATION_MODULES = {
+        "accounts": "accounts.migrations_fb",
+        "lists": "lists.migrations_fb",
+        "leave": "leave.migrations_fb",
+        "recruitment": "recruitment.migrations_fb",
+        "reports": "reports.migrations_fb",
+        # Placeholders: no Firebird migrations yet, so the loader sees no migrations for these apps (ruling R31).
+        "employees": "employees.migrations_fb",
+        "checklists": "checklists.migrations_fb",
+    }
+else:
+    raise ImproperlyConfigured(f"DB_ENGINE must be 'postgres' or 'firebird', not {DB_ENGINE!r}.")
+
+# HR-owned table prefix in a shared database: IHR_ on Firebird (MACS already has HR_* tables), empty on PostgreSQL.
+HR_TABLE_PREFIX = env.str("DJANGO_HR_TABLE_PREFIX", default="IHR_" if DB_ENGINE == "firebird" else "")
 USE_I18N = True
 USE_TZ = True
 

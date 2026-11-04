@@ -315,7 +315,7 @@ class HrOrder(models.Model):
     state = models.CharField("Төлөв", max_length=12, choices=OrderState.choices, default=OrderState.PENDING)
     number = models.CharField("Тушаалын дугаар", max_length=10, blank=True)
     number_key = models.CharField(max_length=10, blank=True)
-    date = models.DateField("Тушаалын огноо", null=True, blank=True)
+    date = models.DateField("Тушаалын огноо", null=True, blank=True, db_column="order_date")
     summary = models.CharField("Агуулга", max_length=50, blank=True)
     issued_by = models.CharField("Гаргасан", max_length=25, blank=True)
     file = models.FileField("Файл", storage=order_storage, upload_to="%Y/", blank=True)
@@ -595,14 +595,16 @@ class ActivityEntry(models.Model):
     """Chatter entry. Never edited or deleted (spec §4)."""
 
     employee = models.ForeignKey(Employee, verbose_name="Ажилтан", on_delete=models.PROTECT, related_name="activity")
-    at = models.DateTimeField("Огноо", auto_now_add=True)
+    at = models.DateTimeField("Огноо", auto_now_add=True, db_column="at_time")
     by = models.ForeignKey(
         settings.AUTH_USER_MODEL, verbose_name="Хэн", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
     kind = models.CharField("Төрөл", max_length=20, choices=ActivityKind.choices)
     message = models.TextField("Мессеж")
     changes = models.JSONField("Өөрчлөлтүүд", default=list, blank=True)  # [{"field", "old", "new"}]
-    sensitive = models.BooleanField("Цалингийн мэдээлэл", default=False)  # salary data: hidden without view_salary
+    sensitive = models.BooleanField(
+        "Цалингийн мэдээлэл", default=False, db_column="is_sensitive"
+    )  # salary data: hidden without view_salary
     # Personal-tab data: hidden without view_personal (or own record)
     personal = models.BooleanField("Хувийн мэдээлэл", default=False)
     order = models.ForeignKey(  # set on entries about one HR order: its own history (the «Түүх» pop-up)
@@ -664,7 +666,7 @@ class SetupItem(models.Model):
 class DailySync(models.Model):
     """One row (pk 1): the calendar day the daily MACS sync last ran. See employees/daily_sync.py."""
 
-    day = models.DateField(null=True)
+    day = models.DateField(null=True, db_column="sync_day")
 
     class Meta:
         db_table = "employees_dailysync"
