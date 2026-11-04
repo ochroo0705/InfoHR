@@ -1,0 +1,821 @@
+import decimal
+import re
+import uuid
+import datetime
+
+from django.conf import settings
+from django.db.backends.base.operations import BaseDatabaseOperations
+from django.db.backends import utils
+from django.db.utils import DatabaseError
+from django.utils.functional import cached_property
+from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from firebird.driver import CHARSET_MAP
+from firebird.driver.types import BPBItem, BlobType
+
+from .base import Database
+from .reserved import RESERVED_SUFFIX, RESERVED_WORDS
+
+
+class DatabaseOperations(BaseDatabaseOperations):
+    compiler_module = "infohr_firebird.compiler"
+
+    # Integer field safe ranges by `internal_type` as documented
+    # in docs/ref/models/fields.txt.
+    integer_field_ranges = {
+        'SmallIntegerField': (Database.core.SHRT_MIN, Database.core.SHRT_MAX),
+        'IntegerField': (Database.core.INT_MIN, Database.core.INT_MAX),
+        'BigIntegerField': (Database.core.LONG_MIN, Database.core.LONG_MAX),
+        'PositiveBigIntegerField': (0, Database.core.LONG_MAX),
+        'PositiveSmallIntegerField': (0, Database.core.SHRT_MAX),
+        'PositiveIntegerField': (0, Database.core.INT_MAX),
+        'AutoField': (Database.core.INT_MIN, Database.core.INT_MAX), # since firebird 3 AutoField
+        'BigAutoField': (Database.core.LONG_MIN, Database.core.LONG_MAX), # and BigAutoField are supported
+        'SmallAutoField': (Database.core.SHRT_MIN, Database.core.SHRT_MAX), # and SmallAutoField are supported
+    }
+
+    cast_data_types = {
+        "AutoField": "integer",
+        "BigAutoField": "integer",
+        "SmallAutoField": "smallint",
+    }
+
+    def __init__(self, connection, *args, **kwargs):
+        try:
+            super(DatabaseOperations, self).__init__(connection)
+        except TypeError:
+            super(DatabaseOperations, self).__init__(*args, **kwargs)
+
+    @cached_property
+    def firebird_main_version(self):
+        """
+        Major version of the connected Firebird server, e.g. 5.
+
+        Note: firebird_version parses the platform version string
+        ("LI-V6.3.4.1812 Firebird 5.0"), whose leading number continues the
+        InterBase lineage (6.x for every modern Firebird) — the actual server
+        version is only in the trailing product name. Use this property for
+        feature gating.
+        """
+        return int(str(self.connection.connection.info.engine_version).split('.')[0])
+
+    @cached_property
+    def firebird_version(self):
+        """
+        Access method for firebird_version property.
+        firebird_version return the version number in an object list format
+        Useful for ask for just a part of a version number.
+
+        Indicies for parts:
+            FULL_VERSION_IDX = 1;
+            PLATFORM_IDX = 2;
+            TYPE_IDX = 3;
+            MAJOR_IDX = 4;
+            MINOR_IDX = 5;
+            VARIANT_IDX = 6;
+            BUILD_IDX = 7;
+            SERVER_NAME_IDX = 8;
+        """
+        server_version = self.connection.server_version
+        pattern = re.compile(r"((\w{2})-(\w)(\d+)\.(\d+)\.(\d+)\.(\d+)(?:-\S+)?) (.+)")
+        groups = pattern.match(server_version)
+        if not groups:
+            raise ValueError("Version string \"%s\" does not match expected format" % server_version)
+        result = []
+        for group in groups.groups():
+            result.append(group)
+        return result
+
+    def autoinc_sql(self, table, column):
+        sequence_name = get_autoinc_sequence_name(self, table)
+        trigger_name = get_autoinc_trigger_name(self, table)
+        table_name = self.quote_name(table)
+        column_name = self.quote_name(column)
+        sequence_sql = 'CREATE SEQUENCE %s' % sequence_name
+        next_value_sql = 'NEXT VALUE FOR %s' % sequence_name
+
+        trigger_sql = '\n'.join([
+            'CREATE TRIGGER %(trigger_name)s FOR %(table_name)s',
+            'BEFORE INSERT AS',
+            'BEGIN',
+            '   IF(new.%(column_name)s IS NULL) THEN',
+            '      new.%(column_name)s = %(next_value_sql)s;',
+            'END'
+        ]) % {
+            'trigger_name': trigger_name,
+            'table_name': table_name,
+            'column_name': column_name,
+            'next_value_sql': next_value_sql
+        }
+
+        return sequence_sql, trigger_sql
+
+    def check_expression_support(self, expression):
+        from django.db.models.aggregates import Avg
+        if (isinstance(expression, Avg)):
+
+            INVALID = ('STDDEV_SAMP', 'STDDEV_POP', 'VAR_SAMP', 'VAR_POP')
+            if expression.function in INVALID:
+                raise NotImplementedError
+
+            if isinstance(expression, Avg):
+                expression.template = '%(function)s(CAST(%(field)s as double precision))'
+
+            return
+        else: 
+            super().check_expression_support(expression)
+            return
+
+    def date_extract_sql(self, lookup_type, sql, params):
+        # Firebird uses WEEKDAY keyword.
+        if lookup_type == 'week_day':
+            return f"EXTRACT(WEEKDAY FROM {sql}) + 1", params
+        return f"EXTRACT({lookup_type.upper()} FROM {sql})", params
+
+    def _convert_sql_to_tz(self, sql, params, tzname):
+        if not (self.connection.features.supports_timezones and settings.USE_TZ and tzname):
+            return sql, params
+        return f"{sql} AT TIME ZONE '%s'" % self._prepare_tzname_delta(tzname), []
+
+    def _prepare_tzname_delta(self, tzname):
+        if '+' in tzname:
+            return tzname.replace('+', '-')
+        elif '-' in tzname:
+            return tzname.replace('-', '+')
+        return tzname
+
+    def date_trunc_sql(self, lookup_type, sql, params, tzname=None):
+        sql, params = self._convert_sql_to_tz(sql, params, tzname)
+        if lookup_type == 'year':
+            sql = f"EXTRACT(year FROM {sql})||'-01-01'"
+        elif lookup_type == 'month':
+            sql = f"EXTRACT(year FROM {sql})||'-'||EXTRACT(month FROM {sql})||'-01'"
+        elif lookup_type == 'week':
+            # Truncate to the preceding Monday. Firebird's WEEKDAY runs
+            # Sunday=0..Saturday=6, so Monday lies (WEEKDAY+6) mod 7 days back.
+            return (f"CAST(DATEADD(-MOD(EXTRACT(WEEKDAY FROM {sql}) + 6, 7) DAY TO {sql}) AS DATE)", params)
+        elif lookup_type == 'day':
+            sql = f"EXTRACT(year FROM {sql})||'-'||EXTRACT(month FROM {sql})||'-'||EXTRACT(day FROM {sql})"
+        return f"CAST({sql} AS DATE)", params
+
+    def datetime_cast_date_sql(self, sql, params, tzname):
+        sql, params = self._convert_sql_to_tz(sql, params, tzname)
+        return f'CAST({sql} AS DATE)', params
+
+    def datetime_cast_time_sql(self, sql, params, tzname):
+        sql, params = self._convert_sql_to_tz(sql, params, tzname)
+        return f'CAST({sql} AS TIME)', params
+
+    def datetime_extract_sql(self, lookup_type, sql, params, tzname):
+        sql, params = self._convert_sql_to_tz(sql, params, tzname)
+        """
+        Given a lookup_type of 'year', 'month', 'day', 'hour', 'minute' or
+        'second', returns the SQL that extracts a value from the given
+        datetime field field_name, and a tuple of parameters.
+        """
+        if lookup_type == 'week_day':
+            return f"EXTRACT(WEEKDAY FROM {sql}) + 1", params
+        else:
+            return f"EXTRACT({lookup_type} FROM {sql})", params
+
+    def datetime_trunc_sql(self, lookup_type, sql, params, tzname):
+        sql, params = self._convert_sql_to_tz(sql, params, tzname)
+        """
+        Given a lookup_type of 'year', 'month', 'day', 'hour', 'minute' or
+        'second', returns the SQL that truncates the given datetime field
+        field_name to a datetime object with only the given specificity, and
+        a tuple of parameters.
+        """
+        year = f"EXTRACT(year FROM {sql})"
+        month = f"EXTRACT(month FROM {sql})"
+        day = f"EXTRACT(day FROM {sql})"
+        hh = f"EXTRACT(hour FROM {sql})"
+        mm = f"EXTRACT(minute FROM {sql})"
+        ss = f"TRUNC(EXTRACT(second FROM {sql}))"
+        if lookup_type == 'year':
+            sql = "%s||'-01-01 00:00:00'" % year
+        elif lookup_type == 'month':
+            sql = "%s||'-'||%s||'-01 00:00:00'" % (year, month)
+        elif lookup_type == 'week':
+            # Truncate to midnight of the preceding Monday (WEEKDAY runs
+            # Sunday=0..Saturday=6).
+            return (f"CAST(CAST(DATEADD(-MOD(EXTRACT(WEEKDAY FROM {sql}) + 6, 7) DAY TO {sql}) AS DATE) AS TIMESTAMP)", params)
+        elif lookup_type == 'day':
+            sql = "%s||'-'||%s||'-'||%s||' 00:00:00'" % (year, month, day)
+        elif lookup_type == 'hour':
+            sql = "%s||'-'||%s||'-'||%s||' '||%s||':00:00'" % (year, month, day, hh)
+        elif lookup_type == 'minute':
+            sql = "%s||'-'||%s||'-'||%s||' '||%s||':'||%s||':00'" % (year, month, day, hh, mm)
+        elif lookup_type == 'second':
+            sql = "%s||'-'||%s||'-'||%s||' '||%s||':'||%s||':'||%s" % (year, month, day, hh, mm, ss)
+
+        result = f"CAST({sql} AS TIMESTAMP)"
+        return result, params
+
+    def time_trunc_sql(self, lookup_type, sql, params, tzname=None):
+        """
+        Given a lookup_type of 'hour', 'minute' or 'second', returns the SQL
+        that truncates the given time field field_name to a time object with
+        only the given specificity.
+
+        In Firebird 2.5.x, extract second from a datetime or time data
+        includes millisecond as fraction, so we need to TRUNC for just
+        get the seconds part.
+        """
+        sql, params = self._convert_sql_to_tz(sql, params, tzname)
+
+        hh = f"EXTRACT(hour FROM {sql})"
+        mm = f"EXTRACT(minute FROM {sql})"
+        ss = f"TRUNC(EXTRACT(second FROM {sql}))"
+
+        fields = {
+            'hour': "%s || ':00:00'" % hh,
+            'minute': "%s || ':' || %s || ':00'" % (hh, mm,),
+            'second': "%s || ':' || %s || ':' || %s" % (hh, mm, ss,)
+        }
+
+        return "CAST(%s AS TIME)" % fields[lookup_type], params
+
+    def lookup_cast(self, lookup_type, internal_type=None):
+        if lookup_type in ('iexact', 'icontains', 'istartswith', 'iendswith', 'iregex'):
+            return "UPPER(%s)"
+        return "%s"
+
+    def last_executed_query(self, cursor, sql, params):
+        """
+        Return the query with parameter values substituted, for debugging and
+        CaptureQueriesContext. The result is an approximation of the executed
+        statement; parameters are bound server-side.
+        """
+        if params:
+            if isinstance(params, (list, tuple)):
+                params = tuple(self._quote_query_param(p) for p in params)
+            elif isinstance(params, dict):
+                params = {k: self._quote_query_param(v) for k, v in params.items()}
+            try:
+                return force_str(sql) % params
+            except TypeError:
+                pass
+        return force_str(sql)
+
+    def _quote_query_param(self, param):
+        if isinstance(param, str):
+            return "'%s'" % param.replace("'", "''")
+        if isinstance(param, (datetime.date, datetime.time, datetime.datetime)):
+            return "'%s'" % param
+        if isinstance(param, bytes):
+            return "<binary>"
+        return param
+
+    def for_update_sql(self, nowait=False, skip_locked=False, of=(), no_key=False):
+        """
+        Returns the FOR UPDATE SQL clause to lock rows for an update operation.
+        """
+        # The nowait param depends on transaction setting
+        # return 'FOR UPDATE WITH LOCK'
+        return 'FOR UPDATE%s%s' % (
+            ' OF %s' % ', '.join(of) if of else '',
+            '' if skip_locked else ' WITH LOCK',
+        )
+
+    def fulltext_search_sql(self, field_name):
+        # We use varchar for TextFields so this is possible
+        # Look at http://www.volny.cz/iprenosil/interbase/ip_ib_strings.htm
+        return '%s CONTAINING %%s' % self.quote_name(field_name)
+
+    def last_insert_id(self, cursor, table, column):
+        cursor.execute('SELECT GEN_ID(%s, 0) FROM rdb$database' % get_autoinc_sequence_name(self, table))
+        return cursor.fetchone()[0]
+
+    def max_in_list_size(self):
+        """
+        Returns the maximum number of items that can be passed in a single 'IN'
+        list condition, or None if the backend does not impose a limit.
+        Django break up the params list into an OR of manageable chunks.
+        """
+        return 1500
+
+    def max_name_length(self):
+        return 31
+
+    def distinct_sql(self, fields, params):
+        # just keyword for firebird
+        return ['DISTINCT'], []
+
+    def no_limit_value(self):
+        return None
+
+    def limit_offset_sql(self, low_mark, high_mark):
+        """SQL:2008 OFFSET/FETCH, supported since Firebird 3."""
+        limit, offset = self._get_limit_offset_params(low_mark, high_mark)
+        return ' '.join(sql for sql in (
+            ('OFFSET %d ROWS' % offset) if offset else None,
+            ('FETCH FIRST %d ROWS ONLY' % limit) if limit else None,
+        ) if sql)
+
+    def get_db_converters(self, expression):
+        """
+        Get a list of functions needed to convert field data.
+        Some field types on some backends do not provide data in the correct
+        format, this is the hook for converter functions.
+        """
+        converters = super(DatabaseOperations, self).get_db_converters(expression)
+        internal_type = expression.output_field.get_internal_type()
+        if internal_type == 'TextField':
+            converters.append(self.convert_textfield_value)
+        if internal_type == 'JSONField':
+            # JSON is stored as a text blob; Django's JSONField parses the string afterwards.
+            converters.append(self.convert_textfield_value)
+        if internal_type == 'DateField':
+            converters.append(self.convert_datefield_value)
+        if internal_type == 'DateTimeField':
+            converters.append(self.convert_datetimefield_value)
+        if internal_type == 'BinaryField':
+            converters.append(self.convert_binaryfield_value)
+        elif internal_type == 'BooleanField':
+            converters.append(self.convert_booleanfield_value)
+        elif internal_type == 'DecimalField':
+            converters.append(self.convert_decimalfield_value)
+        elif internal_type in ['IPAddressField', 'GenericIPAddressField']:
+            converters.append(self.convert_ipfield_value)
+        elif internal_type == 'UUIDField':
+            converters.append(self.convert_uuidfield_value)
+        return converters
+
+    def convert_textfield_value(self, value, expression, connection):
+        if isinstance(value, Database.core.BlobReader):
+            if value.closed:
+                with connection.cursor() as cursor:
+                    value._blob = cursor.cursor.connection._att.open_blob(cursor.cursor.cursor.transaction._tra,
+                                                                         value.blob_id,
+                                                                         bytes([1, BPBItem.TYPE, 1, BlobType.STREAM]))
+                    result = value.read()
+                    value.close()
+                    value = result
+            else:
+                value = value.read()
+        if value is not None:
+            db_charset = None
+            # Trying to get character set from connection parameters to convert a string value
+            if 'charset' in connection.get_connection_params():
+                if connection.get_connection_params()['charset'] in CHARSET_MAP:
+                    db_charset = CHARSET_MAP[connection.get_connection_params()['charset']]
+            if db_charset:
+                value = force_str(value, encoding=db_charset, errors='replace')
+            else:
+                value = force_str(value)
+        return value
+
+    def convert_binaryfield_value(self, value, expression, connection):
+        if value is not None:
+            try:
+              value = force_bytes(value.read())
+            except:
+              value = force_bytes(value)
+        return value
+
+    def convert_booleanfield_value(self, value, expression, connection):
+        if value in (0, 1):
+            value = bool(value)
+        return value
+
+    def convert_datetimefield_value(self, value, expression, connection):
+        # TIMESTAMP carries no zone: it holds the wall-clock time in the alias TIME_ZONE.
+        if value is not None and settings.USE_TZ and timezone.is_naive(value):
+            value = timezone.make_aware(value, connection.timezone)
+        return value
+
+    def convert_datefield_value(self, value, expression, connection):
+        # DATE columns are TIMESTAMP in dialect 1, so the driver returns a datetime.
+        if isinstance(value, datetime.datetime):
+            value = value.date()
+        return value
+
+    def convert_decimalfield_value(self, value, expression, connection):
+        field = expression.field
+
+        if isinstance(value, float):
+            # DECIMAL/NUMERIC over 9 digits is stored as DOUBLE in dialect 1 and comes back as float.
+            value = decimal.Decimal(repr(value)).quantize(decimal.Decimal(1).scaleb(-field.decimal_places))
+
+        val = utils.format_number(value, field.max_digits, field.decimal_places)
+
+        if val is not None:
+            value = decimal.Decimal(val)
+
+        return value
+
+    def convert_ipfield_value(self, value, expression, connection):
+        if value is not None:
+            value = value.strip()
+        return value
+
+    def convert_uuidfield_value(self, value, expression, connection):
+        if value is not None:
+            value = uuid.UUID(value)
+        return value
+
+    def combine_expression(self, connector, sub_expressions):
+        if connector == '^':
+            return 'POWER(%s)' % ','.join(sub_expressions)
+        elif connector == '%%':
+            return 'MOD(%s)' % ','.join(sub_expressions)
+        elif connector == '&':
+            return 'BIN_AND(%s)' % ','.join(sub_expressions)
+        elif connector == '|':
+            return 'BIN_OR(%s)' % ','.join(sub_expressions)
+        elif connector == '<<':
+            return 'BIN_SHL(%s)' % ','.join(sub_expressions)
+        elif connector == '>>':
+            return 'BIN_SHR(%s)' % ','.join(sub_expressions)
+        elif connector == '#':
+            return 'BIN_XOR(%s)' % ','.join(sub_expressions)
+        return super(DatabaseOperations, self).combine_expression(connector, sub_expressions)
+
+    # Marker appended by format_for_duration_arithmetic() so that
+    # combine_duration_expression() can tell duration operands (bigint
+    # microseconds) apart from datetime operands.
+    _duration_marker = ' MICROSECOND'
+
+    def combine_duration_expression(self, connector, sub_expressions):
+        marker = self._duration_marker
+
+        def is_duration(sql):
+            return sql.endswith(marker)
+
+        def strip(sql):
+            return sql[:-len(marker)] if is_duration(sql) else sql
+
+        lhs, rhs = sub_expressions
+        if connector in ('*', '/') or (is_duration(lhs) and is_duration(rhs)):
+            # duration-with-scalar or duration-with-duration arithmetic works
+            # directly on the microsecond values.
+            return '(%s) %s (%s)' % (strip(lhs), connector, strip(rhs))
+        if connector not in ('+', '-'):
+            raise DatabaseError('Invalid connector for timedelta: %s.' % connector)
+        if is_duration(rhs):
+            timestamp, duration = lhs, strip(rhs)
+        elif is_duration(lhs):
+            if connector == '-':
+                raise DatabaseError('Cannot subtract a datetime from a duration.')
+            timestamp, duration = rhs, strip(lhs)
+        else:
+            return self.combine_expression(connector, sub_expressions)
+        sign = '-' if connector == '-' else ''
+        # Fractional milliseconds carry the value down to the server's
+        # timestamp resolution of 100 microseconds.
+        return 'DATEADD(%s(CAST(%s AS BIGINT))/1000.0 MILLISECOND TO %s)' % (
+            sign, duration, timestamp)
+
+    def format_for_duration_arithmetic(self, sql):
+        return '%s%s' % (sql, self._duration_marker)
+
+    def subtract_temporals(self, internal_type, lhs, rhs):
+        lhs_sql, lhs_params = lhs
+        rhs_sql, rhs_params = rhs
+        if internal_type == 'DateField':
+            params = (*rhs_params, *lhs_params)
+            return (
+                'CAST(DATEDIFF(DAY FROM %s TO %s) * 86400000000 AS BIGINT)' % (rhs_sql, lhs_sql),
+                params,
+            )
+        # DATEDIFF's finest unit is MILLISECOND, so combine whole seconds with
+        # the difference of the fractional parts, which EXTRACT(MILLISECOND)
+        # reports at the server's full 100 microsecond resolution.
+        params = (*rhs_params, *lhs_params, *lhs_params, *rhs_params)
+        return (
+            'CAST(DATEDIFF(SECOND FROM %s TO %s) * 1000000 + '
+            '(EXTRACT(MILLISECOND FROM %s) - EXTRACT(MILLISECOND FROM %s)) * 1000 AS BIGINT)'
+            % (rhs_sql, lhs_sql, lhs_sql, rhs_sql),
+            params,
+        )
+
+    def year_lookup_bounds_for_datetime_field(self, value, iso_year=False):
+        first = '%s-01-01 00:00:00' % value
+        second = '%s-12-31 23:59:59.9999' % value
+        return [first, second]
+
+    def year_lookup_bounds_for_date_field(self, value, iso_year=False):
+        first = '%s-01-01' % value
+        second = '%s-12-31' % value
+        return [first, second]
+
+    def quote_name(self, name):
+        if name.upper() == 'RDB$DB_KEY':
+            # The pseudo-column must not be quoted, the quoted form is not
+            # recognized (#139).
+            return 'RDB$DB_KEY'
+        # Dialect 1 rejects double-quoted identifiers, so names go out plain and
+        # uppercase. Surrounding quotes from callers are stripped first.
+        name = name.strip('"')
+        if not name:
+            return name
+        if name.upper() in RESERVED_WORDS:
+            # Django derives aliases from field names, so e.g. "group" would reach the
+            # server as AS GROUP and fail as "Token unknown". Map it to a safe name.
+            return self._fit_name(name, self.max_name_length() - len(RESERVED_SUFFIX)) + RESERVED_SUFFIX
+        result = self._fit_name(name, self.max_name_length())
+        if not 'A' <= result[:1] <= 'Z':
+            # R30: Firebird identifiers must start with a letter. Django's aggregates alias
+            # COUNT(*) as __count, which becomes __COUNT and fails as "Token unknown". The
+            # prefix is added after shortening to 30 characters so the result stays within 31.
+            result = 'U' + self._fit_name(name, self.max_name_length() - 1)
+        return result
+
+    def _fit_name(self, name, length):
+        """Upper-case ``name`` and shorten it to at most ``length`` characters.
+
+        ``truncate_name`` hashes the original spelling, so ASCII names keep the shortened forms
+        they always had. Upper-casing can lengthen a name (``ß`` becomes ``SS``); in that case
+        the upper-cased name is shortened instead, so the result still fits.
+        """
+        result = utils.truncate_name(name, length).upper()
+        if len(result) > length:
+            result = utils.truncate_name(name.upper(), length).upper()
+        return result
+
+    def return_insert_columns(self, fields):
+        if not fields:
+            return '', ()
+        columns = [
+            '%s.%s' % (
+                self.quote_name(field.model._meta.db_table),
+                self.quote_name(field.column),
+            ) for field in fields
+        ]
+        return 'RETURNING %s' % ', '.join(columns), ()
+
+    def pk_default_value(self):
+        return 'NULL'
+
+    def deferrable_sql(self):
+        return ''
+
+    def return_insert_id(self):
+        return "RETURNING %s", ()
+
+    def random_function_sql(self):
+        """
+        Returns a SQL expression that returns a random value.
+        """
+        return 'RAND()'
+
+    def savepoint_create_sql(self, sid):
+        return "SAVEPOINT " + self.quote_name(sid)
+
+    def savepoint_commit_sql(self, sid):
+        return "RELEASE SAVEPOINT " + self.quote_name(sid)
+
+    def savepoint_rollback_sql(self, sid):
+        return "ROLLBACK TO " + self.quote_name(sid)
+
+    def _get_sequence_reset_sql(self, style):
+        return """
+        SELECT gen_id(%(sequence_name)s, coalesce(max(%(column_name)s), 0) - gen_id(%(sequence_name)s, 0) )
+        FROM %(table_name)s;
+        """
+
+    def sequence_reset_by_name_sql(self, style, sequences):
+        sql = []
+        for sequence_info in sequences:
+            sequence_name = self.get_sequence_name(sequence_info['table'])
+            table_name = self.quote_name(sequence_info['table'])
+            column_name = self.quote_name(sequence_info['column'] or 'id')
+            query = self._get_sequence_reset_sql(style) % {'sequence': sequence_name,
+                                                           'table': table_name,
+                                                           'column': column_name}
+            sql.append(query)
+        return sql
+
+    def __sequence_reset_sql(self, style, model_list):
+        """
+        Attempt to make a reset sequence without create an extra store procerdure
+        """
+        from django.db import models
+
+        output, procedures = [], []
+        reset_value_sql = self._get_sequence_reset_sql(style)
+
+        for model in model_list:
+            for f in model._meta.local_fields:
+                if isinstance(f, models.AutoField):
+                    table_name = self.quote_name(model._meta.db_table)
+                    column_name = self.quote_name(f.column)
+                    sequence_name = self.get_sequence_name(model._meta.db_table)
+                    output.append(reset_value_sql % {'sequence_name': sequence_name,
+                                                     'column_name': column_name,
+                                                     'table_name': table_name})
+                    break
+            for f in model._meta.many_to_many:
+                if not f.remote_field.through:
+                    table_name = self.quote_name(f.m2m_db_table())
+                    column_name = self.quote_name(f.column)
+                    sequence_name = get_autoinc_sequence_name(self, f.m2m_db_table())
+                    output.append(reset_value_sql % {'sequence_name': sequence_name,
+                                                     'column_name': column_name,
+                                                     'table_name': table_name})
+        return output
+
+    def sequence_reset_sql(self, style, model_list):
+        from django.db import models
+
+        output, procedures = [], []
+        KEYWORD = style.SQL_KEYWORD
+        TABLE = style.SQL_TABLE
+        FIELD = style.SQL_FIELD
+        COLTYPE = style.SQL_COLTYPE
+        reset_value_sql = 'ALTER SEQUENCE %(sequence_name)s RESTART WITH '
+        procedure_sql = '\n'.join([
+            '%s %s' % (KEYWORD('CREATE PROCEDURE'), TABLE('%(procedure_name)s')),
+            KEYWORD('AS'),
+            '%s %s %s;' % ( \
+                KEYWORD('DECLARE VARIABLE'), FIELD('start_value'), COLTYPE('INTEGER')),
+            KEYWORD('BEGIN'),
+            '   %s gen_id(%s, coalesce(max(%s), 0) - gen_id(%s, 0))' % ( \
+                KEYWORD('SELECT'), FIELD('%(sequence_name)s'),
+                FIELD('%(column_name)s'), FIELD('%(sequence_name)s')),
+            '   %s %s into %s;' % ( \
+                KEYWORD('FROM'), TABLE('%(table_name)s'), FIELD(':start_value')),
+            "   %s '%s' || %s || ';';" % ( \
+                KEYWORD('EXECUTE STATEMENT'), reset_value_sql, FIELD(':start_value')),
+            '%s;' % KEYWORD('END')
+        ])
+        for model in model_list:
+            for f in model._meta.local_fields:
+                if isinstance(f, models.AutoField):
+                    table_name = self.quote_name(model._meta.db_table)
+                    column_name = self.quote_name(f.column)
+                    sequence_name = get_autoinc_sequence_name(self, model._meta.db_table)
+                    procedure_name = get_reset_procedure_name(self, model._meta.db_table)
+                    output.append(procedure_sql % locals())
+                    procedures.append(procedure_name)
+                    break
+            for f in model._meta.many_to_many:
+                if not f.remote_field.through:
+                    table_name = self.quote_name(f.m2m_db_table())
+                    column_name = self.quote_name(f.column)
+                    sequence_name = get_autoinc_sequence_name(self, f.m2m_db_table())
+                    procedure_name = get_reset_procedure_name(self, f.m2m_db_table())
+                    output.append(procedure_sql % locals())
+                    procedures.append(procedure_name)
+        for procedure in procedures:
+            output.append('%s %s;' % (KEYWORD('EXECUTE PROCEDURE'), TABLE(procedure)))
+        for procedure in procedures:
+            output.append('%s %s;' % (KEYWORD('DROP PROCEDURE'), TABLE(procedure)))
+
+        return output
+
+    def sql_flush(self, style, tables, *, reset_sequences=False, allow_cascade=False):
+        if not tables:
+            return []
+
+        # Firebird cannot temporarily disable foreign key checks, so delete
+        # from referencing tables before the tables they reference.
+        tables = self._flush_table_order(tables)
+        sql = ['%s %s %s;' %
+               (style.SQL_KEYWORD('DELETE'),
+                style.SQL_KEYWORD('FROM'),
+                style.SQL_TABLE(self.quote_name(table))
+                ) for table in tables]
+        if reset_sequences:
+            for table in tables:
+                sequence_name = self.get_sequence_name(table)
+                query = "%s %s %s 0;" % (
+                    style.SQL_KEYWORD('ALTER SEQUENCE'),
+                    sequence_name,
+                    style.SQL_KEYWORD('RESTART WITH')
+                )
+                sql.append(query)
+        return sql
+
+    def _flush_table_order(self, tables):
+        """
+        Order tables so that every table comes before the tables it references
+        with a foreign key (self-references are ignored). Cycles keep their
+        input order.
+        """
+        depends = {}
+        with self.connection.cursor() as cursor:
+            for table in tables:
+                try:
+                    relations = self.connection.introspection.get_relations(cursor, table)
+                except Exception:
+                    relations = {}
+                # get_relations values are (other_field, other_table) tuples,
+                # with a trailing db_on_delete element on Django >= 6.1.
+                depends[table] = {rel[1] for rel in relations.values()
+                                  if rel[1] in tables and rel[1] != table}
+        ordered = []
+        remaining = list(tables)
+        while remaining:
+            acyclic = False
+            for table in list(remaining):
+                # A table can be deleted once no remaining table references it.
+                if not any(table in depends[other] for other in remaining if other != table):
+                    ordered.append(table)
+                    remaining.remove(table)
+                    acyclic = True
+            if not acyclic:
+                # Reference cycle: fall back to input order for the rest.
+                ordered.extend(remaining)
+                break
+        return ordered
+
+    def drop_sequence_sql(self, table):
+        return 'DROP SEQUENCE %s' % self.get_sequence_name(table)
+
+    def get_sequence_name(self, table_name):
+        return get_autoinc_sequence_name(self, table_name)
+
+    def get_sequence_trigger_name(self, table_name):
+        return get_autoinc_trigger_name(self, table_name)
+
+    def adapt_datetimefield_value(self, value):
+        """
+        Transform a datetime value to an object compatible with what is expected
+        by the backend driver for datetime columns.
+        """
+        if value is None:
+            return None
+
+        # Expression values are adapted by the database.
+        if hasattr(value, "resolve_expression"):
+            return value
+
+        # Firebird doesn't support tz-aware datetimes
+        if timezone.is_aware(value):
+            if settings.USE_TZ:
+                value = timezone.make_naive(value, self.connection.timezone)
+            else:
+                raise ValueError("Firebird backend does not support timezone-aware datetimes when USE_TZ is False.")
+
+        # Replaces 6 digits microseconds to 4 digits allowed in Firebird
+        if isinstance(value, datetime.datetime):
+            value = str(value)
+        if isinstance(value, str):
+            value = value[:24]
+        return value
+
+    def adapt_timefield_value(self, value):
+        if value is None:
+            return None
+
+        # Expression values are adapted by the database.
+        if hasattr(value, "resolve_expression"):
+            return value
+
+        # Firebird doesn't support tz-aware times
+        if timezone.is_aware(value):
+            raise ValueError("Firebird backend does not support timezone-aware times.")
+
+        # Replaces 6 digits microseconds to 4 digits allowed in Firebird
+        if isinstance(value, datetime.time):
+            value = str(value)
+        if isinstance(value, str):
+            value = value[:13]
+        return value
+
+    def bulk_insert_sql(self, fields, placeholder_rows):
+        qn = self.connection.ops.quote_name
+        query = []
+        for row in placeholder_rows:
+            select = []
+            for i, placeholder in enumerate(row):
+                field = fields[i]
+                model = field.model
+                meta = model._meta
+                table = meta.db_table
+                placeholder = 'CAST(%s AS TYPE OF COLUMN %s.%s)' % ('%s', qn(table), qn(field.column))
+                select.append(placeholder)
+            query.append('SELECT %s FROM RDB$DATABASE' % ', '.join(select))
+        return ' UNION ALL '.join(query)
+
+    def bulk_batch_size(self, fields, objs):
+        """Firebird restricts the number of parameters in a query."""
+        if fields:
+            return self.connection.features.max_query_params // len(fields)
+        return len(objs)
+
+
+def create_object_name(ops, obj, suffix=''):
+    name_length = ops.max_name_length() - len(suffix)
+    obj_name = utils.strip_quotes(obj)
+    return utils.truncate_name(obj_name, name_length)
+
+
+def get_autoinc_sequence_name(ops, table):
+    suffix = '_SQ'
+    table_name = create_object_name(ops, table, suffix)
+    return ops.quote_name('%s%s' % (table_name, suffix,))
+
+
+def get_autoinc_trigger_name(ops, table):
+    suffix = '_PK'
+    table_name = create_object_name(ops, table, suffix)
+    return ops.quote_name('%s%s' % (table_name, suffix,))
+
+
+def get_reset_procedure_name(ops, table):
+    suffix = '_RS'
+    table_name = create_object_name(ops, table, suffix)
+    return ops.quote_name('%s%s' % (table_name, suffix,))

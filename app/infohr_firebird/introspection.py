@@ -1,0 +1,341 @@
+import datetime
+
+import django
+from django.db import DatabaseError
+from django.utils.encoding import force_str
+from django.db.models.indexes import Index
+from django.db.backends.base.introspection import (
+    BaseDatabaseIntrospection,
+    FieldInfo,
+    TableInfo,
+)
+
+
+class DatabaseIntrospection(BaseDatabaseIntrospection):
+    # Maps type codes to Django Field types.
+    data_types_reverse = {
+        7: 'SmallIntegerField',
+        8: 'IntegerField',
+        10: 'FloatField',
+        12: 'DateField',
+        13: 'TimeField',
+        14: 'CharField',
+        16: 'BigIntegerField',
+        23: 'BooleanField', # since firebird 3 boolean fields are supported
+        27: 'FloatField',
+        28: 'TimeField',
+        29: 'DateTimeField',
+        35: 'DateTimeField',
+        37: 'CharField',
+        40: 'TextField',
+        260: 'BinaryField',
+        261: 'TextField',
+        # A NUMERIC/DECIMAL data type is stored as a SMALLINT, INTEGER or BIGINT
+        # in Firebird, thus the value of RDB$FIELD_TYPE is reported. So we need
+        # two additional helper data types for that to distinguish between real
+        # Integer data types and NUMERIC/DECIMAL
+        161: 'DecimalField',  # NUMERIC => RDB$FIELD_SUB_TYPE = 1
+        162: 'DecimalField',  # DECIMAL => RDB$FIELD_SUB_TYPE = 2
+        # Also, the scale value of a NUMERIC/DECIMAL fields is stored as negative
+        # number in the Firebird system tables, thus we have to multiply with -1.
+        # The SELECT statement in the function get_table_description takes care
+        # of all of that.
+    }
+
+    def quote_value(self, value):
+        if isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
+            return "'%s'" % value
+        elif isinstance(value, str):
+            return repr(value)
+        elif isinstance(value, bool):
+            return "1" if value else "0"
+        elif value is None:
+            return "NULL"
+        else:
+            return force_str(value)
+
+    def identifier_converter(self, name):
+        """
+        Firebird stores unquoted identifiers in upper case. Report those in
+        lower case (Django's convention), but preserve the case of quoted,
+        mixed-case identifiers.
+        """
+        return name.lower() if name.isupper() else name
+
+    def table_name_converter(self, name):
+        # The same name the DDL uses: quote_name truncates to 31 characters with a hash
+        # suffix and uppercases, so a long table is reported under its shortened name.
+        return self.identifier_converter(self.connection.ops.quote_name(name))
+
+    def _table_key(self, table_name):
+        # The name as the DDL stores it: quote_name truncates names longer than 31 characters.
+        return self.connection.ops.quote_name(table_name)
+
+    def get_table_list(self, cursor):
+        "Returns a list of table names in the current database."
+        cursor.execute("""
+            select
+                trim(rdb$relation_name),
+                case when RDB$VIEW_BLR IS NULL then 't' else 'v' end as rel_type
+            from rdb$relations
+            where rdb$system_flag=0
+            order by 1 """)
+        return [TableInfo(self.identifier_converter(row[0]), row[1]) for row in cursor.fetchall()]
+
+    def get_table_description(self, cursor, table_name):
+        """
+        Returns a description of the table, with the DB-API cursor.description interface.
+        Must return a 'FieldInfo' struct 'name type_code display_size internal_size precision scale null_ok'
+        """
+        tbl_name = "'%s'" % self._table_key(table_name)
+        cursor.execute("""
+            select
+              trim(rf.rdb$field_name)
+              , case
+                  when (f.rdb$field_type in (7,8,16)) and (f.rdb$field_sub_type > 0) then
+                    160 + f.rdb$field_sub_type
+                  when (f.rdb$field_type = 261) then
+                    260 + f.rdb$field_sub_type
+                  else
+                    f.rdb$field_type
+                end as type_code
+
+              , case
+                  when (f.rdb$field_type in (14,37)) then
+                    f.rdb$character_length
+                  else
+                    f.rdb$field_length
+                end as field_length
+              , f.rdb$field_precision
+              , f.rdb$field_scale * -1
+              , rf.rdb$null_flag
+              , rf.rdb$default_source
+              ,
+              case
+                  when (coalesce(rf.rdb$collation_id, f.rdb$collation_id, 0) = 0) then
+                    cast(null as varchar(63))
+                  else
+                    (select trim(trailing from c.rdb$collation_name) from rdb$collations c
+                        where c.rdb$collation_id = coalesce(rf.rdb$collation_id, f.rdb$collation_id)
+                        and c.rdb$character_set_id = f.rdb$character_set_id)
+                  end as coll_name
+            from
+              rdb$relation_fields rf join rdb$fields f on (rf.rdb$field_source = f.rdb$field_name)
+            where
+              upper(rf.rdb$relation_name) = %s
+            order by
+              rf.rdb$field_position
+            """ % (tbl_name,))
+        items = []
+        for r in cursor.fetchall():
+            # name type_code display_size internal_size precision scale null_ok + default
+            items.append(FieldInfo(name=self.identifier_converter(r[0]), type_code=r[1], display_size=r[2],
+                                   internal_size=r[2] or 0, precision=r[3],
+                                   scale=r[4], null_ok=not (r[5] == 1), default=r[6], collation=r[7]))
+        if not items:
+            raise DatabaseError("Table %s does not exist" % table_name)
+        return items
+
+    def get_sequences(self, cursor, table_name, table_fields=()):
+        """
+        Return sequences for table.
+
+        Args:
+            cursor (Cursor): Database cursor
+            table_name (str): table
+            table_fields (list): table fields
+
+        .. important::
+
+           Firebird does not support introspected sequences for table.
+        """
+        pk_col = self.get_primary_key_column(cursor, table_name)
+        return [{'table': table_name, 'column': pk_col}]
+
+    def get_key_columns(self, cursor, table_name):
+        """
+        Backends can override this to return a list of (column_name, referenced_table_name,
+        referenced_column_name) for all key columns in given table.
+        """
+        tbl_name = "'%s'" % self._table_key(table_name)
+        key_columns = []
+        cursor.execute("""
+            select
+                lower(s.rdb$field_name) as column_name,
+                lower(i2.rdb$relation_name) as referenced_table_name,
+                lower(s2.rdb$field_name) as referenced_column_name
+            from rdb$index_segments s
+            left join rdb$indices i on i.rdb$index_name = s.rdb$index_name
+            left join rdb$relation_constraints rc on rc.rdb$index_name = s.rdb$index_name
+            left join rdb$ref_constraints refc on rc.rdb$constraint_name = refc.rdb$constraint_name
+            left join rdb$relation_constraints rc2 on rc2.rdb$constraint_name = refc.rdb$const_name_uq
+            left join rdb$indices i2 on i2.rdb$index_name = rc2.rdb$index_name
+            left join rdb$index_segments s2 on i2.rdb$index_name = s2.rdb$index_name
+            WHERE RC.RDB$CONSTRAINT_TYPE = 'FOREIGN KEY'
+            and upper(i.rdb$relation_name) = %s """ % (tbl_name,))
+
+        for r in cursor.fetchall():
+            key_columns.append((r[0].strip(), r[1].strip(), r[2].strip()))
+        return key_columns
+
+    def get_relations(self, cursor, table_name):
+        """
+        Returns a dictionary of {field_name: (field_name_other_table, other_table)}
+        representing all relationships to the given table. On Django >= 6.1 the
+        values are 3-tuples that also carry the database-level ON DELETE action.
+        """
+        tbl_name = "'%s'" % self._table_key(table_name)
+        cursor.execute("""
+            select
+                lower(s.rdb$field_name) as column_name,
+                lower(i2.rdb$relation_name) as referenced_table_name,
+                lower(s2.rdb$field_name) as referenced_column_name,
+                refc.rdb$delete_rule as delete_rule
+            from rdb$index_segments s
+            left join rdb$indices i on i.rdb$index_name = s.rdb$index_name
+            left join rdb$relation_constraints rc on rc.rdb$index_name = s.rdb$index_name
+            left join rdb$ref_constraints refc on rc.rdb$constraint_name = refc.rdb$constraint_name
+            left join rdb$relation_constraints rc2 on rc2.rdb$constraint_name = refc.rdb$const_name_uq
+            left join rdb$indices i2 on i2.rdb$index_name = rc2.rdb$index_name
+            left join rdb$index_segments s2 on i2.rdb$index_name = s2.rdb$index_name
+            WHERE RC.RDB$CONSTRAINT_TYPE = 'FOREIGN KEY'
+            and upper(i.rdb$relation_name) = %s """ % (tbl_name,))
+        relations = {}
+        with_on_delete = django.VERSION >= (6, 1)
+        for column, other_table, other_column, delete_rule in cursor.fetchall():
+            value = (other_column.strip(), other_table.strip())
+            if with_on_delete:
+                rule = (delete_rule or '').strip()
+                if rule == 'RESTRICT':
+                    # Firebird records RESTRICT for foreign keys created
+                    # without an explicit ON DELETE clause; Django treats
+                    # that default as "no database action".
+                    rule = 'NO ACTION'
+                value += (self.on_delete_types.get(rule),)
+            relations[column.strip()] = value
+        return relations
+
+    def get_constraints(self, cursor, table_name):
+        """
+        Retrieves any constraints or keys (unique, pk, fk, check, index)
+        across one or more columns.
+
+        Returns a dict mapping constraint names to their attributes,
+        where attributes is a dict with keys:
+         * columns: List of columns this covers
+         * primary_key: True if primary key, False otherwise
+         * unique: True if this is a unique constraint, False otherwise
+         * foreign_key: (table, column) of target, or None
+         * check: True if check constraint, False otherwise
+         * index: True if index, False otherwise.
+         * orders: The order (ASC/DESC) defined for the columns of indexes
+         * type: The type of the index (btree, hash, etc.)
+
+        Some backends may return special constraint names that don't exist
+        if they don't name constraints of a certain type (e.g. SQLite)
+        """
+        tbl_name = "'%s'" % self._table_key(table_name)
+        constraints = {}
+
+        cursor.execute("""
+        SELECT
+          case
+            when rc.RDB$CONSTRAINT_NAME is not null then rc.RDB$CONSTRAINT_NAME
+            else i.RDB$INDEX_NAME
+          end as constraint_name,
+
+          case
+            when rc.RDB$CONSTRAINT_TYPE is not null then rc.RDB$CONSTRAINT_TYPE
+            else 'INDEX'
+          end AS constraint_type,
+
+          case
+            when s.RDB$FIELD_NAME is not null then s.RDB$FIELD_NAME
+            else ''
+          end AS field_name,
+
+          i2.RDB$RELATION_NAME AS references_table,
+          s2.RDB$FIELD_NAME AS references_field,
+          i.RDB$UNIQUE_FLAG,
+          i.RDB$INDEX_TYPE,
+          i.RDB$EXPRESSION_SOURCE as expression_source
+        FROM RDB$INDEX_SEGMENTS s
+        FULL JOIN RDB$INDICES i ON i.RDB$INDEX_NAME = s.RDB$INDEX_NAME
+        LEFT JOIN RDB$RELATION_CONSTRAINTS rc ON rc.RDB$INDEX_NAME = s.RDB$INDEX_NAME
+        LEFT JOIN RDB$REF_CONSTRAINTS refc ON rc.RDB$CONSTRAINT_NAME = refc.RDB$CONSTRAINT_NAME
+        LEFT JOIN RDB$RELATION_CONSTRAINTS rc2 ON rc2.RDB$CONSTRAINT_NAME = refc.RDB$CONST_NAME_UQ
+        LEFT JOIN RDB$INDICES i2 ON i2.RDB$INDEX_NAME = rc2.RDB$INDEX_NAME
+        LEFT JOIN RDB$INDEX_SEGMENTS s2 ON i2.RDB$INDEX_NAME = s2.RDB$INDEX_NAME
+        WHERE i.RDB$RELATION_NAME = %s
+        ORDER BY s.RDB$FIELD_POSITION
+        """ % (tbl_name,))
+        for constraint_name, constraint_type, column, other_table, other_column, unique, order, expression in cursor.fetchall():
+            primary_key = False
+            foreign_key = None
+            check = False
+            index = False
+            expression_source = None
+            order = 'DESC' if order else 'ASC'
+            constraint = constraint_name.strip().lower()
+            constraint_type = constraint_type.strip()
+            column = column.strip().lower()
+            if other_table:
+                other_table = other_table.strip().lower()
+            if other_column:
+                other_column = other_column.strip().lower()
+            if expression:
+                expression_source = expression.strip().lower()
+
+            if constraint_type == 'PRIMARY KEY':
+                primary_key = True
+            elif constraint_type == 'UNIQUE':
+                unique = True
+            elif constraint_type == 'FOREIGN KEY':
+                # The implicit index that backs the constraint shares the
+                # constraint's name, so the single entry carries both flags.
+                foreign_key = (other_table, other_column,)
+                index = True
+            elif constraint_type == 'INDEX':
+                index = True
+
+            if constraint not in constraints:
+                constraints[constraint] = {
+                    "columns": [],
+                    "orders": [],
+                    "primary_key": primary_key,
+                    "unique": unique,
+                    "foreign_key": foreign_key,
+                    "check": check,
+                    "index": index,
+                    "type": Index.suffix,
+                    "expression_source": expression_source
+                }
+            # Record the details
+            constraints[constraint]['columns'].append(column)
+            constraints[constraint]['orders'].append(order)
+
+        return constraints
+
+    def _get_field_indexes(self, cursor, table_name, field_name):
+        """
+          Return a list of index names that are not created automatically (ie: Foreign Key)
+        """
+        table = "'%s'" % self._table_key(table_name)
+        field = "'%s'" % field_name.upper()
+        cursor.execute("""
+            select s.rdb$index_name
+            from rdb$index_segments s
+            left join rdb$indices i on i.rdb$index_name = s.rdb$index_name
+            left join rdb$relation_constraints rc on rc.rdb$index_name = s.rdb$index_name
+            where i.rdb$relation_name = %s
+            and s.rdb$field_name = %s
+            and rc.rdb$constraint_type is null
+            order by s.rdb$field_position """ % (table, field,))
+
+        return [index_name[0].strip() for index_name in cursor.fetchall()]
+
+    def _name_to_index(self, cursor, table_name):
+        """Return a dictionary of {field_name: field_index} for the given table.
+           Indexes are 0-based.
+        """
+        return dict([(d[0], i) for i, d in enumerate(self.get_table_description(cursor, table_name))])

@@ -9,6 +9,8 @@ django-unfold==0.67.0
 docxtpl==0.20.2
 et_xmlfile==2.0.0
 execnet==2.1.1
+firebird-base==2.0.4
+firebird-driver==2.1.2
 fonttools==4.67.0
 fpdf2==2.8.9
 iniconfig==2.3.1
@@ -22,12 +24,14 @@ packaging==26.3
 pathspec==1.1.1
 pillow==11.3.0
 pluggy==1.6.0
+protobuf==5.29.6
 psycopg==3.2.10
 psycopg-binary==3.2.10
 Pygments==2.21.0
 pytest==8.4.2
 pytest-django==4.11.1
 pytest-xdist==3.6.1
+python-dateutil==2.9.0.post0
 python-docx==1.2.0
 ruff==0.14.0
 sqlparse==0.6.0

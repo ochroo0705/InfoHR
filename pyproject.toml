@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-extend-exclude = ["migration", "docs", "_starter_kit"]
+extend-exclude = ["migration", "docs", "_starter_kit", "app/infohr_firebird/__init__.py", "app/infohr_firebird/base.py", "app/infohr_firebird/client.py", "app/infohr_firebird/compiler.py", "app/infohr_firebird/creation.py", "app/infohr_firebird/expressions.py", "app/infohr_firebird/features.py", "app/infohr_firebird/introspection.py", "app/infohr_firebird/operations.py", "app/infohr_firebird/schema.py", "app/infohr_firebird/validation.py", "app/infohr_firebird/version.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "DJ", "S"]
@@ -14,6 +14,7 @@ ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "app/**/migrations/*" = ["E501"]
+"app/**/migrations_fb/*" = ["E501"]
 "app/**/tests.py" = ["S106"]
 
 [tool.mypy]
@@ -26,6 +27,12 @@ exclude = ["migrations/"]
 [[tool.mypy.overrides]]
 module = ["environ.*", "unfold.*", "docxtpl.*"]
 ignore_missing_imports = true
+
+# Vendored django-firebird backend (app/infohr_firebird). Its own code is not ours to type-check.
+# The tests package is listed separately on purpose, so it stays type-checked.
+[[tool.mypy.overrides]]
+module = ["infohr_firebird", "infohr_firebird.base", "infohr_firebird.client", "infohr_firebird.compiler", "infohr_firebird.creation", "infohr_firebird.expressions", "infohr_firebird.features", "infohr_firebird.introspection", "infohr_firebird.operations", "infohr_firebird.schema", "infohr_firebird.validation", "infohr_firebird.version"]
+ignore_errors = true
 
 [tool.django-stubs]
 django_settings_module = "config.settings"

@@ -1,0 +1,1334 @@
+import copy
+import logging
+import datetime
+import re
+
+import django
+
+from django.apps.registry import Apps
+from django.conf import settings
+from django.db.backends.utils import split_identifier
+from django.db.backends.ddl_references import Statement, Table, IndexName, IndexColumns, TableColumns, Expressions
+from django.db.models.sql import Query
+from django.utils.encoding import force_str
+from django.db.models import Index
+from django.db.models.fields import AutoField, CharField, BinaryField
+from django.db.models.fields.composite import CompositePrimaryKey
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
+from django.db.backends.base.schema import _related_non_m2m_objects, _is_relevant_relation
+
+from firebird.driver import transaction
+
+from .errors import busy_error_for
+
+logger = logging.getLogger('django.db.backends.schema')
+
+
+class FirebirdColumns(TableColumns):
+    """Hold a reference to one or many columns."""
+
+    def __init__(self, table, columns, quote_name, col_suffixes=()):
+        self.quote_name = quote_name
+        self.col_suffixes = col_suffixes
+        super().__init__(table, columns)
+
+    def __str__(self):
+        def col_str(column, idx):
+            return self.quote_name(column)
+
+        return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))
+
+
+class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
+    sql_rename_table = "Rename table is not allowed"  # Not supported
+    sql_delete_table = "DROP TABLE %(table)s;"
+    sql_create_column = "ALTER TABLE %(table)s ADD %(column)s %(definition)s"
+    sql_alter_column_type = "ALTER %(column)s TYPE %(type)s%(collation)s"
+    sql_delete_column = "ALTER TABLE %(table)s DROP %(column)s"
+    sql_rename_column = "ALTER TABLE %(table)s ALTER %(old_column)s TO %(new_column)s"
+    if django.VERSION >= (6, 1):
+        # Django 6.1 passes %(on_delete_db)s (database-level on_delete);
+        # Firebird supports ON DELETE CASCADE / SET NULL / SET DEFAULT.
+        sql_create_fk = (
+            "ALTER TABLE %(table)s ADD CONSTRAINT %(name)s FOREIGN KEY (%(column)s) "
+            "REFERENCES %(to_table)s (%(to_column)s)%(on_delete_db)s"
+        )
+        # Columns added with ALTER TABLE ADD can carry their FK inline.
+        sql_create_column_inline_fk = (
+            "CONSTRAINT %(name)s REFERENCES %(to_table)s (%(to_column)s)"
+            "%(on_delete_db)s%(deferrable)s"
+        )
+    else:
+        sql_create_fk = "ALTER TABLE %(table)s ADD CONSTRAINT %(name)s FOREIGN KEY (%(column)s) REFERENCES %(to_table)s (%(to_column)s)"
+        # Columns added with ALTER TABLE ADD can carry their FK inline.
+        sql_create_column_inline_fk = "CONSTRAINT %(name)s REFERENCES %(to_table)s (%(to_column)s)%(deferrable)s"
+
+    sql_create_index = "CREATE INDEX %(name)s ON %(table)s (%(columns)s)%(include)s%(extra)s%(condition)s"
+    sql_create_unique_index = "CREATE UNIQUE INDEX %(name)s ON %(table)s (%(columns)s)%(include)s%(condition)s"
+
+    # Important!!!
+    # If an index is created or a unique on a large VARCHAR field, the expression with hash function is used
+    sql_create_hash_index = "CREATE INDEX %(name)s ON %(table)s computed by(hash(%(columns)s))"
+    sql_create_unique_hash_index = "CREATE UNIQUE INDEX %(name)s ON %(table)s computed by(hash(%(columns)s))"
+
+    # Matches the collation fragment inside a column definition so it can be
+    # moved to the end, where Firebird's column grammar requires it.
+    _collate_fragment_re = re.compile(r' (?:CHARACTER SET \S+ )?COLLATE ("[^"]+"|\S+)')
+
+    def column_sql(self, model, field, include_default=False):
+        sql, params = super().column_sql(model, field, include_default)
+        if sql:
+            # In a column definition, COLLATE must come last (after NOT NULL
+            # and column constraints); the column's character set is the
+            # database default, so the CHARACTER SET part is dropped.
+            match = self._collate_fragment_re.search(sql)
+            if match:
+                sql = sql[:match.start()] + sql[match.end():] + ' COLLATE %s' % match.group(1)
+        return sql, params
+
+    def _get_incoming_fks(self, table_name):
+        """
+        Return (constraint, referencing_table, referencing_column,
+        referenced_column) for every foreign key in *other* tables that
+        references `table_name`.
+        """
+        sql = """
+            select trim(rc.rdb$constraint_name),
+                   trim(rc.rdb$relation_name),
+                   (select trim(s.rdb$field_name) from rdb$index_segments s
+                        where s.rdb$index_name = rc.rdb$index_name),
+                   (select trim(s2.rdb$field_name) from rdb$index_segments s2
+                        where s2.rdb$index_name = uq.rdb$index_name)
+            from rdb$relation_constraints rc
+            join rdb$ref_constraints refc on rc.rdb$constraint_name = refc.rdb$constraint_name
+            join rdb$relation_constraints uq on uq.rdb$constraint_name = refc.rdb$const_name_uq
+            where uq.rdb$relation_name = '%s'
+            and rc.rdb$relation_name <> uq.rdb$relation_name
+        """ % self.connection.ops.quote_name(table_name)
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql)
+            return [tuple(row) for row in cursor.fetchall()]
+
+    def _collate_sql(self, collation, old_collation=None, table_name=None):
+        if collation == old_collation:
+            # No collation change: ALTER ... TYPE preserves the collation, so
+            # do not name it (Firebird < 6 rejects COLLATE in ALTER TYPE).
+            return ''
+        # ALTER ... TYPE resolves an unqualified type against character set
+        # NONE, so name the connection character set explicitly.
+        db_charset = getattr(self.connection, '_db_charset', None)
+        if not collation:
+            if old_collation and db_charset:
+                # Reset the column to the character set's default collation
+                # (leaving the type unqualified would keep the old collation).
+                return 'CHARACTER SET %s' % db_charset
+            return ''
+        prefix = 'CHARACTER SET %s ' % db_charset if db_charset else ''
+        return prefix + 'COLLATE %s' % self.quote_name(collation)
+
+    def _alter_column_set_null(self, table_name, column_name, is_null):
+        engine_ver = str(self.connection.connection.info.engine_version).split('.')
+        if engine_ver and len(engine_ver) > 0 and int(engine_ver[0]) >= 3:
+            sql = """
+                ALTER TABLE %(table_name)s
+                ALTER %(column)s
+                %(null_flag)s NOT NULL
+            """
+            null_flag = 'DROP' if is_null else 'SET'
+        else:
+            sql = """
+                UPDATE RDB$RELATION_FIELDS SET RDB$NULL_FLAG = %(null_flag)s
+                WHERE RDB$FIELD_NAME = '%(column)s'
+                AND RDB$RELATION_NAME = '%(table_name)s'
+            """
+            null_flag = 'NULL' if is_null else '1'
+        return sql % {
+            'null_flag': null_flag,
+            'column': self.quote_name(column_name),
+            'table_name': self.quote_name(table_name)
+        }
+
+    def _column_has_default(self, params):
+        sql = """
+            SELECT a.RDB$DEFAULT_VALUE
+            FROM RDB$RELATION_FIELDS a
+            WHERE UPPER(a.RDB$FIELD_NAME) = UPPER('%(column)s')
+            AND UPPER(a.RDB$RELATION_NAME) = UPPER('%(table_name)s')
+        """ % {
+            'column': params['column'],
+            'table_name': params['table_name']
+        }
+
+        res = None
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql)
+            res = cursor.fetchone()
+        return True if res else False
+
+    def add_index(self, model, index):
+        """
+        Add an index on a model.
+
+        Args:
+            model (Model): Model of table
+            index (Index): Index for creation
+
+        .. important::
+
+           Firebird does not support creating indexes to big VARCHAR fields,
+           so an expression with hash function is used when creation error.
+           https://firebirdsql.org/refdocs/langrefupd20-create-index.html#langrefupd20-creatind-keylength
+
+        Note:
+           If there is an error when create index, we try to create index with hash.
+        """
+        if index.contains_expressions and not self.connection.features.supports_expression_indexes:
+            return None
+        create_statement = None
+        try:
+            create_statement = index.create_sql(model, self)
+            self.execute(create_statement, params=[])
+        except Exception as e:
+            # If the creation of the index failed with
+            # the error 'key size too big for index',
+            # then create an index with hash expression
+            create_statement.template = self.sql_create_hash_index
+            self.execute(create_statement, params=[])
+
+    def alter_unique_together(self, model, old_unique_together, new_unique_together):
+        """
+        Deal with a model changing its unique_together. The input
+        unique_togethers must be doubly-nested, not the single-nested
+        ["foo", "bar"] format.
+        """
+        olds = {tuple(fields) for fields in old_unique_together}
+        news = {tuple(fields) for fields in new_unique_together}
+        # Deleted uniques
+        for fields in olds.difference(news):
+            try:
+                self._delete_composed_index(model, fields, {'unique': True}, self.sql_delete_unique)
+            except Exception as e:
+                with self.connection.cursor() as cursor:
+                    constraints = self.connection.introspection.get_constraints(cursor, model._meta.db_table)
+                result = None
+                expression = ('(hash(%s))' % ' || '.join(self.quote_name(column) for column in fields)).lower()
+                for name, infodict in constraints.items():
+                    if infodict['expression_source'] == expression:
+                        if infodict['unique'] and infodict['index']:
+                            result = name
+                            break
+                self.execute(self._delete_constraint_sql(self.sql_delete_index, model, result))
+        # Created uniques
+        for field_names in news.difference(olds):
+            fields = [model._meta.get_field(field) for field in field_names]
+            create_statement = self._create_unique_sql(model, fields)
+            self.create_unique(create_statement)
+
+    def create_unique(self, create_statement):
+        """
+        Creates an unique constraint by executing a statement
+
+        Args:
+            create_statement (Statement): Statement to execute
+
+        .. important::
+
+           Firebird does not support creating uniques to big VARCHAR fields,
+           so an expression with hash function is used when creation error.
+           https://firebirdsql.org/refdocs/langrefupd20-create-index.html#langrefupd20-creatind-keylength
+
+        Note:
+           If there is an error when create unique, we try to create unique with hash.
+        """
+        try:
+            self.execute(create_statement)
+        except Exception as e:
+            # If the creation of the unique failed with
+            # the error 'key size too big for index',
+            # then create an unique index with hash expression
+            cols = ' || '.join(self.quote_name(column) for column in create_statement.parts['columns'].columns)
+            create_statement.template = self.sql_create_unique_hash_index
+            create_statement.parts['columns'] = cols
+            self.execute(create_statement, params=None)
+
+    def alter_db_table(self, model, old_db_table, new_db_table):
+        """Rename the table a model points to."""
+        if (old_db_table == new_db_table or
+                (self.connection.features.ignores_table_name_case and
+                 old_db_table.lower() == new_db_table.lower())):
+            return
+        self._alter_db_table(model, old_db_table, new_db_table)
+        return
+
+    def _alter_db_table(self, model, old_db_table=None, new_db_table=None):
+        # Self-referential fields must be recreated rather than copied from
+        # the old model to ensure their remote_field.field_name doesn't refer
+        # to an altered field.
+        def is_self_referential(f):
+            return f.is_relation and f.remote_field.model is model
+
+        # Work out the new fields dict / mapping
+        body = {
+            f.name: f.clone() if is_self_referential(f) else f
+            for f in model._meta.local_concrete_fields
+        }
+        # Since mapping might mix column names and default values,
+        # its values must be already quoted.
+        mapping = {f.column: self.quote_name(f.column) for f in model._meta.local_concrete_fields}
+        # This maps field names (not columns) for things like unique_together
+        rename_mapping = {}
+
+        # Work inside a new app registry
+        apps = Apps()
+
+        # Work out the new value of unique_together, taking renames into
+        # account
+        unique_together = [
+            [rename_mapping.get(n, n) for n in unique]
+            for unique in model._meta.unique_together
+        ]
+
+        indexes = model._meta.indexes
+
+        constraints = list(model._meta.constraints)
+
+        # Provide isolated instances of the fields to the new model body so
+        # that the existing model's internals aren't interfered with when
+        # the dummy model is constructed.
+        body_copy = copy.deepcopy(body)
+
+        # Construct a new model with the new fields to allow self referential
+        # primary key to resolve to. This model won't ever be materialized as a
+        # table and solely exists for foreign key reference resolution purposes.
+        # This wouldn't be required if the schema editor was operating on model
+        # states instead of rendered models.
+        meta_contents = {
+            'app_label': model._meta.app_label,
+            'db_table': model._meta.db_table,
+            'unique_together': unique_together,
+            'indexes': indexes,
+            'constraints': constraints,
+            'apps': apps,
+        }
+        meta = type("Meta", (), meta_contents)
+        body_copy['Meta'] = meta
+        body_copy['__module__'] = model.__module__
+        type(model._meta.object_name, model.__bases__, body_copy)
+
+        # Construct a model with a renamed table name.
+        body_copy = copy.deepcopy(body)
+        meta_contents = {
+            'app_label': model._meta.app_label,
+            'db_table': new_db_table,
+            'unique_together': unique_together,
+            'indexes': indexes,
+            'constraints': constraints,
+            'apps': apps,
+        }
+        meta = type("Meta", (), meta_contents)
+        body_copy['Meta'] = meta
+        body_copy['__module__'] = model.__module__
+        new_model = type('New%s' % model._meta.object_name, model.__bases__, body_copy)
+
+        # Create a new table with the updated schema.
+        self.deferred_sql = []
+        self.create_model(new_model)
+
+        # Copy data from the old table into the new table
+        if self.connection.table_exists(model._meta.db_table):
+            self.execute("INSERT INTO %s (%s) SELECT %s FROM %s" % (
+                self.quote_name(new_model._meta.db_table),
+                ', '.join(self.quote_name(x) for x in mapping),
+                ', '.join(mapping.values()),
+                self.quote_name(model._meta.db_table),
+            ))
+            # Foreign keys in other tables that reference the old table must
+            # be dropped before it can go, and recreated against the new one.
+            # Only constraints from HR tables are touched; MACS owns the rest.
+            incoming_fks = [
+                fk for fk in self._get_incoming_fks(model._meta.db_table)
+                if self._is_hr_table(fk[1])
+            ]
+            for constraint, ref_table, ref_column, target_column in incoming_fks:
+                self.execute('ALTER TABLE %s DROP CONSTRAINT %s' % (
+                    self.quote_name(ref_table), self.quote_name(constraint)))
+            # Delete the old table to make way for the new
+            self.delete_model(model)
+            for constraint, ref_table, ref_column, target_column in incoming_fks:
+                if not self._should_create_fk(new_model._meta.db_table):
+                    continue
+                self.execute(self.sql_create_fk % {
+                    'table': self.quote_name(ref_table),
+                    'name': self.quote_name(constraint),
+                    'column': self.quote_name(ref_column),
+                    'to_table': self.quote_name(new_model._meta.db_table),
+                    'to_column': self.quote_name(target_column),
+                    # The recreated constraint keeps no ON DELETE action; the
+                    # original rule is not tracked through a table rebuild.
+                    'on_delete_db': '',
+                })
+
+        # Run deferred SQL on correct table
+        for sql in self.deferred_sql:
+            self.execute(sql)
+        self.deferred_sql = []
+
+    def add_field(self, model, field):
+        """
+        Creates a field on a model.
+        Usually involves adding a column, but may involve adding a
+        table instead (for M2M fields)
+        """
+        # Special-case implicit M2M tables
+        if field.many_to_many and field.remote_field.through._meta.auto_created:
+            return self.create_model(field.remote_field.through)
+        # Get the column's definition
+        definition, params = self.column_sql(model, field, include_default=True)
+        # It might not actually have a column behind it
+        if definition is None:
+            return
+        # Check constraints can go on the column SQL here
+        db_params = field.db_parameters(connection=self.connection)
+        if db_params['check']:
+            definition += " CHECK (%s)" % db_params['check']
+        # Foreign key constraints go inline, in the same statement.
+        inline_fk = (field.remote_field and
+                     self.connection.features.supports_foreign_keys and
+                     field.db_constraint and
+                     self._should_create_fk(field.remote_field.model._meta.db_table))
+        if inline_fk:
+            to_table = field.remote_field.model._meta.db_table
+            to_column = field.remote_field.model._meta.get_field(
+                field.remote_field.field_name).column
+            namespace, _ = split_identifier(model._meta.db_table)
+            definition += ' ' + self.sql_create_column_inline_fk % {
+                'name': self._fk_constraint_name(model, field, "_fk_%(to_table)s_%(to_column)s"),
+                'namespace': '%s.' % self.quote_name(namespace) if namespace else '',
+                'column': self.quote_name(field.column),
+                'to_table': self.quote_name(to_table),
+                'to_column': self.quote_name(to_column),
+                'deferrable': self.connection.ops.deferrable_sql(),
+                'on_delete_db': self._create_on_delete_sql(model, field)
+                if django.VERSION >= (6, 1) else '',
+            }
+        # Build the SQL and run it
+        sql = self.sql_create_column % {
+            "table": self.quote_name(model._meta.db_table),
+            "column": self.quote_name(field.column),
+            "definition": definition,
+        }
+        self.execute(sql, params)
+        # Drop the default if we need to
+        # (Django usually does not use in-database defaults)
+        if not self.skip_default(field) and self.effective_default(field) is not None:
+            params = {'table_name': self.quote_name(model._meta.db_table), 'column': field.column}
+            # Firebird need to check if the column has default definition after change it.
+            if self._column_has_default(params):
+                sql = self.sql_alter_column % {
+                    "table": self.quote_name(model._meta.db_table),
+                    "changes": self.sql_alter_column_no_default % {
+                        "column": self.quote_name(field.column),
+                    }
+                }
+                self.execute(sql)
+        # Add an index, if required
+        self.deferred_sql.extend(self._field_indexes_sql(model, field))
+        # Reset connection if required
+        if self.connection.features.connection_persists_old_columns:
+            self.connection.commit()
+
+    def _should_create_fk(self, to_table):
+        """
+        Return True when a database FOREIGN KEY constraint may be created to `to_table`.
+
+        MACS (the old program) owns tables the HR app must not constrain: a constraint
+        from an HR table to a MACS table would stop MACS from deleting the referenced row.
+        So a constraint is created only when the referenced table is an HR table, i.e. its
+        name starts with settings.HR_TABLE_PREFIX (compared case-insensitively). With an
+        empty prefix every constraint is created, as on PostgreSQL. The column and its
+        index are created either way; only the constraint is skipped.
+        """
+        return self._is_hr_table(to_table)
+
+    def _is_hr_table(self, table_name):
+        """
+        Return True when `table_name` is a table the HR app owns: its name starts with
+        settings.HR_TABLE_PREFIX (case-insensitive). With an empty prefix every table
+        counts as HR, so the behaviour is unchanged.
+        """
+        prefix = getattr(settings, "HR_TABLE_PREFIX", "")
+        if not prefix:
+            return True
+        return table_name.casefold().startswith(prefix.casefold())
+
+    def _field_should_be_indexed(self, model, field):
+        create_index = super(DatabaseSchemaEditor, self)._field_should_be_indexed(model, field)
+
+        # No need to create an index for ForeignKey fields when their constraint is
+        # created: Firebird builds the index from that constraint. If the constraint is
+        # skipped (see _should_create_fk), the index must be created explicitly.
+        if (create_index and field.get_internal_type() == 'ForeignKey' and field.db_constraint and
+                self._should_create_fk(field.remote_field.model._meta.db_table)):
+            return False
+        # Firebird cannot index blob columns directly.
+        if create_index and field.get_internal_type() in ('TextField', 'BinaryField'):
+            return False
+        return create_index
+
+    def _get_field_indexes(self, model, field):
+        with self.connection.cursor() as cursor:
+            indexes = self.connection.introspection._get_field_indexes(cursor, model._meta.db_table, field.column)
+        return indexes
+
+    def remove_field(self, model, field):
+        # Implicit M2M tables and fields without a database column (e.g.
+        # CompositePrimaryKey) carry no Firebird bookkeeping; the base
+        # implementation handles them fully.
+        if (field.many_to_many and field.remote_field.through._meta.auto_created) or \
+                field.db_parameters(connection=self.connection)["type"] is None:
+            return super(DatabaseSchemaEditor, self).remove_field(model, field)
+        # If remove a AutoField, we need remove all related stuff
+        # if isinstance(field, AutoField):
+        if field.get_internal_type() in ("AutoField", "BigAutoField", "SmallAutoField"):
+            tbl = model._meta.db_table
+            trg_name = self.connection.ops.get_sequence_trigger_name(tbl)
+            self.execute('DROP TRIGGER %s' % trg_name)
+            seq_name = self.connection.ops.get_sequence_name(tbl)
+            self.execute('DROP SEQUENCE %s' % seq_name)
+
+        # If 'field' is a ForeingKey and It has defined extra indexes, delete that indexes (Github issue #70)
+        for index_name in self._get_field_indexes(model, field):
+            sql = self._delete_constraint_sql(self.sql_delete_index, model, index_name)
+            self.execute(sql)
+
+        super(DatabaseSchemaEditor, self).remove_field(model, field)
+
+    def _alter_column_type_sql(self, model, old_field, new_field, new_type, old_collation, new_collation):
+        if old_collation != new_collation and self.connection.ops.firebird_main_version < 6:
+            # Firebird < 6 rejects COLLATE in ALTER ... TYPE, so a collation
+            # change goes through a temp column like blob conversions do.
+            extra_sql = []
+            if old_field.primary_key:
+                # The primary key falls with the old column; recreate it on
+                # the rebuilt one.
+                for name in self._constraint_names(model, [old_field.column], primary_key=True):
+                    self.execute(self._delete_constraint_sql(self.sql_delete_pk, model, name))
+                extra_sql.append((self._create_primary_key_sql(model, new_field), []))
+            elif old_field.unique:
+                for name in self._constraint_names(model, [old_field.column], unique=True):
+                    self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, name))
+                    extra_sql.append((self.sql_create_unique % {
+                        "table": self.quote_name(model._meta.db_table),
+                        "name": self.quote_name(name),
+                        "columns": self.quote_name(new_field.column),
+                        "nulls_distinct": '',
+                        "deferrable": '',
+                    }, []))
+            definition = new_type
+            if new_collation:
+                definition += ' COLLATE %s' % self.quote_name(new_collation)
+            actions = [(self.sql_create_column % {
+                "table": self.quote_name(model._meta.db_table),
+                "column": self.quote_name("mirgate_temp_" + new_field.column),
+                "definition": definition,
+            }, []), (self.sql_update_with_default % {
+                "table": self.quote_name(model._meta.db_table),
+                "column": self.quote_name("mirgate_temp_" + new_field.column),
+                "default": self.quote_name(old_field.column),
+            }, []), (self.sql_delete_column % {
+                "table": self.quote_name(model._meta.db_table),
+                "column": self.quote_name(old_field.column),
+            }, []), (self.sql_rename_column % {
+                "table": self.quote_name(model._meta.db_table),
+                "old_column": self.quote_name("mirgate_temp_" + new_field.column),
+                "new_column": self.quote_name(new_field.column),
+            }, [])]
+            if not new_field.null:
+                actions.append(
+                    (self._alter_column_set_null(model._meta.db_table, new_field.column, False), [])
+                )
+            return actions, extra_sql
+
+        # The Firebird does not support direct type change to BLOB,
+        # therefore this action is divided into 4 stages.
+        # Change through temp column.
+        alter_blob_actions = []
+        if new_type == self.connection.data_types['TextField'] or new_type == self.connection.data_types['BinaryField']:
+            alter_blob_actions.append(
+                (self.sql_create_column % {
+                    "table": self.quote_name(model._meta.db_table),
+                    "column": self.quote_name("mirgate_temp_" + new_field.column),
+                    "definition": new_type,
+                }, [])
+            )
+            alter_blob_actions.append(
+                (self.sql_update_with_default % {
+                    "table": self.quote_name(model._meta.db_table),
+                    "column": self.quote_name("mirgate_temp_" + new_field.column),
+                    "default": self.quote_name(old_field.column),
+                }, [])
+            )
+            alter_blob_actions.append(
+                (self.sql_delete_column % {
+                    "table": self.quote_name(model._meta.db_table),
+                    "column": self.quote_name(old_field.column),
+                }, [])
+            )
+            alter_blob_actions.append(
+                (self.sql_rename_column % {
+                    "table": self.quote_name(model._meta.db_table),
+                    "old_column": self.quote_name("mirgate_temp_" + new_field.column),
+                    "new_column": self.quote_name(new_field.column),
+                }, [])
+            )
+            if not new_field.null:
+                # The temp column was created without NOT NULL to allow the
+                # data copy; restore the constraint on the final column.
+                alter_blob_actions.append(
+                    (self._alter_column_set_null(model._meta.db_table, new_field.column, False), [])
+                )
+
+        if old_field.unique:
+            # In Firebird, alter a column type with a unique constraint will fails
+            # SQL Message : -607, Engine Code : 335544351
+            # So, we need delete the unique constraint first, alter the column and
+            # then create the constraint again.
+
+            # delete unique constraint and generate sql to recreate later
+            extra_sql = []
+            model = old_field.model
+            if old_field.primary_key:
+                # A primary key's backing index reports RDB$UNIQUE_FLAG too;
+                # recreate it as a primary key, not as a plain UNIQUE.
+                for name in self._constraint_names(model, [old_field.column], primary_key=True):
+                    self.execute(self._delete_constraint_sql(self.sql_delete_pk, model, name))
+                extra_sql.append((self._create_primary_key_sql(model, new_field), []))
+            else:
+                unq_names = self._constraint_names(model, [old_field.column], unique=True)
+                for name in unq_names:
+                    self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, name))
+                    params = {"table": self.quote_name(model._meta.db_table), "name": self.quote_name(name),
+                              "columns": self.quote_name(new_field.column),
+                              "nulls_distinct": '', "deferrable": ''}
+                    extra_sql.append((self.sql_create_unique % params, [],))
+
+            if new_type != self.connection.data_types['TextField'] or new_type == self.connection.data_types[
+                'BinaryField']:
+                # alter column type
+                collate_sql = self._collate_sql(new_collation, old_collation, model._meta.db_table)
+                params = {
+                    "column": self.quote_name(new_field.column),
+                    "type": new_type,
+                    "collation": ' ' + collate_sql if collate_sql else '',
+                }
+                alter_sql = self.sql_alter_column_type % params
+                return ((alter_sql, [],), extra_sql,)
+        if new_type != self.connection.data_types['TextField'] and new_type != self.connection.data_types[
+            'BinaryField']:
+            return super(DatabaseSchemaEditor, self)._alter_column_type_sql(model, old_field, new_field, new_type,
+                                                                            old_collation, new_collation)
+        else:
+            return ((alter_blob_actions), [],)
+
+    def _alter_column_blob_type_sql(self, model, old_field, new_field, new_type):
+        # The Firebird does not support direct type change from BLOB,
+        # therefore this action is divided into 4 stages.
+        # Change through temp column.
+        alter_blob_actions = [(self.sql_create_column % {
+            "table": self.quote_name(model._meta.db_table),
+            "column": self.quote_name("mirgate_temp_" + new_field.column),
+            "definition": new_type,
+        }, []), (self.sql_update_with_default % {
+            "table": self.quote_name(model._meta.db_table),
+            "column": self.quote_name("mirgate_temp_" + new_field.column),
+            "default": self.quote_name(old_field.column),
+        }, []), (self.sql_delete_column % {
+            "table": self.quote_name(model._meta.db_table),
+            "column": self.quote_name(old_field.column),
+        }, []), (self.sql_rename_column % {
+            "table": self.quote_name(model._meta.db_table),
+            "old_column": self.quote_name("mirgate_temp_" + new_field.column),
+            "new_column": self.quote_name(new_field.column),
+        }, [])]
+        if not new_field.null:
+            # The temp column was created without NOT NULL to allow the data
+            # copy; restore the constraint on the final column.
+            alter_blob_actions.append(
+                (self._alter_column_set_null(model._meta.db_table, new_field.column, False), [])
+            )
+        return alter_blob_actions, [],
+
+    def _alter_field(self, model, old_field, new_field, old_type, new_type,
+                     old_db_params, new_db_params, strict=False):
+        """Actually perform a "physical" (non-ManyToMany) field update."""
+
+        auto_types = ("AutoField", "BigAutoField", "SmallAutoField")
+        old_is_auto = old_field.get_internal_type() in auto_types
+        new_is_auto = new_field.get_internal_type() in auto_types
+        if old_is_auto and not new_is_auto:
+            # The field loses its auto increment: drop the backing trigger and
+            # sequence so the database no longer fills in missing values.
+            tbl = model._meta.db_table
+            if self.trigger_exist(tbl):
+                self.execute('DROP TRIGGER %s' % self.connection.ops.get_sequence_trigger_name(tbl))
+            if self.sequence_exist(tbl):
+                self.execute('DROP SEQUENCE %s' % self.connection.ops.get_sequence_name(tbl))
+        elif new_is_auto and not old_is_auto:
+            for statement in self.connection.ops.autoinc_sql(model._meta.db_table, new_field.column) or ():
+                self.execute(statement)
+
+        # Drop any FK constraints, we'll remake them later
+        fks_dropped = set()
+        if old_field.remote_field and old_field.db_constraint:
+            fk_names = self._constraint_names(model, [old_field.column], foreign_key=True)
+            if strict and len(fk_names) != 1:
+                raise ValueError("Found wrong number (%s) of foreign key constraints for %s.%s" % (
+                    len(fk_names),
+                    model._meta.db_table,
+                    old_field.column,
+                ))
+            for fk_name in fk_names:
+                fks_dropped.add((old_field.column,))
+                self.execute(self._delete_constraint_sql(self.sql_delete_fk, model, fk_name))
+        # Has unique been removed?
+        if old_field.unique and (not new_field.unique or (not old_field.primary_key and new_field.primary_key)):
+            # Find the unique constraint for this field
+            constraint_names = self._constraint_names(model, [old_field.column], unique=True)
+            if strict and len(constraint_names) != 1:
+                raise ValueError("Found wrong number (%s) of unique constraints for %s.%s" % (
+                    len(constraint_names),
+                    model._meta.db_table,
+                    old_field.column,
+                ))
+            for constraint_name in constraint_names:
+                self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, constraint_name))
+        # Drop incoming FK constraints if the field is a primary key or unique,
+        # which might be a to_field target, and things are going to change.
+        old_collation = old_db_params.get("collation")
+        new_collation = new_db_params.get("collation")
+        drop_foreign_keys = (
+                (
+                        (old_field.primary_key and new_field.primary_key) or
+                        (old_field.unique and new_field.unique)
+                ) and old_type != new_type
+        )
+        if drop_foreign_keys:
+            # '_meta.related_field' also contains M2M reverse fields, these
+            # will be filtered out
+            for _old_rel, new_rel in _related_non_m2m_objects(old_field, new_field):
+                # Only constraints owned by HR tables are dropped; MACS owns the rest.
+                if not self._is_hr_table(new_rel.related_model._meta.db_table):
+                    continue
+                rel_fk_names = self._constraint_names(
+                    new_rel.related_model, [new_rel.field.column], foreign_key=True
+                )
+                for fk_name in rel_fk_names:
+                    self.execute(self._delete_constraint_sql(self.sql_delete_fk, new_rel.related_model, fk_name))
+        # Removed an index? (no strict check, as multiple indexes are possible)
+        # Remove indexes if db_index switched to False or a unique constraint
+        # will now be used in lieu of an index. The following lines from the
+        # truth table show all True cases; the rest are False:
+        #
+        # old_field.db_index | old_field.unique | new_field.db_index | new_field.unique
+        # ------------------------------------------------------------------------------
+        # True               | False            | False              | False
+        # True               | False            | False              | True
+        # True               | False            | True               | True
+        if old_field.db_index and not old_field.unique and (not new_field.db_index or new_field.unique):
+            # Find the index for this field
+            meta_index_names = {index.name for index in model._meta.indexes}
+            # Retrieve only BTREE indexes since this is what's created with
+            # db_index=True.
+            index_names = self._constraint_names(model, [old_field.column], index=True, type_=Index.suffix)
+            for index_name in index_names:
+                if index_name in meta_index_names:
+                    # The only way to check if an index was created with
+                    # db_index=True or with Index(['field'], name='foo')
+                    # is to look at its name (refs #28053).
+                    continue
+                self.execute(self._delete_constraint_sql(self.sql_delete_index, model, index_name))
+        # Change check constraints?
+        if self.connection.features.supports_column_check_constraints:
+            if old_db_params['check'] != new_db_params['check'] and old_db_params['check']:
+                constraint_names = self._constraint_names(model, [old_field.column], check=True)
+                if strict and len(constraint_names) != 1:
+                    raise ValueError("Found wrong number (%s) of check constraints for %s.%s" % (
+                        len(constraint_names),
+                        model._meta.db_table,
+                        old_field.column,
+                    ))
+                for constraint_name in constraint_names:
+                    self.execute(self._delete_constraint_sql(self.sql_delete_check, model, constraint_name))
+        # Have they renamed the column?
+        if old_field.column != new_field.column:
+            # Find and remove the unique together constraints for this field
+            unique_together_constraints = self._get_unique_together_constraints(model, new_field, old_field)
+            self._delete_unique_together_constraints(model, unique_together_constraints)
+            # Find and remove the unique constraint for this field
+            constraint_names = self._constraint_names(model, [old_field.column], unique=True)
+            for constraint_name in constraint_names:
+                self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, constraint_name))
+            self.execute(self._rename_field_sql(model._meta.db_table, old_field, new_field, new_type))
+            # Restore the unique constraint for this field
+            for constraint_name in constraint_names:
+                self.create_unique(self._create_unique_sql(model, [new_field], name=constraint_name))
+            # Restore the unique together constraints for this field
+            self._create_unique_together(model, unique_together_constraints)
+        # Next, start accumulating actions to do
+        actions = []
+        null_actions = []
+        post_actions = []
+        fragment = None
+        # Type or collation change?
+        if old_type != new_type or old_collation != new_collation:
+            # Find and remove the unique together constraints for this field
+            unique_together_constraints = self._get_unique_together_constraints(model, new_field, old_field)
+            self._delete_unique_together_constraints(model, unique_together_constraints)
+            fragment, other_actions = self._alter_column_type_sql(
+                model, old_field, new_field, new_type, old_collation, new_collation
+            )
+            # If old type is blob, then we have to make new field in 4 steps
+            if old_type == self.connection.data_types['TextField'] \
+                    or old_type == self.connection.data_types['BinaryField']:
+                fragment, other_actions = self._alter_column_blob_type_sql(
+                    model, old_field, new_field, new_type
+                )
+
+            # If new type is blob or old type was blob, then fragment contains 4 action
+            if isinstance(fragment, list):
+                [actions.append(el) for el in fragment]
+            else:
+                actions.append(fragment)
+            post_actions.extend(other_actions)
+            # Restore the unique together constraints for this field later
+            statements = self._get_create_unique_together_sql(model, unique_together_constraints)
+            for statement in statements:
+                post_actions.append((statement, [],))
+        # When changing a column NULL constraint to NOT NULL with a given
+        # default value, we need to perform 4 steps:
+        #  1. Add a default for new incoming writes
+        #  2. Update existing NULL rows with new default
+        #  3. Replace NULL constraint with NOT NULL
+        #  4. Drop the default again.
+        # Default change? Django does not keep defaults in the database, so a
+        # database default is only needed transiently, to fill existing rows
+        # when a column becomes NOT NULL.
+        old_default = self.effective_default(old_field)
+        new_default = self.effective_default(new_field)
+        needs_database_default = (
+                old_field.null and not new_field.null and
+                old_default != new_default and
+                new_default is not None and
+                not self.skip_default(new_field)
+        )
+        if needs_database_default:
+            if self.connection.features.requires_literal_defaults:
+                # Some databases can't take defaults as a parameter (oracle)
+                # If this is the case, the individual schema backend should
+                # implement prepare_default
+                actions.append((
+                    self.sql_alter_column_default % {
+                        "column": self.quote_name(new_field.column),
+                        "type": new_type,
+                        "default": self.prepare_default(new_default),
+                    },
+                    [],
+                ))
+            else:
+                actions.append((
+                    self.sql_alter_column_default % {
+                        "column": self.quote_name(new_field.column),
+                        "type": new_type,
+                        "default": "%s",
+                    },
+                    [new_default],
+                ))
+        # Nullability change?
+        if old_field.null != new_field.null:
+            sql_null = self._alter_column_set_null(
+                model._meta.db_table,
+                new_field.column,
+                new_field.null
+            )
+            post_actions.append((sql_null, [],))
+
+        # Only if we have a default and there is a change from NULL to NOT NULL
+        four_way_default_alteration = (
+                new_field.has_default() and
+                (old_field.null and not new_field.null)
+        )
+        if actions or null_actions:
+            if not four_way_default_alteration:
+                # If we don't have to do a 4-way default alteration we can
+                # directly run a (NOT) NULL alteration
+                actions = actions + null_actions
+            # Combine actions together if we can (e.g. postgres)
+            if self.connection.features.supports_combined_alters and actions:
+                sql, params = tuple(zip(*actions))
+                actions = [(", ".join(sql), sum(params, []))]
+            # Apply those actions
+            for sql, params in actions:
+                # The Firebird does not support direct type change to/from BLOB.
+                # Need to execute 4 action in addition to alter.
+                if isinstance(fragment, list):
+                    self.execute(sql, params)
+                else:
+                    self.execute(
+                        self.sql_alter_column % {
+                            "table": self.quote_name(model._meta.db_table),
+                            "changes": sql,
+                        },
+                        params,
+                    )
+            if four_way_default_alteration:
+                # Update existing rows with default value
+
+                # Some databases can't take defaults as a parameter (oracle)
+                # If this is the case, the individual schema backend should
+                # implement prepare_default
+                if self.connection.features.requires_literal_defaults:
+                    self.execute(
+                        self.sql_update_with_default % {
+                            "table": self.quote_name(model._meta.db_table),
+                            "column": self.quote_name(new_field.column),
+                            "default": self.prepare_default(new_default),
+                        },
+                        [],
+                    )
+                # Since we didn't run a NOT NULL change before we need to do it
+                # now
+                for sql, params in null_actions:
+                    self.execute(
+                        self.sql_alter_column % {
+                            "table": self.quote_name(model._meta.db_table),
+                            "changes": sql,
+                        },
+                        params,
+                    )
+        if post_actions:
+            for sql, params in post_actions:
+                self.execute(sql, params)
+        # If primary_key changed to False, delete the primary key constraint.
+        if old_field.primary_key and not new_field.primary_key:
+            self._delete_primary_key(model, strict)
+        # Added a unique?
+        if (not old_field.unique and new_field.unique and not new_field.primary_key) or (
+                old_field.primary_key and not new_field.primary_key and new_field.unique
+        ):
+            self.create_unique(self._create_unique_sql(model, [new_field]))
+        # Added an index? Add an index if db_index switched to True or a unique
+        # constraint will no longer be used in lieu of an index. The following
+        # lines from the truth table show all True cases; the rest are False:
+        #
+        # old_field.db_index | old_field.unique | new_field.db_index | new_field.unique
+        # ------------------------------------------------------------------------------
+        # False              | False            | True               | False
+        # False              | True             | True               | False
+        # True               | True             | True               | False
+        if (not old_field.db_index or old_field.unique) and new_field.db_index and not new_field.unique:
+            # If the new field is a foreign key not index is necessary because Firebird create it implicitly
+            # This behavior is related to Github issue #70
+            # original -->  self.execute(self._create_index_sql(model, [new_field]))
+            self.deferred_sql.extend(self._field_indexes_sql(model, new_field))
+        # Type alteration on primary key? Then we need to alter the column
+        # referring to us.
+        rels_to_update = []
+        if drop_foreign_keys:
+            rels_to_update.extend(_related_non_m2m_objects(old_field, new_field))
+        # Changed to become primary key?
+        if self._field_became_primary_key(old_field, new_field):
+            # Make the new one
+            self.execute(self._create_primary_key_sql(model, new_field))
+            # Update all referencing columns
+            rels_to_update.extend(_related_non_m2m_objects(old_field, new_field))
+        # Handle our type alters on the other end of rels from the PK stuff above
+        for old_rel, new_rel in rels_to_update:
+            # Find and remove the unique together constraints for this field
+            unique_together_constraints = self._get_unique_together_constraints(model, new_field, old_field)
+            self._delete_unique_together_constraints(model, unique_together_constraints)
+            rel_db_params = new_rel.field.db_parameters(connection=self.connection)
+            rel_type = rel_db_params['type']
+            fragment, other_actions = self._alter_column_type_sql(
+                new_rel.related_model, old_rel.field, new_rel.field, rel_type, old_collation,
+                new_collation
+            )
+            self.execute(
+                self.sql_alter_column % {
+                    "table": self.quote_name(new_rel.related_model._meta.db_table),
+                    "changes": fragment[0],
+                },
+                fragment[1],
+            )
+            # Restore the unique together constraints for this field
+            statements = self._get_create_unique_together_sql(model, unique_together_constraints)
+            for statement in statements:
+                other_actions.append((statement, [],))
+            for sql, params in other_actions:
+                self.execute(sql, params)
+        # Does it have a foreign key? The old field may never have had a constraint (for
+        # example it pointed at a MACS table), so a retarget to an HR table must create one.
+        old_fk_existed = bool(old_field.remote_field and old_field.db_constraint and
+                              self._should_create_fk(old_field.remote_field.model._meta.db_table))
+        if (new_field.remote_field and
+                (fks_dropped or not old_fk_existed) and
+                new_field.db_constraint and
+                self._should_create_fk(new_field.remote_field.model._meta.db_table)):
+            self.execute(self._create_fk_sql(model, new_field, "_fk_%(to_table)s_%(to_column)s"))
+        # Rebuild FKs that pointed to us if we previously had to drop them
+        if drop_foreign_keys:
+            for rel in new_field.model._meta.related_objects:
+                # Recreate only constraints owned by HR tables (see the drop above).
+                if (_is_relevant_relation(rel, new_field) and rel.field.db_constraint and
+                        self._is_hr_table(rel.related_model._meta.db_table) and
+                        self._should_create_fk(new_field.model._meta.db_table)):
+                    self.execute(self._create_fk_sql(rel.related_model, rel.field, "_fk"))
+        # Does it have check constraints we need to add?
+        if old_db_params['check'] != new_db_params['check'] and new_db_params['check']:
+            self.execute(
+                self.sql_create_check % {
+                    "table": self.quote_name(model._meta.db_table),
+                    "name": self.quote_name(self._create_index_name(model, [new_field.column], suffix="_check")),
+                    "column": self.quote_name(new_field.column),
+                    "check": new_db_params['check'],
+                }
+            )
+        # Drop the default if we need to
+        # (Django usually does not use in-database defaults)
+        if needs_database_default:
+            sql = self.sql_alter_column % {
+                "table": self.quote_name(model._meta.db_table),
+                "changes": self.sql_alter_column_no_default % {
+                    "column": self.quote_name(new_field.column),
+                    "type": new_type,
+                }
+            }
+            self.execute(sql)
+        # Reset connection if required
+        if self.connection.features.connection_persists_old_columns:
+            self.connection.commit()
+
+    def _get_create_unique_together_sql(self, model, unique_together_constraints):
+        create_sql = []
+        for fields, constraint_names in unique_together_constraints:
+            for constraint_name in constraint_names:
+                create_sql.append(self._create_unique_sql(model, fields, name=constraint_name))
+        return create_sql
+
+    def _create_unique_together(self, model, unique_together_constraints):
+        for fields, constraint_names in unique_together_constraints:
+            for constraint_name in constraint_names:
+                self.create_unique(self._create_unique_sql(model, fields, name=constraint_name))
+
+    def _delete_unique_together_constraints(self, model, unique_together_constraints):
+        for fields, constraint_names in unique_together_constraints:
+            for constraint_name in constraint_names:
+                self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, constraint_name))
+
+    def _get_unique_together_constraints(self, model, new_field, old_field):
+        old_fields = []
+        new_fields = []
+        unique_constraints = []
+        for unique_fields in model._meta.unique_together:
+            if new_field.name in unique_fields:
+                for field in unique_fields:
+                    if field == new_field.name:
+                        old_fields.append(old_field)
+                        new_fields.append(new_field)
+                    else:
+                        for model_field in model._meta.fields:
+                            if field == model_field.name:
+                                old_fields.append(model_field)
+                                new_fields.append(model_field)
+                unique_constraints.append([new_fields, self._constraint_names(
+                    model, [field.column for field in old_fields], unique=True)])
+        return unique_constraints
+
+    def _create_index_sql(self, model, *, fields=None, name=None, suffix='', using='',
+                          db_tablespace=None, col_suffixes=(), sql=None, opclasses=(),
+                          condition=None, include=None, expressions=None):
+        """
+        Return the SQL statement to create the index for one or several fields.
+        `sql` can be specified if the syntax differs from the standard (GIS
+        indexes, ...).
+        """
+        fields = fields or []
+        expressions = expressions or []
+        compiler = Query(model, alias_cols=False).get_compiler(
+            connection=self.connection,
+        )
+        tablespace_sql = self._get_index_tablespace_sql(model, fields, db_tablespace=db_tablespace)
+        columns = [field.column for field in fields]
+        sql_create_index = sql or self.sql_create_index
+        table = model._meta.db_table
+
+        def create_index_name(*args, **kwargs):
+            nonlocal name
+            if name is None:
+                name = self._create_index_name(*args, **kwargs)
+            return self.quote_name(name)
+
+        return Statement(
+            sql_create_index,
+            table=Table(table, self.quote_name),
+            name=IndexName(table, columns, suffix, create_index_name),
+            using=using,
+            columns=(
+                self._index_columns(table, columns, col_suffixes, opclasses)
+                if columns
+                else Expressions(table, expressions, compiler, self.quote_value)
+            ),
+            extra=tablespace_sql,
+            condition=(' WHERE ' + condition) if condition else '',
+            include=self._index_include_sql(model, include),
+        )
+
+    def _index_columns(self, table, columns, col_suffixes, opclasses):
+        if opclasses:
+            return IndexColumns(table, columns, self.quote_name, col_suffixes=col_suffixes, opclasses=opclasses)
+        return FirebirdColumns(table, columns, self.quote_name, col_suffixes)
+
+    def prepare_default(self, value):
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        s = force_str(value)
+        return self.quote_value(s)
+
+    def effective_default(self, field):
+        """Return a field's effective database default value."""
+        if isinstance(field, BinaryField):
+            return None
+        return field.get_db_prep_save(self._effective_default(field), self.connection)
+
+    def quote_value(self, value):
+        if isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
+            return "'%s'" % value
+        elif isinstance(value, str):
+            return repr(value)
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif value is None:
+            return "NULL"
+        else:
+            return force_str(value)
+
+    # Actions
+
+    def create_model(self, model):
+        """
+        Create a table and any accompanying indexes or unique constraints for
+        the given `model`.
+        """
+        # Create column SQL, add FK deferred if needed
+        column_sqls = []
+        params = []
+        # Sequence/trigger statements for auto fields run right after the
+        # table is created (not deferred, so editor.deferred_sql only holds
+        # field-related statements as the schema tests expect).
+        autoinc_statements = []
+        for field in model._meta.local_fields:
+            if isinstance(field, CharField) and field.max_length > 32765:
+                field.max_length = 8191  # max for 4-byte character sets
+            # SQL
+            definition, extra_params = self.column_sql(model, field)
+            if definition is None:
+                continue
+            # Check constraints can go on the column SQL here
+            db_params = field.db_parameters(connection=self.connection)
+            if db_params['check']:
+                definition += " " + self.sql_check_constraint % db_params
+            # Autoincrement SQL (for backends with inline variant)
+            col_type_suffix = field.db_type_suffix(connection=self.connection)
+            if col_type_suffix:
+                definition += " %s" % col_type_suffix
+            params.extend(extra_params)
+            # FK
+            if (field.remote_field and field.db_constraint and
+                    self._should_create_fk(field.remote_field.model._meta.db_table)):
+                to_table = field.remote_field.model._meta.db_table
+                to_column = field.remote_field.model._meta.get_field(field.remote_field.field_name).column
+                if self.sql_create_inline_fk:
+                    definition += " " + self.sql_create_inline_fk % {
+                        "to_table": self.quote_name(to_table),
+                        "to_column": self.quote_name(to_column),
+                    }
+                elif self.connection.features.supports_foreign_keys:
+                    self.deferred_sql.append(self._create_fk_sql(model, field, "_fk_%(to_table)s_%(to_column)s"))
+            # Add the SQL to our big list
+            column_sqls.append("%s %s" % (
+                self.quote_name(field.column),
+                definition,
+            ))
+            # Autoincrement SQL (for backends with post table definition variant)
+            if field.get_internal_type() in ("AutoField", "BigAutoField", "SmallAutoField"):
+                autoinc_sql = self.connection.ops.autoinc_sql(model._meta.db_table, field.column)
+                if autoinc_sql:
+                    autoinc_statements.extend(autoinc_sql)
+
+        constraints = [constraint.constraint_sql(model, self) for constraint in model._meta.constraints]
+        # A CompositePrimaryKey contributes no column of its own; the primary
+        # key goes in as a table constraint instead.
+        pk = model._meta.pk
+        if isinstance(pk, CompositePrimaryKey):
+            constraints.append(self._pk_constraint_sql(pk.columns))
+        # Make the table
+        sql = self.sql_create_table % {
+            "table": self.quote_name(model._meta.db_table),
+            "definition": ", ".join(str(constraint) for constraint in (*column_sqls, *constraints) if constraint),
+        }
+        if model._meta.db_tablespace:
+            tablespace_sql = self.connection.ops.tablespace_sql(model._meta.db_tablespace)
+            if tablespace_sql:
+                sql += ' ' + tablespace_sql
+        # Prevent using [] as params, in the case a literal '%' is used in the definition
+        self.execute(sql, params or None)
+
+        for statement in autoinc_statements:
+            self.execute(statement)
+
+        # Add any unique_togethers (always deferred, as some fields might be
+        # created afterwards, like geometry fields with some backends)
+        for field_names in model._meta.unique_together:
+            columns = [model._meta.get_field(field) for field in field_names]
+            # self.deferred_sql.append(self._create_unique_sql(model, columns))
+            self.create_unique(self._create_unique_sql(model, columns))
+
+        # Add any field indexes (deferred as SQLite _remake_table needs it)
+        self._model_indexes_sql(model)
+
+        # Make M2M tables
+        for field in model._meta.local_many_to_many:
+            if field.remote_field.through._meta.auto_created:
+                self.create_model(field.remote_field.through)
+
+    def _model_indexes_sql(self, model):
+        """
+        Return a list of all index SQL statements (field indexes,
+        Meta.indexes) for the specified model.
+        """
+        if not model._meta.managed or model._meta.proxy or model._meta.swapped:
+            return []
+        output = []
+        for field in model._meta.local_fields:
+            self._field_indexes_sql(model, field)
+
+        for index in model._meta.indexes:
+            self.add_index(model, index)
+        return output
+
+    def _field_indexes_sql(self, model, field):
+        """
+        Return a list of all index SQL statements for the specified field.
+        """
+        output = []
+        if self._field_should_be_indexed(model, field):
+            create_statement = self._create_index_sql(model, fields=[field])
+            self.create_index(create_statement)
+        return output
+
+    def create_index(self, statement):
+        try:
+            self.execute(statement, params=[])
+        except Exception as e:
+            # If the creation of the index failed with
+            # the error 'key size too big for index',
+            # then create an index with hash expression
+            statement.template = self.sql_create_hash_index
+            self.execute(statement, params=[])
+
+    def delete_model(self, model):
+        if self.connection.table_exists(model._meta.db_table):
+            super(DatabaseSchemaEditor, self).delete_model(model)
+        else:
+            logger.info("Deleting a non-existent table: %s" % model._meta.db_table)
+
+        # Also, drop sequence if exists
+        table_name = model._meta.db_table
+        if not self.sequence_exist(table_name):
+            return
+
+        sql = self.connection.ops.drop_sequence_sql(table_name)
+        if sql:
+            try:
+                self.execute(sql)
+            except Exception as e:
+                logger.info(str(e))
+                pass
+
+    def trigger_exist(self, table):
+        trg_name = str(self.connection.ops.get_sequence_trigger_name(table))
+        sql = """
+        SELECT RDB$TRIGGER_NAME
+        FROM RDB$TRIGGERS
+        WHERE RDB$TRIGGER_NAME = %s
+        """
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql, [trg_name])
+            return cursor.fetchone() is not None
+
+    def sequence_exist(self, table):
+        seq_name = str(self.connection.ops.get_sequence_name(table))
+        sql = """
+        SELECT RDB$GENERATOR_ID
+        FROM RDB$GENERATORS
+        WHERE RDB$GENERATOR_NAME = %s
+        """
+        value = None
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql, [seq_name])
+            value = cursor.fetchone()
+        return True if value else False
+
+    def execute(self, sql, params=()):
+        """
+        Executes the given SQL statement, with optional parameters.
+
+        Args:
+            sql (str): SQL query to execute
+            params (list): list of parameters
+
+        .. important::
+
+            If DDL and DML statements are executed in one transaction,
+            then DML statements will not see the changes of the DDL statements.
+            It is necessary to commit all previous statements so that
+            follow statements can see changes previous ones.
+
+        Note:
+           This requires that `DatabaseFeatures.autocommit_when_autocommit_is_off` feature is True
+        """
+        # print("schema:", sql)
+
+        logger.debug("%s; (params %r)", sql, params, extra={'params': params, 'sql': sql})
+        if self.connection.features.autocommit_when_autocommit_is_off:
+            from firebird.driver import DatabaseError as FbDatabaseError, TPB
+            try:
+                for tr in self.connection.connection.transactions:
+                    if tr.is_active():
+                        tr.commit()
+            except FbDatabaseError as e:
+                # Dead attachment (e.g. database shut down and back online):
+                # reconnect and carry on, there is no transaction state to keep.
+                if 'shutdown' in str(e) and not self.connection.in_atomic_block:
+                    self.connection.connect()
+                else:
+                    raise
+            # Transaction Context Manager automatically commit statement
+            tpb = TPB(lock_timeout=getattr(self.connection, '_lock_timeout', 3)).get_buffer()
+            with transaction(self.connection.connection.transaction_manager(default_tpb=tpb)) as tr:
+                try:
+                    cur = tr.cursor()
+                    cur.execute(str(sql), params)
+                except Exception as e:
+                    busy = busy_error_for(e)
+                    if busy is not None:
+                        raise busy from e
+                    raise e
+            if self.connection.force_debug_cursor or settings.DEBUG:
+                # This path bypasses Django's cursor wrapper, so record the
+                # query for CaptureQueriesContext/assertNumQueries ourselves.
+                self.connection.queries_log.append({
+                    'sql': self.connection.ops.last_executed_query(None, str(sql), params),
+                    'time': '0.000',
+                })
+        else:
+            super(DatabaseSchemaEditor, self).execute(sql, params)
