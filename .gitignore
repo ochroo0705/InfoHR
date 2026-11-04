@@ -31,3 +31,6 @@ tools/
 
 # Old program exe and its extracted forms (2026-10-28): never commit
 /macs/
+
+# Editor local history (VS Code «Local History»): holds copies of .env with secrets
+.history/
