@@ -9,13 +9,14 @@
     </li>
     {% endfor %}
   </ul>
-  {% else %}<p class="text-sm text-slate-400">Файл бүртгэгдээгүй</p>{% endif %}
+  {% else %}<p class="text-sm text-slate-500">Файл бүртгэгдээгүй</p>{% endif %}
   {% if can_manage %}
   <form hx-post="{% url 'recruitment:candidate_file_upload' candidate.pk %}" hx-target="#files" hx-swap="outerHTML" hx-encoding="multipart/form-data" class="mt-3 flex flex-wrap items-center gap-2">
     {% csrf_token %}
-    <input type="file" name="file" required aria-label="Файл" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
-    <button class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Файл хавсаргах</button>
-    {% if file_error %}<p class="w-full rounded bg-red-50 p-2 text-sm text-red-700">{{ file_error }}</p>{% endif %}
+    <label class="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-violet-500">Файл сонгох<input type="file" name="file" required aria-label="Файл" class="sr-only" onchange="var n=this.closest('form').querySelector('[data-file-name]');if(n)n.textContent=this.files.length?this.files[0].name:''"></label>
+    <span data-file-name class="min-w-0 flex-1 truncate text-sm text-slate-600" aria-live="polite"></span>
+    <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Файл хавсаргах</button>
+    {% if file_error %}<p class="w-full rounded bg-red-50 p-2 text-sm text-red-700" role="alert">{{ file_error }}</p>{% endif %}
     <p class="w-full text-xs text-slate-500">{{ extensions }} · {{ max_mb }} MB хүртэл</p>
   </form>
   {% endif %}

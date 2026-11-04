@@ -21,7 +21,10 @@ class _EmployeeChoice(forms.ModelChoiceField):  # type: ignore[type-arg]
 
 class VacancyForm(StyledModelForm):
     hiring_manager = _EmployeeChoice(
-        queryset=Employee.objects.none(), required=False, label=Vacancy._meta.get_field("hiring_manager").verbose_name
+        queryset=Employee.objects.none(),
+        required=False,
+        label=Vacancy._meta.get_field("hiring_manager").verbose_name,
+        help_text="Ажил хүсэгчийг харж, сэтгэгдэл бичих удирдлага.",
     )
 
     class Meta:
@@ -38,6 +41,11 @@ class VacancyForm(StyledModelForm):
             "status",
             "description",
         ]
+        labels = {"title": "Ажлын байрны нэр"}
+        help_texts = {
+            "branch": "Орон тооны төлөвлөгөөг салбараар шалгана.",
+            "desired_start": "Шинэ ажилтан ажилд орохыг хүсэж буй өдөр.",
+        }
 
     def __init__(self, *args: Any, user: User, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -83,7 +91,11 @@ class CandidateForm(StyledForm):
 
 
 class RejectForm(StyledForm):
-    reason = forms.CharField(label="Татгалзсан шалтгаан", required=False, widget=forms.Textarea)
+    reason = forms.CharField(
+        label="Татгалзсан шалтгаан",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Жишээ: туршлага хүрэлцэхгүй байна"}),
+    )
     withdrawn = forms.BooleanField(label="Ажил хүсэгч өөрөө татгалзсан", required=False)
 
     def clean(self) -> dict[str, Any]:

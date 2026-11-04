@@ -322,6 +322,26 @@ def test_move_stages_and_refusals(world: World) -> None:
     assert world.ca.stage == Stage.SCREENING
 
 
+def test_stepper_asks_before_a_skip_or_back_move_but_not_the_next_step(world: World) -> None:
+    page = reverse("recruitment:candidate_detail", args=[world.ca.pk])
+    body = login(world.hr).get(page).content.decode()  # a new candidate: the next step is «Шалгаруулалт»
+    assert 'hx-confirm="«Шалгаруулалт»' not in body
+    assert 'hx-confirm="«Ярилцлага»' in body and 'hx-confirm="«Санал»' in body
+    assert 'aria-current="step"' in body
+
+
+def test_vacancy_form_shows_hints_and_the_new_labels(world: World) -> None:
+    body = login(world.hr).get(reverse("recruitment:vacancy_add")).content.decode()
+    assert "Ажлын байрны нэр" in body
+    for hint in ("салбараар шалгана", "сэтгэгдэл бичих удирдлага", "ажилд орохыг хүсэж буй өдөр"):
+        assert hint in body
+
+
+def test_reject_modal_explains_itself_and_confirms_in_red(world: World) -> None:
+    body = login(world.hr).get(reverse("recruitment:candidate_reject", args=[world.ca.pk])).content.decode()
+    assert 'role="dialog"' in body and "bg-red-600" in body and "шатны түүхэнд хадгалагдана" in body
+
+
 def test_move_and_reopen_need_post(world: World) -> None:
     client = login(world.hr)
     assert client.get(reverse("recruitment:candidate_move", args=[world.ca.pk])).status_code == 405

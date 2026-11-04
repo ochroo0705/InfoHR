@@ -9,10 +9,10 @@
     </li>
     {% endfor %}
   </ul>
-  {% else %}<p class="text-sm text-slate-400">Сэтгэгдэл бүртгэгдээгүй</p>{% endif %}
+  {% else %}<p class="text-sm text-slate-500">Сэтгэгдэл бүртгэгдээгүй</p>{% endif %}
   <form hx-post="{% url 'recruitment:candidate_comment' candidate.pk %}" hx-target="#comments" hx-swap="outerHTML" class="mt-3 space-y-2">
     {% csrf_token %}
-    {% if comment_error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ comment_error }}</p>{% endif %}
+    {% if comment_error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700" role="alert">{{ comment_error }}</p>{% endif %}
     <textarea name="text" rows="2" required placeholder="Сэтгэгдэл бичих" aria-label="Сэтгэгдэл" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
     <div class="flex justify-end"><button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Сэтгэгдэл нэмэх</button></div>
   </form>

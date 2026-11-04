@@ -1,10 +1,10 @@
 {% for c in rows %}
-<tr class="cursor-pointer border-t border-slate-100 hover:bg-violet-50" onclick="location.href='{% url 'recruitment:candidate_detail' c.pk %}'">
-  <td class="py-2"><a href="{% url 'recruitment:candidate_detail' c.pk %}" class="font-medium hover:text-violet-700 hover:underline" onclick="event.stopPropagation()">{{ c.surname }} {{ c.given_name }}</a></td>
-  <td>{% include "recruitment/_stage_chip.html" with stage=c.stage label=c.get_stage_display %}</td>
-  <td class="text-slate-600">{{ c.phone|default:"—" }}</td>
-  <td class="text-slate-600">{{ c.source|default:"—" }}</td>
-  <td class="whitespace-nowrap text-slate-500">{{ c.created_at|date:"Y-m-d" }}</td>
+<tr class="block my-2 cursor-pointer rounded-lg border border-slate-200 px-3 py-2 hover:bg-violet-50 md:table-row md:my-0 md:rounded-none md:border-0 md:border-t md:border-slate-100 md:px-0 md:py-0" onclick="location.href='{% url 'recruitment:candidate_detail' c.pk %}'">
+  <td class="block py-1 md:table-cell md:py-2"><a href="{% url 'recruitment:candidate_detail' c.pk %}" class="font-medium hover:text-violet-700 hover:underline" onclick="event.stopPropagation()">{{ c.surname }} {{ c.given_name }}</a></td>
+  <td class="block py-0.5 md:table-cell">{% include "recruitment/_stage_chip.html" with stage=c.stage label=c.get_stage_display %}</td>
+  <td class="block py-0.5 text-slate-600 md:table-cell">{% if c.phone %}<span class="text-slate-500 md:hidden">Утас: </span>{{ c.phone }}{% else %}<span class="hidden md:inline">—</span>{% endif %}</td>
+  <td class="block py-0.5 text-slate-600 md:table-cell">{% if c.source %}<span class="text-slate-500 md:hidden">Эх сурвалж: </span>{{ c.source }}{% else %}<span class="hidden md:inline">—</span>{% endif %}</td>
+  <td class="block whitespace-nowrap py-0.5 text-slate-500 md:table-cell"><span class="md:hidden">Нэмсэн: </span>{{ c.created_at|date:"Y-m-d" }}</td>
 </tr>
-{% endfor %}{% if not rows and not offset %}<tr><td colspan="5" class="py-6 text-center text-slate-400">Ажил хүсэгч олдсонгүй</td></tr>{% endif %}
+{% endfor %}{% if not rows and not offset %}<tr><td colspan="5" class="py-6 text-center text-slate-500">Ажил хүсэгч олдсонгүй</td></tr>{% endif %}
 {% if next_query %}{% url 'recruitment:vacancy_detail' vacancy.pk as more_url %}{% include "_more_batch.html" with url=more_url kind="tr" colspan=5 %}{% endif %}

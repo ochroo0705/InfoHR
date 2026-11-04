@@ -60,7 +60,7 @@ def describe(
         return SlotLine(numbers="", warning="Орон тоо шалгахын тулд салбар сонгоно уу.")
     result = slots.check(position, branch, kind=MAIN, on=on)
     reserved = _reserved(position, branch, on.year, exclude_vacancy)
-    numbers = f"{on.year} он · орон тоо {result.posts} · ажиллаж буй {result.used} · сул {result.free}"
+    numbers = f"{on.year} он · орон тоо {result.posts} · ажиллаж буй {result.used} · сул {max(result.free, 0)}"
     available = result.free - reserved
     if result.posts == 0:  # nothing planned: the hint to add a post, not «no free post left»
         warning = slots.no_posts_message(position, branch, on.year, MAIN)
