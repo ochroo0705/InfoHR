@@ -488,7 +488,8 @@ def test_personal_tab_sections_in_anketa_order(client: Client, hired: Employee) 
 
 def _nav_count(body: str, section: str) -> str:
     """The grey count shown in the section menu link of one section."""
-    found = re.search(rf'data-sec="{section}"(?:(?!</a>).)*?text-xs text-slate-[34]00">([^<]*)</span>', body, re.S)
+    pattern = rf'data-sec="{section}"(?:(?!</a>).)*?text-xs (?:invisible|text-slate-500)">([^<]*)</span>'
+    found = re.search(pattern, body, re.S)
     assert found is not None, section
     return found.group(1)
 

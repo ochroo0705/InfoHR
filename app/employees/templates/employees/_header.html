@@ -1,6 +1,6 @@
 {% load hr %}{% with photo=employee|thumb:80 %}
-<div class="rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
-<div class="flex items-center gap-5">
+<div class="rounded-2xl border border-slate-200 bg-surface p-4 shadow-sm sm:p-6">
+<div class="flex flex-wrap items-start gap-x-5 gap-y-4 sm:items-center">
   <div class="flex flex-col items-center gap-1">
     <div class="relative h-20 w-20">
       <img id="photo-img"{% if photo %} src="{{ photo }}" srcset="{{ employee|thumb:160 }} 2x, {{ employee|thumb:240 }} 3x"{% endif %} alt="" class="h-20 w-20 rounded-2xl object-cover transition-opacity{% if not photo %} hidden{% endif %}">
@@ -17,9 +17,9 @@
     {% if form %}<span id="photo-chosen" class="max-w-32 truncate text-xs text-slate-500"></span>
     {% for e in form.photo.errors %}<p class="text-xs text-red-600">{{ e }}</p>{% endfor %}{% endif %}
   </div>
-  <div class="flex-1">
+  <div class="min-w-0 flex-1 basis-56 break-words">
     {% if form %}
-    <h1 class="flex gap-2 text-2xl font-extrabold">{% field form.family_name "[field-sizing:content] min-w-16" %}{% field form.given_name "[field-sizing:content] min-w-16" %}</h1>
+    <h1 class="flex flex-wrap gap-x-2 text-2xl font-extrabold">{% field form.family_name "[field-sizing:content] min-w-16" %}{% field form.given_name "[field-sizing:content] min-w-16" %}</h1>
     {% else %}<h1 class="text-2xl font-extrabold">{{ employee.full_name }}</h1>{% endif %}
     <p class="text-slate-600">{{ row.job.position|default:"" }}{% if row.job %} · {{ row.job.department }}{% endif %}</p>
     {% if form %}
@@ -31,31 +31,31 @@
     {% endif %}
     <p id="activity-latest" class="mt-1 text-xs text-slate-500">{% include "employees/_activity_latest.html" %}</p>
   </div>
-  <div class="flex flex-col items-end gap-3 self-start">
-    <div class="flex flex-col items-end gap-1">
+  <div class="flex w-full flex-col gap-3 self-start sm:w-auto sm:items-end">
+    <div class="flex flex-col gap-1 sm:items-end">
       {% include "employees/_state.html" with state=row.state job=row.job until=leave_until %}
       {% if next_event %}<a href="#work" onclick="showTab('work')" class="flex items-center gap-1 text-xs text-slate-500 hover:text-violet-700" title="Ажлын түүхээс харах, цуцлах">
         <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12" rx="2"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4"/></svg>
         {{ next_event.get_type_display }} · {{ next_event.effective|date:"Y-m-d" }}</a>{% endif %}
     </div>
-    <div class="flex flex-wrap items-center justify-end gap-2">
-      {% if can_manage and not employee.ext.user_id %}<button type="button" hx-get="{% url 'employees:login_create' employee.pk %}" hx-target="body" hx-swap="beforeend" class="flex h-9 items-center whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50">Нэвтрэх эрх үүсгэх</button>{% endif %}
+    <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+      {% if can_manage and not employee.ext.user_id %}<button type="button" hx-get="{% url 'employees:login_create' employee.pk %}" hx-target="body" hx-swap="beforeend" class="flex h-11 sm:h-9 items-center whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50">Нэвтрэх эрх үүсгэх</button>{% endif %}
       {% if event_menu %}<details class="relative">
-        <summary class="flex h-9 cursor-pointer list-none items-center whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50">Өөрчлөлт бүртгэх ▾</summary>
+        <summary class="flex h-11 sm:h-9 cursor-pointer list-none items-center whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50">Өөрчлөлт бүртгэх ▾</summary>
         <div class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
           {% for value, label in event_menu %}<button type="button" hx-get="{% url 'employees:event' employee.pk value %}" hx-target="#modal" onclick="this.closest('details').removeAttribute('open')" class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">{{ label }}</button>{% endfor %}
         </div>
       </details>{% endif %}
-      <button type="button" onclick="openDrawer()" class="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50" title="Үйл ажиллагааны түүх">
+      <button type="button" onclick="openDrawer()" class="flex h-11 sm:h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50" title="Үйл ажиллагааны түүх">
         <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>
         <span>Түүх (<span id="activity-count">{{ activity_count }}</span>)</span></button>
     </div>
   </div>
 </div>
-<div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-  <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Ажилд орсон</div><div class="mt-0.5 font-bold">{{ employee.first_hire_date|date:"Y-m-d"|default:"—" }}</div></div>
-  <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Ажилтны төрөл</div><div class="mt-0.5 truncate font-bold">{{ row.job.get_employee_type_display|default:"—" }}</div></div>
-  <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Гэрээ дуусах</div><div class="mt-0.5 truncate font-bold">{% if row.job.contract_end %}{{ row.job.contract_end|date:"Y-m-d" }}{% elif row.job.contract_type == "open_ended" %}Хугацаагүй{% else %}—{% endif %}</div></div>
-  <div class="card-hover rounded-xl border border-slate-200 p-3"><div class="text-xs text-slate-500">Шууд удирдлага</div><div class="mt-0.5 truncate font-bold">{{ row.job.manager|default:"—" }}</div></div>
+<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 md:grid-cols-4">
+  <div class="min-w-0"><div class="text-xs text-slate-600">Ажилд орсон</div><div class="mt-0.5 font-semibold">{{ employee.first_hire_date|date:"Y-m-d"|default:"—" }}</div></div>
+  <div class="min-w-0"><div class="text-xs text-slate-500">Ажилтны төрөл</div><div class="mt-0.5 truncate font-semibold">{{ row.job.get_employee_type_display|default:"—" }}</div></div>
+  <div class="min-w-0"><div class="text-xs text-slate-500">Гэрээ дуусах</div><div class="mt-0.5 truncate font-semibold">{% if row.job.contract_end %}{{ row.job.contract_end|date:"Y-m-d" }}{% elif row.job.contract_type == "open_ended" %}Хугацаагүй{% else %}—{% endif %}</div></div>
+  <div class="min-w-0"><div class="text-xs text-slate-500">Шууд удирдлага</div><div class="mt-0.5 truncate font-semibold">{{ row.job.manager|default:"—" }}</div></div>
 </div>
 </div>{% endwith %}

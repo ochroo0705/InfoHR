@@ -5,6 +5,8 @@
   <div><dt class="text-slate-500">Албан тушаал</dt><dd>{{ row.job.position|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
   <div><dt class="text-slate-500">Хэлтэс</dt><dd>{{ row.job.department|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
   <div><dt class="text-slate-500">Шууд удирдлага</dt><dd>{{ row.job.manager.full_name|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
+</dl>
+<dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
   <div><dt class="text-slate-500">Албан тушаал (хавсарсан)</dt><dd>{% if form %}{% field form.second_position soft=True %}{% else %}{{ employee.second_position|default:"—" }}{% endif %}</dd></div>
   <div><dt class="text-slate-500">Алба</dt><dd>{% if form %}{% field form.office soft=True %}{% else %}{{ employee.office|default:"—" }}{% endif %}</dd></div>
   <div><dt class="text-slate-500">Хэсэг</dt><dd>{% if form %}{% field form.section soft=True %}{% else %}{{ employee.section|default:"—" }}{% endif %}</dd></div>

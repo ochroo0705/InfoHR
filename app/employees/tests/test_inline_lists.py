@@ -65,7 +65,7 @@ def test_add_saves_and_redraws_the_list_with_the_log(client: Client, hired: Empl
         and 'id="activity" hx-swap-oob' not in body
         and 'id="activity-count" hx-swap-oob="true"' in body
     )
-    assert 'id="menu-count-language" hx-swap-oob="true" class="text-xs text-slate-400">1<' in body
+    assert 'id="menu-count-language" hx-swap-oob="true" class="text-xs text-slate-500">1<' in body
 
 
 def test_invalid_row_stays_open_with_its_error(client: Client, hired: Employee, lists: dict[str, Any]) -> None:
@@ -109,7 +109,7 @@ def test_delete_in_the_row(client: Client, hired: Employee, lists: dict[str, Any
     loaded = delete_post(client, hired, "language", key)
     body = client.post(inline(delete_url(hired, "language", key)), loaded).content.decode()
     assert personal_rows.rows("language", hired) == []
-    assert "бүртгэгдээгүй" in body and 'class="text-xs text-slate-300">0<' in body
+    assert "бүртгэгдээгүй" in body and 'class="text-xs invisible">0<' in body
     assert ActivityEntry.objects.filter(employee=hired, personal=True).count() == 2
 
 

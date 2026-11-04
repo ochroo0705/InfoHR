@@ -11,7 +11,7 @@
 <div class="min-w-0 flex-1">
 <div id="header">{% include "employees/_header.html" %}</div>
 <div class="mt-6 rounded-xl border border-slate-200 bg-surface">
-  <nav class="flex gap-6 border-b lg:hidden border-slate-200 px-6">
+  <nav class="flex gap-6 border-b lg:hidden border-slate-200 px-6" aria-label="Ажилтны хэсгүүд">
     <a href="#work" class="tab" onclick="showTab('work')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7.5 6V4.5A1.5 1.5 0 0 1 9 3h2a1.5 1.5 0 0 1 1.5 1.5V6M3 10.5h14"/></svg>Ажил</a>
     {% if can_view_salary %}<a href="#salary" class="tab" onclick="showTab('salary')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8v4M14.5 8v4"/></svg>Цалин, даатгал</a>{% endif %}
     {% if can_view_personal %}<a href="#personal" class="tab" onclick="showTab('personal')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>Хувийн</a>{% endif %}
@@ -60,8 +60,8 @@ if(wide()&&store('hr.activityOpen')==='1')render(true);
 if(!who||!head||!window.IntersectionObserver)return;
 new IntersectionObserver(function(es){who.classList.toggle('hidden',es[0].isIntersecting)},{rootMargin:'-80px 0px 0px 0px'}).observe(head);})();
 function showTab(name){document.querySelectorAll('[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
-document.querySelectorAll('.tab').forEach(a=>a.classList.toggle('tab-on', a.hash==='#'+name));
-document.querySelectorAll('.rtab').forEach(a=>{var on=a.hash==='#'+name;['bg-violet-50','text-violet-700','font-semibold'].forEach(c=>a.classList.toggle(c,on));});
+document.querySelectorAll('.tab').forEach(a=>{var on=a.hash==='#'+name;a.classList.toggle('tab-on',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+document.querySelectorAll('.rtab').forEach(a=>{var on=a.hash==='#'+name;['bg-violet-50','text-violet-700','font-semibold'].forEach(c=>a.classList.toggle(c,on));if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
 var pm=document.getElementById('personal-nav');if(pm)pm.classList.toggle('hidden',name!=='personal');}
 // Tab links swap the #hash in place, so switching tabs doesn't add Back-button steps.
 document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');

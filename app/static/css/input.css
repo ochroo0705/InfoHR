@@ -162,6 +162,9 @@
   #personal-nav li.menu-group:not(:first-child) { position: relative; margin-top: 1.5rem !important; } /* !important: the space-y utility outranks a layered rule */
   #personal-nav li.menu-group:not(:first-child)::before { content: ""; position: absolute; inset-inline: 1rem; top: -.75rem; border-top: 1px solid var(--color-slate-200); }
   .grp-divider::after { content: ""; flex: 1; border-top: 1px solid var(--color-violet-300); }
+  /* Field pairs on the employee page: the value reads before its label (weight, not only colour). Boxes keep their own type. */
+  section[id^="tab-"] dl dt { font-size: .8125rem; letter-spacing: .01em; color: var(--color-slate-600); }
+  section[id^="tab-"] dl dd:not(:has(input, select, textarea)) { font-weight: 500; }
   /* Personal-tab tables (UI_RULES §4): a light frame per table and a tinted header row in normal case. */
   .ptable { margin-top: .5rem; overflow-x: auto; border: 1px solid var(--color-slate-200); border-radius: .5rem; }
   .ptable > table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
