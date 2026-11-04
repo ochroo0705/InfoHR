@@ -64,6 +64,7 @@
 @source "../../recruitment/templates";
 @source "../../checklists/templates";
 @source "../../employees/templatetags";
+@source "../../assistant/templates";
 @source "../js/modal.js";
 
 /* Date picker (static/js/datepicker.js) */

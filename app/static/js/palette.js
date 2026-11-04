@@ -24,6 +24,9 @@
   var loading = false;   // true while the latest request is still in flight
   var busyTimer = null;  // the wait before a slow answer dims the list (markBusy)
   var BUSY_MS = 150;
+  var askController = null; // AbortController of the latest assistant question («Асуух» row)
+  var ASK_WAIT = "Хариулт хайж байна…";
+  var ASK_FAIL = "Хариулт авч чадсангүй. Дахин оролдоно уу.";
 
   // Remembered references (Сүүлд нээсэн): short ids only, newest first, no names. Every storage access is guarded: a
   // blocked or full storage, or a value that is not ours, just means nothing is remembered or shown.
@@ -66,7 +69,7 @@
     // a click on any other result follows its link as usual.
     shell.addEventListener("click", function (e) {
       var item = e.target.closest && e.target.closest("[data-palette-item]");
-      if (item && (item.hasAttribute("data-palette-modal") || item.hasAttribute("data-palette-more"))) {
+      if (item && (item.hasAttribute("data-palette-modal") || item.hasAttribute("data-palette-more") || item.hasAttribute("data-palette-ask"))) {
         e.preventDefault();
         activate(item);
         return;
@@ -77,6 +80,8 @@
     input.addEventListener("input", function () {
       clearTimeout(timer);
       clearSelection();  // the old answer must not be activated for the new query
+      if (askController) askController.abort();  // an answer for older text must not land after typing more
+      askController = null;
       timer = setTimeout(function () {
         timer = null;
         search(input.value);
@@ -97,6 +102,8 @@
     timer = null;
     if (controller) controller.abort();
     controller = null;
+    if (askController) askController.abort();
+    askController = null;
     loading = false;
     clearBusy();
     shell.remove();
@@ -110,6 +117,12 @@
   // so the palette closes and the form appears where the user is; the «show all» row (data-palette-more) asks for the
   // same query again with more people and keeps the palette open; every other result is a page and is navigated to.
   function activate(item) {
+    // The «Асуух» row only asks the assistant, and only here (Enter or a click), never while typing.
+    if (item.hasAttribute("data-palette-ask")) {
+      if (loading || timer) return;  // same rule as Enter: no question while a search is still in flight or waiting
+      ask(item);
+      return;
+    }
     if (item.hasAttribute("data-palette-more")) {
       var at = Array.prototype.indexOf.call(items(), item);
       search(input.value, at);  // the first newly shown person takes the row's place
@@ -147,11 +160,82 @@
     results.removeAttribute("aria-busy");
   }
 
+  // CSRF token, read as select.js does: the cookie first, the hx-headers JSON on <body> as the fallback.
+  function csrfToken() {
+    var m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    try {
+      return JSON.parse(document.body.getAttribute("hx-headers") || "{}")["X-CSRFToken"] || "";
+    } catch (err) {
+      return "";
+    }
+  }
+
+  // Sends the typed text to the assistant from the «Асуух» row. The row turns into a waiting line; the answer card
+  // replaces the row when it comes, and its first link is selected so Enter opens it. A newer search or close aborts
+  // this request, so a late answer never lands on newer results. The answer is the server's own fragment, trusted;
+  // the waiting and error lines are text only.
+  function ask(row) {
+    if (askController) askController.abort();
+    var mine = new AbortController();
+    askController = mine;
+    var url = row.getAttribute("data-ask-url");
+    var body = "q=" + encodeURIComponent(input.value);
+    // Not a link any more: no href, not selectable, so a click on the waiting line does nothing.
+    row.removeAttribute("data-palette-item");
+    row.removeAttribute("href");
+    row.removeAttribute("aria-selected");
+    row.textContent = "";
+    row.appendChild(statusLine(ASK_WAIT));
+
+    fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken(), "Content-Type": "application/x-www-form-urlencoded" },
+      body: body,
+      signal: mine.signal,
+    })
+      .then(function (r) {
+        // The session ended: the server sent the login page instead of the answer. Reload, as search does.
+        if (r.redirected) {
+          window.location.reload();
+          return null;
+        }
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      })
+      .then(function (html) {
+        if (html === null || !shell || mine !== askController || !row.isConnected) return;
+        askController = null;
+        row.outerHTML = html;
+        var answer = results.querySelector("[data-palette-answer]");
+        var first = answer && answer.querySelector("[data-palette-item]");
+        if (first) select(first, true);
+      })
+      .catch(function (err) {
+        if (err && err.name === "AbortError") return;  // a stale request, cancelled on purpose
+        if (!shell || mine !== askController || !row.isConnected) return;
+        askController = null;
+        row.textContent = "";
+        row.appendChild(statusLine(ASK_FAIL));
+      });
+  }
+
+  function statusLine(text) {
+    var p = document.createElement("p");
+    p.setAttribute("role", "status");
+    p.className = "px-3 py-2 text-sm text-slate-500";
+    p.textContent = text;
+    return p;
+  }
+
   // `moreAt`: given only for «show all» (the server sends up to PEOPLE_MORE_LIMIT people); the row at that index is
   // highlighted when the answer comes. Typing again searches without it, so the short list comes back.
   function search(q, moreAt) {
     var more = typeof moreAt === "number";
     if (controller) controller.abort();
+    if (askController) askController.abort();  // a late answer must not land on the new results
+    askController = null;
     var mine = new AbortController();
     controller = mine;
     loading = true;
@@ -200,9 +284,15 @@
     return results ? results.querySelectorAll("[data-palette-item]") : [];
   }
 
+  // The «Асуух» row is not selected by default (Enter on a plain search must open a result, not ask the assistant),
+  // unless the text reads as a question (data-palette-ask-first). Then the first real result is selected.
   function highlightFirst() {
     var list = items();
-    for (var i = 0; i < list.length; i++) list[i].setAttribute("aria-selected", i === 0 ? "true" : "false");
+    var pick = 0;
+    if (list.length > 1 && list[0].hasAttribute("data-palette-ask") && !list[0].hasAttribute("data-palette-ask-first")) {
+      pick = 1;
+    }
+    for (var i = 0; i < list.length; i++) list[i].setAttribute("aria-selected", i === pick ? "true" : "false");
   }
 
   function clearSelection() {

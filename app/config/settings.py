@@ -18,6 +18,14 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])  # e.g. https://host.ts.net behind a tunnel
+# Help assistant (app/assistant). Provider: gemini | groq | empty (empty = off). The key lives in .env only.
+ASSISTANT_PROVIDER = env.str("ASSISTANT_PROVIDER", default="")
+ASSISTANT_API_KEY = env.str("ASSISTANT_API_KEY", default="")
+ASSISTANT_MODEL = env.str("ASSISTANT_MODEL", default="")
+ASSISTANT_TIMEOUT = env.int("ASSISTANT_TIMEOUT", default=15)  # seconds
+ASSISTANT_EXAMPLES_PER_ENTRY = env.int("ASSISTANT_EXAMPLES_PER_ENTRY", default=10)  # learned examples sent per entry
+ASSISTANT_NO_ENTRY_EXAMPLES = env.int("ASSISTANT_NO_ENTRY_EXAMPLES", default=10)  # learned "no entry" questions sent
+ASSISTANT_SIMILARITY = env.float("ASSISTANT_SIMILARITY", default=0.8)  # how close a test must be to an example to clash
 
 INSTALLED_APPS = [
     "unfold",  # admin theme; must come before django.contrib.admin
@@ -37,6 +45,7 @@ INSTALLED_APPS = [
     "lists",
     "reports",
     "logs",
+    "assistant",
 ]
 
 MIDDLEWARE = [
@@ -222,6 +231,21 @@ UNFOLD = {
                         "title": "Жагсаалтын загвар",
                         "icon": "checklist",
                         "link": reverse_lazy("admin:checklists_checklisttemplate_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Туслах",
+                "items": [
+                    {
+                        "title": "Туслахын асуултууд",
+                        "icon": "forum",
+                        "link": reverse_lazy("admin:assistant_helpquestion_changelist"),
+                    },
+                    {
+                        "title": "Сурсан жишээ, тест",
+                        "icon": "school",
+                        "link": reverse_lazy("admin:assistant_helpexample_changelist"),
                     },
                 ],
             },

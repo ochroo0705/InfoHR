@@ -1987,10 +1987,18 @@ def palette_search(request: HttpRequest) -> HttpResponse:
     # On an employee's record page the empty box starts with that person's actions. A typed query never has this group.
     page_pk = None if q.split() else _palette_page_pk(request.GET.get("from", ""))
     current = palette.current(user, page_pk, today) if page_pk is not None else None
+    # The assistant's «Асуух» row. Local import: the assistant app imports employees.palette.
+    from assistant.providers import is_enabled
+    from assistant.services import QUESTION_LIMIT, looks_like_question
+
+    ask_on = is_enabled() and bool(q.strip())
     response = render(
         request,
         "employees/_palette_results.html",
         {
+            "ask_on": ask_on,
+            "ask_first": ask_on and looks_like_question(q),  # a question: the row goes first and Enter asks it
+            "ask_q": q[:QUESTION_LIMIT],
             "recent": recent,
             "current": current,
             "current_actions": palette.person_actions(user, current) if current else [],

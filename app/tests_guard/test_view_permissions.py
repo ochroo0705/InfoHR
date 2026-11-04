@@ -92,6 +92,8 @@ EXPECTED: dict[str, Rule] = {
     "home": LOGIN_ONLY,  # only redirects by role (Auditor to the system log, others to Today); shows no HR data
     "me": LOGIN_ONLY,  # My page: the user's own employee record only (404 without one); no other person's data
     "me_notice": LOGIN_ONLY,  # POST; dismisses one of the user's own leave-result notices only
+    # POST; 400 without a question, 404 when the assistant is off; answers only from the user's allowed entries
+    "assistant:ask": LOGIN_ONLY,
     "login": PUBLIC,  # the login form itself
     "logout": PUBLIC,  # ends the session
     "password_change": LOGIN_ONLY,  # changes the user's own password only

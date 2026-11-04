@@ -1,0 +1,25 @@
+{% comment %}The help assistant's answer card. Shown under the Ctrl+K search box after one question.{% endcomment %}
+<div data-palette-answer role="status" class="m-2 rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm">
+{% if result.outcome == "answered" %}
+  <p class="font-semibold">{{ result.entry.title }}</p>
+  {% if result.lead %}<p class="mt-1">{{ result.lead }}</p>{% endif %}
+  <ol class="mt-1 list-decimal pl-5">
+  {% for step in result.entry.steps %}
+    <li>{{ step }}</li>
+  {% endfor %}
+  </ol>
+  {% if result.entry.note %}<p class="mt-2 text-slate-600">{{ result.entry.note }}</p>{% endif %}
+  <div class="mt-3 flex flex-wrap items-center gap-2">
+    <a href="{{ result.entry.url }}" data-palette-item role="option"{% if result.entry.modal %} data-palette-modal{% endif %} class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-1.5 text-white hover:bg-violet-700 max-sm:min-h-11">Нээх →</a>
+    {% if result.also %}
+    <a href="{{ result.also.url }}" data-palette-item role="option"{% if result.also.modal %} data-palette-modal{% endif %} class="inline-flex items-center rounded-lg px-2 py-1 text-xs text-violet-700 hover:bg-violet-100 max-sm:min-h-11">Эсвэл: {{ result.also.title }} →</a>
+    {% endif %}
+  </div>
+{% elif result.outcome == "none" %}
+  <p>Энэ асуултад хариулт олдсонгүй. Одоогоор зөвхөн чөлөө, амралтын талаар туслах боломжтой.</p>
+{% elif result.outcome == "error" %}
+  <p>Хариулт авч чадсангүй. Дахин оролдоно уу.</p>
+{% elif result.outcome == "limited" %}
+  <p>Нэг цагт 20-оос олон асуулт асуух боломжгүй. Түр хүлээгээд дахин оролдоно уу.</p>
+{% endif %}
+</div>
