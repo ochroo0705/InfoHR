@@ -25,10 +25,13 @@
 {% if can_manage and not is_open %}<p class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Энэ ажлын байр нээлттэй биш тул ажил хүсэгч нэмэх боломжгүй. «Засах» дарж төлөвийг «Нээлттэй» болгоно уу.</p>{% endif %}
 <section id="cand-list" class="mt-5">
   <h2 class="sec-title mb-2">Ажил хүсэгчид</h2>
+  <p class="mb-1 text-xs text-slate-500">Шатаар шүүх</p>
   {% include "recruitment/_stage_bar.html" %}
-  <div class="card-soft mt-2 overflow-x-auto px-4 pb-2">
+  <details class="mt-1 text-xs text-slate-500"><summary class="cursor-pointer">Шатуудын тайлбар</summary>
+    <ul class="mt-1 space-y-0.5"><li><b class="font-medium text-slate-600">Шинэ</b> — анкет орж ирсэн, хараахан үзээгүй.</li><li><b class="font-medium text-slate-600">Шалгаруулалт</b> — анкет, CV-г үнэлж байна.</li><li><b class="font-medium text-slate-600">Ярилцлага</b> — ярилцлагад урьсан эсвэл ярилцаж байна.</li><li><b class="font-medium text-slate-600">Санал</b> — ажлын санал тавьсан.</li><li><b class="font-medium text-slate-600">Ажилд авсан</b> — ажилтан болгож бүртгэсэн.</li></ul></details>
+  <div class="card-soft mt-2 overflow-x-auto px-3 pb-2 md:px-4">
     <table class="w-full text-sm">
-      <thead class="text-left text-slate-500"><tr><th class="py-2">Нэр</th><th>Шат</th><th>Утас</th><th>Эх сурвалж</th><th>Нэмсэн</th></tr></thead>
+      <thead class="sr-only text-left text-slate-500 md:not-sr-only md:table-header-group"><tr><th class="py-2">Нэр</th><th>Шат</th><th>Утас</th><th>Эх сурвалж</th><th>Нэмсэн</th></tr></thead>
       <tbody>{% include "recruitment/_candidate_rows.html" %}</tbody>
     </table>
   </div>

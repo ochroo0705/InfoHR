@@ -3,6 +3,6 @@
   {% for item in stage_bar %}
   <a href="{% url 'recruitment:vacancy_detail' vacancy.pk %}?stage={{ item.key }}" hx-get="{% url 'recruitment:vacancy_detail' vacancy.pk %}?stage={{ item.key }}" hx-target="#cand-list" hx-select="#cand-list" hx-swap="outerHTML" hx-replace-url="true"
      {% if item.key == stage_key %}aria-current="true"{% endif %}
-     class="whitespace-nowrap rounded-full border px-3 py-1 {% if item.key == stage_key %}border-violet-600 bg-violet-600 text-white{% else %}border-slate-300 bg-surface text-slate-700 hover:bg-slate-50{% endif %}">{{ item.label }} <span class="{% if item.key == stage_key %}text-white/80{% else %}text-slate-500{% endif %}">{{ item.count }}</span></a>
+     class="whitespace-nowrap rounded-full border px-3 py-1.5 {% if item.key == stage_key %}border-violet-600 bg-violet-600 text-white{% else %}border-slate-300 bg-surface text-slate-700 hover:bg-slate-50{% endif %}">{{ item.label }} <span class="{% if item.key == stage_key %}text-white/80{% else %}text-slate-500{% endif %}">{{ item.count }}</span></a>
   {% endfor %}
 </nav>

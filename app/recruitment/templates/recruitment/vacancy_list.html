@@ -9,7 +9,7 @@
   </div>
 </div>
 <form hx-get="{% url 'recruitment:vacancies' %}" hx-target="#rows" hx-trigger="change" hx-push-url="true" class="mt-4 flex flex-wrap items-center gap-2 text-sm">
-  <input type="search" name="q" value="{{ q }}" placeholder="Нэр, албан тушаал, хэлтсээр хайх" hx-get="{% url 'recruitment:vacancies' %}" hx-trigger="input changed delay:300ms, search" hx-target="#rows" hx-include="closest form" hx-push-url="true" class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <input type="search" name="q" aria-label="Хайх" value="{{ q }}" placeholder="Нэр, албан тушаал, хэлтсээр хайх" hx-get="{% url 'recruitment:vacancies' %}" hx-trigger="input changed delay:300ms, search" hx-target="#rows" hx-include="closest form" hx-push-url="true" class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
   <select name="status" data-search="off" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
     <option value="open" {% if status == "open" %}selected{% endif %}>Нээлттэй</option>
     <option value="closed" {% if status == "closed" %}selected{% endif %}>Хаагдсан</option>
@@ -17,9 +17,9 @@
     <option value="all" {% if status == "all" %}selected{% endif %}>Бүгд</option>
   </select>
 </form>
-<div class="card-soft mt-3 overflow-x-auto px-4 pb-2">
+<div class="card-soft mt-3 overflow-x-auto px-3 pb-2 md:px-4">
   <table class="w-full text-sm">
-    <thead class="text-left text-slate-500"><tr>
+    <thead class="sr-only text-left text-slate-500 md:not-sr-only md:table-header-group"><tr>
       <th class="py-2">Ажлын байр</th><th>Төлөв</th>
       <th class="text-right">Шинэ</th><th class="pl-3 text-right">Шалгаруулалт</th><th class="pl-3 text-right">Ярилцлага</th><th class="pl-3 text-right">Санал</th><th class="pl-3 text-right">Ажилд авсан</th>
       <th class="pl-6">Авах эцсийн хугацаа</th>

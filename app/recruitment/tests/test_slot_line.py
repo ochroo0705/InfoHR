@@ -78,6 +78,16 @@ def test_full_posts_still_say_no_free_post_is_left(
     assert line is not None and line.warning == "Сул орон тоо алга."
 
 
+def test_over_filled_posts_never_show_a_negative_free_count(
+    position: Position, branch: Branch, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _switch()
+    over = slots.SlotResult(kind="Main", year=YEAR, posts=0, used=1, free=-1)
+    monkeypatch.setattr(slots, "check", lambda *args, **kwargs: over)
+    line = _describe(position, branch)
+    assert line is not None and "сул 0" in line.numbers and "-1" not in line.numbers
+
+
 def test_headcount_above_free_posts_warns(position: Position, branch: Branch) -> None:
     _switch()
     _posts(position, branch, 2)

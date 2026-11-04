@@ -331,6 +331,7 @@ def candidate_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "can_manage": manage,
         "progress": _progress(candidate),
         "move_to": _move_targets(candidate) if manage and not closed and candidate.stage != Stage.HIRED else [],
+        "move_confirm": _confirm_moves(candidate) if manage and not closed and candidate.stage != Stage.HIRED else [],
         "can_reopen": manage and closed,
         "can_reject": manage and not closed and candidate.stage != Stage.HIRED,
         "can_convert": manage and convert.can_convert(candidate),
@@ -347,6 +348,14 @@ def candidate_detail(request: HttpRequest, pk: int) -> HttpResponse:
 def _move_targets(candidate: Candidate) -> list[str]:
     """The stages the candidate may be moved to (each step of the row on the page is a button for these)."""
     return [stage.value for stage in pipeline.MOVABLE_STAGES if stage != candidate.stage]
+
+
+def _confirm_moves(candidate: Candidate) -> list[str]:
+    """Moves that ask first: every target except the next step of the process (a back-move or a skip is deliberate)."""
+    steps = [stage.value for stage in pipeline.MOVABLE_STAGES]
+    here = steps.index(candidate.stage) if candidate.stage in steps else -1
+    following = steps[here + 1] if here + 1 < len(steps) else None
+    return [stage for stage in steps if stage != candidate.stage and stage != following]
 
 
 def _progress(candidate: Candidate) -> list[tuple[str, str, str]]:

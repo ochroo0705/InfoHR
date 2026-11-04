@@ -1,12 +1,12 @@
 {# Add candidate pop-up (UI_RULES 6). With `error` and no form (vacancy not open) it only explains why. #}
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()" role="dialog" aria-modal="true" aria-labelledby="cand-form-title">
   <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
-    <h2 class="mb-1 text-lg font-semibold">{{ title }}</h2>
+    <h2 id="cand-form-title" class="mb-1 text-lg font-semibold">{{ title }}</h2>
     <p class="mb-4 text-sm text-slate-500">{{ vacancy.title }}</p>
     {% if form %}
     <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
       {% csrf_token %}
-      {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+      {% if error %}<p class="rounded bg-red-50 p-2 text-sm text-red-700" role="alert">{{ error }}</p>{% endif %}
       {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
       <div class="grid gap-3 md:grid-cols-2">{% for field in form %}
         <label class="block text-sm {% if field.name == 'notes' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}
