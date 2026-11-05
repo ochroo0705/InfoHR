@@ -9,6 +9,7 @@ from django.db import models
 
 def audited_models() -> list[type[models.Model]]:
     """Resolved inside the function, not at import time, so that importing this module cannot create a cycle."""
+    from assistant.models import HelpExample
     from checklists.models import ChecklistTemplate, ChecklistTemplateTask
     from employees.models import CompanySettings, DepartmentExt, OrderTemplate, PositionExt, StaffImportSettings
     from leave.models import AnnualLeaveRule, LeaveSettings, LeaveTypeExt
@@ -36,5 +37,6 @@ def audited_models() -> list[type[models.Model]]:
         ChecklistTemplate,
         ChecklistTemplateTask,
         RecruitmentSettings,
+        HelpExample,
     ]
     return list(dict.fromkeys(found))  # one entry per model, order kept

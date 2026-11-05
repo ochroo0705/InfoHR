@@ -1,0 +1,46 @@
+{% comment %}Column filters of a report (UI_RULES §4b «Column filter chips»). `part="chips"` is included inside #report-filters, so its
+controls take part in the form's change/submit; `part="picker"` sits beside the form, its links are plain htmx links.
+Nothing is drawn when the report offers no column filters (column_filter_choices and active_column_filters are empty).{% endcomment %}
+{% if part == "chips" %}
+  {% for chip in active_column_filters %}
+    {# every shown chip keeps its `add` entry, so a chip whose value is cleared stays on screen after the round trip #}
+    <input type="hidden" name="add" value="{{ chip.name }}">
+    <div class="flex min-w-0 items-center gap-1 rounded-lg border border-slate-300 bg-surface pl-3 pr-1 text-sm sm:col-span-2" data-column-chip="{{ chip.name }}">
+      <span class="shrink-0 text-slate-500">{{ chip.label }}</span>
+      {% if chip.kind == "code" or chip.kind == "choice" %}
+        <select name="{{ chip.name }}" aria-label="{{ chip.label }}" data-search="off" class="min-w-0 flex-1 border-0 bg-transparent py-2 pr-6 text-sm focus:outline-none">
+          <option value="">Бүгд</option>
+          {% for value, text in chip.options %}<option value="{{ value }}"{% if value == chip.values.0 %} selected{% endif %}>{{ text }}</option>{% endfor %}
+        </select>
+      {% elif chip.kind == "date" %}
+        <input type="date" name="{{ chip.name }}_from" placeholder="Эхлэх" aria-label="{{ chip.label }}: эхлэх" value="{{ chip.values.0 }}" class="w-full min-w-0 border-0 bg-transparent py-2 text-sm focus:outline-none">
+        <span class="text-slate-500">–</span>
+        <input type="date" name="{{ chip.name }}_to" placeholder="Дуусах" aria-label="{{ chip.label }}: дуусах" value="{{ chip.values.1 }}" class="w-full min-w-0 border-0 bg-transparent py-2 text-sm focus:outline-none">
+      {% else %}
+        <input type="number" name="{{ chip.name }}_from" min="0" placeholder="Доод" aria-label="{{ chip.label }}: доод" value="{{ chip.values.0 }}" class="w-full min-w-0 border-0 bg-transparent py-2 text-sm focus:outline-none">
+        <span class="text-slate-500">–</span>
+        <input type="number" name="{{ chip.name }}_to" min="0" placeholder="Дээд" aria-label="{{ chip.label }}: дээд" value="{{ chip.values.1 }}" class="w-full min-w-0 border-0 bg-transparent py-2 text-sm focus:outline-none">
+      {% endif %}
+      <a href="{{ chip.remove_href }}" hx-get="{{ chip.remove_href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" aria-label="Шүүлтүүрийг арилгах" class="shrink-0 rounded-full px-2 py-1 text-violet-700 hover:bg-violet-100">×</a>
+    </div>
+  {% endfor %}
+{% elif part == "picker" and column_filter_choices %}
+  <details data-column-picker class="relative shrink-0">
+    <summary class="flex cursor-pointer list-none items-center rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm hover:bg-slate-50">Шүүлтүүр нэмэх ▾</summary>
+    <div class="absolute left-0 z-20 mt-1 w-56 rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
+      {% for name, label, href in column_filter_choices %}<a href="{{ href }}" hx-get="{{ href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="block cursor-pointer px-3 py-1.5 text-sm hover:bg-slate-50">{{ label }}</a>{% endfor %}
+    </div>
+  </details>
+  {# The «Шүүлтүүр нэмэх» panel closes when the user clicks anywhere outside it. The page is swapped as a whole, so the listener is bound once. #}
+  <script>
+  (function () {
+    if (window.columnPickerBound) return;
+    window.columnPickerBound = true;
+    document.addEventListener("click", function (e) {
+      document.querySelectorAll("details[data-column-picker][open]").forEach(function (d) {
+        if (!d.contains(e.target)) d.removeAttribute("open");
+      });
+    });
+  })();
+  </script>
+{% endif %}

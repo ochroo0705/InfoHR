@@ -1,4 +1,5 @@
 {% comment %}Ctrl+K palette answers: people, then screens, then quick actions. Fetched by the palette script (palette_search view).{% endcomment %}{% load palette_extras %}
+{% if ask_on %}{% include "assistant/_ask_row.html" %}{% endif %}
 {% if current_actions %}{% include "employees/_palette_person_actions.html" with hit=current actions=current_actions %}{% endif %}
 {% if recent %}
 <div class="border-t border-slate-100 first:border-t-0">

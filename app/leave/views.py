@@ -8,7 +8,7 @@ from config import batching
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from employees import access as employee_access
 from employees import listing
+from employees import palette as employee_palette
 from employees.models import Department, Employee, JobStatus
 from employees.services.macs_writes import ListEntryInUse
 from macs.models import LeaveAssign, LeaveTypeRow
@@ -30,6 +31,7 @@ from leave.forms import (
     GrantForm,
     LeaveForm,
     LeaveTypeForm,
+    active_types,
     encode_step,
     initial_dates,
     loaded_from_post,
@@ -151,6 +153,7 @@ def _leave_form(
     leave_id: int | None = None,
     loaded: writes.AssignSnapshot | None = None,
     error: str = "",
+    extra: dict[str, Any] | None = None,
 ) -> HttpResponse:
     context = {
         "form": form,
@@ -160,8 +163,80 @@ def _leave_form(
         "leave_id": leave_id or "",
         "loaded": loaded,
         "not_configured": _not_configured(),
+        **(extra or {}),
     }
     return render(request, "leave/_form.html", context)
+
+
+MAX_PREFILL_YEARS = 10  # a date this far from today is a typing slip (the assistant refuses the same), not a leave date
+
+
+def _prefill_date(raw: str | None, t: date) -> date | None:
+    day = _iso(raw or "")
+    if day is None or abs(day.year - t.year) > MAX_PREFILL_YEARS:
+        return None
+    return day
+
+
+def _visible_pk(raw: str | None, employees: QuerySet[Employee]) -> int | None:
+    """An employee id from the address or the posted form, only when the asker may see that employee."""
+    pk = _int(raw)
+    return pk if pk is not None and employees.filter(pk=pk).exists() else None
+
+
+def _leave_add_initial(request: HttpRequest, employees: QuerySet[Employee]) -> tuple[dict[str, Any], list[str]]:
+    """The first values of a new leave, read from the address (the assistant's leave link, or a link from the employee
+    page), and the labels of what the address filled. A value the asker may not use (an employee outside `employees`,
+    an inactive type) or that does not parse is left out; a date that was given but is unusable stays empty. The form's
+    own querysets refuse the same values on POST, so this only fills the boxes: it grants nothing."""
+    q = request.GET
+    t = today()
+    dates_given = q.get("from") == "assistant" or "start" in q or "end" in q
+    initial: dict[str, Any] = dict(initial_dates(t))
+    filled: list[str] = []
+    employee_pk = _visible_pk(q.get("employee"), employees)
+    if employee_pk is not None:
+        initial["employee"] = employee_pk
+        filled.append("Ажилтан")
+    type_pk = _int(q.get("type"))
+    if type_pk is not None and (found := active_types().filter(pk=type_pk).first()) is not None:
+        initial["leave_type"] = found.pk
+        filled.append("Төрөл")
+    if dates_given:
+        start, end = _prefill_date(q.get("start"), t), _prefill_date(q.get("end"), t)
+        if start is not None and end is not None and end < start:
+            end = None
+        initial.update(start_date=start, end_date=end)
+        filled += [label for label, day in (("Эхлэх", start), ("Дуусах", end)) if day is not None]
+    return initial, filled
+
+
+def _assisted(user: User, employee_pk: int | None, filled: list[str]) -> dict[str, Any]:
+    """The one soft line above the form when the link came from the assistant: the chosen person (name, then position
+    and department as the lists show a job) and what the sentence filled in."""
+    line = ""
+    if (pk := employee_pk) is not None:
+        person = Employee.objects.get(pk=pk)
+        hit = employee_palette.current(user, pk, today())
+        parts = [person.full_name, hit.position, hit.department] if hit else [person.full_name]
+        line = " · ".join(part for part in parts if part)
+    filled_line = (
+        f"Асуултаас бөглөсөн: {', '.join(filled)}"
+        if filled
+        else "Асуултаас юу ч бөглөгдөөгүй. Мэдээллээ өөрөө оруулна уу."
+    )
+    return {"from_assistant": True, "person_line": line, "filled_line": filled_line}
+
+
+def _add_extra(
+    request: HttpRequest, user: User, employees: QuerySet[Employee], employee_pk: int | None
+) -> dict[str, Any] | None:
+    """The assistant's lines for the add form, None when the page was not opened from the assistant. The form posts to
+    the address it was opened with, so an invalid POST still knows the origin and the filled values (display only)."""
+    if request.GET.get("from") != "assistant":
+        return None
+    _, filled = _leave_add_initial(request, employees)
+    return {"action": request.get_full_path(), **_assisted(user, employee_pk, filled)}
 
 
 @login_required
@@ -170,15 +245,19 @@ def leave_add(request: HttpRequest) -> HttpResponse:
     _require(access.can_record(user))
     employees = employee_access.visible_employees(user)
     if request.method != "POST":
-        initial = {**initial_dates(today()), "employee": request.GET.get("employee")}
-        return _leave_form(request, LeaveForm(initial=initial, employees=employees), title="Чөлөө бүртгэх")
+        initial, filled = _leave_add_initial(request, employees)
+        form = LeaveForm(initial=initial, employees=employees)
+        extra = _add_extra(request, user, employees, initial.get("employee"))
+        return _leave_form(request, form, title="Чөлөө бүртгэх", extra=extra)
     form = LeaveForm(request.POST, employees=employees)
     if not form.is_valid():
-        return _leave_form(request, form, title="Чөлөө бүртгэх")
+        extra = _add_extra(request, user, employees, _visible_pk(request.POST.get("employee"), employees))
+        return _leave_form(request, form, title="Чөлөө бүртгэх", extra=extra)
     try:
         records.record(form.draft(), user, today())
     except records.LeaveError as e:
-        return _leave_form(request, form, title="Чөлөө бүртгэх", error=str(e))
+        extra = _add_extra(request, user, employees, _visible_pk(request.POST.get("employee"), employees))
+        return _leave_form(request, form, title="Чөлөө бүртгэх", error=str(e), extra=extra)
     return _done()
 
 

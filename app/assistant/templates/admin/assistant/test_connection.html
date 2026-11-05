@@ -1,0 +1,41 @@
+{% comment %}Settings page: «Холболт шалгах» tries one call with the values typed above (nothing is saved).{% endcomment %}
+<div class="flex flex-col gap-2 mt-6" id="assistant-test">
+    <div>
+        <button type="button" id="assistant-test-btn"
+                class="border border-base-200 dark:border-base-700 rounded-default px-4 py-2 text-sm font-medium hover:bg-base-50 dark:hover:bg-base-800"
+                data-url="{% url 'admin:assistant_assistantsettings_test' %}">Холболт шалгах</button>
+        <span class="text-sm text-font-subtle-light dark:text-font-subtle-dark ml-2">Хадгалахгүйгээр, дээрх утгуудаар туршина.</span>
+    </div>
+    <p id="assistant-test-result" class="text-sm font-medium" role="status" aria-live="polite"></p>
+</div>
+<script>
+(function () {
+  // The model box suggests the models of the chosen provider.
+  var provider = document.querySelector("[name=provider]");
+  var model = document.querySelector("[name=model]");
+  function suggest() {
+    if (provider && model && provider.value) model.setAttribute("list", "assistant-models-" + provider.value);
+  }
+  if (provider) { provider.addEventListener("change", suggest); suggest(); }
+  var btn = document.getElementById("assistant-test-btn");
+  var out = document.getElementById("assistant-test-result");
+  if (!btn) return;
+  btn.addEventListener("click", function () {
+    var form = btn.closest("form");
+    btn.disabled = true;
+    out.className = "text-sm font-medium";
+    out.textContent = "Шалгаж байна…";
+    fetch(btn.dataset.url, { method: "POST", body: new FormData(form), credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        out.textContent = (d.ok ? "✓ " : "✗ ") + d.message;
+        out.className = "text-sm font-medium " + (d.ok ? "text-green-600" : "text-red-600");
+      })
+      .catch(function () {
+        out.textContent = "✗ Шалгаж чадсангүй (сервертэй холбогдсонгүй).";
+        out.className = "text-sm font-medium text-red-600";
+      })
+      .finally(function () { btn.disabled = false; });
+  });
+})();
+</script>

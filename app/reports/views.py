@@ -1,8 +1,9 @@
 """The «Тайлан» catalogue page (every MACS report, grouped, with a search box) and the shared report page."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlencode
 
 from accounts.audit import record_export
 from accounts.models import User
@@ -33,11 +34,14 @@ from macs.models import (
 
 from reports import excel, registry
 from reports.catalogue import CATALOGUE, GROUPS, Entry
+from reports.column_filters import COLUMN_FILTERS, params_of
 from reports.filters import (
     ATTRIBUTES,
+    EMPTYPES,
     GENDERS,
     LEAVE_STATES,
     MOVEMENT_KINDS,
+    NO_WORKING_STATE,
     ORDER_TYPES,
     STATES,
     TRAINING_TYPES,
@@ -50,7 +54,14 @@ from reports.filters import (
 )
 from reports.forms import SavedViewForm
 from reports.models import SavedView
-from reports.table import allowed_columns, build_table, column_classes, offered_filters, shown_keys
+from reports.table import (
+    allowed_columns,
+    build_table,
+    column_classes,
+    offered_column_filters,
+    offered_filters,
+    shown_keys,
+)
 from reports.types import Column, Report
 
 MAX_PORTRAIT_COLUMNS = 7  # more columns than this print on A4 landscape
@@ -114,9 +125,57 @@ class HeaderCell:
     cls: str  # alignment classes
 
 
-def _address(path: str, f: Filters) -> str:
-    query = to_query(f)
+def _address(path: str, f: Filters, adds: Sequence[str] = ()) -> str:
+    """The report's address for these filters. `adds` are the column filters named by `add` (the picker's ephemeral
+    chips): they go in the address bar only, never in the filters, print or Excel."""
+    query = "&".join(part for part in (to_query(f), urlencode([("add", name) for name in adds])) if part)
     return f"{path}?{query}" if query else path
+
+
+def _added_names(get: QueryDict, offered: list[str]) -> list[str]:
+    """The column filters named by `add`, in the order given. Only names the user may use; a repeat is kept once."""
+    names: list[str] = []
+    for name in get.getlist("add"):
+        if name in offered and name not in names:
+            names.append(name)
+    return names
+
+
+def _column_filter_panels(
+    path: str, f: Filters, offered: list[str], adds: list[str]
+) -> tuple[list[tuple[str, str, str]], list[dict[str, Any]]]:
+    """The picker's entries (name, label, href) for the offered filters not yet shown, and the chips (dicts) for the
+    shown ones. A filter is shown when it has a value or `add` names it. Code-list rows are read for shown chips
+    only."""
+    given = dict(f.extra)
+    choices: list[tuple[str, str, str]] = []
+    chips: list[dict[str, Any]] = []
+    for name in offered:
+        cf = COLUMN_FILTERS[name]
+        params = params_of(cf)
+        if name not in adds and not any(p in given for p in params):
+            choices.append((name, cf.label, _address(path, f, [*adds, name])))
+            continue
+        options: list[tuple[str, str]] = []
+        if cf.kind == "code" and cf.model is not None:
+            rows = cf.model._default_manager.order_by("name").values_list("pk", "name")
+            options = [(str(pk), label or "—") for pk, label in rows]  # a row with no name reads «—», not «None»
+        elif cf.kind == "choice":
+            options = [(str(key), label) for key, label in cf.choices]
+        values = [given.get(p, "") for p in params]
+        # removing the chip drops its values and its add entry; the other filters and add names stay
+        rest = replace(f, extra=tuple(pair for pair in f.extra if pair[0] not in params))
+        chips.append(
+            {
+                "name": name,
+                "label": cf.label,
+                "kind": cf.kind,
+                "options": options,
+                "values": values,
+                "remove_href": _address(path, rest, [a for a in adds if a != name]),
+            }
+        )
+    return choices, chips
 
 
 def _next_sort(current: str, key: str) -> str:
@@ -156,7 +215,9 @@ def columns_modal(request: HttpRequest, key: str) -> HttpResponse:
         "group_choices": group_choices,
         "group": f.group,
         # the filters the form keeps as hidden inputs: every current filter except the columns and the grouping
-        "keep": parse_qsl(to_query(replace(f, columns=(), group=""))),
+        # the chips named by `add` survive the pop-up's round trip too, as the page's own filter form keeps them
+        "keep": parse_qsl(to_query(replace(f, columns=(), group="")))
+        + [("add", name) for name in _added_names(request.GET, offered_column_filters(report, user))],
     }
     return render(request, "reports/_columns_modal.html", context)
 
@@ -178,10 +239,15 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
     if not f.group:
         batch = batching.window(request, table.groups[0][1])
         table.groups = [("", batch.shown)]
+    column_names = offered_column_filters(report, user)
+    adds = _added_names(request.GET, column_names)  # the picker's chips without a value yet; never stored
+    column_choices, column_chips = _column_filter_panels(request.path, f, column_names, adds)
+    # the Багана button's address: the report's query plus the chips named by `add`
+    columns_query = "&".join(part for part in (to_query(f), urlencode([("add", n) for n in adds])) if part)
     heads = [
         HeaderCell(
             label=c.label,
-            href=_address(request.path, replace(f, sort=_next_sort(f.sort, c.key))),
+            href=_address(request.path, replace(f, sort=_next_sort(f.sort, c.key)), adds),
             arrow="↓" if f.sort == f"-{c.key}" else ("↑" if f.sort == c.key else ""),
             cls=cls,
         )
@@ -193,6 +259,7 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         "report": report,
         "filters": f,
         "query": to_query(f),
+        "columns_query": columns_query,
         "print_url": _address(reverse("reports:print", args=[report.key]), f),
         "excel_url": _address(reverse("reports:excel", args=[report.key]), f) if user.has_perm(EXPORT_PERM) else "",
         "table": table,
@@ -202,7 +269,11 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         "batch_url": request.path,
         "note": report.note(f) if report.note is not None else "",
         "filter_names": names,
+        "column_filter_choices": column_choices,
+        "active_column_filters": column_chips,
         "states": STATES,
+        "emptypes": EMPTYPES,
+        "no_working_state": NO_WORKING_STATE,
         "genders": GENDERS,
         "branches": Branch.objects.order_by("name"),
         "departments": Department.objects.order_by("name"),
@@ -243,7 +314,7 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
     response = render(request, "reports/report.html", context)
     if request.headers.get("HX-Request"):
         # the filter form pushes the raw address it sent; the address bar gets the cleaned one, so no old year is kept
-        response["HX-Push-Url"] = _address(request.path, f)
+        response["HX-Push-Url"] = _address(request.path, f, adds)
     return response
 
 

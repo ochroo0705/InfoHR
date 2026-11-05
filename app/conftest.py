@@ -8,6 +8,12 @@ def fast_password_hasher(settings: SettingsWrapper) -> None:
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 
+@pytest.fixture(autouse=True)
+def _assistant_off(settings: SettingsWrapper) -> None:
+    """A developer's real assistant key in .env must not change other tests or call the API."""
+    settings.ASSISTANT_PROVIDER = ""
+
+
 from pathlib import Path  # noqa: E402
 
 from django.db import connections, transaction  # noqa: E402

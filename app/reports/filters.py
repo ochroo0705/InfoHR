@@ -5,7 +5,6 @@ from typing import Any
 from urllib.parse import urlencode
 
 from config.params import date_param, id_param
-from django.db import models
 from django.http import QueryDict
 from django.utils import timezone
 from employees.models import ChangeType, OrderType
@@ -23,6 +22,8 @@ from macs.models import (
     PresentType,
 )
 
+from reports.column_filters import describe_extra, name_of, parse_extra
+
 STATES: dict[str, str] = {
     "working": "Ажиллаж байгаа",
     "upcoming": "Удахгүй ажилд орох",
@@ -35,6 +36,20 @@ MOVEMENT_KINDS: dict[str, str] = {
     k: ChangeType(k).label for k in ("hire", "rehire", "transfer", "promotion", "demotion", "termination")
 }
 ORDER_TYPES: dict[int, str] = dict(OrderType.choices)
+# Employee types the staff list filters by (JobRecord.emptype, else Employee.emptype). The number is the stored code.
+EMPTYPES: dict[int, str] = {
+    1: "Ажилчид",
+    2: "Гадаад нөөц",
+    3: "Ажиллаж байсан",
+    4: "Орохоор бүртгүүлсэн",
+    5: "Гэрээт ажилтан",
+    6: "Өндөр настан",
+    8: "Хөлсөөр ажиллах гэрээтэй",
+    9: "Туршилтын хугацааны ажилтан",
+}
+# Employee types with no working state: the state filter is ignored for them and its control is disabled. 6 is here
+# because a pension exit saves its job as left (events: termination), so the working state would hide them.
+NO_WORKING_STATE: frozenset[int] = frozenset({2, 3, 4, 6})
 # Training kinds the training report filters by (the old «Хэлбэр»): the TR_TYPES codes of the personal tab.
 TRAINING_TYPES: dict[int, str] = TR_TYPES
 # Leave states the leave reports filter by: the leave_state values of leave.services.rows.State.
@@ -86,6 +101,7 @@ class Filters:
     department: int | None = None
     position: int | None = None
     gender: str = ""  # "" = all, "M" or "F"
+    emptype: int | None = None  # a key of EMPTYPES; None = all types
     date_from: date | None = None  # the period's first day; None = 1 January of this year
     date_to: date | None = None  # the period's last day; None = 31 December of this year
     change: str = ""  # a key of MOVEMENT_KINDS; "" = all kinds
@@ -107,11 +123,17 @@ class Filters:
     columns: tuple[str, ...] = ()  # () = the report's default columns
     group: str = ""
     sort: str = ""  # column key; a leading "-" sorts descending
+    extra: tuple[tuple[str, str], ...] = ()  # column filters: (parameter, value) pairs; see column_filters.py
 
 
 def _order_type(value: str | None) -> int | None:
     number = id_param(value)
     return number if number in ORDER_TYPES else None
+
+
+def _emptype(value: str | None) -> int | None:
+    number = id_param(value)
+    return number if number in EMPTYPES else None
 
 
 def _training_type(value: str | None) -> int | None:
@@ -154,6 +176,7 @@ def parse_filters(get: QueryDict) -> Filters:
         department=id_param(get.get("department")),
         position=id_param(get.get("position")),
         gender=gender if gender in GENDERS else "",
+        emptype=_emptype(get.get("emptype")),
         date_from=date_param(get.get("from")),
         date_to=date_param(get.get("to")),
         change=change if change in MOVEMENT_KINDS else "",
@@ -175,6 +198,7 @@ def parse_filters(get: QueryDict) -> Filters:
         columns=tuple(columns[:MAX_COLUMNS]),
         group=group if _KEY.fullmatch(group) else "",
         sort=sort if _SORT.fullmatch(sort) else "",
+        extra=parse_extra(get),
     )
 
 
@@ -199,6 +223,10 @@ def to_query(f: Filters) -> str:
         params["position"] = f.position
     if f.gender:
         params["gender"] = f.gender
+    for name, value in f.extra:
+        params[name] = value
+    if f.emptype is not None:
+        params["emptype"] = f.emptype
     # the period's default (this calendar year) is not kept in the address, as today is not kept as-of
     year = timezone.localdate().year
     if f.date_from is not None and f.date_from != date(year, 1, 1):
@@ -254,11 +282,6 @@ def period_of(f: Filters) -> tuple[date, date]:
     return (start, end) if start <= end else (end, start)
 
 
-def _name(objects: models.Manager[Any], pk: int) -> str | None:
-    name: str | None = objects.filter(pk=pk).values_list("name", flat=True).first()
-    return name
-
-
 def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> list[str]:
     """Filter lines for print and Excel, in the order of `shown`. A filter that is set but has no name to show
     (an unknown id, a name left empty) reads «—», so the paper never hides an applied filter.
@@ -273,21 +296,23 @@ def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> li
             start, end = period_of(f)
             lines.append(f"Хугацаа: {start.isoformat()} – {end.isoformat()}")
         elif key == "branch" and f.branch is not None:
-            lines.append(f"Салбар: {_name(Branch.objects, f.branch) or '—'}")
+            lines.append(f"Салбар: {name_of(Branch.objects, f.branch) or '—'}")
         elif key == "department" and f.department is not None:
-            lines.append(f"Хэлтэс: {_name(Department.objects, f.department) or '—'}")
+            lines.append(f"Хэлтэс: {name_of(Department.objects, f.department) or '—'}")
         elif key == "position" and f.position is not None:
-            lines.append(f"Албан тушаал: {_name(Position.objects, f.position) or '—'}")
+            lines.append(f"Албан тушаал: {name_of(Position.objects, f.position) or '—'}")
         elif key == "gender" and f.gender:
             lines.append(f"Хүйс: {GENDERS[f.gender]}")
+        elif key == "emptype" and f.emptype is not None:
+            lines.append(f"Ажилтны төрөл: {EMPTYPES[f.emptype]}")
         elif key == "change" and f.change:
             lines.append(f"Өөрчлөлт: {MOVEMENT_KINDS.get(f.change, '—')}")
         elif key == "reason" and f.reason is not None:
-            lines.append(f"Шалтгаан: {_name(FiredReason.objects, f.reason) or '—'}")
+            lines.append(f"Шалтгаан: {name_of(FiredReason.objects, f.reason) or '—'}")
         elif key == "order_type" and f.order_type is not None:
             lines.append(f"Тушаалын төрөл: {ORDER_TYPES.get(f.order_type, '—')}")
         elif key == "discipline" and f.discipline is not None:
-            lines.append(f"Шийтгэлийн төрөл: {_name(DisciplineType.objects, f.discipline) or '—'}")
+            lines.append(f"Шийтгэлийн төрөл: {name_of(DisciplineType.objects, f.discipline) or '—'}")
         elif key == "employee" and f.employee is not None:
             if for_log:
                 lines.append("Ажилтан: сонгосон")
@@ -296,11 +321,11 @@ def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> li
                 person = Employee.objects.filter(pk=f.employee).first()
                 lines.append(f"Ажилтан: {person or '—'}")
         elif key == "leave_type" and f.leave_type is not None:
-            lines.append(f"Төрөл: {_name(LeaveTypeRow.objects, f.leave_type) or '—'}")
+            lines.append(f"Төрөл: {name_of(LeaveTypeRow.objects, f.leave_type) or '—'}")
         elif key == "leave_state" and f.leave_state:
             lines.append(f"Төлөв: {LEAVE_STATES[f.leave_state]}")
         elif key == "absence_type" and f.absence_type is not None:
-            lines.append(f"Төрөл: {_name(AbsenceType.objects, f.absence_type) or '—'}")
+            lines.append(f"Төрөл: {name_of(AbsenceType.objects, f.absence_type) or '—'}")
         elif key == "age_range" and (f.age_from is not None or f.age_to is not None):
             low = "" if f.age_from is None else str(f.age_from)
             high = "" if f.age_to is None else str(f.age_to)
@@ -308,7 +333,7 @@ def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> li
         elif key == "attribute":
             lines.append(f"Шинж: {ATTRIBUTES[f.attribute or 'gender']}")
         elif key == "contact_type" and f.contact_type is not None:
-            lines.append(f"Холбоо барих төрөл: {_name(ContactType.objects, f.contact_type) or '—'}")
+            lines.append(f"Холбоо барих төрөл: {name_of(ContactType.objects, f.contact_type) or '—'}")
         elif key == "year":
             lines.append(f"Он: {f.year or timezone.localdate().year}")
         elif key == "tr_type" and f.tr_type is not None:
@@ -316,5 +341,6 @@ def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> li
         elif key == "quarter":
             lines.append(f"Улирал: {f.quarter or this_quarter()}")
         elif key == "present_type" and f.present_type is not None:
-            lines.append(f"Бэлгийн төрөл: {_name(PresentType.objects, f.present_type) or '—'}")
+            lines.append(f"Бэлгийн төрөл: {name_of(PresentType.objects, f.present_type) or '—'}")
+    lines.extend(describe_extra(f.extra))
     return lines

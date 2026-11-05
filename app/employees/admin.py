@@ -6,7 +6,7 @@ from django.contrib import admin, messages
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Model
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -155,6 +155,13 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
         ),
         ("Орон тоо", {"fields": ("enforce_position_slots",)}),
     )
+
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+        """There is one row, so the list is skipped: the menu opens the row, or the add form while there is none."""
+        row = CompanySettings.objects.first()
+        if row is None:
+            return HttpResponseRedirect(reverse("admin:employees_companysettings_add"))
+        return HttpResponseRedirect(reverse("admin:employees_companysettings_change", args=[row.pk]))
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return not CompanySettings.objects.exists() and super().has_add_permission(request)

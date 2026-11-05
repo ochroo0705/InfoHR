@@ -92,6 +92,12 @@ EXPECTED: dict[str, Rule] = {
     "home": LOGIN_ONLY,  # only redirects by role (Auditor to the system log, others to Today); shows no HR data
     "me": LOGIN_ONLY,  # My page: the user's own employee record only (404 without one); no other person's data
     "me_notice": LOGIN_ONLY,  # POST; dismisses one of the user's own leave-result notices only
+    # POST; 400 without a question, 404 when the assistant is off; answers only from the user's allowed entries
+    "assistant:ask": LOGIN_ONLY,
+    # POST; 400 without a valid choice; uses the same gate as the staff table inside tables.table_answer; no model call
+    "assistant:pick": LOGIN_ONLY,
+    # GET; 400 on a bad kind, column or unreadable query; 403 when the user may not see the column or the table
+    "assistant:chart": LOGIN_ONLY,
     "login": PUBLIC,  # the login form itself
     "logout": PUBLIC,  # ends the session
     "password_change": LOGIN_ONLY,  # changes the user's own password only

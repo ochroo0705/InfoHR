@@ -620,12 +620,12 @@ def test_base_has_the_palette_for_signed_in_users(client: Client, listed: Employ
     client.force_login(_user("HR", "pal_base1"))
     body = client.get(reverse("employees:today")).content.decode()
     assert "data-palette-open" in body
-    assert 'id="palette-template"' in body
+    assert 'id="assistant-panel"' in body
     assert "palette.js" in body
-    # The shell must sit only inside the template: a shell in the page locks the scroll of every page (UI_RULES §6).
-    outside = re.sub(r'<template id="palette-template".*?</template>', "", body, flags=re.DOTALL)
-    assert outside != body  # the template really is there to strip
-    assert "fixed inset-0 z-50" not in outside
+    # The panel is docked, never a full-screen shell: a fixed inset-0 z-50 shell would lock the scroll of the page.
+    panel = re.search(r'<aside id="assistant-panel".*?</aside>', body, flags=re.DOTALL)
+    assert panel is not None
+    assert "fixed inset-0 z-50" not in panel.group(0)
 
 
 def test_login_page_has_no_palette(client: Client) -> None:
@@ -1285,11 +1285,11 @@ def test_palette_rows_carry_icons_initials_and_the_selected_marker(client: Clien
 def test_palette_shell_is_a_wide_panel_with_the_key_hint(client: Client, listed: Employee) -> None:
     client.force_login(_user("HR", "pal_shell1"))
     body = client.get(reverse("employees:today")).content.decode()
-    tpl = re.search(r'<template id="palette-template".*?</template>', body, re.DOTALL)
-    assert tpl is not None
-    shell = tpl.group(0)
-    assert "max-w-xl" in shell and "max-w-lg" not in shell
-    assert "pt-4 sm:pt-24" in shell and "shadow-2xl ring-1 ring-slate-900/5" in shell
+    panel = re.search(r'<aside id="assistant-panel".*?</aside>', body, re.DOTALL)
+    assert panel is not None
+    shell = panel.group(0)
+    assert "w-[26rem]" in shell and "max-sm:w-full" in shell  # docked, full width on a phone
+    assert "shadow-2xl ring-1 ring-slate-900/5" in shell
     assert "text-base" in shell  # the larger input text
     hint_at = shell.index("data-palette-hint")
     assert shell.index("Хайлт амжилтгүй боллоо</p></div>") < hint_at  # below the list, not in it

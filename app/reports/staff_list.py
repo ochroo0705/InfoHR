@@ -1,6 +1,6 @@
 """The staff list («Ажилчдын жагсаалт»): everyone who has worked here, with the columns the user may see."""
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
@@ -11,11 +11,13 @@ from django.db.models import QuerySet
 from django.urls import reverse
 from django.utils import timezone
 from employees import access, listing
-from employees.models import ext_of
+from employees.models import JobStatus, ext_of
 from employees.services.order_register import age_on
 from macs.models import AddressRow, BirthPlace, Department, Employee, Position
 
-from reports.filters import Filters
+from reports.column_filters import COLUMN_FILTERS
+from reports.filters import NO_WORKING_STATE, Filters
+from reports.table import usable_filters
 from reports.types import Column, Report
 
 PERSONAL = "macs.view_personal"  # register number, birth date, phones, address and family facts
@@ -345,15 +347,37 @@ def first_per_employee(qs: QuerySet[Any]) -> dict[int, Any]:
     return first
 
 
-def _kept(r: listing.Row, f: Filters, day: date, today: date) -> bool:
-    """Whether a row passes the state, department, position, branch and gender filters."""
-    if f.state == "working" and not listing.is_working(r):
+def row_emptype(r: listing.Row, day: date | None = None) -> int | None:
+    """The employee type of a row. A saved job that holds on `day` (when given) gives it: a LEFT job is 6 for a pension
+    exit and 3 otherwise, the same rule as macs_writes.emptype_for (a left job's stored type is only a copy of the
+    previous one); any other job gives its stored type. Else the MACS row's type."""
+    job = r.job
+    if job is not None and not r.legacy and (day is None or day in job.period):
+        if job.status == JobStatus.LEFT:
+            event = job.event  # None without a query when there is no event
+            return 6 if event is not None and event.pension else 3
+        if job.emptype is not None:
+            return int(job.emptype)
+    return r.employee.emptype
+
+
+def _kept(r: listing.Row, f: Filters, day: date, today: date, *, by_type: bool = False) -> bool:
+    """Whether a row passes the state, department, position, branch and gender filters (and, with `by_type`, the
+    employee type filter)."""
+    if by_type:
+        typ = row_emptype(r, day)
+        if typ == 6 and f.emptype is None:
+            return False  # type 6 is hidden from the default list; it shows only when chosen
+        if f.emptype is not None and typ != f.emptype:
+            return False
+    no_state = by_type and f.emptype in NO_WORKING_STATE  # these types have no working state: the state is ignored
+    if not no_state and f.state == "working" and not listing.is_working(r):
         return False  # not working on `day`: left, or hired after `day` (those are under the «upcoming» filter)
-    if f.state == "upcoming" and r.state != "upcoming":
+    if not no_state and f.state == "upcoming" and r.state != "upcoming":
         return False
     if day != today and r.legacy and r.employee.first_hire_date is not None and r.employee.first_hire_date > day:
         return False  # no Info HR job history: the first hire date is the only record of when they started
-    if f.state == "left" and r.state != "left":
+    if not no_state and f.state == "left" and r.state != "left":
         return False
     job = r.job
     if f.department is not None and (job is None or job.department_id != f.department):
@@ -363,6 +387,80 @@ def _kept(r: listing.Row, f: Filters, day: date, today: date) -> bool:
     if f.branch is not None and r.employee.branch_id != f.branch:
         return False
     return not f.gender or r.employee.gender == f.gender
+
+
+Test = Callable[[listing.Row], bool]
+
+
+def _parse(text: str | None, parse: Callable[[str], Any]) -> Any | None:
+    """`text` read by `parse`, or None when it is missing or not valid. A bad filter value is ignored, never raised."""
+    if text is None:
+        return None
+    try:
+        return parse(text)
+    except (ValueError, ArithmeticError):
+        return None
+
+
+def _ordered(low: Any, high: Any) -> tuple[Any, Any] | None:
+    """The bounds of a range, a reversed pair swapped. None when neither bound is set: the filter is off."""
+    if low is None and high is None:
+        return None
+    if low is not None and high is not None and low > high:
+        return high, low
+    return low, high
+
+
+def _range_of(given: dict[str, str], name: str, parse: Callable[[str], Any]) -> tuple[Any, Any] | None:
+    """The bounds of the range filter `name` (`name_from` and `name_to`); see _ordered."""
+    return _ordered(_parse(given.get(f"{name}_from"), parse), _parse(given.get(f"{name}_to"), parse))
+
+
+def _range_test(bounds: tuple[Any, Any] | None, value_of: Callable[[listing.Row], Any]) -> Test | None:
+    """A row test: the value lies in the bounds, both included; a blank value never matches. None: the filter is off."""
+    if bounds is None:
+        return None
+    low, high = bounds
+
+    def test(r: listing.Row) -> bool:
+        value = value_of(r)
+        return value is not None and (low is None or value >= low) and (high is None or value <= high)
+
+    return test
+
+
+def _equals(attr: str, number: int) -> Test:
+    """A row test: the employee's attribute is this code."""
+    return lambda r: getattr(r.employee, attr) == number
+
+
+def _contract_end(r: listing.Row) -> date | None:
+    return r.job.contract_end if r.job is not None else None
+
+
+def _base_salary(record: Any) -> Decimal | None:
+    return record.base_salary if record is not None else None
+
+
+def matches_extra(rows: list[listing.Row], f: Filters, day: date, today: date) -> list[listing.Row]:
+    """The rows that pass the column filters in `f.extra` and the age range in `f`, all together. Ages count to `day`;
+    the salary is today's. A bad value is ignored; a range never matches a person with no value."""
+    given = dict(f.extra)
+    tests: list[Test | None] = []
+    for cf in COLUMN_FILTERS.values():
+        if cf.kind in ("code", "choice") and cf.name in given:
+            number = _parse(given[cf.name], int)
+            if number is not None:
+                tests.append(_equals(f"{cf.name}_id" if cf.kind == "code" else cf.name, number))
+    tests.append(_range_test(_range_of(given, "hired", date.fromisoformat), lambda r: r.employee.first_hire_date))
+    tests.append(_range_test(_range_of(given, "contract_end", date.fromisoformat), _contract_end))
+    salary = _range_of(given, "salary", Decimal)
+    if salary is not None:
+        salaries = listing.current_salaries((r.employee for r in rows), today)
+        tests.append(_range_test(salary, lambda r: _base_salary(salaries.get(r.employee.pk))))
+    tests.append(_range_test(_ordered(f.age_from, f.age_to), lambda r: age_on(r.employee.birth_date, day)))
+    active = [test for test in tests if test is not None]
+    return [r for r in rows if all(test(r) for test in active)]
 
 
 def load_job_names(jobs: Sequence[Any]) -> None:
@@ -379,25 +477,35 @@ def load_job_names(jobs: Sequence[Any]) -> None:
             job.position = poss[job.position_id]
 
 
-def kept_rows(user: User, f: Filters, select_related: tuple[str, ...] = EMPLOYEE_FKS) -> tuple[list[listing.Row], date]:
+def kept_rows(
+    user: User, f: Filters, select_related: tuple[str, ...] = EMPLOYEE_FKS, *, by_type: bool = False
+) -> tuple[list[listing.Row], date]:
     """The job rows of the people the user may see that pass the filters, and the day they are read on (today when
-    none). Shared by the staff list and the survey reports, so both count the same people."""
+    none). Shared by the staff list and the survey reports, so both count the same people. `by_type` (the staff
+    list only) adds the employee type rules; the survey reports keep the default selection."""
     today = timezone.localdate()
     day = f.as_of or today
     if not user.has_perm(PERSONAL):
         f = replace(f, gender="")  # the gender filter reads a personal field
     shown = set(f.columns or DEFAULT_COLUMNS)
     wants_salary = "salary" in shown and user.has_perm(SALARY)
-    staff = access.visible_employees(user).exclude(emptype__in=listing.NEVER_WORKED).select_related(*select_related)
+    staff = access.visible_employees(user)
+    if not (by_type and f.emptype in (2, 4)):  # chosen never-worked types are listed on purpose
+        staff = staff.exclude(emptype__in=listing.NEVER_WORKED)
+    staff = staff.select_related(*select_related)
+    if by_type:
+        staff = staff.prefetch_related("job_records__event")  # row_emptype reads a LEFT job's event: no query per row
     if wants_salary:
         staff = staff.prefetch_related("salary_records")
-    kept = [r for r in listing.employee_rows(staff, day) if _kept(r, f, day, today)]
+    kept = [r for r in listing.employee_rows(staff, day) if _kept(r, f, day, today, by_type=by_type)]
+    if by_type:  # the page's own rule for which filters apply (table.usable_filters)
+        kept = matches_extra(kept, usable_filters(REPORT, user, f), day, today)
     return kept, day
 
 
 def rows(user: User, f: Filters) -> list[StaffRow]:
     """The staff rows for these filters, read on the chosen day (today when none). Only people the user may see."""
-    kept, day = kept_rows(user, f)
+    kept, day = kept_rows(user, f, by_type=True)
     today = timezone.localdate()
     shown = set(f.columns or DEFAULT_COLUMNS)
     wants_address = "address" in shown and user.has_perm(PERSONAL)
@@ -447,9 +555,10 @@ def _note(f: Filters) -> str:
 REPORT = Report(
     key="staff-list",
     title="Ажилтны хүснэгт",
-    filters=("state", "as_of", "branch", "department", "position", "gender"),
-    filter_needs={"gender": PERSONAL},
+    filters=("state", "as_of", "branch", "department", "position", "emptype", "gender", "age_range"),
+    filter_needs={"gender": PERSONAL, "age_range": PERSONAL},
     columns=COLUMNS,
+    column_filters=tuple(COLUMN_FILTERS),
     default_columns=DEFAULT_COLUMNS,
     rows=rows,
     needs=("macs.view_employees",),
