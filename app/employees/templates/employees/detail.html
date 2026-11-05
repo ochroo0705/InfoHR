@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load hr %}
+{% extends "base.html" %}{% load static hr %}
 {% block title %}{{ employee.full_name }}{% endblock %}
 {% block main_width %}max-w-none px-6{% endblock %}
 {% block content %}
@@ -89,10 +89,11 @@ var bar=document.getElementById('save-bar'),dirty={% if form.is_bound or si_form
 function mark(e){if(e.target.form===f){dirty=true;bar.classList.remove('hidden');bar.classList.add('flex');
 var dd=e.target.closest('dd');if(dd)dd.classList.add('f-changed');}}// violet edge on a changed soft box (UI_RULES §2e)
 document.addEventListener('input',mark);document.addEventListener('change',mark);
-f.addEventListener('submit',function(){dirty=false;document.getElementById('emp-tab').value=location.hash.slice(1);});
+f.addEventListener('submit',function(){dirty=false;document.getElementById('emp-tab').value=location.hash.slice(1).split('-')[0];});
 document.getElementById('save-cancel').addEventListener('click',function(){dirty=false;var url='{% url 'employees:detail' employee.pk %}';
 if(location.pathname===url){location.reload();}else{location.assign(url+location.hash);}});
 window.addEventListener('beforeunload',function(e){if(dirty){e.preventDefault();e.returnValue='';}});
 })();{% endif %}
 </script>
+<script src="{% static 'js/employee_field_focus.js' %}" defer></script>
 {% endblock %}

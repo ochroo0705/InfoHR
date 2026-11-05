@@ -2,9 +2,9 @@
 {% include "employees/_setup.html" %}
 <h3 class="sec-title mt-2 mb-3">Албан тушаал, байршил</h3>
 <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
-  <div><dt class="text-slate-500">Албан тушаал</dt><dd>{{ row.job.position|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Хэлтэс</dt><dd>{{ row.job.department|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Шууд удирдлага</dt><dd>{{ row.job.manager.full_name|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
+  <div data-field="position"><dt class="text-slate-500">Албан тушаал</dt><dd>{{ row.job.position|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
+  <div data-field="department"><dt class="text-slate-500">Хэлтэс</dt><dd>{{ row.job.department|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
+  <div data-field="manager"><dt class="text-slate-500">Шууд удирдлага</dt><dd>{{ row.job.manager.full_name|default:"—" }}{% if 'transfer' in event_allowed %}{% include "employees/_change_chip.html" with kind='transfer' %}{% endif %}</dd></div>
 </dl>
 <dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
   <div><dt class="text-slate-500">Албан тушаал (хавсарсан)</dt><dd>{% if form %}{% field form.second_position soft=True %}{% else %}{{ employee.second_position|default:"—" }}{% endif %}</dd></div>
@@ -14,9 +14,9 @@
 </dl>
 <h3 class="sec-title mt-10 mb-3">Гэрээ</h3>
 <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-3">
-  <div><dt class="text-slate-500">Ажилтны төрөл</dt><dd>{{ row.job.get_employee_type_display|default:"—" }}</dd></div>
-  <div><dt class="text-slate-500">Гэрээ</dt><dd>{{ row.job.get_contract_type_display|default:"—" }} {{ row.job.contract_no }}{% if 'contract' in event_allowed %}{% include "employees/_change_chip.html" with kind='contract' %}{% endif %}</dd></div>
-  <div><dt class="text-slate-500">Гэрээний хугацаа</dt><dd>{{ row.job.contract_start|date:"Y-m-d"|default:"—" }} – {{ row.job.contract_end|date:"Y-m-d"|default:"" }}</dd></div>
+  <div data-field="employee_type"><dt class="text-slate-500">Ажилтны төрөл</dt><dd>{{ row.job.get_employee_type_display|default:"—" }}</dd></div>
+  <div><dt class="text-slate-500">Гэрээ</dt><dd><span data-field="contract_type">{{ row.job.get_contract_type_display|default:"—" }}</span> <span data-field="contract_no">{{ row.job.contract_no }}</span>{% if 'contract' in event_allowed %}{% include "employees/_change_chip.html" with kind='contract' %}{% endif %}</dd></div>
+  <div data-field="contract_start"><dt class="text-slate-500">Гэрээний хугацаа</dt><dd>{{ row.job.contract_start|date:"Y-m-d"|default:"—" }} – <span data-field="contract_end">{{ row.job.contract_end|date:"Y-m-d"|default:"" }}</span></dd></div>
   <div><dt class="text-slate-500">Туршилт дуусах</dt><dd>{% if form %}{% field form.probation_end soft=True %}{% else %}{{ employee.ext.probation_end|date:"Y-m-d"|default:"—" }}{% endif %}</dd></div>
   {% if form %}<div><dt class="text-slate-500">Анх ажилд орсон огноо</dt><dd>{% field form.first_hire_date soft=True %}</dd></div>{% endif %}
 </dl>
