@@ -8,6 +8,7 @@ from typing import Any
 from accounts.models import User
 from employees.access import visible_employees
 
+from reports.column_filters import COLUMN_FILTERS, params_of
 from reports.filters import FILTER_FIELDS, Filters, without_today
 from reports.types import Column, Report
 
@@ -19,6 +20,7 @@ FILTER_NAMES = (  # every filter name a report may declare (Report.filters)
     "department",
     "position",
     "gender",
+    "emptype",
     "change",
     "reason",
     "order_type",
@@ -68,14 +70,24 @@ def offered_filters(report: Report, user: User) -> list[str]:
     ]
 
 
+def offered_column_filters(report: Report, user: User) -> list[str]:
+    """The column filter names the user may use: the report's own, whose column the user may see. A name that is not
+    in COLUMN_FILTERS, or whose column the report does not have, is left out."""
+    allowed = {c.key for c in allowed_columns(report, user)}
+    return [name for name in report.column_filters if name in COLUMN_FILTERS and COLUMN_FILTERS[name].column in allowed]
+
+
 def usable_filters(report: Report, user: User, filters: Filters) -> Filters:
     """The filters as this user may use them: a filter the report does not declare, or the user may not use, is reset to
     its default, and an employee the user may not see is dropped, so a typed id never shows another person's name or
-    rows and a link never carries a filter the page does not show."""
+    rows and a link never carries a filter the page does not show. Column filters the user may not use are dropped
+    from `extra`; the rest keep their order."""
     offered = set(offered_filters(report, user))
     default = Filters()
+    params = {p for name in offered_column_filters(report, user) for p in params_of(COLUMN_FILTERS[name])}
     usable = replace(
         filters,
+        extra=tuple(pair for pair in filters.extra if pair[0] in params),
         **{
             field: getattr(default, field)
             for name in FILTER_NAMES

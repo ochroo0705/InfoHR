@@ -6,8 +6,14 @@
         hx-get="{{ request.path }}" hx-trigger="change, submit" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true">
     {% for name in filter_names %}
       {% if name == "state" %}
-        <select name="state" aria-label="Төлөв" data-search="off" class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
+        {# a type with no working state ignores the state filter, so its control is disabled (not submitted) #}
+        <select name="state" aria-label="Төлөв" data-search="off"{% if filters.emptype in no_working_state %} disabled{% endif %} class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
           {% for key, label in states.items %}<option value="{{ key }}"{% if filters.state == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      {% elif name == "emptype" %}
+        <select name="emptype" aria-label="Ажилтны төрөл" data-search="off" class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
+          <option value="">Бүх төрөл</option>
+          {% for key, label in emptypes.items %}<option value="{{ key }}"{% if filters.emptype == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       {% elif name == "as_of" %}
         <label class="flex items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3 focus-within:border-violet-500">
@@ -118,6 +124,7 @@
         </select>
       {% endif %}
     {% endfor %}
+    {% include "reports/_column_filters.html" with part="chips" %}
     {% if group_choices %}
       <select name="group" aria-label="Бүлэглэх" data-search="off" class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
         <option value="">Бүлэглэхгүй</option>
@@ -129,6 +136,7 @@
     {% if filters.group and not group_choices %}<input type="hidden" name="group" value="{{ filters.group }}">{% endif %}
     {% if filters.sort %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
   </form>
+  {% include "reports/_column_filters.html" with part="picker" %}
   <a href="{{ request.path }}" hx-get="{{ request.path }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true"
      class="shrink-0 rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-surface hover:text-violet-700">Цэвэрлэх</a>
 </div>

@@ -232,3 +232,19 @@ def test_describe_names_the_phase5_filters(db: None) -> None:
     assert describe(Filters(), ("quarter",)) == [f"Улирал: {_this_quarter()}"]
     assert describe(Filters(present_type=present.pk), ("present_type",)) == ["Бэлгийн төрөл: Номын бэлэг"]
     assert describe(Filters(present_type=999999), ("present_type",)) == ["Бэлгийн төрөл: —"]
+
+
+def test_emptype_parsed_and_round_trips() -> None:
+    f = parse_filters(QueryDict("emptype=6"))
+    assert f.emptype == 6
+    assert to_query(f) == "emptype=6"
+
+
+def test_emptype_unknown_ignored() -> None:
+    assert parse_filters(QueryDict("emptype=7")) == Filters()
+    assert parse_filters(QueryDict("emptype=abc")) == Filters()
+    assert parse_filters(QueryDict("emptype=-1")) == Filters()
+
+
+def test_describe_emptype() -> None:
+    assert describe(Filters(emptype=6), ("emptype",)) == ["Ажилтны төрөл: Өндөр настан"]

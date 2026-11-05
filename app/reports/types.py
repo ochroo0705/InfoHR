@@ -40,3 +40,4 @@ class Report:
     note: Callable[[Filters], str] | None = None  # a grey line above the table, e.g. what is historical
     filter_needs: dict[str, str] = field(default_factory=dict)  # filter name -> permission it needs, e.g. gender
     shows_count: bool = True  # the «Нийт: N» line under the table (off when the rows are statistic lines)
+    column_filters: tuple[str, ...] = ()  # names of COLUMN_FILTERS the report offers; gated by their column
