@@ -4,20 +4,29 @@ import difflib
 import re
 from collections.abc import Iterable
 from typing import Any
+from urllib.parse import parse_qsl, urlencode
 
 from django.conf import settings
+from django.http import QueryDict
 from django.utils import timezone
 from employees.palette import _fold
 from macs.models import Employee
+from reports.filters import parse_filters, to_query
 
 from assistant.entries import ENTRIES, ENTRY_BY_KEY
+from assistant.evalcheck import expected_pairs
 from assistant.evalset import CASES
 from assistant.models import HelpExample, Kind
+from assistant.resolver import LOOKUPS
 
 NO_ENTRY = "Энэ хариулт байхгүй болсон байна."
 DUPLICATE = "Энэ асуулт аль хэдийн бүртгэгдсэн байна."
 TOO_CLOSE_TO_EXAMPLE = "Энэ асуулт жишээтэй хэт ойролцоо байна: тест болгож болохгүй."
 TOO_CLOSE_TO_TEST = "Энэ асуулт тесттэй хэт ойролцоо байна."
+ENTRY_AND_FILTER = "Хариулт ба хүлээгдэх шүүлтүүр хоёрыг хамт оруулж болохгүй."
+FILTER_BRACES = "Шүүлтүүрт { } тэмдэг бичиж болохгүй."
+BAD_FILTER = "Шүүлтүүр буруу байна: «{}» нь хүснэгтийн шүүлтүүр биш эсвэл утга буруу байна."
+NAME_NOT_LOOKUP = "Нэрээр бичих боломжгүй шүүлтүүр: «{}»."
 
 _WORD_SPLIT = re.compile(r'[\s,.!?;:«»"()]+')
 
@@ -32,16 +41,52 @@ def similar(a: str, b: str) -> bool:
     return bool(difflib.SequenceMatcher(None, fold(a), fold(b)).ratio() >= settings.ASSISTANT_SIMILARITY)
 
 
-def check(question: str, entry: str, kind: str, active: bool, exclude_pk: int | None = None) -> list[str]:
+def expected_problems(expected: str) -> list[str]:
+    """Problems with a filter query typed in the admin. It must read the way the staff table reads a query: a plain
+    pair (`department=5`) must survive the parse, and `param~Name` is allowed only for a lookup (the eval resolves the
+    name when it runs). Placeholders are not allowed here. An empty list means it is valid."""
+    if not expected:
+        return []
+    if "{" in expected or "}" in expected:
+        return [FILTER_BRACES]
+    try:
+        pairs = expected_pairs(expected, timezone.localdate())
+    except ValueError:
+        return [BAD_FILTER.format(expected)]
+    plain: list[tuple[str, str]] = []
+    for param, value, by_name in pairs:
+        if not by_name:
+            plain.append((param, value))
+        elif param not in LOOKUPS:
+            return [NAME_NOT_LOOKUP.format(param)]
+        elif not value.strip():
+            return [BAD_FILTER.format(f"{param}~")]
+    kept = set(parse_qsl(to_query(parse_filters(QueryDict(urlencode(plain)))), keep_blank_values=True))
+    for param, value in plain:
+        # state=working is the one default that to_query leaves out, so it is written on purpose.
+        if (param, value) not in kept and (param, value) != ("state", "working"):
+            return [BAD_FILTER.format(f"{param}={value}")]
+    return []
+
+
+def check(
+    question: str, entry: str, kind: str, active: bool, exclude_pk: int | None = None, expected: str = ""
+) -> list[str]:
     """Problems that stop a correction from being saved or switched on. An empty list means it is valid.
 
     `exclude_pk` is the row being checked, so it is not compared with itself. Inactive rows are not checked
-    at all: they may hold anything (switching `active` off is the undo).
+    at all: they may hold anything (switching `active` off is the undo). A row with `expected` is a filter sentence:
+    it must have no entry, and its filter query must be valid.
     """
     if not active:
         return []
+    if entry and expected:
+        return [ENTRY_AND_FILTER]
     if entry and entry not in ENTRY_BY_KEY:
         return [NO_ENTRY]
+    problems = expected_problems(expected)
+    if problems:
+        return problems
 
     others = HelpExample.objects.filter(active=True)
     if exclude_pk is not None:
@@ -91,47 +136,63 @@ def name_hits(text: str, names: set[str] | None = None) -> list[str]:
     return hits
 
 
-def _chosen() -> tuple[dict[str, list[tuple[int, str]]], list[tuple[int, str]]]:
-    """The learned examples the assistant sees: per entry, then the no-entry ones. Newest first, capped at read time.
+def _chosen() -> tuple[dict[str, list[tuple[int, str]]], list[tuple[int, str]], list[tuple[int, str, str]]]:
+    """The learned examples the assistant sees: per entry, the no-entry ones, then the filter sentences. Newest first,
+    capped at read time.
 
-    One query. Each item is (id, question). Orphans (entry not in `ENTRY_BY_KEY`) and inactive rows are left out.
+    One query. Each item is (id, question); a filter sentence is (id, question, expected). Orphans (entry not in
+    `ENTRY_BY_KEY`) and inactive rows are left out. A filter sentence is never a no-entry question or an entry example.
     """
     per_entry_cap = settings.ASSISTANT_EXAMPLES_PER_ENTRY
     no_entry_cap = settings.ASSISTANT_NO_ENTRY_EXAMPLES
     per_entry: dict[str, list[tuple[int, str]]] = {}
     no_entry: list[tuple[int, str]] = []
+    table: list[tuple[int, str, str]] = []
     rows = (
         HelpExample.objects.filter(active=True, kind=Kind.EXAMPLE)
         .order_by("-created_at", "-pk")
-        .values_list("pk", "entry", "question")
+        .values_list("pk", "entry", "question", "expected")
     )
-    for pk, entry, question in rows:
-        if not entry:
+    for pk, entry, question, expected in rows:
+        if expected:
+            if len(table) < no_entry_cap:
+                table.append((pk, question, expected))
+        elif not entry:
             if len(no_entry) < no_entry_cap:
                 no_entry.append((pk, question))
         elif entry in ENTRY_BY_KEY:
             bucket = per_entry.setdefault(entry, [])
             if len(bucket) < per_entry_cap:
                 bucket.append((pk, question))
-    return per_entry, no_entry
+    return per_entry, no_entry, table
 
 
 def learned_by_entry() -> dict[str, tuple[str, ...]]:
     """Per help entry key, the newest `ASSISTANT_EXAMPLES_PER_ENTRY` learned questions (newest first)."""
-    per_entry, _ = _chosen()
+    per_entry, _, _ = _chosen()
     return {key: tuple(question for _, question in items) for key, items in per_entry.items()}
 
 
 def no_entry_questions() -> tuple[str, ...]:
     """The newest `ASSISTANT_NO_ENTRY_EXAMPLES` learned questions that no entry answers (newest first)."""
-    _, no_entry = _chosen()
+    _, no_entry, _ = _chosen()
     return tuple(question for _, question in no_entry)
 
 
+def table_examples() -> tuple[tuple[str, str], ...]:
+    """The newest `ASSISTANT_NO_ENTRY_EXAMPLES` learned filter sentences as (question, filter query), newest first."""
+    _, _, table = _chosen()
+    return tuple((question, expected) for _, question, expected in table)
+
+
 def used_example_ids() -> set[int]:
-    """Ids of the rows that `learned_by_entry` and `no_entry_questions` return. One query."""
-    per_entry, no_entry = _chosen()
-    return {pk for items in per_entry.values() for pk, _ in items} | {pk for pk, _ in no_entry}
+    """Ids of the rows that `learned_by_entry`, `no_entry_questions` and `table_examples` return. One query."""
+    per_entry, no_entry, table = _chosen()
+    return (
+        {pk for items in per_entry.values() for pk, _ in items}
+        | {pk for pk, _ in no_entry}
+        | {pk for pk, _, _ in table}
+    )
 
 
 def usage_label(row: HelpExample, used: set[int]) -> str:
@@ -143,14 +204,25 @@ def usage_label(row: HelpExample, used: set[int]) -> str:
     if row.kind == Kind.TEST:
         return "Тест"
     if row.pk in used:
-        return "Ашиглагдаж байна"
+        return "Хүснэгтэд ашиглагдаж байна" if row.expected else "Ашиглагдаж байна"
     return "Хязгаараас хэтэрсэн"
 
 
 def local_tests() -> list[HelpExample]:
-    """Active tests whose entry exists or is blank, oldest first."""
-    rows = HelpExample.objects.filter(active=True, kind=Kind.TEST).order_by("created_at", "pk")
+    """Active tests whose entry exists or is blank, oldest first. Filter sentences are left out (see
+    `local_table_tests`)."""
+    rows = HelpExample.objects.filter(active=True, kind=Kind.TEST, expected="").order_by("created_at", "pk")
     return [row for row in rows if not row.entry or row.entry in ENTRY_BY_KEY]
+
+
+def local_table_tests() -> list[HelpExample]:
+    """Active tests that are filter sentences (with `expected` and no entry), oldest first."""
+    rows = (
+        HelpExample.objects.filter(active=True, kind=Kind.TEST, entry="")
+        .exclude(expected="")
+        .order_by("created_at", "pk")
+    )
+    return list(rows)
 
 
 def export_payload(rows: Iterable[HelpExample]) -> dict[str, Any]:
@@ -160,7 +232,7 @@ def export_payload(rows: Iterable[HelpExample]) -> dict[str, Any]:
     for row in rows:
         if not row.active or (row.entry and row.entry not in ENTRY_BY_KEY):
             continue
-        item = {"question": row.question, "entry": row.entry}
+        item = {"question": row.question, "entry": row.entry, "expected": row.expected}
         if row.kind == Kind.TEST:
             tests.append(item)
         else:

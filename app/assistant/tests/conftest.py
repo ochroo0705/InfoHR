@@ -1,16 +1,15 @@
 import itertools
 from collections.abc import Callable
-from datetime import date
-from decimal import Decimal
 
 import pytest
 from accounts import roles
 from accounts.models import User
 from django.contrib.auth.models import Group
-from employees.models import Employee, JobRecord
-from employees.services import history, macs_writes
-from employees.tests.conftest import _no_offboarding_templates, hire_values, link_login  # noqa: F401 (autouse)
+from employees.models import JobRecord
+from employees.tests.conftest import _no_offboarding_templates, link_login  # noqa: F401 (autouse)
 from leave.models import LeaveSettings
+
+from assistant.tests.helpers import hire_one
 
 PASSWORD = "x-long-pass-123"  # noqa: S105
 _NAMES = itertools.count(1)
@@ -19,6 +18,8 @@ _GROUP_OF: dict[str, str | None] = {
     "accountant": roles.ACCOUNTANT,
     "staff": roles.EMPLOYEE,
     "approver": roles.EMPLOYEE,
+    "admin": roles.ADMIN,
+    "auditor": roles.AUDITOR,
     "none": None,
 }
 
@@ -31,24 +32,10 @@ def _no_request_time_daily_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(daily_sync, "_needs_sync", lambda request: False)
 
 
-def _hire(actor: User) -> Employee:
-    n = next(_NAMES)
-    job = {
-        "position": macs_writes.save_position("Нягтлан"),
-        "department": macs_writes.save_department("Санхүү"),
-        "employee_type": "full_time",
-        "status": "active",
-        "contract_type": "open_ended",
-    }
-    return history.hire(
-        hire_values(f"УБ{n:08d}"), {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor
-    )
-
-
 @pytest.fixture
 def role_user(db: None) -> Callable[[str], User]:
-    """A fresh login per call. Kinds: hr, accountant, staff (Employee + own record), approver (staff who is the line
-    manager of another hired employee), none (no group, no record)."""
+    """A fresh login per call. Kinds: hr, accountant, admin (staff), auditor, staff (Employee + own record), approver
+    (staff who is the line manager of another hired employee), none (no group, no record)."""
     actor = User.objects.create_superuser("help_actor", password=PASSWORD)
 
     def make(kind: str) -> User:
@@ -56,11 +43,14 @@ def role_user(db: None) -> Callable[[str], User]:
         group = _GROUP_OF[kind]
         if group is not None:
             user.groups.add(Group.objects.get(name=group))
+        if kind == "admin":
+            user.is_staff = True
+            user.save(update_fields=["is_staff"])
         if kind in ("staff", "approver"):
-            own = _hire(actor)
+            own = hire_one(actor)
             link_login(own, user)
             if kind == "approver":
-                report = _hire(actor)
+                report = hire_one(actor)
                 JobRecord.objects.filter(employee=report).update(manager=own)
         return user
 

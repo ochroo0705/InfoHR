@@ -4,14 +4,17 @@ Each entry is one screen or action of the system, written in plain Mongolian. `n
 the screens and the Ctrl+K palette, so an entry is offered only to a user who may open what it describes.
 """
 
-from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import date
 
 from accounts.models import User
-from django.urls import reverse
 from employees.palette import _LEAVE_PERMS, _allowed, _may_request_leave, _sees_requests
 from leave.services.approvers import approval_enabled, may_decide
+
+from assistant.areas import admin_settings, checklist, employee, log, me, order, recruit, report, today
+from assistant.areas import list as list_area
+from assistant.entry import HelpEntry
+
+__all__ = ["ENTRIES", "ENTRY_BY_KEY", "HelpEntry", "allowed_entries"]
 
 
 def _record(user: User, day: date) -> bool:
@@ -34,25 +37,7 @@ def _view(user: User, day: date) -> bool:
     return user.has_perm("leave.view_leave")
 
 
-@dataclass(frozen=True)
-class HelpEntry:
-    key: str
-    title: str
-    steps: tuple[str, ...]
-    url_name: str
-    modal: bool
-    need: Callable[[User, date], bool]
-    labels: tuple[str, ...]  # every «…» label quoted in steps/note; the screens must show them
-    words: tuple[str, ...] = ()
-    examples: tuple[str, ...] = ()
-    note: str = ""
-    learned: tuple[str, ...] = ()  # learned questions for this entry, filled per request; shipped entries keep it empty
-
-    def url(self) -> str:
-        return reverse(self.url_name)
-
-
-ENTRIES: tuple[HelpEntry, ...] = (
+_LEAVE_ENTRIES: tuple[HelpEntry, ...] = (
     HelpEntry(
         key="leave.record",
         title="Чөлөө бүртгэх",
@@ -143,6 +128,21 @@ ENTRIES: tuple[HelpEntry, ...] = (
         words=("хуанли", "хэн амарч байна", "чөлөөтэй хүмүүс"),
         examples=("энэ сард хэн чөлөөтэй вэ", "багийн хуанли хаана байна"),
     ),
+)
+
+# Each area's ENTRIES, in the order the areas are listed (the leave entries first, then the areas in the fixed order).
+ENTRIES: tuple[HelpEntry, ...] = (
+    *_LEAVE_ENTRIES,
+    *today.ENTRIES,
+    *employee.ENTRIES,
+    *order.ENTRIES,
+    *recruit.ENTRIES,
+    *checklist.ENTRIES,
+    *report.ENTRIES,
+    *log.ENTRIES,
+    *list_area.ENTRIES,
+    *admin_settings.ENTRIES,
+    *me.ENTRIES,
 )
 
 ENTRY_BY_KEY: dict[str, HelpEntry] = {entry.key: entry for entry in ENTRIES}

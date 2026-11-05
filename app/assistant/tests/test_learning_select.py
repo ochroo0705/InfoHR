@@ -107,8 +107,8 @@ def test_export_payload_shape() -> None:
     ]
     payload = learning.export_payload(rows)
     assert set(payload) == {"exported_at", "examples", "tests"}
-    assert payload["examples"] == [{"question": "жишээ асуулт", "entry": KEY}]
-    assert payload["tests"] == [{"question": "тест асуулт", "entry": KEY}]
+    assert payload["examples"] == [{"question": "жишээ асуулт", "entry": KEY, "expected": ""}]
+    assert payload["tests"] == [{"question": "тест асуулт", "entry": KEY, "expected": ""}]
     assert datetime.fromisoformat(payload["exported_at"]).tzinfo is not None
     text = json.dumps(payload, ensure_ascii=False)
     assert "created_by" not in text

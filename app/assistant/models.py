@@ -1,5 +1,8 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+from assistant.catalog import DEFAULT_TIMEOUT, PROVIDER_CHOICES, TIMEOUT_MAX, TIMEOUT_MIN
 
 
 class Outcome(models.TextChoices):
@@ -9,6 +12,7 @@ class Outcome(models.TextChoices):
     NONE = "none", "Олдсонгүй"
     ERROR = "error", "Алдаа"
     LIMITED = "limited", "Хязгаарлагдсан"
+    TABLE = "table", "Хүснэгт"
 
 
 class Kind(models.TextChoices):
@@ -30,7 +34,11 @@ class HelpQuestion(models.Model):
     provider = models.CharField(max_length=20, blank=True)
     model = models.CharField(max_length=60, blank=True)
     duration_ms = models.PositiveIntegerField(default=0)
-    allowed = models.CharField(max_length=300, blank=True)  # asker's allowed entry keys, comma-separated
+    allowed = models.TextField(blank=True)  # asker's allowed entry keys, comma-separated
+    error = models.CharField("Алдааны шалтгаан", max_length=300, blank=True)  # why a failed call failed
+    tool = models.CharField("Хэрэгсэл", max_length=12, blank=True)  # the plan's tool: entry, staff_table, none
+    query = models.CharField("Шүүлтүүрийн холбоос", max_length=300, blank=True)  # the table answer's filter query
+    not_applied = models.CharField("Хэрэглээгүй хэсэг", max_length=300, blank=True)  # the parts not applied, joined
 
     class Meta:
         ordering = ["-asked_at"]
@@ -46,6 +54,9 @@ class HelpExample(models.Model):
 
     question = models.CharField("Асуулт", max_length=300)
     entry = models.CharField("Зөв хариулт", max_length=40, blank=True)  # blank = no entry in the system does this
+    expected = models.CharField(
+        "Хүлээгдэх шүүлтүүр", max_length=300, blank=True
+    )  # a filter query; set = a filter sentence (its entry stays blank)
     kind = models.CharField("Төрөл", max_length=10, choices=Kind.choices, default=Kind.EXAMPLE)
     active = models.BooleanField("Идэвхтэй", default=True)
     source = models.ForeignKey(
@@ -64,3 +75,24 @@ class HelpExample(models.Model):
 
     def __str__(self) -> str:
         return self.question
+
+
+class AssistantSettings(models.Model):
+    """Single row (pk=1): which AI the help assistant uses. Set in the admin console; until the row is saved the
+    .env values apply (see `assistant.config`). The key is written there and never shown again."""
+
+    provider = models.CharField("Үйлчилгээ үзүүлэгч", max_length=20, choices=PROVIDER_CHOICES, blank=True)
+    api_key = models.CharField("API түлхүүр", max_length=300, blank=True)
+    model = models.CharField("Загвар", max_length=60, blank=True)
+    timeout = models.PositiveSmallIntegerField(
+        "Хугацааны хязгаар (секунд)",
+        default=DEFAULT_TIMEOUT,
+        validators=[MinValueValidator(TIMEOUT_MIN), MaxValueValidator(TIMEOUT_MAX)],
+    )
+
+    class Meta:
+        verbose_name = "Туслахын тохиргоо"
+        verbose_name_plural = "Туслахын тохиргоо"
+
+    def __str__(self) -> str:
+        return "Туслахын тохиргоо"

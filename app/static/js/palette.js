@@ -1,32 +1,53 @@
-// Ctrl+K palette (docs/UI_RULES.md §6, spec §5). The pop-up is not in the page: base.html holds it in
-// <template id="palette-template">, and this script clones it into <body> on open and removes it on close. An open
-// `.fixed.inset-0.z-50` shell locks the page scroll (input.css), so a shell that stays in the page would lock it always.
-// Pages without the template (the login page) get nothing from this script.
+// The assistant panel (docs/superpowers/specs/2026-11-05-assistant-panel-design.md). base.html holds the panel
+// (#assistant-panel, `hidden` at first) in the page: a docked side panel, not a pop-up, so the page is never locked and
+// keeps scrolling. This script opens and closes it (Ctrl+K, the top bar's «Хайх» button, the floating «Асуух» button and
+// its ×), runs the quick search in its box, and keeps the open flag in sessionStorage (thread_store.js) so the panel is
+// open again after a page change. Pages without the panel (the login page) get nothing from this script.
 (function () {
   "use strict";
 
-  var tpl = document.getElementById("palette-template");
-  if (!tpl) return;
+  var panel = document.querySelector("[data-assistant-panel]");
+  var input = panel && panel.querySelector("[data-palette-input]");
+  var results = panel && panel.querySelector("[data-palette-results]");
+  var failed = panel && panel.querySelector("[data-palette-failed]");
+  var thread = panel && panel.querySelector("[data-assistant-thread]");
+  if (!panel || !input || !results || !failed || !thread) return;
 
-  var url = tpl.getAttribute("data-url");
+  var url = panel.getAttribute("data-url");
+  var userId = panel.getAttribute("data-user") || "";
+  var askOn = panel.getAttribute("data-ask-on") === "1";  // the assistant is on for this user (the «Асуух» row and button)
+  var fab = document.querySelector("[data-assistant-fab]");
   var DEBOUNCE_MS = 200;
-  var RECENT_KEY = "palette-recent-" + (tpl.getAttribute("data-user") || "");  // per user: shared PCs do not mix them
+  var RECENT_KEY = "palette-recent-" + userId;  // per user: shared PCs do not mix them
   var RECENT_MAX = 5;
   var REF_SHAPE = /^(p:[0-9]{1,12}|s:\/[!-~]{0,200})$/;  // `p:<pk>` a person, `s:<path>` a fixed page; nothing else
 
-  var shell = null;      // the open pop-up, null while closed
-  var input = null;
-  var results = null;
-  var failed = null;     // the failure line, kept in the template; moved back into the box on a network error
-  var opener = null;     // the element that had focus before opening, given focus back on close
+  // The open flag survives page changes (one sessionStorage key per user). Without a store (storage blocked, no
+  // thread_store.js, no user) the panel works the same, it just is not remembered.
+  var store = null;
+  if (userId && window.createThreadStore) {
+    try {
+      store = window.createThreadStore(window.sessionStorage, userId, Date.now);
+    } catch (err) {
+      store = null;
+    }
+  }
+
+  var opener = null;     // the element that had focus before the panel opened, given focus back on close
   var timer = null;      // the debounce timer while a typed query waits
   var controller = null; // AbortController of the latest request
   var loading = false;   // true while the latest request is still in flight
   var busyTimer = null;  // the wait before a slow answer dims the list (markBusy)
   var BUSY_MS = 150;
-  var askController = null; // AbortController of the latest assistant question («Асуух» row)
   var ASK_WAIT = "Хариулт хайж байна…";
   var ASK_FAIL = "Хариулт авч чадсангүй. Дахин оролдоно уу.";
+  var RETRY_TEXT = "Дахин асуух";
+  var UNANSWERED = "Хариулт ирсэнгүй.";
+  var RETRIED_HTML = '<p class="px-1 text-sm text-slate-500">Дахин асуулаа.</p>';  // marks an item asked again
+  // The context of the thread's last answer (thread_store.js); without that script no question carries a prev.
+  var previousContext = window.lastAnswerContext || function () { return null; };
+  var questionBody = window.typedQuestionBody || function (q) { return "q=" + encodeURIComponent(q); };
+  var isRelative = window.isRelativePath || function () { return false; };  // no store script: no follow-up is posted
 
   // Remembered references (Сүүлд нээсэн): short ids only, newest first, no names. Every storage access is guarded: a
   // blocked or full storage, or a value that is not ours, just means nothing is remembered or shown.
@@ -51,75 +72,93 @@
     }
   }
 
-  // A person or a fixed page the user opened from the palette. Quick actions carry no data-palette-ref, so they are not kept.
+  // A person or a fixed page the user opened from the panel. Quick actions carry no data-palette-ref, so they are not kept.
   function noteOpened(item) {
     remember(item.getAttribute("data-palette-ref"));
   }
 
-  function open() {
-    if (shell) return;
-    opener = document.activeElement;
-    shell = document.importNode(tpl.content.firstElementChild, true);
-    document.body.appendChild(shell);
-    input = shell.querySelector("[data-palette-input]");
-    results = shell.querySelector("[data-palette-results]");
-    failed = shell.querySelector("[data-palette-failed]");
-
-    // A click on the dark overlay (not on the panel) closes; a click on a pop-up action opens it here (see activate);
-    // a click on any other result follows its link as usual.
-    shell.addEventListener("click", function (e) {
-      var item = e.target.closest && e.target.closest("[data-palette-item]");
-      if (item && (item.hasAttribute("data-palette-modal") || item.hasAttribute("data-palette-more") || item.hasAttribute("data-palette-ask"))) {
-        e.preventDefault();
-        activate(item);
-        return;
-      }
-      if (item) noteOpened(item);  // a plain result is a link: it is followed
-      if (e.target === shell) close();
-    });
-    input.addEventListener("input", function () {
-      clearTimeout(timer);
-      clearSelection();  // the old answer must not be activated for the new query
-      if (askController) askController.abort();  // an answer for older text must not land after typing more
-      askController = null;
-      timer = setTimeout(function () {
-        timer = null;
-        search(input.value);
-      }, DEBOUNCE_MS);
-    });
-    results.addEventListener("mousemove", function (e) {
-      var item = e.target.closest && e.target.closest("[data-palette-item]");
-      if (item && item.getAttribute("aria-selected") !== "true") select(item, false);
-    });
-
-    input.focus();
-    search("");  // an empty box shows the screens list
+  function isOpen() {
+    return !panel.hidden;
   }
 
-  function close() {
-    if (!shell) return;
+  // The floating button's aria-expanded follows the panel.
+  function setFab(open) {
+    if (fab) fab.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function saveOpen(open) {
+    if (store) store.setOpen(open);
+  }
+
+  // The quick results always show (the recents with an empty box). The thread shows only with an empty box: a typed
+  // query hides it. A hidden thread loses its scroll, so it goes back to the newest item when it shows again.
+  function syncMode() {
+    var hide = input.value.trim() !== "";
+    thread.hidden = hide;
+    if (!hide) scrollThread();  // after the thread shows: a hidden element has no scroll to set
+  }
+
+  function scrollThread() {
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  // Opens the panel with an empty box (the recents show). A click, Ctrl+K or the floating button takes focus into the
+  // box and remembers the open flag; a page load with the stored flag opens the panel without taking focus.
+  function openPanel(fromUser) {
+    if (isOpen()) return;
+    opener = fromUser ? document.activeElement : null;
+    panel.hidden = false;
+    setFab(true);
+    if (fromUser) saveOpen(true);
+    clearTimeout(timer);
+    timer = null;
+    input.value = "";
+    syncMode();
+    scrollThread();
+    if (fromUser) input.focus();
+    search("");
+  }
+
+  // Closes the panel and drops a quick search in flight. An assistant question is not dropped: its answer lands in the
+  // thread even while the panel is closed. Focus goes back to the element that had it before opening; a navigation
+  // does not ask for that.
+  function closePanel(restoreFocus) {
+    if (!isOpen()) return;
     clearTimeout(timer);
     timer = null;
     if (controller) controller.abort();
     controller = null;
-    if (askController) askController.abort();
-    askController = null;
     loading = false;
     clearBusy();
-    shell.remove();
-    shell = input = results = failed = null;
     var back = opener;
     opener = null;
-    if (back && document.contains(back) && back.focus) back.focus();
+    // An element is usable for focus when it is still in the page and drawn (a page-load open has no opener).
+    var useBack = restoreFocus && back && document.contains(back) && back.focus && back.getClientRects().length > 0;
+    // Focus is inside the panel and nothing else takes it: move it to the floating button, or to the top-bar button,
+    // before the panel is hidden, so focus does not fall to the body.
+    if (panel.contains(document.activeElement) && !useBack) {
+      var alt = fab && fab.getClientRects().length > 0 ? fab : document.querySelector("[data-palette-open]");
+      if (alt && alt.focus) alt.focus();
+    }
+    panel.hidden = true;
+    setFab(false);
+    saveOpen(false);
+    if (useBack) back.focus();
   }
 
-  // Opens a result. A quick action with data-palette-modal (a pop-up form) is loaded over the current page with htmx,
-  // so the palette closes and the form appears where the user is; the «show all» row (data-palette-more) asks for the
-  // same query again with more people and keeps the palette open; every other result is a page and is navigated to.
+  function togglePanel() {
+    if (isOpen()) closePanel(true);
+    else openPanel(true);
+  }
+
+  // Opens a result. A quick action with data-palette-modal (a pop-up form) closes the panel and is loaded over the page
+  // with htmx, so the form appears where the user is. The «show all» row (data-palette-more) asks for the same query
+  // again with more people and keeps the panel open. Every other result is a page: the stored flag is set to closed
+  // before the navigation, so the next page starts with the panel closed.
   function activate(item) {
     // The «Асуух» row only asks the assistant, and only here (Enter or a click), never while typing.
     if (item.hasAttribute("data-palette-ask")) {
-      if (loading || timer) return;  // same rule as Enter: no question while a search is still in flight or waiting
+      if (!askOn || loading || timer) return;  // same rule as Enter: no question while a search is still in flight or waiting
       ask(item);
       return;
     }
@@ -131,13 +170,14 @@
     }
     var href = item.getAttribute("href");
     noteOpened(item);
-    if (!item.hasAttribute("data-palette-modal")) {
-      window.location.assign(href);
+    if (item.hasAttribute("data-palette-modal")) {
+      closePanel(true);
+      if (window.htmx) window.htmx.ajax("GET", href, { target: "body", swap: "beforeend" });
+      else window.location.assign(href);
       return;
     }
-    close();
-    if (window.htmx) window.htmx.ajax("GET", href, { target: "body", swap: "beforeend" });
-    else window.location.assign(href);
+    saveOpen(false);
+    window.location.assign(href);
   }
 
   // A slow answer dims the old list: after BUSY_MS the list gets opacity-60 and aria-busy, so a quick answer never flashes.
@@ -146,7 +186,7 @@
     clearTimeout(busyTimer);
     busyTimer = setTimeout(function () {
       busyTimer = null;
-      if (!loading || !results) return;
+      if (!loading) return;
       results.classList.add("opacity-60");
       results.setAttribute("aria-busy", "true");
     }, BUSY_MS);
@@ -155,7 +195,6 @@
   function clearBusy() {
     clearTimeout(busyTimer);
     busyTimer = null;
-    if (!results) return;
     results.classList.remove("opacity-60");
     results.removeAttribute("aria-busy");
   }
@@ -171,29 +210,106 @@
     }
   }
 
-  // Sends the typed text to the assistant from the «Асуух» row. The row turns into a waiting line; the answer card
-  // replaces the row when it comes, and its first link is selected so Enter opens it. A newer search or close aborts
-  // this request, so a late answer never lands on newer results. The answer is the server's own fragment, trusted;
-  // the waiting and error lines are text only.
+  // Asking from the «Асуух» row (Enter or a click): the typed text becomes a question in the thread. Nothing is aborted
+  // by it: typing, a new search or closing the panel leave the request going, and only leaving the page ends it (the
+  // question then stays unanswered in the store). Each question has its own thread item, so two can be in flight.
   function ask(row) {
-    if (askController) askController.abort();
-    var mine = new AbortController();
-    askController = mine;
-    var url = row.getAttribute("data-ask-url");
-    var body = "q=" + encodeURIComponent(input.value);
-    // Not a link any more: no href, not selectable, so a click on the waiting line does nothing.
-    row.removeAttribute("data-palette-item");
-    row.removeAttribute("href");
-    row.removeAttribute("aria-selected");
-    row.textContent = "";
-    row.appendChild(statusLine(ASK_WAIT));
+    var q = input.value.trim();
+    if (!q) return;
+    startAsk(q, row.getAttribute("data-ask-url") || panel.getAttribute("data-ask-url"), typedBody(q), false);
+  }
 
-    fetch(url, {
+  // The body of a typed question: the question, and the context of the thread's last answer as `prev` when it has one.
+  function typedBody(q) {
+    return questionBody(q, previousContext(answerEntries()));
+  }
+
+  // The context of an answer slot (its data-assistant-context), or null.
+  function contextOf(slot) {
+    var ctx = slot.querySelector("[data-assistant-context]");
+    return ctx ? ctx.getAttribute("data-assistant-context") : null;
+  }
+
+  // One {answered, context} per thread item, in thread order: what lastAnswerContext reads. The context is the answer's
+  // own data-assistant-context (a list answer), read from the page, so a restored answer counts the same.
+  function answerEntries() {
+    return Array.prototype.map.call(thread.querySelectorAll("[data-assistant-item]"), function (li) {
+      return { answered: li.hasAttribute("data-answered"), context: contextOf(slotOf(li)) };
+    });
+  }
+
+  // The same flow for a new question, a follow-up button and «Дахин асуух»: a thread item at once, the box cleared, the
+  // quick results back to the recents, the thread scrolled to its newest item, then the request. `followed` keeps the
+  // url and body on the item, so «Дахин асуух» sends the same follow-up again.
+  function startAsk(q, askUrl, body, followed) {
+    var id = store ? store.addPending(q, followed ? { url: askUrl, body: body } : null) : null;
+    var li = threadItem(q, id);
+    if (followed) {
+      li.setAttribute("data-retry-url", askUrl);
+      li.setAttribute("data-retry-body", body);
+    }
+    thread.appendChild(li);
+    input.value = "";
+    clearTimeout(timer);
+    timer = null;
+    syncMode();
+    search("");
+    scrollThread();
+    sendAsk(li, askUrl, body);
+  }
+
+  // One thread item: the question (text only, right-aligned and muted), then an answer slot that starts with the waiting
+  // line. `id` is the store's id for the question; it is kept on the item as data-id (none without a store).
+  function threadItem(q, id) {
+    var li = document.createElement("div");
+    li.className = "mt-3";
+    li.setAttribute("data-assistant-item", "");
+    if (id) li.setAttribute("data-id", id);
+    var question = document.createElement("p");
+    question.className = "text-right text-slate-500 break-words";
+    question.setAttribute("data-assistant-question", "");
+    question.textContent = q;
+    var slot = document.createElement("div");
+    slot.setAttribute("data-assistant-slot", "");
+    slot.appendChild(statusLine(ASK_WAIT));
+    li.appendChild(question);
+    li.appendChild(slot);
+    return li;
+  }
+
+  function slotOf(li) {
+    return li.querySelector("[data-assistant-slot]");
+  }
+
+  // The answer slot takes the server's fragment (the server's own trusted markup, as search does).
+  // The retried placeholder is not an answer, so a question after it does not take its context as `prev`.
+  function setAnswer(li, html) {
+    slotOf(li).innerHTML = html;
+    if (html !== RETRIED_HTML) li.setAttribute("data-answered", "");
+  }
+
+  // A line of text and the «Дахин асуух» button, which asks this item's question again (text only).
+  function setRetry(li, text) {
+    var slot = slotOf(li);
+    slot.textContent = "";
+    slot.appendChild(statusLine(text));
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("data-assistant-retry", "");
+    btn.className = "mt-1 rounded-lg px-2.5 py-1.5 text-sm text-violet-700 hover:bg-violet-50 max-sm:min-h-11";
+    btn.textContent = RETRY_TEXT;
+    slot.appendChild(btn);
+  }
+
+  // Posts `body` (form-encoded) to askUrl and fills the item's slot when the answer comes. The store keeps the answer
+  // under the item's id. A failed request shows the error line with the retry button; the store keeps the question
+  // unanswered.
+  function sendAsk(li, askUrl, body) {
+    fetch(askUrl, {
       method: "POST",
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken(), "Content-Type": "application/x-www-form-urlencoded" },
       body: body,
-      signal: mine.signal,
     })
       .then(function (r) {
         // The session ended: the server sent the login page instead of the answer. Reload, as search does.
@@ -205,20 +321,80 @@
         return r.text();
       })
       .then(function (html) {
-        if (html === null || !shell || mine !== askController || !row.isConnected) return;
-        askController = null;
-        row.outerHTML = html;
-        var answer = results.querySelector("[data-palette-answer]");
-        var first = answer && answer.querySelector("[data-palette-item]");
-        if (first) select(first, true);
+        if (html === null) return;
+        setAnswer(li, html);
+        var id = li.getAttribute("data-id");
+        if (store && id) store.resolve(id, html, contextOf(slotOf(li)));
       })
-      .catch(function (err) {
-        if (err && err.name === "AbortError") return;  // a stale request, cancelled on purpose
-        if (!shell || mine !== askController || !row.isConnected) return;
-        askController = null;
-        row.textContent = "";
-        row.appendChild(statusLine(ASK_FAIL));
+      .catch(function () {
+        setRetry(li, ASK_FAIL);
       });
+  }
+
+  // «Дахин асуух»: the question is asked again as a new item. A follow-up item sends its own url and body again; a typed
+  // question is asked again with the current thread's prev. The old item is marked as asked again in the store and on
+  // the page, so it stops offering the button.
+  function retry(li) {
+    var question = li.querySelector("[data-assistant-question]");
+    var q = question ? question.textContent : "";
+    if (!q) return;
+    var oldId = li.getAttribute("data-id");
+    var followUrl = li.getAttribute("data-retry-url");
+    setAnswer(li, RETRIED_HTML);
+    if (store && oldId) store.resolve(oldId, RETRIED_HTML);
+    if (followUrl) startAsk(q, followUrl, li.getAttribute("data-retry-body") || "", true);
+    else startAsk(q, panel.getAttribute("data-ask-url"), typedBody(q), false);
+    input.focus();  // the retry button is gone with its slot: focus goes to the box, not to the body
+  }
+
+  // A follow-up button in an answer (data-follow-url, from the server's fragment): its label is asked as a new question
+  // and its body goes to its url. Every follow-up button of that answer is disabled at once, so a double click cannot
+  // ask twice.
+  function follow(btn) {
+    var url = btn.getAttribute("data-follow-url");
+    if (btn.disabled || !isRelative(url)) return;  // only a same-site path is ever posted to
+    var slot = btn.closest("[data-assistant-slot]");
+    var buttons = slot ? slot.querySelectorAll("[data-follow-url]") : [btn];
+    Array.prototype.forEach.call(buttons, function (b) {
+      b.disabled = true;
+      b.setAttribute("aria-disabled", "true");
+      b.classList.add("opacity-50");
+    });
+    // The stored answer keeps the disabled buttons too, so a page change does not bring them back.
+    var owner = slot && slot.closest("[data-assistant-item]");
+    var ownerId = owner ? owner.getAttribute("data-id") : null;
+    if (store && ownerId) store.resolve(ownerId, slot.innerHTML, contextOf(slot));
+    startAsk(btn.getAttribute("data-follow-label") || "", url, btn.getAttribute("data-follow-body") || "", true);
+  }
+
+  // The thread on page load: answered items as stored, unanswered ones with the retry button. Nothing is asked again
+  // by itself.
+  function drawThread(list) {
+    thread.textContent = "";
+    list.forEach(function (item) {
+      var li = threadItem(item.q, item.id);
+      thread.appendChild(li);
+      if (item.html === null) restoreUnanswered(li, item);
+      else setAnswer(li, item.html);
+    });
+  }
+
+  // An unanswered item from the store. A typed question gets the retry button (asked again as a typed question). A
+  // follow-up (the item has a url) gets it only with a same-site url and a body, and then asks the same follow-up again.
+  // Anything missing or wrong shows the plain text and no button: a follow-up is never retried as a typed question.
+  function restoreUnanswered(li, item) {
+    if (item.url === undefined) {
+      setRetry(li, UNANSWERED);
+      return;
+    }
+    if (!isRelative(item.url) || typeof item.body !== "string") {
+      slotOf(li).textContent = "";
+      slotOf(li).appendChild(statusLine(UNANSWERED));
+      return;
+    }
+    li.setAttribute("data-retry-url", item.url);
+    li.setAttribute("data-retry-body", item.body);
+    setRetry(li, UNANSWERED);
   }
 
   function statusLine(text) {
@@ -234,8 +410,6 @@
   function search(q, moreAt) {
     var more = typeof moreAt === "number";
     if (controller) controller.abort();
-    if (askController) askController.abort();  // a late answer must not land on the new results
-    askController = null;
     var mine = new AbortController();
     controller = mine;
     loading = true;
@@ -257,10 +431,12 @@
         return r.text();
       })
       .then(function (html) {
-        if (html === null || !shell || mine !== controller) return;  // navigating away, closed, or superseded
+        if (html === null || !isOpen() || mine !== controller) return;  // navigating away, closed, or superseded
         loading = false;
         clearBusy();
         results.innerHTML = html;  // the server's own fragment, trusted
+        // An empty box shows the thread below the recents: the recents just changed the thread's height, so scroll again.
+        if (!q.trim()) scrollThread();
         if (more) {
           var list = items();
           if (list.length) select(list[Math.min(moreAt, list.length - 1)], true);
@@ -271,7 +447,7 @@
       })
       .catch(function (err) {
         if (err && err.name === "AbortError") return;  // a stale request, cancelled on purpose
-        if (!shell || mine !== controller) return;
+        if (!isOpen() || mine !== controller) return;
         loading = false;
         clearBusy();
         results.innerHTML = "";
@@ -281,7 +457,7 @@
   }
 
   function items() {
-    return results ? results.querySelectorAll("[data-palette-item]") : [];
+    return results.querySelectorAll("[data-palette-item]");
   }
 
   // The «Асуух» row is not selected by default (Enter on a plain search must open a result, not ask the assistant),
@@ -320,8 +496,43 @@
     select(list[next], true);
   }
 
-  // Capture phase on document: runs before any field, the employee page's drawer handler and modal.js, so while the
-  // palette is open its keys stop here (Escape closes only the palette).
+  // The box: typing starts a debounced search (the thread hides at once); a stale answer is dropped by search/ask.
+  // Registered in the capture phase and with stopImmediatePropagation, so the page's own filter forms (htmx
+  // `from:input` triggers bound to every input at page load) never see the panel's typing and do not reload their list.
+  input.addEventListener("input", function (e) {
+    e.stopImmediatePropagation();
+    clearTimeout(timer);
+    syncMode();
+    clearSelection();  // the old answer must not be activated for the new query
+    timer = setTimeout(function () {
+      timer = null;
+      search(input.value);
+    }, DEBOUNCE_MS);
+  }, true);
+
+  results.addEventListener("mousemove", function (e) {
+    var item = e.target.closest && e.target.closest("[data-palette-item]");
+    if (item && item.getAttribute("aria-selected") !== "true") select(item, false);
+  });
+
+  // A click on a pop-up action or the «show all» / «Асуух» rows is handled here; a click on any other result follows
+  // its link as usual, and the stored flag is set to closed first so the next page starts closed. Ctrl, Shift or Alt
+  // with the click opens a new tab and leaves this panel open, so the flag stays.
+  results.addEventListener("click", function (e) {
+    var item = e.target.closest && e.target.closest("[data-palette-item]");
+    if (!item) return;
+    if (item.hasAttribute("data-palette-modal") || item.hasAttribute("data-palette-more") || item.hasAttribute("data-palette-ask")) {
+      e.preventDefault();
+      activate(item);
+      return;
+    }
+    noteOpened(item);
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) saveOpen(false);
+  });
+
+  // Capture phase on document: runs before any field, the employee page's drawer handler and modal.js. It swallows only
+  // the keys the panel really handles: Ctrl+K always; Escape only with focus inside the panel; the arrows and Enter only
+  // with focus in the box. Everything else (Tab, the page's own shortcuts) passes through untouched.
   document.addEventListener(
     "keydown",
     function (e) {
@@ -329,23 +540,31 @@
       if (e.code === "KeyK" && (e.ctrlKey || e.metaKey) && !e.altKey) {
         e.preventDefault();
         e.stopPropagation();
-        if (e.repeat) return;  // holding the keys must not flicker the pop-up open and shut
-        if (shell) close();
-        else open();
+        if (e.repeat) return;  // holding the keys must not flicker the panel open and shut
+        togglePanel();
         return;
       }
-      // Keys of an IME composition belong to the input method, not to the palette.
+      // Keys of an IME composition belong to the input method, not to the panel.
       if (e.isComposing || e.keyCode === 229) return;
-      if (!shell) return;
-      if (e.key === "Tab") {
-        // Focus must not leave into the page behind the pop-up.
+      if (!isOpen()) return;
+      if (e.key === "Escape") {
+        if (!panel.contains(document.activeElement)) return;
         e.preventDefault();
         e.stopPropagation();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        close();
-      } else if (e.key === "ArrowDown") {
+        // First Escape clears a typed query (the empty search comes back); with an empty box it closes the panel.
+        if (input.value !== "") {
+          clearTimeout(timer);
+          timer = null;
+          input.value = "";
+          syncMode();
+          search("");
+        } else {
+          closePanel(true);
+        }
+        return;
+      }
+      if (document.activeElement !== input) return;
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         e.stopPropagation();
         move(1);
@@ -371,11 +590,72 @@
     true
   );
 
-  // The top-bar button (base.html) opens the palette; delegated, so it works whatever the page does to the bar.
+  // The top-bar «Хайх» button and the floating «Асуух» button toggle the panel; the panel's × closes it. Delegated, so
+  // they work whatever the page does to the bar. A click outside the panel never closes it.
   document.addEventListener("click", function (e) {
-    var btn = e.target.closest && e.target.closest("[data-palette-open]");
-    if (!btn) return;
-    e.preventDefault();
-    open();
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest("[data-palette-open]") || t.closest("[data-assistant-fab]")) {
+      e.preventDefault();
+      togglePanel();
+      return;
+    }
+    var closeBtn = t.closest("[data-assistant-close]");
+    if (closeBtn && panel.contains(closeBtn)) closePanel(true);
+    // «Шинэ яриа» empties the thread; the open flag stays as it is.
+    var newBtn = t.closest("[data-assistant-new]");
+    if (newBtn && panel.contains(newBtn)) {
+      if (store) store.clear();
+      thread.textContent = "";
+    }
   });
+
+  // Inside the thread: «Дахин асуух» asks again; a follow-up button (data-follow-url) asks its label; a pop-up link
+  // (data-palette-modal) is loaded over the page and the panel stays open; any other link navigates as usual. Nothing
+  // here touches the stored open flag. Delegated on the thread: the answers are redrawn from the store on page load.
+  thread.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var retryBtn = t.closest("[data-assistant-retry]");
+    if (retryBtn) {
+      e.preventDefault();
+      var item = retryBtn.closest("[data-assistant-item]");
+      if (item) retry(item);
+      return;
+    }
+    var followBtn = t.closest("[data-follow-url]");
+    if (followBtn) {
+      e.preventDefault();
+      follow(followBtn);
+      return;
+    }
+    var modal = t.closest("a[data-palette-modal]");
+    if (modal) {
+      e.preventDefault();
+      var href = modal.getAttribute("href");
+      if (window.htmx) window.htmx.ajax("GET", href, { target: "body", swap: "beforeend" });
+      else window.location.assign(href);
+    }
+  });
+
+  // Logging out forgets this user's thread. The submit itself is not touched.
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (store && form && form.matches && form.matches('form[action$="/logout/"]')) store.clearAll();
+  });
+
+  // Page load: the thread comes back from the store (nothing is asked again), then the stored flag reopens the panel, so
+  // it stays open across page changes. No focus is taken.
+  syncMode();
+  setFab(false);
+  var saved = null;
+  if (store) {
+    try {
+      saved = store.read();
+    } catch (err) {
+      saved = null;
+    }
+  }
+  if (saved) drawThread(saved.items);
+  if (saved && saved.open) openPanel(false);
 })();

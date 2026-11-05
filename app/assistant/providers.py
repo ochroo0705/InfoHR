@@ -4,27 +4,39 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from datetime import date
+from typing import TYPE_CHECKING, Any, Protocol
 
-from django.conf import settings
-
+from assistant import config
 from assistant.entries import HelpEntry
 from assistant.prompt import (
     JSON_REPLY,
+    PLAN_INSTRUCTION,
+    PLAN_REPLY,
+    PLAN_SCHEMA,
     RESPONSE_SCHEMA,
     SYSTEM_INSTRUCTION,
     entries_block,
+    plan_input,
     question_block,
     refusals_block,
+    table_examples_block,
+    words_block,
 )
+from assistant.words import FilterWords
+
+if TYPE_CHECKING:  # assistant.plan imports ProviderError from this module, so it is imported where it is used
+    from assistant.plan import Plan
 
 logger = logging.getLogger(__name__)
 
 _FIELDS = ("entry", "also", "lead")
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+CLAUDE_URL = "https://api.anthropic.com/v1/messages"
+CLAUDE_VERSION = "2023-06-01"
 
 
 @dataclass(frozen=True)
@@ -44,12 +56,43 @@ class Provider(Protocol):
 
     def choose(self, question: str, entries: Sequence[HelpEntry], refusals: Sequence[str] = ()) -> Choice: ...
 
+    def plan(
+        self,
+        question: str,
+        entries: Sequence[HelpEntry],
+        words: Sequence[FilterWords],
+        phrases: Mapping[str, list[str]],
+        today: date,
+        previous: str = "",
+        refusals: Sequence[str] = (),
+        table_examples: Sequence[tuple[str, str]] = (),
+    ) -> "Plan": ...
+
 
 def _to_choice(data: Any) -> Choice:
     """Check that a parsed reply has the three string fields, then build the Choice."""
     if not isinstance(data, dict) or not all(isinstance(data.get(f), str) for f in _FIELDS):
         raise ProviderError("the model reply does not match the schema")
     return Choice(entry=data["entry"], also=data["also"], lead=data["lead"])
+
+
+def _plan_system(
+    entries: Sequence[HelpEntry],
+    words: Sequence[FilterWords],
+    phrases: Mapping[str, list[str]],
+    refusals: Sequence[str],
+    table_examples: Sequence[tuple[str, str]] = (),
+) -> str:
+    """The system text for a plan: the instruction, the help entries, then the filters as a JSON block."""
+    return (
+        PLAN_INSTRUCTION
+        + "\nHelp entries:\n"
+        + entries_block(entries)
+        + "\nFilters:\n"
+        + words_block(words, phrases)
+        + refusals_block(refusals)
+        + table_examples_block(table_examples)
+    )
 
 
 class GeminiProvider:
@@ -68,22 +111,42 @@ class GeminiProvider:
                 raise ProviderError("the Gemini client could not be created") from exc
         self._client = client
 
-    def choose(self, question: str, entries: Sequence[HelpEntry], refusals: Sequence[str] = ()) -> Choice:
+    def _call_json(self, system: str, user: str, schema: dict[str, Any]) -> Any:
+        """One generate_content call in JSON mode with the given response schema; returns the parsed reply."""
         try:
             response = self._client.models.generate_content(
                 model=self.model,
-                contents=question_block(question),
+                contents=user,
                 config={
-                    "system_instruction": SYSTEM_INSTRUCTION + entries_block(entries) + refusals_block(refusals),
+                    "system_instruction": system,
                     "response_mime_type": "application/json",
-                    "response_schema": RESPONSE_SCHEMA,
+                    "response_schema": schema,
                     "temperature": 0,
                 },
             )
-            data = json.loads(response.text or "")
+            return json.loads(response.text or "")
         except Exception as exc:  # any SDK or parse failure becomes one provider error
-            raise ProviderError("the model call failed") from exc
-        return _to_choice(data)
+            raise ProviderError(f"{type(exc).__name__}: the model call failed") from exc
+
+    def choose(self, question: str, entries: Sequence[HelpEntry], refusals: Sequence[str] = ()) -> Choice:
+        system = SYSTEM_INSTRUCTION + entries_block(entries) + refusals_block(refusals)
+        return _to_choice(self._call_json(system, question_block(question), RESPONSE_SCHEMA))
+
+    def plan(
+        self,
+        question: str,
+        entries: Sequence[HelpEntry],
+        words: Sequence[FilterWords],
+        phrases: Mapping[str, list[str]],
+        today: date,
+        previous: str = "",
+        refusals: Sequence[str] = (),
+        table_examples: Sequence[tuple[str, str]] = (),
+    ) -> "Plan":
+        from assistant.plan import parse_plan  # local: assistant.plan imports this module
+
+        system = _plan_system(entries, words, phrases, refusals, table_examples)
+        return parse_plan(self._call_json(system, plan_input(question, today, previous), PLAN_SCHEMA))
 
 
 def _http_post(url: str, body: bytes, headers: dict[str, str], timeout: int) -> bytes:
@@ -110,14 +173,14 @@ class GroqProvider:
         self._timeout = timeout
         self._post = post if post is not None else _http_post
 
-    def choose(self, question: str, entries: Sequence[HelpEntry], refusals: Sequence[str] = ()) -> Choice:
-        system = SYSTEM_INSTRUCTION + entries_block(entries) + refusals_block(refusals) + "\n" + JSON_REPLY
+    def _call_json(self, system: str, user: str) -> Any:
+        """One chat call in JSON mode; returns the parsed reply object."""
         body = json.dumps(
             {
                 "model": self.model,
                 "messages": [
                     {"role": "system", "content": system},
-                    {"role": "user", "content": question_block(question)},
+                    {"role": "user", "content": user},
                 ],
                 "temperature": 0,
                 "response_format": {"type": "json_object"},
@@ -132,40 +195,136 @@ class GroqProvider:
         try:
             reply = self._post(GROQ_URL, body, headers, self._timeout)
             content = json.loads(reply)["choices"][0]["message"]["content"]
-            data = json.loads(content)
+            return json.loads(content)
         # from None: the original error may hold the Authorization header, so it is not chained into a traceback.
-        except urllib.error.HTTPError as exc:  # the status code helps; the key and body never go in a message
-            raise ProviderError(f"the model call failed (HTTP {exc.code})") from None
-        except Exception:  # network, timeout or a bad reply becomes one provider error
-            raise ProviderError("the model call failed") from None
-        return _to_choice(data)
+        except urllib.error.HTTPError as exc:  # the status code and the provider's message; never the key
+            detail = _api_detail(exc, self._api_key)
+            raise ProviderError(f"HTTP {exc.code}" + (f": {detail}" if detail else "")) from None
+        except Exception as exc:  # network, timeout or a bad reply becomes one provider error
+            raise ProviderError(f"{type(exc).__name__}: no usable reply") from None
+
+    def choose(self, question: str, entries: Sequence[HelpEntry], refusals: Sequence[str] = ()) -> Choice:
+        system = SYSTEM_INSTRUCTION + entries_block(entries) + refusals_block(refusals) + "\n" + JSON_REPLY
+        return _to_choice(self._call_json(system, question_block(question)))
+
+    def plan(
+        self,
+        question: str,
+        entries: Sequence[HelpEntry],
+        words: Sequence[FilterWords],
+        phrases: Mapping[str, list[str]],
+        today: date,
+        previous: str = "",
+        refusals: Sequence[str] = (),
+        table_examples: Sequence[tuple[str, str]] = (),
+    ) -> "Plan":
+        from assistant.plan import parse_plan  # local: assistant.plan imports this module
+
+        system = _plan_system(entries, words, phrases, refusals, table_examples) + "\n" + PLAN_REPLY
+        return parse_plan(self._call_json(system, plan_input(question, today, previous)))
+
+
+def _api_detail(exc: urllib.error.HTTPError, api_key: str) -> str:
+    """The provider's own error text (for example "invalid x-api-key"), so the admin log shows why a call failed.
+    The key is blanked out of it, and anything that is not a short JSON message is dropped."""
+    try:
+        body = json.loads(exc.read())
+        error = body["error"]
+        message = error["message"] if isinstance(error, dict) else str(error)
+    except Exception:
+        return ""
+    return str(message).replace(api_key, "***")[:200]
+
+
+class ClaudeProvider:
+    """Anthropic's Messages API. Uses only the standard library, like Groq."""
+
+    name = "claude"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        timeout: int,
+        post: Callable[[str, bytes, dict[str, str], int], bytes] | None = None,
+    ) -> None:
+        self.model = model
+        self._api_key = api_key
+        self._timeout = timeout
+        self._post = post if post is not None else _http_post
+
+    def _call_json(self, system: str, user: str, max_tokens: int) -> Any:
+        """One Messages call; returns the JSON object found in the text reply."""
+        body = json.dumps(
+            {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "system": system,
+                "messages": [{"role": "user", "content": user}],
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        headers = {
+            "x-api-key": self._api_key,
+            "anthropic-version": CLAUDE_VERSION,
+            "content-type": "application/json",
+            "User-Agent": "InfoHR-assistant/1",
+        }
+        try:
+            reply = self._post(CLAUDE_URL, body, headers, self._timeout)
+            text = "".join(b.get("text", "") for b in json.loads(reply)["content"] if b.get("type") == "text")
+            start, end = text.find("{"), text.rfind("}")  # tolerate a sentence or a code fence around the object
+            return json.loads(text[start : end + 1])
+        # from None: the original error may hold the key header, so it is not chained into a traceback.
+        except urllib.error.HTTPError as exc:
+            detail = _api_detail(exc, self._api_key)
+            raise ProviderError(f"HTTP {exc.code}" + (f": {detail}" if detail else "")) from None
+        except Exception as exc:
+            raise ProviderError(f"{type(exc).__name__}: no usable reply") from None
+
+    def choose(self, question: str, entries: Sequence[HelpEntry], refusals: Sequence[str] = ()) -> Choice:
+        system = SYSTEM_INSTRUCTION + entries_block(entries) + refusals_block(refusals) + "\n" + JSON_REPLY
+        return _to_choice(self._call_json(system, question_block(question), max_tokens=400))
+
+    def plan(
+        self,
+        question: str,
+        entries: Sequence[HelpEntry],
+        words: Sequence[FilterWords],
+        phrases: Mapping[str, list[str]],
+        today: date,
+        previous: str = "",
+        refusals: Sequence[str] = (),
+        table_examples: Sequence[tuple[str, str]] = (),
+    ) -> "Plan":
+        from assistant.plan import parse_plan  # local: assistant.plan imports this module
+
+        # 800, not 400: a plan can hold up to MAX_PARTS parts, each with a param and a value.
+        system = _plan_system(entries, words, phrases, refusals, table_examples) + "\n" + PLAN_REPLY
+        return parse_plan(self._call_json(system, plan_input(question, today, previous), max_tokens=800))
 
 
 def is_enabled() -> bool:
     """True when the assistant is switched on and fully configured."""
-    return (
-        settings.ASSISTANT_PROVIDER in ("gemini", "groq")
-        and bool(settings.ASSISTANT_API_KEY)
-        and bool(settings.ASSISTANT_MODEL)
-    )
+    cfg = config.current()
+    return cfg.provider in ("claude", "gemini", "groq") and bool(cfg.api_key) and bool(cfg.model)
+
+
+def build_provider(cfg: config.AssistantConfig) -> Provider | None:
+    """The adapter for a configuration, or None when it is off, incomplete or the adapter could not start."""
+    if cfg.provider not in ("claude", "gemini", "groq") or not cfg.api_key or not cfg.model:
+        return None
+    try:
+        if cfg.provider == "groq":
+            return GroqProvider(api_key=cfg.api_key, model=cfg.model, timeout=cfg.timeout)
+        if cfg.provider == "claude":
+            return ClaudeProvider(api_key=cfg.api_key, model=cfg.model, timeout=cfg.timeout)
+        return GeminiProvider(api_key=cfg.api_key, model=cfg.model, timeout=cfg.timeout)
+    except ProviderError:
+        logger.warning("The help assistant is off: the provider could not start.", exc_info=True)
+        return None
 
 
 def get_provider() -> Provider | None:
     """The configured provider, or None when the assistant is off."""
-    if not is_enabled():
-        return None
-    try:
-        if settings.ASSISTANT_PROVIDER == "groq":
-            return GroqProvider(
-                api_key=settings.ASSISTANT_API_KEY,
-                model=settings.ASSISTANT_MODEL,
-                timeout=settings.ASSISTANT_TIMEOUT,
-            )
-        return GeminiProvider(
-            api_key=settings.ASSISTANT_API_KEY,
-            model=settings.ASSISTANT_MODEL,
-            timeout=settings.ASSISTANT_TIMEOUT,
-        )
-    except ProviderError:
-        logger.warning("The help assistant is off: the provider could not start.", exc_info=True)
-        return None
+    return build_provider(config.current())

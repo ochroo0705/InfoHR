@@ -191,8 +191,8 @@ def test_export_action(client: Client) -> None:
     assert re.fullmatch(r'attachment; filename="assistant_export_\d{4}-\d{2}-\d{2}\.json"', disposition)
     payload = json.loads(response.content.decode("utf-8"))
     assert set(payload) >= {"exported_at", "examples", "tests"}
-    assert payload["examples"] == [{"question": QUESTION, "entry": KEY}]
-    assert payload["tests"] == [{"question": "тест асуулт нэг", "entry": KEY}]
+    assert payload["examples"] == [{"question": QUESTION, "entry": KEY, "expected": ""}]
+    assert payload["tests"] == [{"question": "тест асуулт нэг", "entry": KEY, "expected": ""}]
 
 
 def test_orphan_kept_on_save(client: Client) -> None:
@@ -259,3 +259,67 @@ def test_deactivate_counts_switched(client: Client) -> None:
     assert "1 идэвхгүй болголоо" in response.content.decode()
     on.refresh_from_db()
     assert on.active is False
+
+
+FILTER_QUESTION = "санхүүгийн эмэгтэй ажилчид хэд вэ"
+
+
+def test_inactive_filter_row_saves_but_cannot_be_switched_on(client: Client) -> None:
+    """An inactive row may hold anything (learning.check): the bad query saves, and only switching it on is refused."""
+    from assistant import learning
+    from assistant.forms import HelpExampleForm
+
+    _staff(client, "Admin")
+    form = HelpExampleForm(data={"question": FILTER_QUESTION, "entry": "", "expected": "foo=1", "kind": "example"})
+    assert form.is_valid(), form.errors
+    row = form.save()
+    row.refresh_from_db()
+    assert row.expected == "foo=1" and row.active is False
+
+    response = client.post(CHANGELIST, {"action": "activate", "_selected_action": [row.pk], "index": 0}, follow=True)
+    row.refresh_from_db()
+    assert row.active is False
+    message = " ".join(str(m) for m in response.context["messages"])
+    assert "0 идэвхжлээ, 1 алгаслаа" in message
+    assert learning.BAD_FILTER.format("foo=1") in message
+
+    active_form = HelpExampleForm(
+        data={
+            "question": FILTER_QUESTION + " дахин",
+            "entry": "",
+            "expected": "foo=1",
+            "kind": "example",
+            "active": True,
+        }
+    )
+    assert not active_form.is_valid()
+    assert learning.BAD_FILTER.format("foo=1") in active_form.non_field_errors()
+
+
+def test_activate_checks_each_filter_row(client: Client) -> None:
+    from assistant import learning
+
+    _staff(client, "Admin")
+    valid = HelpExample.objects.create(question=FILTER_QUESTION, expected="emptype=5", active=False)
+    bad = HelpExample.objects.create(question=FILTER_QUESTION + " нэг", expected="foo=1", active=False)
+    both = HelpExample.objects.create(question=FILTER_QUESTION + " хоёр", entry=KEY, expected="emptype=5", active=False)
+    response = client.post(
+        CHANGELIST,
+        {"action": "activate", "_selected_action": [valid.pk, bad.pk, both.pk], "index": 0},
+        follow=True,
+    )
+    for row in (valid, bad, both):
+        row.refresh_from_db()
+    assert valid.active is True
+    assert bad.active is False
+    assert both.active is False
+    message = " ".join(str(m) for m in response.context["messages"])
+    assert "1 идэвхжлээ, 2 алгаслаа" in message
+    assert learning.BAD_FILTER.format("foo=1") in message
+    assert learning.ENTRY_AND_FILTER in message
+
+
+def test_changelist_shows_filter_sentence_title(client: Client) -> None:
+    _staff(client, "Admin")
+    HelpExample.objects.create(question=FILTER_QUESTION, expected="emptype=5", active=True)
+    assert "Шүүлтүүр: emptype=5" in client.get(CHANGELIST).content.decode()

@@ -247,6 +247,12 @@ UNFOLD = {
                         "icon": "school",
                         "link": reverse_lazy("admin:assistant_helpexample_changelist"),
                     },
+                    {
+                        "title": "Туслахын тохиргоо",
+                        "icon": "tune",
+                        "link": reverse_lazy("admin:assistant_assistantsettings_changelist"),
+                        "permission": lambda request: request.user.has_perm("assistant.change_assistantsettings"),
+                    },
                 ],
             },
         ],

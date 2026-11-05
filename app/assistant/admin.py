@@ -2,28 +2,42 @@ import json
 from collections.abc import Sequence
 from typing import Any
 
+from django.conf import settings
 from django.contrib import admin, messages
 from django.db import transaction
 from django.db.models import Exists, OuterRef, QuerySet
-from django.http import HttpRequest, HttpResponse
-from django.urls import reverse
+from django.http import HttpRequest, HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse
+from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 
 from . import learning
+from .catalog import PROVIDER_CHOICES
+from .check import check_connection
 from .entries import ENTRY_BY_KEY
-from .forms import HelpExampleForm
-from .models import HelpExample, HelpQuestion
+from .forms import AssistantSettingsForm, HelpExampleForm
+from .models import AssistantSettings, HelpExample, HelpQuestion
 
 
 @admin.register(HelpQuestion)
 class HelpQuestionAdmin(ModelAdmin):  # type: ignore[misc]
     """The question log is read-only: rows are written by the assistant service only."""
 
-    list_display = ("asked_at", "user", "question", "outcome", "entry", "corrected", "duration_ms")
-    list_filter = ("outcome", "entry", "asked_at", "user")
-    search_fields = ("question",)
+    list_display = (
+        "asked_at",
+        "user",
+        "question",
+        "outcome",
+        "error",
+        "entry",
+        "tool",
+        "not_applied_short",
+        "corrected",
+        "duration_ms",
+    )
+    list_filter = ("outcome", "tool", "entry", "asked_at", "user")
+    search_fields = ("question", "query")
     list_select_related = ("user",)
 
     def has_add_permission(self, request: HttpRequest) -> bool:
@@ -43,6 +57,11 @@ class HelpQuestionAdmin(ModelAdmin):  # type: ignore[misc]
     @admin.display(boolean=True, description="Засварласан")
     def corrected(self, obj: HelpQuestion) -> bool:
         return bool(getattr(obj, "corrected", False))  # set by get_queryset
+
+    @admin.display(description="Хэрэглээгүй хэсэг")
+    def not_applied_short(self, obj: HelpQuestion) -> str:
+        """The parts the answer could not use, cut to 60 characters in the list; the full text is in the row."""
+        return obj.not_applied if len(obj.not_applied) <= 60 else obj.not_applied[:60] + "…"
 
     def get_list_display(self, request: HttpRequest) -> Sequence[Any]:
         """Adds the name warning after the question, and the «Засах» link when the user may add corrections.
@@ -116,6 +135,8 @@ class HelpExampleAdmin(ModelAdmin):  # type: ignore[misc]
 
     @admin.display(description="Зөв хариулт")
     def entry_title(self, obj: HelpExample) -> str:
+        if obj.expected:  # a filter sentence: the filter query it should give, cut for the list
+            return "Шүүлтүүр: " + (obj.expected if len(obj.expected) <= 60 else obj.expected[:60] + "…")
         if not obj.entry:
             return "Аль ч хариулт тохирохгүй"
         entry = ENTRY_BY_KEY.get(obj.entry)
@@ -164,7 +185,9 @@ class HelpExampleAdmin(ModelAdmin):  # type: ignore[misc]
         done = 0
         skipped: list[str] = []
         for row in queryset.filter(active=False).order_by("created_at", "pk"):
-            problems = learning.check(row.question, row.entry, row.kind, active=True, exclude_pk=row.pk)
+            problems = learning.check(
+                row.question, row.entry, row.kind, active=True, exclude_pk=row.pk, expected=row.expected
+            )
             if problems:
                 skipped.append(f"«{row.question}» ({problems[0]})")
                 continue
@@ -205,3 +228,59 @@ class HelpExampleAdmin(ModelAdmin):  # type: ignore[misc]
         hits = learning.name_hits(obj.question)
         if hits:
             messages.warning(request, _name_message(hits))
+
+
+@admin.register(AssistantSettings)
+class AssistantSettingsAdmin(ModelAdmin):  # type: ignore[misc]
+    """One settings page, no list. Before the first save the page starts from the .env values (the key included, so
+    saving keeps it); nothing is written until Save, so just opening the page never changes how the assistant runs."""
+
+    form = AssistantSettingsForm
+    change_form_after_template = "admin/assistant/test_connection.html"
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def get_object(
+        self, request: HttpRequest, object_id: str, from_field: str | None = None
+    ) -> AssistantSettings | None:
+        row = AssistantSettings.objects.filter(pk=1).first()
+        if row is not None:
+            return row
+        return AssistantSettings(
+            pk=1,
+            provider=settings.ASSISTANT_PROVIDER if settings.ASSISTANT_PROVIDER in dict(PROVIDER_CHOICES) else "",
+            api_key=settings.ASSISTANT_API_KEY,
+            model=settings.ASSISTANT_MODEL,
+            timeout=settings.ASSISTANT_TIMEOUT,
+        )
+
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+        return HttpResponseRedirect(reverse("admin:assistant_assistantsettings_change", args=[1]))
+
+    def get_urls(self) -> list[Any]:
+        custom = [
+            path("test/", self.admin_site.admin_view(self.test_connection), name="assistant_assistantsettings_test"),
+        ]
+        return custom + list(super().get_urls())
+
+    def test_connection(self, request: HttpRequest) -> HttpResponse:
+        """Tries one tiny call with the values typed in the form (an empty key box means the saved key) and says
+        whether it worked. Saves nothing."""
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        if not self.has_change_permission(request):
+            return JsonResponse({"ok": False, "message": "Эрх хүрэлцэхгүй."}, status=403)
+        form = AssistantSettingsForm(request.POST, instance=self.get_object(request, "1"))
+        if not form.is_valid():
+            problems = "; ".join(
+                f"{form.fields[name].label}: {' '.join(str(e) for e in errors)}"
+                for name, errors in form.errors.items()
+                if name in form.fields
+            )
+            return JsonResponse({"ok": False, "message": problems or "Талбаруудаа шалгана уу."})
+        ok, message = check_connection(form.cleaned_data)
+        return JsonResponse({"ok": ok, "message": message})

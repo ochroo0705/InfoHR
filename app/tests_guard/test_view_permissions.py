@@ -94,6 +94,8 @@ EXPECTED: dict[str, Rule] = {
     "me_notice": LOGIN_ONLY,  # POST; dismisses one of the user's own leave-result notices only
     # POST; 400 without a question, 404 when the assistant is off; answers only from the user's allowed entries
     "assistant:ask": LOGIN_ONLY,
+    # POST; 400 without a valid choice; uses the same gate as the staff table inside tables.table_answer; no model call
+    "assistant:pick": LOGIN_ONLY,
     "login": PUBLIC,  # the login form itself
     "logout": PUBLIC,  # ends the session
     "password_change": LOGIN_ONLY,  # changes the user's own password only

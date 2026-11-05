@@ -1,8 +1,13 @@
 """The one HR database, `info_hr_demo`, filled with Mongolian demo data (the project's only database since 2026-11-03).
 
 Usage (from the repo root, venv active):
-    python scripts/demo.py reset   # drop + create info_hr_demo, migrate, seed_demo
-    python scripts/demo.py run     # runserver on http://localhost:8001 against info_hr_demo
+    python scripts/demo.py reset                # drop + create info_hr_demo, migrate, seed_demo
+    python scripts/demo.py run                  # runserver on http://localhost:8001 against info_hr_demo
+    python scripts/demo.py assistant-data       # add the help assistant's Mongolian demo staff (idempotent)
+
+`assistant-data` runs `seed_assistant_demo`, which checks PostgreSQL, DEBUG and the info_hr_demo* name itself.
+There is no removal (the activity log is append-only). To start over: `python scripts/demo.py reset`, then
+`python scripts/demo.py assistant-data`.
 
 `.env` DATABASE_URL points at the same database, so `manage.py` and the tests (test_info_hr_demo) use it too.
 """
@@ -68,6 +73,8 @@ if __name__ == "__main__":
         reset()
     elif command == "run":
         manage("runserver", PORT)
+    elif command == "assistant-data":
+        manage("seed_assistant_demo")
     else:
         print(__doc__)
         sys.exit(1)

@@ -8,6 +8,12 @@
       "port": 8001
     },
     {
+      "name": "demo-8001",
+      "runtimeExecutable": "E:/WorkProjects/Info HR/.venv/Scripts/python.exe",
+      "runtimeArgs": ["scripts/demo.py", "run"],
+      "port": 8001
+    },
+    {
       "name": "assistant-8004",
       "runtimeExecutable": "E:/WorkProjects/Info HR/.venv/Scripts/python.exe",
       "runtimeArgs": ["app/manage.py", "runserver", "8004"],

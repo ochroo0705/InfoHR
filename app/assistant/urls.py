@@ -6,4 +6,5 @@ app_name = "assistant"
 
 urlpatterns = [
     path("ask/", views.ask, name="ask"),
+    path("pick/", views.pick, name="pick"),
 ]
