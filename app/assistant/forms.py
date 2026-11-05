@@ -4,7 +4,7 @@ from typing import Any
 from django import forms
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
-from unfold.widgets import UnfoldAdminTextInputWidget
+from unfold.widgets import UnfoldAdminPasswordInput, UnfoldAdminTextInputWidget
 
 from assistant import learning
 from assistant.catalog import MODELS
@@ -91,7 +91,7 @@ class AssistantSettingsForm(forms.ModelForm):  # type: ignore[type-arg]
     api_key = forms.CharField(
         label="API түлхүүр",
         required=False,
-        widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+        widget=UnfoldAdminPasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
     )
     model = forms.CharField(
         label="Загвар", required=False, max_length=60, widget=ModelInput(attrs={"autocomplete": "off"})

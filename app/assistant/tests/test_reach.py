@@ -80,7 +80,7 @@ def _client(user: User) -> Client:
 
 def _page(client: Client, url: str, modal: bool) -> str:
     headers = {"HX-Request": "true"} if modal else {}
-    resp = client.get(url, headers=headers)
+    resp = client.get(url, headers=headers, follow=True)  # a one-row settings list redirects to its form
     assert resp.status_code == 200, url
     return resp.content.decode()
 

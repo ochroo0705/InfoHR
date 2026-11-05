@@ -71,6 +71,15 @@ def test_admin_singleton_no_second_row_no_delete() -> None:
     assert admin.has_delete_permission(request, CompanySettings.get()) is False
 
 
+@pytest.mark.parametrize("has_row", [False, True])
+def test_admin_list_skips_to_the_one_row(client: Client, has_row: bool) -> None:
+    row = CompanySettings.get() if has_row else None
+    client.force_login(User.objects.create_superuser("company_admin2", password="x-long-pass-123"))  # noqa: S106
+    response = client.get("/admin/employees/companysettings/")
+    assert response.status_code == 302
+    assert response["Location"].endswith(f"/{row.pk}/change/" if row else "/add/")
+
+
 def test_str_names_the_company_when_set() -> None:
     """The admin success message («… амжилттай») uses str(), so it names the company."""
     assert str(_company("Жишээ-1 ХХК")) == "Жишээ-1 ХХК"
