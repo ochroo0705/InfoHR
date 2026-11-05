@@ -22,7 +22,7 @@ from reports.table import build_table, usable_filters
 
 from assistant.plan import Part
 from assistant.resolver import LOOKUP_WHERE, LOOKUPS, Candidate, resolve
-from assistant.words import FilterWords, offered_words
+from assistant.words import GROUP_OPTIONS, FilterWords, offered_words
 
 MAX_BUTTONS = 5
 MAX_ECHO = 80  # the user's own words, echoed in a line, are cut to this length
@@ -34,6 +34,8 @@ _NOT_OFFERED = "Ийм шүүлтүүр байхгүй эсвэл танд нэ�
 _NO_VALUE = "“{value}” гэсэн утга олдсонгүй."
 _UNMAPPED = "“{word}” — ийм шүүлтүүр алга."
 _NO_TABLE = "Ажилтны хүснэгтийг харах эрх алга."
+_NO_CHART = "График хийх боломжгүй: “{by}”."
+_NO_CHART_BY = "График хэлтэс, салбар эсвэл албан тушаалаар бүлэглэж хийгдэнэ: аль нэгийг нь нэрлэнэ үү."
 
 
 @dataclass(frozen=True)
@@ -191,6 +193,17 @@ def _address(query: str) -> str:
     return f"{path}?{query}" if query else path
 
 
+def _chart_lines(want: str, chart_by: str) -> tuple[str, ...]:
+    """The not-applied line for a chart asked for a grouping the staff table does not offer. Empty when no chart is
+    asked for or when the grouping is offered. A chart asked for with no grouping the table offers gets its own line,
+    so the request is never dropped silently."""
+    if want != "chart" or chart_by in GROUP_OPTIONS:
+        return ()
+    if not chart_by:
+        return (_NO_CHART_BY,)
+    return (_NO_CHART.format(by=_echo(chart_by)),)
+
+
 def table_answer(
     user: User,
     parts: Sequence[Part],
@@ -219,6 +232,7 @@ def table_answer(
             chart_by=chart_by,
         )
     settled = settle(user, parts, base=_base_of(base_query), unmapped=unmapped)
+    chart_lines = _chart_lines(want, chart_by)
     if settled.ask is not None:
         f = _filters_of(user, settled.params)
         query = _query(f)
@@ -229,7 +243,7 @@ def table_answer(
             url=_address(query),
             count=None,
             chips=tuple(describe(f, REPORT.filters)),
-            not_applied=settled.not_applied,
+            not_applied=settled.not_applied + chart_lines,
             ask=settled.ask,
             rest=settled.rest,
             chart_kind=chart_kind,
@@ -244,7 +258,7 @@ def table_answer(
         url=_address(query),
         count=table.count,
         chips=tuple(describe(table.filters, REPORT.filters)),
-        not_applied=settled.not_applied,
+        not_applied=settled.not_applied + chart_lines,
         ask=None,
         rest=(),
         chart_kind=chart_kind,

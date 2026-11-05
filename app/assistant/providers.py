@@ -28,6 +28,7 @@ from assistant.prompt import (
 from assistant.words import FilterWords
 
 if TYPE_CHECKING:  # assistant.plan imports ProviderError from this module, so it is imported where it is used
+    from assistant.fields import AskableField
     from assistant.plan import Plan
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class Provider(Protocol):
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence["AskableField"] = (),
     ) -> "Plan": ...
 
 
@@ -82,14 +84,15 @@ def _plan_system(
     phrases: Mapping[str, list[str]],
     refusals: Sequence[str],
     table_examples: Sequence[tuple[str, str]] = (),
+    field_hints: Sequence["AskableField"] = (),
 ) -> str:
-    """The system text for a plan: the instruction, the help entries, then the filters as a JSON block."""
+    """The system text for a plan: the instruction, the help entries, then the filters and fields as a JSON block."""
     return (
         PLAN_INSTRUCTION
         + "\nHelp entries:\n"
         + entries_block(entries)
         + "\nFilters:\n"
-        + words_block(words, phrases)
+        + words_block(words, phrases, field_hints)
         + refusals_block(refusals)
         + table_examples_block(table_examples)
     )
@@ -142,10 +145,11 @@ class GeminiProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence["AskableField"] = (),
     ) -> "Plan":
         from assistant.plan import parse_plan  # local: assistant.plan imports this module
 
-        system = _plan_system(entries, words, phrases, refusals, table_examples)
+        system = _plan_system(entries, words, phrases, refusals, table_examples, field_hints)
         return parse_plan(self._call_json(system, plan_input(question, today, previous), PLAN_SCHEMA))
 
 
@@ -217,10 +221,11 @@ class GroqProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence["AskableField"] = (),
     ) -> "Plan":
         from assistant.plan import parse_plan  # local: assistant.plan imports this module
 
-        system = _plan_system(entries, words, phrases, refusals, table_examples) + "\n" + PLAN_REPLY
+        system = _plan_system(entries, words, phrases, refusals, table_examples, field_hints) + "\n" + PLAN_REPLY
         return parse_plan(self._call_json(system, plan_input(question, today, previous)))
 
 
@@ -296,11 +301,12 @@ class ClaudeProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence["AskableField"] = (),
     ) -> "Plan":
         from assistant.plan import parse_plan  # local: assistant.plan imports this module
 
         # 800, not 400: a plan can hold up to MAX_PARTS parts, each with a param and a value.
-        system = _plan_system(entries, words, phrases, refusals, table_examples) + "\n" + PLAN_REPLY
+        system = _plan_system(entries, words, phrases, refusals, table_examples, field_hints) + "\n" + PLAN_REPLY
         return parse_plan(self._call_json(system, plan_input(question, today, previous), max_tokens=800))
 
 

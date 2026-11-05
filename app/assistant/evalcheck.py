@@ -11,7 +11,7 @@ from accounts.models import User
 from django.http import QueryDict
 from reports.filters import parse_filters, to_query
 
-from assistant.evalset import TableCase
+from assistant.evalset import ActionCase, TableCase
 from assistant.plan import Plan
 from assistant.resolver import LOOKUP_WHERE, LOOKUPS
 from assistant.tables import settle
@@ -91,7 +91,9 @@ def check_table(user: User, case: TableCase, plan: Plan, today: date) -> TableRe
         return TableResult(passed=False, got="no table (none)")
     parts = plan.parts if plan.tool == "staff_table" else ()
     unmapped = plan.unmapped if plan.tool == "staff_table" else ()
-    settled = settle(user, parts, unmapped=unmapped)
+    # The earlier answer's filters, as the service passes them: the table keeps only what this user may use.
+    base = QueryDict(case.previous).dict() if case.previous else None
+    settled = settle(user, parts, base=base, unmapped=unmapped)
     if settled.ask is not None:
         return TableResult(passed=case.ask == settled.ask.param, got=f"asks {settled.ask.param}")
     query = to_query(parse_filters(QueryDict(urlencode(settled.params))))
@@ -105,4 +107,45 @@ def check_table(user: User, case: TableCase, plan: Plan, today: date) -> TableRe
     passed = same_filters(query, want)
     if case.unapplied:
         passed = passed and bool(settled.not_applied)
+    if case.chart:
+        got = (
+            f"{got}; chart {plan.chart_kind or '-'}:{plan.chart_by or '-'}"
+            if plan.want == "chart"
+            else f"{got}; no chart"
+        )
+        passed = passed and _chart_matches(plan, case.chart)
     return TableResult(passed=passed, got=got)
+
+
+def _chart_matches(plan: Plan, chart: str) -> bool:
+    """Whether the plan asks for a chart of the kind and grouping the case names ("kind:by", by may be empty)."""
+    kind, _, by = chart.partition(":")
+    return plan.want == "chart" and plan.chart_kind == kind and plan.chart_by == by
+
+
+@dataclass(frozen=True)
+class ActionResult:
+    passed: bool
+    got: str  # the plan's tool and field, and what is wrong with a leave date
+
+
+def _iso_or_empty(value: str) -> bool:
+    """True when the value is "" (the plan left it out) or a real ISO date."""
+    if not value:
+        return True
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def check_action(case: ActionCase, plan: Plan) -> ActionResult:
+    """Whether the plan picks the case's tool and field. A leave case also needs its start and end, when given, to
+    parse as ISO dates. Writes nothing; the eval only reports the result."""
+    got = f"{plan.tool} {plan.field}".strip()
+    if plan.tool != case.tool or plan.field != case.field:
+        return ActionResult(passed=False, got=got)
+    if case.leave and not (_iso_or_empty(plan.start) and _iso_or_empty(plan.end)):
+        return ActionResult(passed=False, got=f"{got}; a date is not ISO")
+    return ActionResult(passed=True, got=got)

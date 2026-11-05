@@ -13,6 +13,7 @@ class Outcome(models.TextChoices):
     ERROR = "error", "Алдаа"
     LIMITED = "limited", "Хязгаарлагдсан"
     TABLE = "table", "Хүснэгт"
+    ACTION = "action", "Үйлдэл"
 
 
 class Kind(models.TextChoices):

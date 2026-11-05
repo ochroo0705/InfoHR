@@ -33,8 +33,9 @@ answer has no link and no context. A denied table shows only the not-applied lin
   </div>
 {% endif %}
 {% if ta.status == "list" %}
-  <div>
+  <div class="flex flex-wrap gap-2">
     <a href="{{ ta.url }}" data-palette-item role="option" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-1.5 text-white hover:bg-violet-700 max-sm:min-h-11">Хүснэгт нээх →</a>
+    {% if chart_url %}<a href="{{ chart_url }}" data-palette-modal class="inline-flex items-center rounded-lg border border-violet-200 bg-surface px-3 py-1.5 text-violet-800 hover:bg-violet-100 max-sm:min-h-11">График харах →</a>{% endif %}
   </div>
 {% endif %}
 </div>

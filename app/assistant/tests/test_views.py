@@ -45,6 +45,7 @@ class FakeProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         return fake_plan(self, question, entries, refusals)
 
@@ -129,6 +130,7 @@ class ErrorProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         return fake_plan(self, question, entries, refusals)
 

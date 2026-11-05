@@ -64,17 +64,17 @@ def test_parse_plan_clamps() -> None:
 
 def test_words_block_is_json_and_has_candidates() -> None:
     words = [WORDS["department"], WORDS["state"]]
-    rows = json.loads(words_block(words, {"department": ["Санхүү"]}))
-    assert isinstance(rows, list)
-    by_param = {row["param"]: row for row in rows}
+    block = json.loads(words_block(words, {"department": ["Санхүү"]}))
+    assert block["group_options"] == ["department", "branch", "position"]
+    by_param = {row["param"]: row for row in block["filters"]}
     assert by_param["department"]["candidates"] == ["Санхүү"]
     assert {v["value"] for v in by_param["state"]["values"]} == {"working", "upcoming", "left", "all"}
     assert "candidates" not in by_param["state"]
 
 
 def test_words_block_marks_unconfirmed_values() -> None:
-    rows = json.loads(words_block([WORDS["emptype"]], {}))
-    values = {v["value"]: v for v in rows[0]["values"]}
+    block = json.loads(words_block([WORDS["emptype"]], {}))
+    values = {v["value"]: v for v in block["filters"][0]["values"]}
     assert values["9"]["confirmed"] is False
     assert "confirmed" not in values["1"]
 
@@ -108,6 +108,12 @@ def test_plan_schema_lists_every_field() -> None:
         "want",
         "chart_kind",
         "chart_by",
+        "fresh",
+        "field",
+        "own",
+        "leave_type",
+        "start",
+        "end",
     }
 
 
@@ -159,3 +165,15 @@ def test_bad_thirteenth_unmapped_is_cut_before_validation() -> None:
     unmapped: list[Any] = ["x"] * MAX_PARTS + [5]
     plan = parse_plan(_reply(unmapped=unmapped))
     assert len(plan.unmapped) == MAX_PARTS
+
+
+def test_fresh_defaults_to_false_and_needs_a_real_true() -> None:
+    assert parse_plan(_reply()).fresh is False
+    assert parse_plan(_reply(fresh=True)).fresh is True
+    assert parse_plan(_reply(fresh="true")).fresh is False
+
+
+def test_chart_request_without_a_kind_gets_bar() -> None:
+    assert parse_plan(_reply(want="chart", chart_kind="")).chart_kind == "bar"
+    assert parse_plan(_reply(want="chart", chart_kind="pie")).chart_kind == "pie"
+    assert parse_plan(_reply(want="list", chart_kind="")).chart_kind == ""

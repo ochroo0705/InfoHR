@@ -276,6 +276,9 @@ WORDS: dict[str, FilterWords] = {
     )
 }
 
+# The staff table's grouping keys: the only values a chart may be grouped by (the plan's chart_by).
+GROUP_OPTIONS: tuple[str, ...] = REPORT.group_options
+
 
 def offered_words(user: User) -> list[FilterWords]:
     """The words of the filters the staff table offers this user, in the table's order. A range lists both of its

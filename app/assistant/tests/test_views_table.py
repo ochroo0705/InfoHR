@@ -50,6 +50,7 @@ class TableProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         self.previous.append(previous)
         return self.table

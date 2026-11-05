@@ -12,12 +12,19 @@ from django.core.management.base import CommandError
 from pytest import MonkeyPatch
 
 from assistant.entries import ENTRIES, HelpEntry
-from assistant.evalset import CASES, ROLE_ENTRIES, ROLES, TABLE_CASES, EvalCase, expected
+from assistant.evalset import ACTION_CASES, CASES, ROLE_ENTRIES, ROLES, TABLE_CASES, EvalCase, expected
 from assistant.management.commands import assistant_eval
 from assistant.models import HelpExample, HelpQuestion, Kind
 from assistant.plan import Plan
 from assistant.providers import Choice
-from assistant.tests.helpers import drop_narrowing, fake_plan, seed_eval_rows, table_plan_for, too_close_pairs
+from assistant.tests.helpers import (
+    action_plan_for,
+    drop_narrowing,
+    fake_plan,
+    seed_eval_rows,
+    table_plan_for,
+    too_close_pairs,
+)
 from assistant.words import FilterWords
 
 
@@ -58,10 +65,14 @@ class PerfectProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         case = next((c for c in TABLE_CASES if c.question == question), None)
         if case is not None:
             return table_plan_for(case, today)
+        action = next((c for c in ACTION_CASES if c.question == question), None)
+        if action is not None:
+            return action_plan_for(action)
         return fake_plan(self, question, entries, refusals)
 
 
@@ -183,6 +194,7 @@ class EmptyProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         return fake_plan(self, question, entries, refusals)
 

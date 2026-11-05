@@ -1,0 +1,17 @@
+{% comment %}The people of a pick (a field or leave question that names several people): one link row per person, copied from the person rows of _answer.html. `modal` adds the pop-up attribute (the leave form opens over the panel). Nothing is opened by a pick.{% endcomment %}
+<div class="mt-3">
+  <p class="font-medium">Аль ажилтан бэ?</p>
+  <div class="mt-1 flex flex-col gap-1">
+  {% for row in action_rows %}
+    <a href="{{ row.url }}" data-palette-item role="option"{% if modal %} data-palette-modal{% endif %} class="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-violet-100 max-sm:min-h-11">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold {% if row.hit.left %}bg-slate-200 text-slate-600{% else %}bg-violet-100 text-violet-700{% endif %}" aria-hidden="true">{{ row.hit.initials }}</span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate font-medium">{{ row.hit.employee.family_name }} {{ row.hit.employee.given_name }}</span>
+        {% if row.job %}<span class="block truncate text-xs text-slate-500">{{ row.job }}</span>{% endif %}
+      </span>
+      {% if row.hit.left %}<span class="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">Гарсан</span>{% endif %}
+    </a>
+  {% endfor %}
+  {% if action_more %}<p class="px-2 py-1.5 text-xs text-slate-500">Хайлтаа нарийсгаад үзнэ үү.</p>{% endif %}
+  </div>
+</div>

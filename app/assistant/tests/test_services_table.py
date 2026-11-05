@@ -51,6 +51,7 @@ class PlanProvider:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         self.calls += 1
         self.entries_seen.append(entries)
@@ -313,3 +314,18 @@ def test_phrases_load_each_lookup_once_and_cap_at_15(
     assert max(Counter(loads).values()) == 1
     assert "department" in loads
     assert len(phrases["department"]) == 15
+
+
+@pytest.mark.django_db
+def test_fresh_plan_drops_the_previous_filters(role_user: Callable[[str], User]) -> None:
+    from dataclasses import replace
+
+    user = role_user("hr")
+    hire_one(user)
+    provider = PlanProvider(replace(_table_plan(), fresh=True))
+
+    result = answer(user, QUESTION, DAY, provider, previous="emptype=5")
+
+    assert result.table is not None
+    assert "emptype=5" not in result.table.query
+    assert "department=" in result.table.query

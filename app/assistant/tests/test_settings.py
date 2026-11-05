@@ -312,6 +312,7 @@ def test_failed_question_logs_the_reason(client: Client) -> None:
             previous: str = "",
             refusals: Any = (),
             table_examples: Any = (),
+            field_hints: Any = (),
         ) -> Plan:
             return fake_plan(self, question, entries)
 
@@ -351,6 +352,7 @@ class _Stub:
         previous: str = "",
         refusals: Any = (),
         table_examples: Any = (),
+        field_hints: Any = (),
     ) -> Plan:
         return fake_plan(self, question, entries)
 

@@ -41,6 +41,8 @@
   </div>
 {% elif result.outcome == "table" %}
   {% include "assistant/_table_answer.html" with ta=result.table %}
+{% elif result.outcome == "action" %}
+  {% include "assistant/_action_answer.html" %}
 {% elif result.outcome == "none" %}
   <p>Энэ асуултад хариулт олдсонгүй. Асуултаа өөрөөр бичээд үзнэ үү.</p>
 {% elif result.outcome == "error" %}

@@ -213,6 +213,7 @@ class _Recording:
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         self.table_examples = table_examples
         return Plan(

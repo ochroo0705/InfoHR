@@ -2,6 +2,7 @@
 answers (test_eval.PerfectProvider) and a table plan per draft case (helpers.table_plan_for)."""
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import date
 from io import StringIO
 
@@ -57,6 +58,7 @@ class TableFake(PerfectProvider):
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         self.asked.append(question)
         if question in self.plans:
@@ -130,7 +132,7 @@ def test_eval_scores_table_cases_with_a_fake_provider(monkeypatch: MonkeyPatch, 
     call_command("assistant_eval", role="hr", stdout=out)
     text = out.getvalue()
     assert "hr: " in text
-    assert "tables 10/10 gated, 2/2 ungated" in text
+    assert "tables 10/10 gated, 3/3 ungated" in text  # type 9 and the two chart cases are ungated
     assert "FAIL" not in text
 
 
@@ -162,7 +164,18 @@ def test_accountant_runs_only_the_cases_its_rights_allow(monkeypatch: MonkeyPatc
     monkeypatch.setattr(assistant_eval, "get_provider", lambda: TableFake())
     out = StringIO()
     call_command("assistant_eval", role="accountant", stdout=out)
-    assert "tables 8/8 gated, 2/2 ungated" in out.getvalue()
+    assert "tables 8/8 gated, 3/3 ungated" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_chart_case_fails_without_its_chart(rows: None) -> None:
+    """The chart case needs the plan to ask for its chart: the same filters without the chart do not pass it."""
+    case = _case("хэлтсээр нь графикаар үзүүл")
+    user = assistant_eval._role_user("hr")
+    today = date(2026, 11, 5)
+    assert check_table(user, case, table_plan_for(case, today), today).passed
+    without_chart = replace(table_plan_for(case, today), want="list", chart_kind="", chart_by="")
+    assert not check_table(user, case, without_chart, today).passed
 
 
 @pytest.mark.django_db
@@ -199,7 +212,7 @@ def test_role_under_ninety_percent_on_gated_tables_fails(monkeypatch: MonkeyPatc
 @pytest.mark.django_db
 def test_ungated_cases_are_reported_but_do_not_gate(monkeypatch: MonkeyPatch, rows: None) -> None:
     ungated = [c.question for c in TABLE_CASES if not c.gated]
-    assert len(ungated) == 2
+    assert len(ungated) == 3
     # An entry answer is wrong for every table case; a none plan would pass the case that expects no filter.
     entry = Plan(
         tool="entry",
@@ -217,7 +230,7 @@ def test_ungated_cases_are_reported_but_do_not_gate(monkeypatch: MonkeyPatch, ro
     out = StringIO()
     call_command("assistant_eval", role="hr", stdout=out)
     text = out.getvalue()
-    assert "tables 10/10 gated, 0/2 ungated" in text
+    assert "tables 10/10 gated, 0/3 ungated" in text
     assert all(f"FAIL table hr | {q}" in text for q in ungated)
 
 
@@ -247,6 +260,7 @@ def test_plan_gets_narrowed_entries(monkeypatch: MonkeyPatch, rows: None) -> Non
             previous: str = "",
             refusals: Sequence[str] = (),
             table_examples: Sequence[tuple[str, str]] = (),
+            field_hints: Sequence[object] = (),
         ) -> Plan:
             sizes.append(len(entries))
             return _plan_of(())  # nothing to score: the run fails, and only the sizes matter here
@@ -315,6 +329,7 @@ class ExampleRecorder(TableFake):
         previous: str = "",
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
     ) -> Plan:
         self.seen.append(tuple(table_examples))
         return super().plan(question, entries, words, phrases, today, previous, refusals, table_examples)

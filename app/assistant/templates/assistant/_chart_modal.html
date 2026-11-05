@@ -1,0 +1,24 @@
+{% load static %}{% comment %}The chart pop-up of a staff table answer (docs/UI_RULES.md §6c). The numbers are in two places: the JSON (read by
+static/js/assistant_chart.js to draw the chart) and the plain text list, which is always there, so a chart that cannot
+load still says everything. The chart library is our own static file, loaded by the script on first use.{% endcomment %}
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-4 pr-8 text-lg font-semibold">{{ data.by_label }}: нийт {{ data.total }} хүн</h2>
+    {{ payload|json_script:"assistant-chart-data" }}
+    {% if data.total %}
+    <div data-assistant-chart data-plotly-src="{% static 'vendor/plotly/plotly-basic.min.js' %}" role="img" aria-label="{{ data.by_label }}: нийт {{ data.total }} хүн" class="h-72 w-full"></div>
+    <p data-chart-failed hidden class="mb-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">График ачаалж чадсангүй.</p>
+    <ul data-chart-list class="divide-y divide-slate-100 text-sm">
+    {% for row in rows %}
+      <li class="py-1.5 break-words">{{ row.label }}: {{ row.count }} ({{ row.pct }}%)</li>
+    {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-slate-500">Хэн ч олдсонгүй.</p>
+    {% endif %}
+    <div class="mt-5 flex flex-wrap items-center justify-between gap-2">
+      <a href="{{ table_url }}" class="inline-flex items-center rounded-lg px-3 py-2 text-sm text-violet-700 hover:bg-violet-100 max-sm:min-h-11">Хүснэгтээр нээх →</a>
+      {% if data.total %}<button type="button" data-chart-png class="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 max-sm:min-h-11">Зураг татах</button>{% endif %}
+    </div>
+  </div>
+</div>

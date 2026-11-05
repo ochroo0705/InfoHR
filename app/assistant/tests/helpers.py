@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
+from urllib.parse import parse_qsl
 
 from accounts.models import User
 from checklists.models import ChecklistTemplate
@@ -21,7 +22,7 @@ from recruitment.services import pipeline
 
 from assistant.entries import HelpEntry
 from assistant.evalcheck import expected_pairs
-from assistant.evalset import TableCase
+from assistant.evalset import ActionCase, TableCase
 from assistant.plan import Part, Plan
 from assistant.providers import Choice
 
@@ -145,10 +146,15 @@ def plan_from_choice(choice: Choice) -> Plan:
 
 
 def fake_plan(
-    provider: Any, question: str, entries: Sequence[HelpEntry], refusals: Any = (), table_examples: Any = ()
+    provider: Any,
+    question: str,
+    entries: Sequence[HelpEntry],
+    refusals: Any = (),
+    table_examples: Any = (),
+    field_hints: Any = (),
 ) -> Plan:
     """The plan() of a fake provider: its `table` attribute (a Plan) when it has one, else its choose() as a plan.
-    `table_examples` is accepted as plan() takes it; the fakes do not read it."""
+    `table_examples` and `field_hints` are accepted as plan() takes them; the fakes do not read them."""
     table = getattr(provider, "table", None)
     if isinstance(table, Plan):
         return table
@@ -178,8 +184,16 @@ _EXTRA_PARTS: dict[str, tuple[Part, ...]] = {
 
 
 def table_plan_for(case: TableCase, today: date) -> Plan:
-    """A perfect staff-table plan for a draft case: its expected query as parts, plus the case's extra parts."""
-    parts = tuple(Part(param=param, value=value) for param, value, _ in expected_pairs(case.expected, today))
+    """A perfect staff-table plan for a draft case: its expected query as parts, plus the case's extra parts. A
+    follow-up case leaves out the filters its earlier query already holds (the code keeps those). A chart case asks
+    for its chart."""
+    before = dict(parse_qsl(case.previous))
+    parts = tuple(
+        Part(param=param, value=value)
+        for param, value, _ in expected_pairs(case.expected, today)
+        if before.get(param) != value
+    )
+    kind, _, by = case.chart.partition(":")
     return Plan(
         tool="staff_table",
         entry="",
@@ -187,9 +201,26 @@ def table_plan_for(case: TableCase, today: date) -> Plan:
         lead="",
         parts=(*parts, *_EXTRA_PARTS.get(case.question, ())),
         unmapped=(),
+        want="chart" if case.chart else "list",
+        chart_kind=kind,
+        chart_by=by,
+    )
+
+
+def action_plan_for(case: ActionCase) -> Plan:
+    """A perfect plan for an action case: its tool and field. A leave case gets no dates or type here (a fake that
+    needs them builds its own plan)."""
+    return Plan(
+        tool=case.tool,
+        entry="",
+        also="",
+        lead="",
+        parts=(),
+        unmapped=(),
         want="list",
         chart_kind="",
         chart_by="",
+        field=case.field,
     )
 
 

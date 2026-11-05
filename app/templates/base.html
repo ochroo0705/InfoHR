@@ -15,7 +15,7 @@
   <script src="{% static 'js/order_suggest.js' %}" defer></script>
   <script src="{% static 'js/modal.js' %}" defer></script>
   <script src="{% static 'js/validation_mn.js' %}" defer></script>
-  {% if user.is_authenticated %}<script src="{% static 'js/thread_store.js' %}" defer></script><script src="{% static 'js/palette.js' %}" defer></script><script src="{% static 'js/nav.js' %}" defer></script>{% endif %}
+  {% if user.is_authenticated %}<script src="{% static 'js/assistant_chart.js' %}" defer></script><script src="{% static 'js/thread_store.js' %}" defer></script><script src="{% static 'js/palette.js' %}" defer></script><script src="{% static 'js/nav.js' %}" defer></script>{% endif %}
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800"{% if perms.lists.manage_lists %} data-can-add-lists{% endif %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}
