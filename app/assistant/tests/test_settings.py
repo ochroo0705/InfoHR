@@ -94,7 +94,7 @@ def test_claude_network_error_is_provider_error() -> None:
 
 
 def test_every_listed_model_belongs_to_a_known_provider() -> None:
-    assert set(MODELS) == {"claude", "gemini", "groq"}
+    assert set(MODELS) == {"claude", "deepseek", "gemini", "groq"}
     assert all(models for models in MODELS.values())
 
 

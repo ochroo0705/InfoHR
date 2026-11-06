@@ -36,6 +36,7 @@ class Plan:
     want: str  # "list" | "count" | "chart"
     chart_kind: str  # "bar" | "pie" | ""
     chart_by: str  # a group option key or ""
+    group_by: str = ""  # a group option key for a table answer, or ""
     fresh: bool = False  # a new question: the earlier answer's filters are not carried over
     field: str = ""  # a key from the fields list, for tool == "field"
     own: bool = False  # the question is about the asker themselves («миний ...»)
@@ -108,6 +109,7 @@ def parse_plan(data: Any) -> Plan:
         want=want if want in WANTS else "list",
         chart_kind=chart_kind if chart_kind in CHART_KINDS else ("bar" if want == "chart" else ""),
         chart_by=_text(data, "chart_by", MAX_SHORT),
+        group_by=_optional_text(data, "group_by", MAX_SHORT),
         fresh=data.get("fresh") is True,
         field=field,
         own=data.get("own") is True,

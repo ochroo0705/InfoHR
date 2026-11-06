@@ -90,3 +90,16 @@ def test_malformed_or_huge_query_means_no_filters(role_user: Callable[[str], Use
     huge = chart_data(user, "&".join(f"k{i}=1" for i in range(2000)), "bar", "department")
     assert plain is not None and huge is not None
     assert huge.total == plain.total
+
+
+def test_biggest_group_comes_first(role_user: Callable[[str], User]) -> None:
+    user: User = role_user("hr")
+    hire_one(user, department="Борлуулалт")
+    for _ in range(3):
+        hire_one(user, department="Санхүү")
+
+    data = chart_data(user, "", "bar", "department")
+
+    assert data is not None
+    assert data.labels[0] == "Санхүү"
+    assert list(data.counts) == sorted(data.counts, reverse=True)

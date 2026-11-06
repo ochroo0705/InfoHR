@@ -19,7 +19,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])  # e.g. https://host.ts.net behind a tunnel
-# Help assistant (app/assistant). Provider: gemini | groq | empty (empty = off). The key lives in .env only.
+# Help assistant (app/assistant). Provider: claude | deepseek | gemini | groq | empty (empty = off). The key lives in .env only.
 ASSISTANT_PROVIDER = env.str("ASSISTANT_PROVIDER", default="")
 ASSISTANT_API_KEY = env.str("ASSISTANT_API_KEY", default="")
 ASSISTANT_MODEL = env.str("ASSISTANT_MODEL", default="")
@@ -221,20 +221,20 @@ UNFOLD = {
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_LANGUAGES": True,
-    # Same turquoise as the app's "violet" scale in static/css/input.css (UI_RULES §8).
+    # Same red as the app's "violet" scale in static/css/input.css (UI_RULES §8).
     "COLORS": {
         "primary": {
-            "50": "#eef8f8",
-            "100": "#dcefef",
-            "200": "#bfe0e1",
-            "300": "#93cbce",
-            "400": "#54aab0",
-            "500": "#2b8d96",
-            "600": "#0f7c86",
-            "700": "#0b656e",
-            "800": "#0a4f56",
-            "900": "#0a3d43",
-            "950": "#052a2f",
+            "50": "#fdf0ee",
+            "100": "#fadbd8",
+            "200": "#f5b7b1",
+            "300": "#f1948a",
+            "400": "#ec7063",
+            "500": "#e74c3c",
+            "600": "#c0392b",
+            "700": "#a93226",
+            "800": "#922b21",
+            "900": "#7b241c",
+            "950": "#4a1410",
         },
     },
     "SCRIPTS": [

@@ -1,4 +1,4 @@
-// The chart pop-up of an assistant table answer (assistant/_chart_modal.html, docs/UI_RULES.md §6c). The pop-up carries
+// The chart pane of an assistant table answer (assistant/_chart_modal.html, docs/UI_RULES.md §6c). The pop-up carries
 // its numbers twice: as JSON (#assistant-chart-data) for the chart, and as a plain text list that is always there. The
 // chart library (Plotly, our own file under static/vendor/plotly) is loaded the first time a chart is drawn, never from a
 // CDN. Colours are read from the page's CSS variables, so the dark theme works; a theme change redraws the charts.
@@ -17,8 +17,69 @@
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
+  var pane = document.querySelector("[data-chart-pane]");  // the docked chart pane (base.html)
+  var panel = document.querySelector("[data-assistant-panel]");
+
   function popupOf(el) {
-    return el.closest(".fixed.inset-0") || document;
+    return el.closest("[data-chart-pane]") || document;
+  }
+
+  // Opens the pane at once (so the chart is measured at its real size), then loads the chart fragment into it.
+  function openPane(href) {
+    if (!pane) return false;
+    pane.hidden = false;
+    pane.innerHTML = '<p role="status" class="p-4 text-sm text-slate-500">График ачаалж байна…</p>';
+    if (window.htmx) window.htmx.ajax("GET", href, { target: "#" + pane.id, swap: "innerHTML" });
+    else window.location.assign(href);
+    return true;
+  }
+
+  function closePane() {
+    if (!pane || pane.hidden) return;
+    pane.hidden = true;
+    pane.textContent = "";  // the observer below purges the chart that was in it
+  }
+
+  // The open chart's state (filters, kind, grouping), read from the marker in the pane; null when no chart is open.
+  // palette.js sends it with a typed question, so a question can change the chart that is on screen.
+  window.openChartState = function () {
+    var mark = pane && !pane.hidden && pane.querySelector("[data-chart-state]");
+    if (!mark) return null;
+    return { query: mark.getAttribute("data-query") || "", kind: mark.getAttribute("data-kind") || "", by: mark.getAttribute("data-by") || "" };
+  };
+  // Opens or replaces the chart in the pane (palette.js calls it for a live answer that carries data-chart-auto).
+  window.openAssistantChart = openPane;
+
+  if (pane) {
+    document.addEventListener("click", function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      // Also the old pop-up link (data-palette-modal) of a thread kept in sessionStorage before the pane existed.
+      var open = t.closest('a[data-chart-open], a[data-palette-modal][href*="/assistant/chart/"]');
+      if (open) {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;  // a new tab keeps the pop-up address working
+        e.preventDefault();
+        e.stopPropagation();  // the thread's own pop-up handler must not also load the fragment into the page
+        openPane(open.getAttribute("href"));
+        return;
+      }
+      if (t.closest("[data-chart-close]")) {
+        e.preventDefault();
+        closePane();
+      }
+    }, true);  // capture phase: runs before the thread's click handler
+    // Esc closes the pane only while focus is inside it (the panel's own Esc rule is the same).
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !pane.hidden && pane.contains(document.activeElement)) {
+        e.preventDefault();
+        closePane();
+      }
+    });
+    // The pane belongs to the panel: it goes when the panel closes.
+    if (panel) {
+      new MutationObserver(function () { if (panel.hidden) closePane(); })
+        .observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+    }
   }
 
   // Loads the library once. Every caller gets the answer: true when window.Plotly is there, false when the file failed.
@@ -67,7 +128,19 @@
     });
   }
 
-  function layout(kind, maxCount) {
+  // Bars lie flat (longest on top) when there are many groups or long names: rotated labels were unreadable.
+  function isHorizontal(data) {
+    var longest = data.labels.reduce(function (m, l) { return Math.max(m, l.length); }, 0);
+    return data.kind !== "pie" && (data.labels.length > 6 || longest > 14);
+  }
+
+  // The chart's height follows the number of bars when they lie flat (the pane's body scrolls).
+  function sizeFor(el, data) {
+    if (data.kind === "pie") el.style.height = "380px";
+    else el.style.height = isHorizontal(data) ? Math.max(320, data.labels.length * 32 + 60) + "px" : "";
+  }
+
+  function layout(data, maxCount) {
     var text = cssVar("--color-slate-700");
     var base = {
       paper_bgcolor: "rgba(0,0,0,0)",
@@ -75,16 +148,37 @@
       font: { color: text, size: 13 },
       autosize: true,
     };
-    if (kind === "pie") {
-      return Object.assign(base, { showlegend: true, legend: { font: { color: text } }, margin: { l: 8, r: 8, t: 8, b: 8 } });
+    if (data.kind === "pie") {
+      return Object.assign(base, {
+        showlegend: true,
+        legend: { font: { color: text }, orientation: "h", y: -0.05 },
+        margin: { l: 8, r: 8, t: 8, b: 8 },
+        // The total sits in the hole of the ring.
+        annotations: [{
+          text: "<b>" + data.total + "</b><br>хүн", showarrow: false, x: 0.5, y: 0.5,
+          font: { size: 22, color: text },
+        }],
+      });
     }
-    var yaxis = { color: text, gridcolor: cssVar("--color-slate-200"), rangemode: "tozero", tickformat: "d" };
-    if (maxCount <= 10) yaxis.dtick = 1;  // whole people on the axis, never 0.5 steps
+    var grid = cssVar("--color-slate-200");
+    var count = { color: text, gridcolor: grid, rangemode: "tozero", tickformat: "d", zeroline: false,
+      range: [0, maxCount * 1.18] };  // room above the longest bar for its number
+    if (maxCount <= 10) count.dtick = 1;  // whole people on the axis, never 0.5 steps
+    if (isHorizontal(data)) {
+      return Object.assign(base, {
+        showlegend: false,
+        bargap: 0.35,
+        margin: { l: 8, r: 24, t: 8, b: 32 },
+        xaxis: count,
+        yaxis: { color: text, automargin: true, autorange: "reversed", showgrid: false, ticklen: 0 },
+      });
+    }
     return Object.assign(base, {
       showlegend: false,
-      margin: { l: 48, r: 16, t: 8, b: 64 },
+      bargap: 0.35,
+      margin: { l: 40, r: 16, t: 16, b: 64 },
       xaxis: { color: text, tickangle: -30, automargin: true },
-      yaxis: yaxis,
+      yaxis: count,
     });
   }
 
@@ -96,22 +190,37 @@
         labels: data.labels,
         values: data.counts,
         sort: false,
+        hole: 0.55,
         hovertext: texts,
         hoverinfo: "text",
-        textinfo: "none",
+        // Whole percent inside the slice, and nothing on a slice under 5% (the numbers would overlap).
+        text: data.counts.map(function (c) { var p = percent(c, data.total); return p >= 5 ? p + "%" : ""; }),
+        textinfo: "text",
+        textposition: "inside",
+        textfont: { color: "#fff" },
         marker: {
           colors: PIE_COLORS.map(cssVar),
-          line: { color: cssVar("--color-surface"), width: 1 },
+          line: { color: cssVar("--color-surface"), width: 2 },
         },
       }];
     }
+    // The biggest group is the strong colour, the rest are lighter, so the eye lands on the leader.
+    var strong = cssVar("--color-violet-600");
+    var soft = cssVar("--color-violet-400");
+    var colors = data.counts.map(function (_, i) { return i === 0 ? strong : soft; });
+    var horizontal = isHorizontal(data);
     return [{
       type: "bar",
-      x: data.labels,
-      y: data.counts,
+      orientation: horizontal ? "h" : "v",
+      x: horizontal ? data.counts : data.labels,
+      y: horizontal ? data.labels : data.counts,
+      text: data.counts.map(String),
+      textposition: "outside",
+      cliponaxis: false,
+      textfont: { color: cssVar("--color-slate-700") },
       hovertext: texts,
       hoverinfo: "text",
-      marker: { color: cssVar("--color-violet-600") },
+      marker: { color: colors },
     }];
   }
 
@@ -132,7 +241,8 @@
       }
       var maxCount = Math.max.apply(null, data.counts.concat([0]));
       try {
-        window.Plotly.newPlot(el, traces(data), layout(data.kind, maxCount), CONFIG);
+        sizeFor(el, data);
+        window.Plotly.newPlot(el, traces(data), layout(data, maxCount), CONFIG);
         if (drawn.indexOf(el) < 0) drawn.push(el);
       } catch (err) {
         showFailed(el);
@@ -149,20 +259,23 @@
 
   document.addEventListener("htmx:afterSettle", function () { drawAll(document); });
 
-  // A pop-up that is removed (×, Esc, a click outside) leaves its chart behind in Plotly's registry: purge it.
-  new MutationObserver(function () {
+  // A chart that leaves the page (the pane emptied or refilled) stays in Plotly's registry: purge it.
+  function purgeGone() {
     drawn = drawn.filter(function (el) {
       if (el.isConnected) return true;
       try { window.Plotly.purge(el); } catch (err) { /* already gone */ }
       return false;
     });
-  }).observe(document.body, { childList: true });
+  }
+  new MutationObserver(purgeGone).observe(document.body, { childList: true });
+  if (pane) new MutationObserver(purgeGone).observe(pane, { childList: true });
 
   // The pop-up is fetched by htmx, which shows nothing for an error answer: a stale link (another login, a changed
   // right) must not look like a dead button.
   document.addEventListener("htmx:responseError", function (e) {
     var url = (e.detail && e.detail.xhr && e.detail.xhr.responseURL) || "";
     if (url.indexOf("/assistant/chart/") < 0) return;
+    closePane();
     var note = document.createElement("div");
     note.setAttribute("role", "alert");
     note.className = "fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-800 px-4 py-2 text-sm text-white shadow-lg";

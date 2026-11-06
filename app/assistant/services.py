@@ -7,6 +7,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
+from typing import Any
 
 from accounts.models import User
 from django.db import transaction
@@ -146,6 +147,7 @@ def _from_plan(
     plan: Plan,
     previous: str,
     hint_keys: frozenset[str],
+    open_chart: tuple[str, str] | None = None,
 ) -> Answer:
     """The answer for a plan. An entry answer needs a key the user is allowed; a table answer needs the user to have
     offered words and the right to open the table (a denied table gives no answer); a field answer needs a key the
@@ -176,7 +178,9 @@ def _from_plan(
             unmapped=plan.unmapped,
             want=plan.want,
             chart_kind=plan.chart_kind,
-            chart_by=plan.chart_by,
+            # A chart question with no grouping of its own keeps the open chart's grouping.
+            chart_by=plan.chart_by or (open_chart[1] if open_chart and plan.want == "chart" else ""),
+            group_by=plan.group_by,
         )
         if table.status != "denied":
             return Answer(outcome=Outcome.TABLE, entry=None, also=None, lead="", tool=plan.tool, table=table)
@@ -201,7 +205,14 @@ def _from_plan(
     return Answer(outcome=Outcome.NONE, entry=None, also=None, lead="", tool=plan.tool)
 
 
-def answer(user: User, question: str, day: date, provider: Provider, previous: str = "") -> Answer:
+def answer(
+    user: User,
+    question: str,
+    day: date,
+    provider: Provider,
+    previous: str = "",
+    open_chart: tuple[str, str] | None = None,
+) -> Answer:
     """Answer one question for `user` on `day`, and log it. `previous` is the address query of the earlier answer
     (untrusted: the table keeps only the parameters this user may use)."""
     started = time.monotonic()
@@ -232,6 +243,8 @@ def answer(user: User, question: str, day: date, provider: Provider, previous: s
                     call_entries = [dataclasses.replace(e, learned=learned.get(e.key, ())) for e in allowed]
                     narrowed = narrow_entries(text, call_entries, limit=PLAN_ENTRIES)
                     hints = hints_for(text, limit=FIELD_HINTS)
+                    # Only the real adapters take open_chart; it is sent only when a chart is open.
+                    extra: dict[str, Any] = {"open_chart": open_chart} if open_chart is not None else {}
                     plan = provider.plan(
                         text,
                         narrowed,
@@ -242,6 +255,7 @@ def answer(user: User, question: str, day: date, provider: Provider, previous: s
                         learning.no_entry_questions(),
                         table_examples=learning.table_examples(),
                         field_hints=hints,
+                        **extra,
                     )
                 except ProviderError as exc:
                     result = Answer(outcome=Outcome.ERROR, entry=None, also=None, lead="", error=str(exc))
@@ -254,7 +268,15 @@ def answer(user: User, question: str, day: date, provider: Provider, previous: s
                     try:
                         with transaction.atomic():
                             result = _from_plan(
-                                user, text, day, allowed, words, plan, previous, frozenset(h.key for h in hints)
+                                user,
+                                text,
+                                day,
+                                allowed,
+                                words,
+                                plan,
+                                previous,
+                                frozenset(h.key for h in hints),
+                                open_chart,
                             )
                     except Exception as exc:
                         logger.exception("The help assistant could not turn the plan into an answer.")

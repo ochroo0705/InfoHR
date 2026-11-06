@@ -23,6 +23,9 @@ EXPECTED: dict[str, frozenset[str]] = {
     "CUSTOMER": frozenset({"TR_CUSTID", "TR_UPDCUSTOMER"}),
 }
 
+# Tables whose triggers the personal-tab writes (contacts, addresses) rely on.
+PERSONAL_WRITE_TABLES = ("CONTACTING", "ADDRESS", "CUSTOMER")
+
 # Table sets that already passed require() in this process. A failing result is never stored.
 _verified: set[frozenset[str]] = set()
 

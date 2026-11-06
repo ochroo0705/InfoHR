@@ -37,7 +37,7 @@ from macs.models import (
     TalentKind,
     TrainingRow,
 )
-from macs.triggers import database_has_triggers, require
+from macs.triggers import PERSONAL_WRITE_TABLES, database_has_triggers, require
 
 from employees.models import (
     PERSONAL_ADDED,
@@ -374,7 +374,7 @@ def _log(
 
 
 _TRIGGER_KINDS = ("contact", "address")
-_TRIGGER_TABLES = ("CONTACTING", "ADDRESS", "CUSTOMER")
+_TRIGGER_TABLES = PERSONAL_WRITE_TABLES
 # CONTACTING_AI0 (insert) and CONTACTING_AU0 (update, type 2 only) write employee.email for type 4 and
 # employee.homephone for type 2 in the database. HR refreshes those two columns and never writes them itself.
 _CONTACT_TYPES_WITH_EMPLOYEE_EFFECT = (2, 4)
@@ -426,7 +426,7 @@ def add(kind: str, employee: Employee, values: dict[str, object], ext: dict[str,
         row = _MODELS[kind].objects.create(employee=employee, **values)
         _save_ext(kind, row, ext)
         if kind == "address" and not database_has_triggers():
-            # ADDRESS_BI copied the street to the customer rows on insert (Firebird); PostgreSQL has no trigger.
+            # ADDRESS_BI copied the street to the ERP row on insert (Firebird); PostgreSQL has no trigger.
             macs_writes.copy_address_to_customer(employee, row.street)
         if kind == "contact":
             _refresh_contact_effect(employee, row.contact_type_id)

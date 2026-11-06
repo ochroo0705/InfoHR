@@ -32,6 +32,7 @@ from assistant.providers import (
     GROQ_URL,
     Choice,
     ClaudeProvider,
+    DeepSeekProvider,
     GeminiProvider,
     GroqProvider,
     ProviderError,
@@ -480,3 +481,29 @@ def test_claude_plan_hostile_question_stays_in_question_tags() -> None:
     assert user.count(HOSTILE_PLAN) == 1
     assert f"<question>\n{HOSTILE_PLAN}\n</question>" in user
     assert HOSTILE_PLAN not in body["system"]
+
+
+def test_deepseek_choice_and_request_shape() -> None:
+    post = _Post(_groq_reply('{"entry":"leave.record","also":"","lead":"Тийм."}'))
+    provider = DeepSeekProvider(api_key="k", model="deepseek-chat", timeout=5, post=post)
+    assert provider.choose(QUESTION, ENTRIES).entry == "leave.record"
+    assert post.calls[0][0] == "https://api.deepseek.com/chat/completions"
+
+
+def test_deepseek_http_error_hides_key() -> None:
+    http_error = urllib.error.HTTPError("u", 401, "x", {}, io.BytesIO(b'{"error":{"message":"bad secret-key"}}'))  # type: ignore[arg-type]
+    with pytest.raises(ProviderError) as info:
+        DeepSeekProvider(api_key="secret-key", model="m", timeout=5, post=_Post(exc=http_error)).choose(
+            QUESTION, ENTRIES
+        )
+    assert "secret-key" not in str(info.value)
+    assert "401" in str(info.value)
+
+
+@pytest.mark.django_db
+def test_is_enabled_deepseek(settings: Any) -> None:
+    settings.ASSISTANT_PROVIDER = "deepseek"
+    settings.ASSISTANT_API_KEY = "k"
+    settings.ASSISTANT_MODEL = "deepseek-chat"
+    assert is_enabled() is True
+    assert isinstance(get_provider(), DeepSeekProvider)

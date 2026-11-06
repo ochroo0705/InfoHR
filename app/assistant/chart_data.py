@@ -51,11 +51,13 @@ def chart_data(user: User, query: str, kind: str, by: str) -> ChartData | None:
     except (TooManyFieldsSent, ValueError, UnicodeError):
         filters = parse_filters(QueryDict())  # the address is untrusted: a malformed one means no filters
     table = build_table(REPORT, user, replace(filters, group=by))
+    # Biggest group first (a tie keeps the table's order): the bars, the list and the Excel file share this order.
+    ranked = sorted(((name, len(rows)) for name, rows in table.groups), key=lambda pair: -pair[1])
     return ChartData(
         kind=kind,
         by=by,
         by_label=column.label,
-        labels=tuple(name for name, _ in table.groups),
-        counts=tuple(len(rows) for _, rows in table.groups),
+        labels=tuple(name for name, _ in ranked),
+        counts=tuple(count for _, count in ranked),
         total=table.count,
     )

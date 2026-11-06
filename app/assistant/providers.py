@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 _FIELDS = ("entry", "also", "lead")
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 CLAUDE_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_VERSION = "2023-06-01"
 
@@ -146,11 +147,12 @@ class GeminiProvider:
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
         field_hints: Sequence["AskableField"] = (),
+        open_chart: tuple[str, str] | None = None,
     ) -> "Plan":
         from assistant.plan import parse_plan  # local: assistant.plan imports this module
 
         system = _plan_system(entries, words, phrases, refusals, table_examples, field_hints)
-        return parse_plan(self._call_json(system, plan_input(question, today, previous), PLAN_SCHEMA))
+        return parse_plan(self._call_json(system, plan_input(question, today, previous, open_chart), PLAN_SCHEMA))
 
 
 def _http_post(url: str, body: bytes, headers: dict[str, str], timeout: int) -> bytes:
@@ -160,10 +162,11 @@ def _http_post(url: str, body: bytes, headers: dict[str, str], timeout: int) -> 
         return bytes(resp.read())
 
 
-class GroqProvider:
-    """Groq's OpenAI-compatible chat API, in JSON mode. Uses only the standard library."""
+class _OpenAICompatProvider:
+    """An OpenAI-compatible chat API, in JSON mode. Uses only the standard library. Subclasses set name and url."""
 
-    name = "groq"
+    name = ""
+    url = ""
 
     def __init__(
         self,
@@ -197,7 +200,7 @@ class GroqProvider:
             "User-Agent": "InfoHR-assistant/1",
         }
         try:
-            reply = self._post(GROQ_URL, body, headers, self._timeout)
+            reply = self._post(self.url, body, headers, self._timeout)
             content = json.loads(reply)["choices"][0]["message"]["content"]
             return json.loads(content)
         # from None: the original error may hold the Authorization header, so it is not chained into a traceback.
@@ -222,11 +225,26 @@ class GroqProvider:
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
         field_hints: Sequence["AskableField"] = (),
+        open_chart: tuple[str, str] | None = None,
     ) -> "Plan":
         from assistant.plan import parse_plan  # local: assistant.plan imports this module
 
         system = _plan_system(entries, words, phrases, refusals, table_examples, field_hints) + "\n" + PLAN_REPLY
-        return parse_plan(self._call_json(system, plan_input(question, today, previous)))
+        return parse_plan(self._call_json(system, plan_input(question, today, previous, open_chart)))
+
+
+class GroqProvider(_OpenAICompatProvider):
+    """Groq's chat API."""
+
+    name = "groq"
+    url = GROQ_URL
+
+
+class DeepSeekProvider(_OpenAICompatProvider):
+    """DeepSeek's chat API (JSON mode needs the word JSON in the prompt, which JSON_REPLY and PLAN_REPLY supply)."""
+
+    name = "deepseek"
+    url = DEEPSEEK_URL
 
 
 def _api_detail(exc: urllib.error.HTTPError, api_key: str) -> str:
@@ -302,27 +320,30 @@ class ClaudeProvider:
         refusals: Sequence[str] = (),
         table_examples: Sequence[tuple[str, str]] = (),
         field_hints: Sequence["AskableField"] = (),
+        open_chart: tuple[str, str] | None = None,
     ) -> "Plan":
         from assistant.plan import parse_plan  # local: assistant.plan imports this module
 
         # 800, not 400: a plan can hold up to MAX_PARTS parts, each with a param and a value.
         system = _plan_system(entries, words, phrases, refusals, table_examples, field_hints) + "\n" + PLAN_REPLY
-        return parse_plan(self._call_json(system, plan_input(question, today, previous), max_tokens=800))
+        return parse_plan(self._call_json(system, plan_input(question, today, previous, open_chart), max_tokens=800))
 
 
 def is_enabled() -> bool:
     """True when the assistant is switched on and fully configured."""
     cfg = config.current()
-    return cfg.provider in ("claude", "gemini", "groq") and bool(cfg.api_key) and bool(cfg.model)
+    return cfg.provider in ("claude", "deepseek", "gemini", "groq") and bool(cfg.api_key) and bool(cfg.model)
 
 
 def build_provider(cfg: config.AssistantConfig) -> Provider | None:
     """The adapter for a configuration, or None when it is off, incomplete or the adapter could not start."""
-    if cfg.provider not in ("claude", "gemini", "groq") or not cfg.api_key or not cfg.model:
+    if cfg.provider not in ("claude", "deepseek", "gemini", "groq") or not cfg.api_key or not cfg.model:
         return None
     try:
         if cfg.provider == "groq":
             return GroqProvider(api_key=cfg.api_key, model=cfg.model, timeout=cfg.timeout)
+        if cfg.provider == "deepseek":
+            return DeepSeekProvider(api_key=cfg.api_key, model=cfg.model, timeout=cfg.timeout)
         if cfg.provider == "claude":
             return ClaudeProvider(api_key=cfg.api_key, model=cfg.model, timeout=cfg.timeout)
         return GeminiProvider(api_key=cfg.api_key, model=cfg.model, timeout=cfg.timeout)

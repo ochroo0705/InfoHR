@@ -18,7 +18,7 @@ from django.urls import reverse
 from reports import registry
 from reports.filters import MAX_AGE, Filters, describe, parse_filters, to_query
 from reports.staff_list import REPORT
-from reports.table import build_table, usable_filters
+from reports.table import allowed_columns, build_table, usable_filters
 
 from assistant.plan import Part
 from assistant.resolver import LOOKUP_WHERE, LOOKUPS, Candidate, resolve
@@ -35,6 +35,7 @@ _NO_VALUE = "“{value}” гэсэн утга олдсонгүй."
 _UNMAPPED = "“{word}” — ийм шүүлтүүр алга."
 _NO_TABLE = "Ажилтны хүснэгтийг харах эрх алга."
 _NO_CHART = "График хийх боломжгүй: “{by}”."
+_NO_GROUP = "Ийм бүлэглэлт байхгүй эсвэл танд нээлттэй биш: “{by}”."
 _NO_CHART_BY = "График хэлтэс, салбар эсвэл албан тушаалаар бүлэглэж хийгдэнэ: аль нэгийг нь нэрлэнэ үү."
 
 
@@ -160,6 +161,7 @@ class TableAnswer:
     rest: tuple[Part, ...]
     chart_kind: str
     chart_by: str
+    group: str = ""  # the grouping the table link carries (a group option the user may see), or ""
 
 
 def can_open_table(user: User) -> bool:
@@ -204,6 +206,11 @@ def _chart_lines(want: str, chart_by: str) -> tuple[str, ...]:
     return (_NO_CHART.format(by=_echo(chart_by)),)
 
 
+def _may_group(user: User, by: str) -> bool:
+    """Whether the staff table may be grouped by this column for the user: a group option whose column they may see."""
+    return by in GROUP_OPTIONS and any(c.key == by for c in allowed_columns(REPORT, user))
+
+
 def table_answer(
     user: User,
     parts: Sequence[Part],
@@ -213,6 +220,7 @@ def table_answer(
     want: str = "list",
     chart_kind: str = "",
     chart_by: str = "",
+    group_by: str = "",
 ) -> TableAnswer:
     """The staff table answer for these parts: the settled filters, their count and chips. `base_query` is the address
     of an earlier answer (untrusted): only the parameters this user may use survive. A user who may not open the
@@ -233,6 +241,14 @@ def table_answer(
         )
     settled = settle(user, parts, base=_base_of(base_query), unmapped=unmapped)
     chart_lines = _chart_lines(want, chart_by)
+    group = ""
+    if group_by and want == "list":
+        if _may_group(user, group_by):
+            group = group_by
+        else:
+            chart_lines += (_NO_GROUP.format(by=_echo(group_by)),)
+    elif want == "chart" and _may_group(user, chart_by):
+        group = chart_by  # the table link groups the way the chart does (a bad chart grouping already has its own line)
     if settled.ask is not None:
         f = _filters_of(user, settled.params)
         query = _query(f)
@@ -255,7 +271,7 @@ def table_answer(
         status="list",
         want=want,
         query=query,
-        url=_address(query),
+        url=_address(to_query(replace(table.filters, columns=(), sort="", group=group)) if group else query),
         count=table.count,
         chips=tuple(describe(table.filters, REPORT.filters)),
         not_applied=settled.not_applied + chart_lines,
@@ -263,4 +279,5 @@ def table_answer(
         rest=(),
         chart_kind=chart_kind,
         chart_by=chart_by,
+        group=group,
     )

@@ -128,7 +128,9 @@ if changes:
             if app == "macs":
                 fail(f"macs: models differ from migrations {ops}")
             else:
-                print(f"  note  {app}: models differ from migrations {ops} (not a production table; review before migrating)")
+                print(
+                    f"  note  {app}: models differ from migrations {ops} (not a production table; review before migrating)"
+                )
     if "macs" not in changes:
         ok("macs models match their migrations")
 else:
@@ -142,9 +144,7 @@ if "--live" in sys.argv:
             user, is_super = c.fetchone()
             if is_super:
                 fail(f"role {user} is a SUPERUSER: it can alter any table")
-            c.execute(
-                "select tablename from pg_tables where schemaname='public' and tableowner=current_user"
-            )
+            c.execute("select tablename from pg_tables where schemaname='public' and tableowner=current_user")
             owned = [r[0] for r in c.fetchall()]
             if owned:
                 fail(f"role {user} OWNS {len(owned)} production tables (can ALTER/DROP): {owned[:8]}...")
@@ -152,15 +152,19 @@ if "--live" in sys.argv:
                 c.execute("select count(*) from pg_tables where schemaname='public'")
                 n_pub = c.fetchone()[0]
                 if n_pub == 0:
-                    print(f"  note  database {connection.settings_dict['NAME']} has NO public tables: this check proves nothing here, run it against the MACS-connected database")
+                    print(
+                        f"  note  database {connection.settings_dict['NAME']} has NO public tables: this check proves nothing here, run it against the MACS-connected database"
+                    )
                 else:
                     ok(f"role {user} owns none of the {n_pub} public tables and is not superuser")
             c.execute("select app, name from django_migrations")
             applied = {(r[0], r[1]) for r in c.fetchall()}
             gone = [k for k in loader.disk_migrations if k not in applied and k[0] == "macs"]
             if gone:
-                print(f"  note  {len(gone)} macs migrations are not recorded as applied (state-only, no DDL; "
-                      "makemigrations/migrate will complain about history order)")
+                print(
+                    f"  note  {len(gone)} macs migrations are not recorded as applied (state-only, no DDL; "
+                    "makemigrations/migrate will complain about history order)"
+                )
             print("6. HR tables live in schema hr")
             hr = {m._meta.db_table for m in apps.get_models() if m._meta.managed and m._meta.app_label != "macs"}
             c.execute("select tablename from pg_tables where schemaname='public'")

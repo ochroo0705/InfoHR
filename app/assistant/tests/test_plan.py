@@ -177,3 +177,9 @@ def test_chart_request_without_a_kind_gets_bar() -> None:
     assert parse_plan(_reply(want="chart", chart_kind="")).chart_kind == "bar"
     assert parse_plan(_reply(want="chart", chart_kind="pie")).chart_kind == "pie"
     assert parse_plan(_reply(want="list", chart_kind="")).chart_kind == ""
+
+
+def test_group_by_is_read_and_optional() -> None:
+    assert parse_plan(_reply(group_by="department")).group_by == "department"
+    assert parse_plan(_reply()).group_by == ""
+    assert parse_plan(_reply(group_by="g" * 100)).group_by == "g" * 60

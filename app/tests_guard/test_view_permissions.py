@@ -98,6 +98,7 @@ EXPECTED: dict[str, Rule] = {
     "assistant:pick": LOGIN_ONLY,
     # GET; 400 on a bad kind, column or unreadable query; 403 when the user may not see the column or the table
     "assistant:chart": LOGIN_ONLY,
+    "assistant:chart_xlsx": LOGIN_ONLY,
     "login": PUBLIC,  # the login form itself
     "logout": PUBLIC,  # ends the session
     "password_change": LOGIN_ONLY,  # changes the user's own password only

@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             name='AssistantSettings',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('provider', models.CharField(blank=True, choices=[('claude', 'Claude (Anthropic)'), ('gemini', 'Gemini (Google)'), ('groq', 'Groq')], max_length=20, verbose_name='Үйлчилгээ үзүүлэгч')),
+                ('provider', models.CharField(blank=True, choices=[('claude', 'Claude (Anthropic)'), ('gemini', 'Gemini (Google)'), ('deepseek', 'DeepSeek'), ('groq', 'Groq')], max_length=20, verbose_name='Үйлчилгээ үзүүлэгч')),
                 ('api_key', models.CharField(blank=True, max_length=300, verbose_name='API түлхүүр')),
                 ('model', models.CharField(blank=True, max_length=60, verbose_name='Загвар')),
                 ('timeout', models.PositiveSmallIntegerField(default=15, validators=[django.core.validators.MinValueValidator(3), django.core.validators.MaxValueValidator(60)], verbose_name='Хугацааны хязгаар (секунд)')),
