@@ -1,0 +1,328 @@
+{
+  "annual_leave_rules": {
+    "2022-01-01": {
+      "base_days": 15,
+      "base_days_minor_or_disabled": 20,
+      "brackets": [
+        {
+          "extra_days": 3,
+          "from_month": 61
+        },
+        {
+          "extra_days": 5,
+          "from_month": 121
+        },
+        {
+          "extra_days": 7,
+          "from_month": 181
+        },
+        {
+          "extra_days": 9,
+          "from_month": 241
+        },
+        {
+          "extra_days": 11,
+          "from_month": 301
+        },
+        {
+          "extra_days": 14,
+          "from_month": 373
+        }
+      ],
+      "effective_from": "2022-01-01",
+      "eligibility_months": 6,
+      "min_continuous_part": 10
+    }
+  },
+  "checklist_templates": {
+    "offboarding:Ажлаас гарах (үндсэн)": {
+      "active": true,
+      "is_default": true,
+      "reasons": [],
+      "tasks": [
+        {
+          "due_offset_days": -3,
+          "group": null,
+          "manager": true,
+          "position": 1,
+          "required": true,
+          "title": "Ажлаа хүлээлгэн өгөх"
+        },
+        {
+          "due_offset_days": 0,
+          "group": "HR",
+          "manager": false,
+          "position": 2,
+          "required": true,
+          "title": "Эд хөрөнгө, тоног төхөөрөмж буцаах"
+        },
+        {
+          "due_offset_days": 0,
+          "group": "Admin",
+          "manager": false,
+          "position": 3,
+          "required": true,
+          "title": "Нэвтрэх эрх хаах"
+        },
+        {
+          "due_offset_days": 0,
+          "group": "Accountant",
+          "manager": false,
+          "position": 4,
+          "required": true,
+          "title": "Эцсийн тооцоо шалгах"
+        },
+        {
+          "due_offset_days": 0,
+          "group": "HR",
+          "manager": false,
+          "position": 5,
+          "required": false,
+          "title": "Ажлаас гарах ярилцлага"
+        }
+      ]
+    },
+    "onboarding:Ажилд орох (үндсэн)": {
+      "active": true,
+      "is_default": true,
+      "reasons": [],
+      "tasks": [
+        {
+          "due_offset_days": -3,
+          "group": null,
+          "manager": true,
+          "position": 1,
+          "required": true,
+          "title": "Ажлын байр бэлтгэх"
+        },
+        {
+          "due_offset_days": -1,
+          "group": "Admin",
+          "manager": false,
+          "position": 2,
+          "required": true,
+          "title": "Бүртгэл, и-мэйл үүсгэх"
+        },
+        {
+          "due_offset_days": 0,
+          "group": "HR",
+          "manager": false,
+          "position": 3,
+          "required": true,
+          "title": "Бичиг баримт цуглуулж, гэрээ болон тушаалыг баталгаажуулах"
+        },
+        {
+          "due_offset_days": 0,
+          "group": null,
+          "manager": true,
+          "position": 4,
+          "required": true,
+          "title": "Угтан авч, ажлын үүргийг танилцуулах"
+        },
+        {
+          "due_offset_days": 1,
+          "group": "HR",
+          "manager": false,
+          "position": 5,
+          "required": true,
+          "title": "Дотоод журмыг тайлбарлах"
+        },
+        {
+          "due_offset_days": 0,
+          "group": "Accountant",
+          "manager": false,
+          "position": 6,
+          "required": true,
+          "title": "Цалингийн банкны дансны мэдээлэл авах"
+        },
+        {
+          "due_offset_days": 7,
+          "group": null,
+          "manager": true,
+          "position": 7,
+          "required": false,
+          "title": "Эхний сарын зорилгыг тохиролцох"
+        }
+      ]
+    }
+  },
+  "groups": {
+    "Accountant": [
+      "accounts.export_lists",
+      "leave.view_leave",
+      "macs.manage_salary",
+      "macs.view_employees",
+      "macs.view_salary",
+      "reports.view_reports"
+    ],
+    "Admin": [
+      "accounts.approve_leave",
+      "accounts.export_lists",
+      "accounts.issue_orders",
+      "accounts.view_audit",
+      "assistant.add_helpexample",
+      "assistant.change_assistantsettings",
+      "assistant.change_helpexample",
+      "assistant.view_assistantsettings",
+      "assistant.view_helpexample",
+      "assistant.view_helpquestion",
+      "checklists.manage_checklists",
+      "checklists.override_offboarding",
+      "employees.manage_position_slots",
+      "employees.override_position_slots",
+      "leave.manage_leave_settings",
+      "leave.record_leave",
+      "leave.view_leave",
+      "lists.manage_lists",
+      "macs.manage_employees",
+      "macs.manage_salary",
+      "macs.view_employees",
+      "macs.view_personal",
+      "macs.view_salary",
+      "recruitment.manage_recruitment",
+      "reports.manage_saved_views",
+      "reports.view_reports"
+    ],
+    "Auditor": [
+      "accounts.view_audit"
+    ],
+    "Employee": [
+      "leave.request_own_leave"
+    ],
+    "HR": [
+      "accounts.approve_leave",
+      "accounts.export_lists",
+      "accounts.issue_orders",
+      "employees.manage_position_slots",
+      "leave.record_leave",
+      "leave.view_leave",
+      "lists.manage_lists",
+      "macs.manage_employees",
+      "macs.view_employees",
+      "macs.view_personal",
+      "recruitment.manage_recruitment",
+      "reports.view_reports"
+    ]
+  },
+  "permissions": {
+    "accounts.add_accessscope": "Can add Үзэх хүрээ",
+    "accounts.add_systemlogentry": "Can add Системийн бүртгэл",
+    "accounts.add_user": "Can add user",
+    "accounts.approve_leave": "Чөлөө, амралт батлах",
+    "accounts.change_accessscope": "Can change Үзэх хүрээ",
+    "accounts.change_systemlogentry": "Can change Системийн бүртгэл",
+    "accounts.change_user": "Can change user",
+    "accounts.delete_accessscope": "Can delete Үзэх хүрээ",
+    "accounts.delete_systemlogentry": "Can delete Системийн бүртгэл",
+    "accounts.delete_user": "Can delete user",
+    "accounts.export_lists": "Жагсаалтыг Excel рүү гаргах",
+    "accounts.issue_orders": "Тушаал гаргах / баталгаажуулах",
+    "accounts.view_accessscope": "Can view Үзэх хүрээ",
+    "accounts.view_audit": "Үйл ажиллагааны бүртгэл харах",
+    "accounts.view_systemlogentry": "Can view Системийн бүртгэл",
+    "accounts.view_user": "Can view user",
+    "assistant.add_assistantsettings": "Can add Туслахын тохиргоо",
+    "assistant.add_helpexample": "Can add Сурсан жишээ, тест",
+    "assistant.add_helpquestion": "Can add Туслахын асуулт",
+    "assistant.change_assistantsettings": "Can change Туслахын тохиргоо",
+    "assistant.change_helpexample": "Can change Сурсан жишээ, тест",
+    "assistant.change_helpquestion": "Can change Туслахын асуулт",
+    "assistant.delete_assistantsettings": "Can delete Туслахын тохиргоо",
+    "assistant.delete_helpexample": "Can delete Сурсан жишээ, тест",
+    "assistant.delete_helpquestion": "Can delete Туслахын асуулт",
+    "assistant.view_assistantsettings": "Can view Туслахын тохиргоо",
+    "assistant.view_helpexample": "Can view Сурсан жишээ, тест",
+    "assistant.view_helpquestion": "Can view Туслахын асуулт",
+    "checklists.manage_checklists": "Жагсаалтын загвар засах",
+    "checklists.override_offboarding": "Жагсаалт дуусаагүй байхад ажлаас гаргах",
+    "employees.add_activityentry": "Can add Үйл ажиллагааны бүртгэл",
+    "employees.add_attentiondismissal": "Can add attention dismissal",
+    "employees.add_dailysync": "Can add daily sync",
+    "employees.add_departmentext": "Can add department ext",
+    "employees.add_educationext": "Can add education ext",
+    "employees.add_employeeext": "Can add employee ext",
+    "employees.add_event": "Can add Өөрчлөлт",
+    "employees.add_eventprodrow": "Can add event prod row",
+    "employees.add_giftext": "Can add gift ext",
+    "employees.add_hrorder": "Can add Тушаал",
+    "employees.add_jobrecord": "Can add Ажлын түүх",
+    "employees.add_positionext": "Can add position ext",
+    "employees.add_salaryrecord": "Can add Цалингийн түүх",
+    "employees.add_setupitem": "Can add setup item",
+    "employees.change_activityentry": "Can change Үйл ажиллагааны бүртгэл",
+    "employees.change_attentiondismissal": "Can change attention dismissal",
+    "employees.change_companysettings": "Can change Байгууллагын тохиргоо",
+    "employees.change_dailysync": "Can change daily sync",
+    "employees.change_departmentext": "Can change department ext",
+    "employees.change_educationext": "Can change education ext",
+    "employees.change_employeeext": "Can change employee ext",
+    "employees.change_event": "Can change Өөрчлөлт",
+    "employees.change_eventprodrow": "Can change event prod row",
+    "employees.change_giftext": "Can change gift ext",
+    "employees.change_hrorder": "Can change Тушаал",
+    "employees.change_jobrecord": "Can change Ажлын түүх",
+    "employees.change_ordertemplate": "Can change Тушаалын загвар",
+    "employees.change_positionext": "Can change position ext",
+    "employees.change_salaryrecord": "Can change Цалингийн түүх",
+    "employees.change_setupitem": "Can change setup item",
+    "employees.change_staffimportsettings": "Can change Ажилтны excel импортын тохиргоо",
+    "employees.delete_activityentry": "Can delete Үйл ажиллагааны бүртгэл",
+    "employees.delete_attentiondismissal": "Can delete attention dismissal",
+    "employees.delete_dailysync": "Can delete daily sync",
+    "employees.delete_departmentext": "Can delete department ext",
+    "employees.delete_educationext": "Can delete education ext",
+    "employees.delete_employeeext": "Can delete employee ext",
+    "employees.delete_event": "Can delete Өөрчлөлт",
+    "employees.delete_eventprodrow": "Can delete event prod row",
+    "employees.delete_giftext": "Can delete gift ext",
+    "employees.delete_hrorder": "Can delete Тушаал",
+    "employees.delete_jobrecord": "Can delete Ажлын түүх",
+    "employees.delete_positionext": "Can delete position ext",
+    "employees.delete_salaryrecord": "Can delete Цалингийн түүх",
+    "employees.delete_setupitem": "Can delete setup item",
+    "employees.manage_position_slots": "Орон тооны төлөвлөгөө засах",
+    "employees.override_position_slots": "Орон тоо дүүрсэн үед ажилд авахыг зөвшөөрөх",
+    "employees.view_activityentry": "Can view Үйл ажиллагааны бүртгэл",
+    "employees.view_attentiondismissal": "Can view attention dismissal",
+    "employees.view_companysettings": "Can view Байгууллагын тохиргоо",
+    "employees.view_dailysync": "Can view daily sync",
+    "employees.view_departmentext": "Can view department ext",
+    "employees.view_educationext": "Can view education ext",
+    "employees.view_employeeext": "Can view employee ext",
+    "employees.view_event": "Can view Өөрчлөлт",
+    "employees.view_eventprodrow": "Can view event prod row",
+    "employees.view_giftext": "Can view gift ext",
+    "employees.view_hrorder": "Can view Тушаал",
+    "employees.view_jobrecord": "Can view Ажлын түүх",
+    "employees.view_ordertemplate": "Can view Тушаалын загвар",
+    "employees.view_positionext": "Can view position ext",
+    "employees.view_salaryrecord": "Can view Цалингийн түүх",
+    "employees.view_setupitem": "Can view setup item",
+    "employees.view_staffimportsettings": "Can view Ажилтны excel импортын тохиргоо",
+    "leave.manage_leave_settings": "Чөлөөний тохиргоо",
+    "leave.record_leave": "Чөлөө бүртгэх",
+    "leave.request_own_leave": "Өөрийн чөлөө хүсэх",
+    "leave.view_leave": "Чөлөө харах",
+    "lists.add_meaningfulentry": "Can add meaningful entry",
+    "lists.change_meaningfulentry": "Can change meaningful entry",
+    "lists.delete_meaningfulentry": "Can delete meaningful entry",
+    "lists.manage_lists": "Жагсаалт засах",
+    "lists.view_meaningfulentry": "Can view meaningful entry",
+    "macs.add_employee": "Can add Ажилтан",
+    "macs.change_employee": "Can change Ажилтан",
+    "macs.delete_employee": "Can delete Ажилтан",
+    "macs.manage_employees": "Ажилтан нэмэх, засах, засвар хийх",
+    "macs.manage_salary": "Цалин, даатгалын мэдээллийг засах",
+    "macs.view_employee": "Can view Ажилтан",
+    "macs.view_employees": "Бүх ажилтныг харах",
+    "macs.view_personal": "Хувийн мэдээллийг харах",
+    "macs.view_salary": "Цалин, даатгалын мэдээллийг харах",
+    "recruitment.manage_recruitment": "Ажилд авах ажил удирдах",
+    "reports.add_savedview": "Can add Хадгалсан харагдац",
+    "reports.change_savedview": "Can change Хадгалсан харагдац",
+    "reports.delete_savedview": "Can delete Хадгалсан харагдац",
+    "reports.manage_saved_views": "Хадгалсан харагдацыг засах, устгах",
+    "reports.view_reports": "Тайлан харах",
+    "reports.view_savedview": "Can view Хадгалсан харагдац"
+  }
+}

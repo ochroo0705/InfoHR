@@ -321,6 +321,8 @@ class DatabaseOperations(BaseDatabaseOperations):
         """
         converters = super(DatabaseOperations, self).get_db_converters(expression)
         internal_type = expression.output_field.get_internal_type()
+        if internal_type == 'CharField':
+            converters.append(self.convert_charfield_value)
         if internal_type == 'TextField':
             converters.append(self.convert_textfield_value)
         if internal_type == 'JSONField':
@@ -364,6 +366,13 @@ class DatabaseOperations(BaseDatabaseOperations):
                 value = force_str(value, encoding=db_charset, errors='replace')
             else:
                 value = force_str(value)
+        return value
+
+    def convert_charfield_value(self, value, expression, connection):
+        # Firebird pads CHAR columns with spaces to their declared length. Trailing spaces carry no meaning in
+        # HR text, so only ' ' is stripped on read. Writes are not padded here.
+        if isinstance(value, str):
+            value = value.rstrip(' ')
         return value
 
     def convert_binaryfield_value(self, value, expression, connection):
@@ -641,6 +650,10 @@ class DatabaseOperations(BaseDatabaseOperations):
             '%s;' % KEYWORD('END')
         ])
         for model in model_list:
+            # Unmanaged models are MACS tables: their ids come from MACS generators (GEN_<TABLE>_ID through the
+            # MACS triggers), never from a <TABLE>_SQ generator, so there is nothing here to reset.
+            if not model._meta.managed:
+                continue
             for f in model._meta.local_fields:
                 if isinstance(f, models.AutoField):
                     table_name = self.quote_name(model._meta.db_table)

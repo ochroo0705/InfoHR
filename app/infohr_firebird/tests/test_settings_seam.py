@@ -3,7 +3,8 @@
 The settings tests run Django in a subprocess, so config.settings is imported fresh with the
 environment each test sets. No test opens a database connection. The Firebird path is a folder
 that does not exist, the PostgreSQL URL is parsed but never used, and the firebird-mode checks
-run with databases=["default"] and still pass, which shows no connection was needed. The check
+run without a database alias and still pass, which shows no connection was needed. The database
+check E011 (MACS triggers) connects, so it is tested in test_trigger_presence.py. The check
 function tests call the functions directly on synthetic model classes.
 """
 
@@ -66,7 +67,8 @@ from django.core.checks import run_checks
 print("RESULT " + json.dumps({"ids": sorted({i.id for i in run_checks() if i.id})}))
 """
 
-# Scans the HR-owned models the same way the checks do, runs every check (database checks too),
+# Scans the HR-owned models the same way the checks do, runs every model check (no database alias: E011 needs
+# a live MACS database),
 # and reports what it found. Lists are compared with the messages, never with a hard-coded count.
 CHECK_CODE = """
 import json
@@ -83,15 +85,16 @@ from io import StringIO
 hr_models = [m for m in apps.get_models(include_auto_created=True)
              if m._meta.managed and m._meta.app_label != "macs"]
 wide = sorted(f"{m._meta.label}.{f.name}" for m in hr_models for f in m._meta.local_fields
-              if isinstance(f, models.DecimalField) and f.max_digits > 9)
+              if isinstance(f, models.DecimalField) and f.max_digits > 9
+              and not getattr(f, "exact_money", False))
 big = sorted(f"{m._meta.label}.{f.name}" for m in hr_models for f in m._meta.local_fields
              if isinstance(f, (models.BigIntegerField, models.PositiveBigIntegerField, models.DurationField))
              and not isinstance(f, (models.AutoField, models.BigAutoField, models.SmallAutoField)))
-issues = run_checks(databases=["default"])
+issues = run_checks()
 silenced = [i.id for i in issues if i.id in settings.SILENCED_SYSTEM_CHECKS]
 check_raised = False
 try:
-    call_command("check", databases=["default"], stdout=StringIO(), stderr=StringIO())
+    call_command("check", stdout=StringIO(), stderr=StringIO())
 except SystemCheckError:
     check_raised = True
 print("RESULT " + json.dumps({

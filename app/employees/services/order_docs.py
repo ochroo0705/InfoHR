@@ -22,7 +22,7 @@ from jinja2 import TemplateError
 from jinja2.sandbox import SandboxedEnvironment
 from macs.models import Department, Position
 
-from employees import access
+from employees import access, history_range
 from employees.models import CompanySettings, EmployeeExt, HrOrder, JobRecord, OrderTemplate, OrderType
 from employees.money import group
 from employees.services import events, history, macs_writes, orders
@@ -240,7 +240,7 @@ def _emptype_label(code: int | None) -> str:
 
 
 def _hire_day(order: HrOrder) -> datetime.date | None:
-    first = order.employee.job_records.order_by("period").first()
+    first = order.employee.job_records.order_by(*history_range.ORDER).first()
     day: datetime.date | None = first.period.lower if first is not None else order.employee.first_hire_date
     return day
 

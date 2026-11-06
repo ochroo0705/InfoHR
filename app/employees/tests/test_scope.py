@@ -5,9 +5,8 @@ import pytest
 from accounts.models import AccessScope, User
 from django.contrib.auth.models import Group
 from macs.models import Branch, Department, FiredReason
-from psycopg.types.range import DateRange
 
-from employees import access
+from employees import access, history_range
 from employees.forms import JobCorrectionForm
 from employees.models import Employee, Event, JobRecord, JobStatus
 from employees.scope import LOOP_MESSAGE, SELF_MANAGER_MESSAGE, creates_loop, department_ids, restriction, team_ids
@@ -44,7 +43,7 @@ def test_team_direct_and_indirect(actor: User, job_values: dict[str, Any]) -> No
 def test_team_excludes_ended_jobs(actor: User, job_values: dict[str, Any]) -> None:
     a = _person(actor, job_values, "УБ00000001")
     b = _person(actor, job_values, "УБ00000002", manager=a)
-    JobRecord.objects.filter(employee=b).update(period=DateRange(date(2026, 1, 5), date(2026, 2, 1), "[)"))
+    JobRecord.objects.filter(employee=b).update(**history_range.span_kwargs(date(2026, 1, 5), date(2026, 2, 1)))
     assert team_ids(a.pk, DAY) == set()
     assert team_ids(a.pk, date(2026, 1, 20)) == {b.pk}
 
@@ -65,7 +64,7 @@ def test_team_includes_employee_who_left(actor: User, job_values: dict[str, Any]
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
     )
     after = date(2026, 4, 1)
-    assert JobRecord.objects.get(employee=b, period__contains=after).status == JobStatus.LEFT
+    assert JobRecord.objects.get(history_range.on(after), employee=b).status == JobStatus.LEFT
     assert b.pk in team_ids(a.pk, after)
 
 

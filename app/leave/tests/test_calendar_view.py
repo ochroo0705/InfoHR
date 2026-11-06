@@ -6,9 +6,9 @@ from accounts.models import User
 from django.contrib.auth.models import Group
 from django.test import Client
 from django.urls import reverse
+from employees import history_range
 from employees.models import Employee, JobRecord, JobStatus
 from macs.models import LeaveTypeRow
-from psycopg.types.range import DateRange
 
 from leave.services import records, writes
 from leave.services.records import Draft
@@ -119,7 +119,9 @@ def test_long_leave_return_day_is_not_drawn(employee: Employee, actor: User) -> 
 
 def _on_long_leave(employee: Employee, start: date, end: date) -> None:
     """Make the employee's only job record a long-leave period [start, end) (what a leave_start event writes)."""
-    JobRecord.objects.filter(employee=employee).update(status=JobStatus.LONG_LEAVE, period=DateRange(start, end, "[)"))
+    JobRecord.objects.filter(employee=employee).update(
+        status=JobStatus.LONG_LEAVE, **history_range.span_kwargs(start, end)
+    )
 
 
 def _calendar(actor: User, month: str = "2026-11") -> str:

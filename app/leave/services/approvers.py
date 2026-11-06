@@ -13,6 +13,7 @@ from typing import Any, NamedTuple, cast
 from accounts import roles
 from accounts.models import AccessScope, User
 from django.db.models import Q, QuerySet
+from employees import history_range
 from employees.access import visible_employees
 from employees.models import Employee, EmployeeExt, JobRecord
 from employees.scope import restriction
@@ -71,7 +72,7 @@ def manager_user_ids(employee_ids: Iterable[int], day: date) -> dict[int, int | 
     if not ids:
         return {}
     manager_of: dict[int, int | None] = dict(
-        JobRecord.objects.filter(employee_id__in=ids, period__contains=day).values_list("employee_id", "manager_id")
+        JobRecord.objects.filter(history_range.on(day), employee_id__in=ids).values_list("employee_id", "manager_id")
     )
     managers = {manager for manager in manager_of.values() if manager is not None}
     login_of: dict[int, int] = {}
@@ -190,7 +191,7 @@ def _may_decide(user: User, day: date) -> bool:
     ):
         return True
     linked = EmployeeExt.objects.filter(user=user).values("employee_id")
-    return JobRecord.objects.filter(manager__in=linked, period__contains=day).exists()
+    return JobRecord.objects.filter(history_range.on(day), manager__in=linked).exists()
 
 
 def visible_requests(user: User) -> QuerySet[LeaveRequest]:

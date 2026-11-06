@@ -5,6 +5,7 @@ from typing import Any
 
 from django.db.models import Exists, OuterRef, QuerySet
 
+from employees import history_range
 from employees.models import ContractType, Employee, JobRecord, JobStatus, SalaryRecord
 from employees.services.history import salary_on
 
@@ -71,7 +72,7 @@ def current_salaries(employees: Iterable[Employee], today: date) -> dict[int, Sa
     people = list(employees)
     ids = [e.pk for e in people]
     valid: dict[int, SalaryRecord] = {}
-    for record in SalaryRecord.objects.filter(employee_id__in=ids, period__contains=today).order_by("-pk"):
+    for record in SalaryRecord.objects.filter(history_range.on(today), employee_id__in=ids).order_by("-pk"):
         valid[record.employee_id] = record  # the lowest pk is assigned last, as `.first()` picks it
     with_history = set(SalaryRecord.objects.filter(employee_id__in=ids).values_list("employee_id", flat=True))
     out: dict[int, SalaryRecord | None] = {}
@@ -84,7 +85,7 @@ def current_salaries(employees: Iterable[Employee], today: date) -> dict[int, Sa
 
 
 def _period_order(job: JobRecord) -> tuple[date, bool, date]:
-    """The order of the old `order_by("period")`: by start, then by end (no end sorts last)."""
+    """Order by start, then by end (no end sorts last): the same order as `history_range.ORDER`."""
     upper = job.period.upper
     return (job.period.lower, upper is None, upper or date.max)
 
@@ -117,7 +118,7 @@ def still_working(qs: QuerySet[Employee], today: date) -> QuerySet[Employee]:
 
     People with no HR job history (read from MACS, `Row.legacy`) are kept whatever MACS says: the balances page
     has always listed them."""
-    left_today = JobRecord.objects.filter(employee=OuterRef("pk"), period__contains=today, status=JobStatus.LEFT)
+    left_today = JobRecord.objects.filter(history_range.on(today), employee=OuterRef("pk"), status=JobStatus.LEFT)
     return qs.exclude(Exists(left_today))
 
 

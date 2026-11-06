@@ -62,7 +62,7 @@ class Vacancy(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=Q(headcount__gte=1),
-                name="recruitment_vacancy_headcount_gte_1",
+                name="vacancy_headcount_gte_1",
                 violation_error_message="Авах хүний тоо 1-ээс бага байж болохгүй.",
             ),
         ]

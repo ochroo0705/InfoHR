@@ -11,6 +11,7 @@ from django.test import Client
 from django.utils import timezone
 from macs.models import FiredReason
 
+from employees import history_range
 from employees.models import ActivityEntry, Employee, Event, ensure_ext
 from employees.services import events, history, macs_writes
 
@@ -104,7 +105,7 @@ def test_transfer_on_legacy_starts_then_transfers(actor: User, job_values: dict[
         note="",
         by=actor,
     )
-    records = list(emp.job_records.order_by("period"))
+    records = list(emp.job_records.order_by(*history_range.ORDER))
     assert [r.change_type for r in records] == ["opening", "transfer"]
     assert records[0].department_id == job_values["department"].pk and records[0].period.upper == TODAY
     assert records[1].department_id == other.pk

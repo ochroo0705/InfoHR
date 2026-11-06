@@ -8,6 +8,7 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import connection, transaction
 from macs.models import Command
 
+from employees import history_range
 from employees.models import (
     ActivityEntry,
     ActivityKind,
@@ -282,7 +283,9 @@ def attach_signed_file(order: HrOrder, upload: UploadedFile, *, by: User) -> HrO
     # Local import: events imports this module, so a top-level import would be circular.
     from employees.services import events
 
-    # Lock order: the employee first, then the order (events.cancel takes employee, event, then order).
+    # Lock order (one global order, see history_range.lock_employee): the history lock, then the employee row,
+    # then the order (events.cancel and apply_waiting follow the same order).
+    history_range.lock_employee(order.employee_id)
     Employee.objects.select_for_update().get(pk=order.employee_id)
     order = HrOrder.objects.select_for_update().get(pk=order.pk)
     if order.state != OrderState.REGISTERED:

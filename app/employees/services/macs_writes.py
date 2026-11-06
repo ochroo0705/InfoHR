@@ -1,17 +1,20 @@
 """The only code that writes production MACS rows (spec §2). It applies what the old
 database triggers and the old desktop screen did (docs/migration/firebird-rules-audit.md)."""
 
+import re
 from datetime import date, timedelta
 from typing import Any, cast
 
 from accounts.models import User
 from django.db import IntegrityError, connection, transaction
-from django.db.models import IntegerField, Max
-from django.db.models.functions import Cast, Substr
+from django.utils import timezone
 from lists.models import DEATH, MeaningfulEntry
 from lists.usage import usage_count
+from macs.dialect import next_value
 from macs.models import Branch, Command, EmployeeHistory, Movement, NazgRow
+from macs.triggers import database_has_triggers, require
 
+from employees import history_range
 from employees.models import (
     Department,
     DepartmentExt,
@@ -38,14 +41,19 @@ EMPTYPE_FLAGS: dict[int, tuple[str, str, int | None]] = {
 }
 
 
+_E_NUMBER = re.compile(r"E([0-9]{4,})")
+
+
 def next_code() -> str:
-    """Next E-number. Compares the digits as numbers, so E10000 follows E9999."""
-    top = (
-        Employee.objects.filter(code__regex=r"^E\d{4,}$")
-        .annotate(number=Cast(Substr("code", 2), IntegerField()))
-        .aggregate(top=Max("number"))["top"]
-    )
-    return f"E{(top or 0) + 1:04d}"
+    """Next E-number. Compares the digits as numbers, so E10000 follows E9999. Codes that are not E followed by
+    4 or more digits are ignored. The digits are read in Python: Firebird has no regex operator, and a SQL cast
+    of a junk code would fail."""
+    top = 0
+    for code in Employee.objects.filter(code__startswith="E").values_list("code", flat=True):
+        match = _E_NUMBER.fullmatch(code or "")
+        if match:
+            top = max(top, int(match.group(1)))
+    return f"E{top + 1:04d}"
 
 
 def emptype_for(job: JobRecord | None, ext: EmployeeExt, today: date) -> int:
@@ -105,7 +113,7 @@ def hr_employment_start(employee: Employee) -> date | None:
     )
     if rehire is not None:
         return rehire.effective
-    hire = employee.job_records.filter(change_type="hire").order_by("period").first()
+    hire = employee.job_records.filter(change_type="hire").order_by(*history_range.ORDER).first()
     if hire is not None:
         return cast(date, hire.period.lower)
     return None
@@ -138,6 +146,8 @@ def _set_emptype(employee: Employee, emptype: int) -> None:
 
 @transaction.atomic
 def create_employee(values: dict[str, Any], ext_values: dict[str, Any], *, code: str, by: User) -> Employee:
+    if database_has_triggers():
+        return _create_employee_with_triggers(values, ext_values, code=code, by=by)
     employee = Employee(**values)
     employee.code = code
     employee.hr_flag = "yes"
@@ -151,6 +161,44 @@ def create_employee(values: dict[str, Any], ext_values: dict[str, Any], *, code:
     employee.save(update_fields=["loginpass"])
     EmployeeExt.objects.create(employee=employee, created_by=by, updated_by=by, **ext_values)
     create_customer_row(employee)
+    return employee
+
+
+def _create_employee_with_triggers(
+    values: dict[str, Any], ext_values: dict[str, Any], *, code: str, by: User
+) -> Employee:
+    """Firebird: the MACS triggers set the ID, loginpass, birth year, status flags and the ERP customer row
+    (TR_EMPLOYEEID, EMPLOYEE_BU0, TR_EMPCUST). HR sends only its own values and hr_flag='yes'; it never sends
+    fullname (a computed column), loginpass or birth_year. A second hire with the same given name and surname
+    initial makes TR_EMPCUST fail (CUST_DSCX) and rolls back the whole insert; then the employee is inserted
+    with hr_flag='no' (the trigger skips the customer row), hr_flag is set to 'yes' and create_customer_row adds
+    the suffixed row, as the old desktop program did."""
+    require("EMPLOYEE", "CUSTOMER")
+    employee = Employee(**values)
+    employee.code = code
+    employee.hr_flag = "yes"
+    employee.sector_years = 0
+    _set_emptype(employee, 1)
+    _fill_hire_dates(employee)
+    fallback = False
+    try:
+        with transaction.atomic():
+            employee.save(force_insert=True)
+    except IntegrityError as exc:
+        if "CUST_DSCX" not in str(exc):
+            raise
+        fallback = True
+    if fallback:
+        employee.pk = None
+        employee.hr_flag = "no"
+        with transaction.atomic():
+            employee.save(force_insert=True)
+        Employee.objects.filter(pk=employee.pk).update(hr_flag="yes")
+        employee.hr_flag = "yes"
+    employee.refresh_from_db(fields=["loginpass", "birth_year", "fullname", "status", "contract_flag", "wagetest"])
+    EmployeeExt.objects.create(employee=employee, created_by=by, updated_by=by, **ext_values)
+    if fallback:
+        create_customer_row(employee)
     return employee
 
 
@@ -187,7 +235,7 @@ def create_customer_row(employee: Employee) -> int | None:
                 )
                 return int(c.fetchone()[0])
         except IntegrityError as exc:
-            if "cust_dscx" not in str(exc):
+            if "cust_dscx" not in str(exc).lower():  # Firebird names the index in upper case: CUST_DSCX
                 raise
     raise IntegrityError(f"no free ERP customer description for {base!r}")
 
@@ -252,7 +300,7 @@ def sync_current(employee: Employee, today: date) -> bool:
     from employees.services.history import job_on, salary_on
 
     # The same job row drives both the copied fields and emptype (a future-only hire is not "inactive").
-    job = job_on(employee, today) or employee.job_records.order_by("-period").first()
+    job = job_on(employee, today) or employee.job_records.order_by(*history_range.ORDER_DESC).first()
     salary = salary_on(employee, today)
     ext = EmployeeExt.objects.get_or_create(employee=employee)[0]
     copied: dict[str, Any] = {}
@@ -293,7 +341,11 @@ def record_movement(
     new: dict[str, Any] | None = None,
 ) -> int:
     """Write one production movement row and return its id. `old`/`new` carry department_id, position_id,
-    emptype; without `new` the employee's live row is the new state (hire)."""
+    emptype and optionally branch_id; without `new` the employee's live row is the new state (hire). A missing
+    branch_id means the employee's current branch: MOVEMENT_AI0 copies NEW_BRANCHID onto the employee, so a NULL
+    there would clear the branch."""
+    if database_has_triggers():
+        require("MOVEMENT")  # MOVEMENT_AI0 copies the new department/position/branch onto the employee; refuse first
     if new is None:
         new = {
             "department_id": employee.department_id,
@@ -305,9 +357,11 @@ def record_movement(
         employee=employee,
         kind=kind,
         date=day,
+        old_branch_id_value=old.get("branch_id", employee.branch_id),
         old_department_id_value=old.get("department_id"),
         old_position_id_value=old.get("position_id"),
         old_emptype=old.get("emptype"),
+        new_branch_id_value=new.get("branch_id", employee.branch_id),
         new_department_id_value=new.get("department_id"),
         new_position_id_value=new.get("position_id"),
         new_emptype=new.get("emptype"),
@@ -356,9 +410,7 @@ def snapshot_history(
             state["salary"] = salary.base_salary
         if terminating or fired_reason_id is not None:
             extra = {"fired_date": as_of, "fired_reason_id_value": fired_reason_id}
-    with connection.cursor() as c:
-        c.execute("select nextval('gen_employee_history_id')")
-        history_id = c.fetchone()[0]
+    history_id = next_value("gen_employee_history_id")
     EmployeeHistory.objects.create(
         id=history_id,
         employee_id_value=employee.pk,
@@ -436,13 +488,18 @@ def write_event_rows(event: Event) -> None:
         terminating=terminating,
     )
     EventProdRow.objects.create(event=event, movement_id=movement_id, history_id=history_id)
+    if database_has_triggers():
+        # Firebird: MOVEMENT_AI0 copies the movement's department and position onto the employee row at insert, even
+        # when the change is dated after today. Copy today's job back. PostgreSQL has no such trigger: skipped there.
+        employee.refresh_from_db()
+        sync_current(employee, timezone.localdate())
 
 
 def _order_change_date(order: HrOrder) -> date:
     """The effective date of the change an order belongs to (a hire: the hire start)."""
     if order.event is not None:
         return order.event.effective
-    hire = order.employee.job_records.filter(change_type="hire").order_by("period").first()
+    hire = order.employee.job_records.filter(change_type="hire").order_by(*history_range.ORDER).first()
     return cast(date, hire.period.lower) if hire is not None else date.min
 
 
@@ -491,11 +548,19 @@ def write_order(order: HrOrder) -> None:
 
 @transaction.atomic
 def delete_event_rows(event: Event) -> None:
-    """Remove the production rows an event wrote; ids already gone are ignored."""
+    """Remove the production rows an event wrote; ids already gone are ignored.
+
+    Firebird: deleting the newest employee_history row fires EMPLOYEE_HISTORY_BD0, which rewrites the employee row from
+    the previous history row. The Employee the caller holds is then stale, so it is read again here (event.employee,
+    the instance a following sync_current on the event uses). The trigger must be active before anything is deleted."""
+    if database_has_triggers():
+        require("EMPLOYEE_HISTORY")
     links = list(event.prod_rows.all())
     Movement.objects.filter(pk__in=[x.movement_id for x in links if x.movement_id]).delete()
     EmployeeHistory.objects.filter(pk__in=[x.history_id for x in links if x.history_id]).delete()
     event.prod_rows.all().delete()
+    if database_has_triggers():
+        event.employee.refresh_from_db()
 
 
 @transaction.atomic

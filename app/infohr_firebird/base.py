@@ -528,6 +528,37 @@ class ClampedDecimalType(str):
         return str.__mod__(str(self), params)
 
 
+def inline_null_params(sql, params):
+    """Write NULL into the SQL at each placeholder whose parameter is None.
+
+    ``sql`` is already in qmark style (``?`` placeholders) and ``params`` has one entry per ``?``. A ``?`` inside a
+    quoted string literal or a quoted identifier is text, not a placeholder, and is skipped. Returns the new SQL and
+    the parameters that remain bound.
+    """
+    out = []
+    remaining = []
+    values = iter(params)
+    quote = None
+    for ch in sql:
+        if quote is not None:
+            out.append(ch)
+            if ch == quote:
+                quote = None  # a doubled quote ('' or "") closes and reopens here, which is still correct
+        elif ch in ("'", '"'):
+            quote = ch
+            out.append(ch)
+        elif ch == "?":
+            value = next(values)
+            if value is None:
+                out.append("NULL")
+            else:
+                out.append("?")
+                remaining.append(value)
+        else:
+            out.append(ch)
+    return "".join(out), remaining
+
+
 class FirebirdCursorWrapper(object):
     """
     Django uses "format" style placeholders, but firebird uses "qmark" style.
@@ -553,13 +584,20 @@ class FirebirdCursorWrapper(object):
             # Like other backends: no placeholder processing at all, the query
             # is passed through verbatim (a literal % stays a literal %).
             params = []
+            sql_params = params
             q = smart_str(query, self.encoding)
         else:
             q = self.convert_query(query, len(params))
             params = [int(p) if isinstance(p, decimal.Decimal) and p == p.to_integral_value() else p
                       for p in params]
+            sql_params = params
+            # A bound NULL is checked by length against CHECK constraints (BLOOD_TYPE, IS_SOLDIER ...), so a None
+            # goes into the SQL text as a literal NULL instead of a parameter. The full list stays in ``params``
+            # for error_info, which formats the original query.
+            if any(p is None for p in params):
+                q, sql_params = inline_null_params(q, params)
         try:
-            return self.cursor.execute(q, params)
+            return self.cursor.execute(q, sql_params)
         except Database.IntegrityError as e:
             raise utils.IntegrityError(*self.error_info(e, query, params))
         except Database.DatabaseError as e:

@@ -7,7 +7,7 @@ from datetime import datetime
 from accounts.models import User
 from django.db import transaction
 
-from employees import access
+from employees import access, history_range
 from employees.models import ActivityEntry, ActivityKind, Employee, SetupItem
 
 ITEMS = [
@@ -86,6 +86,7 @@ def toggle(employee: Employee, key: str, by: User) -> None:
     labels = dict(ITEMS)
     if key not in labels or key in AUTO:
         raise ValueError(f"Unknown or automatic setup item: {key}")
+    history_range.lock_employee(employee.pk)  # lock order: the history lock, then the Employee row
     Employee.objects.select_for_update().get(pk=employee.pk)  # serialise concurrent toggles
     deleted, _ = SetupItem.objects.filter(employee=employee, key=key).delete()
     if deleted:

@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 from accounts.models import User
 
+from employees import history_range
 from employees.models import ChangeType, Employee, JobRecord, Position, SalaryRecord
 from employees.services import history, macs_writes
 from employees.services.history import HistoryError
@@ -22,13 +23,13 @@ def _hire_from_jan_first(actor: User, job_values: dict[str, Any]) -> Employee:
 
 
 def _periods(model: type[JobRecord] | type[SalaryRecord], employee: Employee) -> list[tuple[date, date | None]]:
-    rows = model.objects.filter(employee=employee).order_by("period")
+    rows = model.objects.filter(employee=employee).order_by(*history_range.ORDER)
     return [(r.period.lower, r.period.upper) for r in rows]
 
 
 def _job_values(employee: Employee) -> list[tuple[date, date | None, int, int]]:
     """Every job record as (start, end, department id, position id), ordered by start."""
-    rows = JobRecord.objects.filter(employee=employee).order_by("period")
+    rows = JobRecord.objects.filter(employee=employee).order_by(*history_range.ORDER)
     return [(r.period.lower, r.period.upper, r.department_id, r.position_id) for r in rows]
 
 
@@ -53,7 +54,7 @@ def test_insert_carries_field_through_later_records(actor: User, job_values: dic
         by=actor,
         event=None,
     )
-    first, middle, later = JobRecord.objects.filter(employee=emp).order_by("period")
+    first, middle, later = JobRecord.objects.filter(employee=emp).order_by(*history_range.ORDER)
     assert first.period.lower == date(2026, 1, 1) and first.period.upper == date(2026, 3, 1)
     assert first.department == job_values["department"] and first.position == job_values["position"]
     assert inserted.pk == middle.pk
@@ -190,7 +191,7 @@ def test_insert_keeps_periods_contiguous_and_non_overlapping(actor: User, job_va
     ]
     for (_, upper), (lower, _) in zip(periods, periods[1:], strict=False):
         assert upper == lower  # contiguous: each period starts where the previous one ends
-    departments = [r.department_id for r in JobRecord.objects.filter(employee=emp).order_by("period")]
+    departments = [r.department_id for r in JobRecord.objects.filter(employee=emp).order_by(*history_range.ORDER)]
     assert departments == [job_values["department"].pk, d2.pk, d2.pk, d2.pk]
 
 

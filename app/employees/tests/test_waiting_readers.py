@@ -14,7 +14,7 @@ from django.utils import timezone
 from leave.services import entitlement as leave_entitlement
 from macs.models import ContactRow, ContactType, FiredReason
 
-from employees import attention
+from employees import attention, history_range
 from employees.listing import employee_rows, row_for
 from employees.models import Employee, JobRecord, JobStatus
 from employees.services import events, history, macs_writes
@@ -207,7 +207,9 @@ def test_work_tab_history_has_no_row_for_waiting_change(emp: Employee, actor: Us
         by=actor,
     )
     assert waiting.applied_at is None
-    jobs = list(emp.job_records.select_related("position", "department", "manager", "event").order_by("-period"))
+    jobs = list(
+        emp.job_records.select_related("position", "department", "manager", "event").order_by(*history_range.ORDER_DESC)
+    )
     rows, _ = change_rows(jobs, order_rows(emp))
     assert not [r for r in rows if getattr(r, "event", None) is not None and r.event.pk == waiting.pk]
     assert len(rows) == len(jobs)  # only the hire: the waiting change has no history row
@@ -227,6 +229,8 @@ def test_signed_change_has_its_work_tab_row(emp: Employee, actor: User, today: d
         by=actor,
     )
     assert signed.applied_at is not None
-    jobs = list(emp.job_records.select_related("position", "department", "manager", "event").order_by("-period"))
+    jobs = list(
+        emp.job_records.select_related("position", "department", "manager", "event").order_by(*history_range.ORDER_DESC)
+    )
     rows, _ = change_rows(jobs, order_rows(emp))
     assert [r for r in rows if getattr(r, "event", None) is not None and r.event.pk == signed.pk]

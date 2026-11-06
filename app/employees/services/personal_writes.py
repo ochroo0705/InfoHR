@@ -13,6 +13,7 @@ from typing import Any, cast
 from accounts.models import User
 from django.db import DataError, IntegrityError, connection, transaction
 from django.db.models import Model
+from macs.dialect import lock_suffix
 from macs.models import (
     AddressRow,
     ArmyRankRow,
@@ -36,6 +37,7 @@ from macs.models import (
     TalentKind,
     TrainingRow,
 )
+from macs.triggers import database_has_triggers, require
 
 from employees.models import (
     PERSONAL_ADDED,
@@ -175,7 +177,7 @@ def load(kind: str, employee: Employee, key: Any) -> Snapshot | None:
 
 
 def _talent_row(employee: Employee, talent_ident: Any, *, lock: bool) -> tuple[Any, ...] | None:
-    sql = _TALENT_SELECT + (" FOR UPDATE" if lock else "")
+    sql = _TALENT_SELECT + (lock_suffix() if lock else "")
     with connection.cursor() as cur:
         cur.execute(sql, [employee.pk, talent_ident])
         found: tuple[Any, ...] | None = cur.fetchone()
@@ -371,10 +373,44 @@ def _log(
     )
 
 
+_TRIGGER_KINDS = ("contact", "address")
+_TRIGGER_TABLES = ("CONTACTING", "ADDRESS", "CUSTOMER")
+# CONTACTING_AI0 (insert) and CONTACTING_AU0 (update, type 2 only) write employee.email for type 4 and
+# employee.homephone for type 2 in the database. HR refreshes those two columns and never writes them itself.
+_CONTACT_TYPES_WITH_EMPLOYEE_EFFECT = (2, 4)
+# Firebird: the same two triggers copy the value into the employee column. A longer value makes the trigger's UPDATE
+# fail with a truncation error that the write layer does not map, so the length is checked here, before any write.
+_CONTACT_TARGET_LIMITS = {
+    2: ("private_phone", "Утасны дугаар хэт урт байна (дээд тал нь {n} тэмдэгт)."),
+    4: ("email", "И-мэйл хаяг хэт урт байна (дээд тал нь {n} тэмдэгт)."),
+}
+
+
+def _check_contact_length(contact_type_id: object, value: object) -> None:
+    """Firebird only: refuse a type-2 or type-4 contact value longer than the employee column it is copied into."""
+    if not database_has_triggers() or contact_type_id not in _CONTACT_TARGET_LIMITS:
+        return
+    field_name, message = _CONTACT_TARGET_LIMITS[cast(int, contact_type_id)]
+    limit = Employee._meta.get_field(field_name).max_length
+    if len(str(value or "")) > limit:
+        raise PersonalConflict(message.format(n=limit))
+
+
+def _refresh_contact_effect(employee: Employee, contact_type_id: object) -> None:
+    """Firebird only: re-read the employee columns a contact trigger may have changed into the instance the caller
+    holds, so the page shows the stored value and a later save of that instance does not carry a stale one."""
+    if database_has_triggers() and contact_type_id in _CONTACT_TYPES_WITH_EMPLOYEE_EFFECT:
+        employee.refresh_from_db(fields=["email", "private_phone"])
+
+
 @transaction.atomic
 def add(kind: str, employee: Employee, values: dict[str, object], ext: dict[str, object], by: User) -> object:
     """Insert one row. Returns the new key: the production id, or the talent_ident."""
     _check_kind(kind)
+    if kind in _TRIGGER_KINDS:
+        require(*_TRIGGER_TABLES)
+    if kind == "contact":
+        _check_contact_length(values.get("contact_type_id"), values.get("value"))
 
     def write() -> object:
         if kind == "talent":
@@ -389,8 +425,11 @@ def add(kind: str, employee: Employee, values: dict[str, object], ext: dict[str,
             return values["talent_ident"]
         row = _MODELS[kind].objects.create(employee=employee, **values)
         _save_ext(kind, row, ext)
-        if kind == "address":
+        if kind == "address" and not database_has_triggers():
+            # ADDRESS_BI copied the street to the customer rows on insert (Firebird); PostgreSQL has no trigger.
             macs_writes.copy_address_to_customer(employee, row.street)
+        if kind == "contact":
+            _refresh_contact_effect(employee, row.contact_type_id)
         return row.pk
 
     key = _guarded(write)
@@ -410,6 +449,12 @@ def update(
 ) -> None:
     """Change one row, if it still matches `loaded`. `values` uses model attnames (talents: the 3 columns)."""
     _check_kind(kind)
+    if kind in _TRIGGER_KINDS:
+        require(*_TRIGGER_TABLES)
+    if kind == "contact":
+        _check_contact_length(
+            values.get("contact_type_id", loaded.get("contact_type_id")), values.get("value", loaded.get("value"))
+        )
 
     def write() -> dict[str, object]:
         if kind == "talent":
@@ -429,8 +474,10 @@ def update(
         _MODELS[kind].objects.filter(pk=key, employee=employee).update(**values)
         _save_ext(kind, row, ext)
         new = {**loaded, **values}
-        if kind == "address":
+        if kind == "address":  # no update trigger exists in MACS, so HR copies the street on every save
             macs_writes.copy_address_to_customer(employee, new.get("street"))  # type: ignore[arg-type]
+        if kind == "contact":
+            _refresh_contact_effect(employee, new["contact_type_id"])
         return new
 
     data = _guarded(write)

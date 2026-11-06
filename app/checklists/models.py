@@ -45,7 +45,7 @@ class ChecklistTemplate(models.Model):
             models.UniqueConstraint(
                 fields=["kind"],
                 condition=Q(is_default=True),
-                name="checklist_template_one_default_per_kind",
+                name="checklist_tpl_one_default",
                 violation_error_message="Энэ төрөлд үндсэн загвар аль хэдийн байна.",
             ),
         ]
@@ -78,7 +78,7 @@ class ChecklistTemplateTask(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(Q(group__isnull=False, manager=False) | Q(group__isnull=True, manager=True)),
-                name="checklist_template_task_one_owner",
+                name="checklist_tpl_task_one_owner",
                 violation_error_message="Даалгаварт нэг эзэн (эрхийн бүлэг эсвэл шууд удирдлага) заана.",
             ),
         ]
@@ -111,7 +111,7 @@ class Checklist(models.Model):
             models.UniqueConstraint(
                 fields=["employee", "kind"],
                 condition=Q(state="open"),
-                name="checklist_one_open_per_employee_kind",
+                name="checklist_one_open_emp_kind",
             ),
         ]
 

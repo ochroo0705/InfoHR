@@ -8,8 +8,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from macs.models import EducRow, EduType, PresentRow, PresentType
-from psycopg.types.range import DateRange
 
+from employees import history_range
 from employees.models import (
     ActivityEntry,
     ActivityKind,
@@ -64,7 +64,7 @@ def make_employee(**overrides: Any) -> Employee:
 def make_job(employee: Employee, lower: date, upper: date | None = None) -> JobRecord:
     return JobRecord.objects.create(
         employee=employee,
-        period=DateRange(lower, upper, "[)"),
+        **history_range.span_kwargs(lower, upper),
         position=Position.objects.get_or_create(name="Нягтлан")[0],
         department=Department.objects.get_or_create(name="Санхүү")[0],
         employee_type="full_time",
@@ -75,12 +75,18 @@ def make_job(employee: Employee, lower: date, upper: date | None = None) -> JobR
 
 
 @pytest.mark.django_db
-def test_job_periods_may_touch_but_not_overlap() -> None:
+def test_job_periods_may_touch() -> None:
     emp = make_employee()
     make_job(emp, date(2026, 1, 1), date(2026, 3, 1))
-    make_job(emp, date(2026, 3, 1))  # touching is fine: [) bounds
+    make_job(emp, date(2026, 3, 1))  # touching is fine: the old period ends the day the new one starts
+
+
+@pytest.mark.django_db
+def test_job_one_start_per_employee_in_db() -> None:
+    emp = make_employee()
+    make_job(emp, date(2026, 1, 1), date(2026, 3, 1))
     with pytest.raises(IntegrityError), transaction.atomic():
-        make_job(emp, date(2026, 2, 1), date(2026, 2, 10))
+        make_job(emp, date(2026, 1, 1))
 
 
 @pytest.mark.django_db
@@ -106,18 +112,18 @@ def test_full_name() -> None:
 
 
 @pytest.mark.django_db
-def test_salary_periods_do_not_overlap() -> None:
+def test_salary_one_start_per_employee_in_db() -> None:
     emp = make_employee()
     SalaryRecord.objects.create(
         employee=emp,
-        period=DateRange(date(2026, 1, 1), None, "[)"),
+        **history_range.span_kwargs(date(2026, 1, 1), None),
         base_salary=Decimal("2500000.00"),
         change_type=ChangeType.HIRE,
     )
     with pytest.raises(IntegrityError), transaction.atomic():
         SalaryRecord.objects.create(
             employee=emp,
-            period=DateRange(date(2026, 5, 1), None, "[)"),
+            **history_range.span_kwargs(date(2026, 1, 1), None),
             base_salary=Decimal("1"),
             change_type=ChangeType.HIRE,
         )

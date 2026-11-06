@@ -9,6 +9,7 @@ from accounts.models import User
 from django.utils import timezone
 from macs.models import FiredReason
 
+from employees import history_range
 from employees.models import Employee, EmployeeExt, ensure_ext
 from employees.services import events, history, macs_writes
 from employees.tests.helpers import record_signed
@@ -85,7 +86,7 @@ def test_opening_job_keeps_macs_type(actor: User, job_values: dict[str, Any]) ->
     )
     emp = _prod(emp)
     _rec(emp, actor, "salary_change", TODAY, salary=Decimal("1900000"))
-    first = emp.job_records.order_by("period").first()
+    first = emp.job_records.order_by(*history_range.ORDER).first()
     assert first is not None and first.emptype == 5
 
 

@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.utils import timezone
 from macs.models import Department
 
+from employees import history_range
 from employees.models import EmployeeExt, JobRecord
 
 
@@ -17,7 +18,7 @@ def team_ids(employee_id: int, day: date) -> set[int]:
     """Every employee below `employee_id` in the manager chain on `day`, direct and indirect.
     Excludes `employee_id` itself; a loop in the data cannot make the walk run forever."""
     reports: dict[int, list[int]] = defaultdict(list)
-    rows = JobRecord.objects.filter(period__contains=day, manager__isnull=False).values_list(
+    rows = JobRecord.objects.filter(history_range.on(day), manager__isnull=False).values_list(
         "manager_id", "employee_id"
     )
     for manager, employee in rows:

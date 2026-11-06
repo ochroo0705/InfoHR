@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.db import IntegrityError
-from psycopg.types.range import DateRange
 
+from employees import history_range
 from employees.models import ActivityEntry, Employee, Event, JobRecord, Position, SalaryRecord
 from employees.services import history
 from employees.services.history import HistoryError
@@ -35,7 +35,7 @@ def test_change_job_splits_period(hired: Employee, actor: User) -> None:
     history.change_job(
         hired, effective=date(2026, 6, 1), changes={"position": lead}, change_type="correction", note="", by=actor
     )
-    first, second = JobRecord.objects.filter(employee=hired).order_by("period")
+    first, second = JobRecord.objects.filter(employee=hired).order_by(*history_range.ORDER)
     assert first.period.upper == date(2026, 6, 1) and first.position.name == "Нягтлан"
     assert second.period.lower == date(2026, 6, 1) and second.period.upper is None
     assert second.position == lead and second.department == first.department
@@ -123,7 +123,7 @@ def test_future_hire_has_no_current_job(actor: User, job_values: dict[str, Any])
     assert emp.emptype == 1 and emp.status == "active"
 
 
-@pytest.mark.parametrize("bad", ["period", "positon", "employee", "id"])
+@pytest.mark.parametrize("bad", ["period", "start_date", "end_date", "positon", "employee", "id"])
 def test_change_job_rejects_unknown_fields(hired: Employee, actor: User, bad: str) -> None:
     before = ActivityEntry.objects.count()
     with pytest.raises(HistoryError):
@@ -157,7 +157,7 @@ def test_change_job_splits_only_the_period_it_falls_in(hired: Employee, actor: U
     history.change_job(
         hired, effective=date(2026, 2, 1), changes={"status": "long_leave"}, change_type="correction", note="", by=actor
     )
-    first, second, third = JobRecord.objects.filter(employee=hired).order_by("period")
+    first, second, third = JobRecord.objects.filter(employee=hired).order_by(*history_range.ORDER)
     assert first.period.lower == date(2026, 1, 5) and first.period.upper == date(2026, 2, 1)
     assert second.period.lower == date(2026, 2, 1) and second.period.upper == date(2026, 3, 1)
     assert third.period.lower == date(2026, 3, 1) and third.period.upper is None
@@ -274,7 +274,7 @@ def test_undo_refused_when_later_history_has_gap(hired: Employee, actor: User) -
     history.change_salary(
         hired, effective=date(2026, 6, 1), amount=Decimal("2700000"), change_type="salary_change", note="", by=actor
     )
-    SalaryRecord.objects.filter(pk=first.pk).update(period=DateRange(date(2026, 3, 1), date(2026, 5, 1), "[)"))
+    SalaryRecord.objects.filter(pk=first.pk).update(**history_range.span_kwargs(date(2026, 3, 1), date(2026, 5, 1)))
     with pytest.raises(HistoryError):
         history.undo([first])
 

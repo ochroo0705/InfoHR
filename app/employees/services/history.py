@@ -7,8 +7,8 @@ from typing import Any, cast
 from accounts.models import User
 from django.db import connection, transaction
 from django.utils import timezone
-from psycopg.types.range import DateRange
 
+from employees import history_range
 from employees.models import (
     ActivityEntry,
     ActivityKind,
@@ -49,7 +49,9 @@ def _show(value: Any, model: type[JobRecord] | type[SalaryRecord] = JobRecord, f
 
 
 def _containing(qs: Any, day: date) -> Any:
-    return qs.filter(period__contains=day).first()
+    # Order by start_date, not the model's Meta ordering: that orders by employee, which joins to the MACS
+    # Employee table, and Firebird refuses FOR UPDATE on a join ("WITH LOCK can be used only with a single table").
+    return qs.filter(history_range.on(day)).order_by(*history_range.ORDER).first()
 
 
 def job_on(employee: Employee, day: date) -> JobRecord | None:
@@ -65,11 +67,14 @@ def _split(record: Any, effective: date) -> Any:
     if record.period.lower == effective:
         raise HistoryError("Энэ өдрөөс эхэлсэн хугацаа аль хэдийн байна. Засвар ашиглана уу.")
     upper = record.period.upper
-    record.period = DateRange(record.period.lower, effective, "[)")
-    record.save(update_fields=["period"])
+    model = type(record)
+    history_range.ensure_free(model, record.employee_id, record.period.lower, effective, exclude_pk=record.pk)
+    history_range.ensure_free(model, record.employee_id, effective, upper, exclude_pk=record.pk)
+    history_range.set_span(record, record.period.lower, effective)
+    record.save(update_fields=history_range.SPAN_FIELDS)
     record.pk = None
     record.id = None
-    record.period = DateRange(effective, upper, "[)")
+    history_range.set_span(record, effective, upper)
     return record
 
 
@@ -110,6 +115,10 @@ def hire(
     employee = macs_writes.create_employee(
         values, {"setup_required": True, **ext_values}, code=macs_writes.next_code(), by=by
     )
+    history_range.lock_employee(employee.pk)
+    history_range.ensure_free(JobRecord, employee.pk, start, None)
+    if salary is not None:
+        history_range.ensure_free(SalaryRecord, employee.pk, start, None)
     job = _no_end_if_open_ended(job)
     if "emptype" not in job:  # D-028: the type is stored; a hire is probation (9) when a probation end is given
         job = {
@@ -121,7 +130,7 @@ def hire(
             else 1,
         }
     JobRecord.objects.create(
-        employee=employee, period=DateRange(start, None, "[)"), change_type="hire", created_by=by, **job
+        employee=employee, **history_range.span_kwargs(start, None), change_type="hire", created_by=by, **job
     )
     # Probation months count from this hire's start (not first_hire_date); needs the hire job row just created.
     months = macs_writes.probation_months(
@@ -137,7 +146,7 @@ def hire(
     if salary is not None:
         SalaryRecord.objects.create(
             employee=employee,
-            period=DateRange(start, None, "[)"),
+            **history_range.span_kwargs(start, None),
             base_salary=salary,
             change_type="hire",
             created_by=by,
@@ -199,6 +208,7 @@ def start_from_macs(
     # Local import: listing imports this module at the top.
     from employees.listing import legacy_job
 
+    history_range.lock_employee(employee.pk)
     employee = Employee.objects.select_for_update().get(pk=employee.pk)  # read the MACS row under the lock
     if employee.job_records.exists():
         return
@@ -212,9 +222,12 @@ def start_from_macs(
     contract = employee.emptype == 5
     fixed_term = contract and employee.contract_end is not None  # a fixed-term contract needs an end date
     template = legacy_job(employee)  # status and contract dates, read the same way the list shows them
+    history_range.ensure_free(JobRecord, employee.pk, start, None)
+    if employee.salary and not employee.salary_records.exists():
+        history_range.ensure_free(SalaryRecord, employee.pk, start, None)
     JobRecord.objects.create(
         employee=employee,
-        period=DateRange(start, None, "[)"),
+        **history_range.span_kwargs(start, None),
         department=dept,
         position=pos,
         status=template.status,
@@ -230,7 +243,7 @@ def start_from_macs(
     if employee.salary and not employee.salary_records.exists():
         SalaryRecord.objects.create(
             employee=employee,
-            period=DateRange(start, None, "[)"),
+            **history_range.span_kwargs(start, None),
             base_salary=employee.salary,
             change_type="opening",
             created_by=by,
@@ -258,6 +271,7 @@ def change_job(
     for field in changes:
         if field not in JobRecord.JOB_FIELDS:
             raise HistoryError(f"'{field}' талбарыг засах боломжгүй.")
+    history_range.lock_employee(employee.pk)
     Employee.objects.select_for_update().get(pk=employee.pk)
     current = _containing(employee.job_records.select_for_update(), effective)
     if current is None:
@@ -298,13 +312,16 @@ def _write_salary(
     amount as shown in the log. The caller holds the employee lock."""
     current = _containing(employee.salary_records.select_for_update(), effective)
     if current is None:
-        if employee.salary_records.filter(period__startswith__gt=effective).exists():
+        if employee.salary_records.filter(history_range.starts_after(effective)).exists():
             raise HistoryError("Энэ өдрөөс хойш цалингийн түүх байна. Засвар ашиглана уу.")
-        record = SalaryRecord(employee=employee, period=DateRange(effective, None, "[)"))
+        record = SalaryRecord(employee=employee, **history_range.span_kwargs(effective, None))
         old = ""
     else:
         old = group(current.base_salary)
         record = _split(current, effective)
+    # A new period from `effective` on: refuse it when it would overlap another one (a split is checked in _split).
+    if current is None:
+        history_range.ensure_free(SalaryRecord, employee.pk, effective, None)
     record.base_salary, record.change_type, record.note, record.created_by = amount, change_type, note, by
     record.event = event
     record.save()
@@ -324,6 +341,7 @@ def change_salary(
     event: Event | None = None,
     log: bool = True,
 ) -> SalaryRecord:
+    history_range.lock_employee(employee.pk)
     Employee.objects.select_for_update().get(pk=employee.pk)
     if first_only and employee.salary_records.exists():
         raise HistoryError("Цалин аль хэдийн тогтоогдсон байна.")
@@ -373,12 +391,17 @@ def insert_job(
     for field in changes:
         if field not in JobRecord.JOB_FIELDS:
             raise HistoryError(f"'{field}' талбарыг засах боломжгүй.")
+    history_range.lock_employee(employee.pk)
     Employee.objects.select_for_update().get(pk=employee.pk)
     current = _containing(employee.job_records.select_for_update(), effective)
     if current is None:
         raise HistoryError("Энэ өдөр ажилтанд ажлын түүх байхгүй байна.")
     old = {field: getattr(current, field) for field in changes}
-    later = list(employee.job_records.select_for_update().filter(period__startswith__gt=effective).order_by("period"))
+    later = list(
+        employee.job_records.select_for_update()
+        .filter(history_range.starts_after(effective))
+        .order_by(*history_range.ORDER)
+    )
     for field in changes:
         for later_record in later:
             if getattr(later_record, field) != old[field]:
@@ -411,8 +434,13 @@ def insert_salary(
     event: Event | None,
 ) -> SalaryRecord:
     """Salary counterpart of insert_job: refused when a later salary period exists. No log, no sync (the caller)."""
+    history_range.lock_employee(employee.pk)
     Employee.objects.select_for_update().get(pk=employee.pk)
-    later = employee.salary_records.select_for_update().filter(period__startswith__gt=effective).order_by("period")
+    later = (
+        employee.salary_records.select_for_update()
+        .filter(history_range.starts_after(effective))
+        .order_by(*history_range.ORDER)
+    )
     if (blocking := later.first()) is not None:
         raise HistoryError(
             f"Үндсэн цалин: {_later_change_text(blocking)} аль хэдийн өөрчилсөн байна. "
@@ -428,19 +456,21 @@ def insert_salary(
 def undo(records: list[JobRecord | SalaryRecord]) -> None:
     """Remove history rows and extend the previous period over the gap (used when an event is cancelled)."""
     for employee_id in sorted({r.employee_id for r in records}):
+        history_range.lock_employee(employee_id)
         Employee.objects.select_for_update().get(pk=employee_id)
     for stale in sorted(records, key=lambda r: r.period.lower, reverse=True):
         model = type(stale)
         record = model.objects.select_for_update().get(pk=stale.pk)
         lower, upper = record.period.lower, record.period.upper
         siblings = model.objects.filter(employee_id=record.employee_id)
-        if siblings.filter(period__startswith__gt=lower).exclude(pk=record.pk).exists():
+        if siblings.filter(history_range.starts_after(lower)).exclude(pk=record.pk).exists():
             raise HistoryError("Энэ өөрчлөлтөөс хойш өөр өөрчлөлт бий. Эхлээд сүүлийнхийг цуцална уу.")
-        previous = siblings.filter(period__endswith=lower).first()
+        previous = siblings.filter(history_range.ends_on(lower)).first()
         record.delete()
         if previous is not None:
-            previous.period = DateRange(previous.period.lower, upper, "[)")
-            previous.save(update_fields=["period"])
+            history_range.ensure_free(model, record.employee_id, previous.period.lower, upper, exclude_pk=previous.pk)
+            history_range.set_span(previous, previous.period.lower, upper)
+            previous.save(update_fields=history_range.SPAN_FIELDS)
     for employee_id in sorted({r.employee_id for r in records}):
         macs_writes.sync_current(Employee.objects.get(pk=employee_id), timezone.localdate())
 
@@ -454,6 +484,7 @@ def _require_reason(reason: str) -> str:
 @transaction.atomic
 def correct_job(record: JobRecord, *, changes: dict[str, Any], reason: str, by: User) -> JobRecord:
     reason = _require_reason(reason)
+    history_range.lock_employee(record.employee_id)
     Employee.objects.select_for_update().get(pk=record.employee_id)
     record = JobRecord.objects.select_for_update().get(pk=record.pk)
     changes = _no_end_if_open_ended(changes, record.contract_type)
@@ -489,6 +520,7 @@ def correct_job(record: JobRecord, *, changes: dict[str, Any], reason: str, by: 
 @transaction.atomic
 def correct_salary(record: SalaryRecord, *, amount: Decimal, reason: str, by: User) -> SalaryRecord:
     reason = _require_reason(reason)
+    history_range.lock_employee(record.employee_id)
     Employee.objects.select_for_update().get(pk=record.employee_id)
     record = SalaryRecord.objects.select_for_update().get(pk=record.pk)
     old = group(record.base_salary)

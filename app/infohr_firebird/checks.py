@@ -8,14 +8,20 @@ The message builders take a list of model classes, so they can be tested on synt
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from django.apps import apps
 from django.conf import settings
 from django.core.checks import CheckMessage, Error, Tags, register
 from django.core.checks import Warning as CheckWarning
-from django.db import models
+from django.db import connection, models
+from macs.triggers import EXPECTED as MACS_TRIGGERS
+from macs.triggers import missing as missing_macs_triggers
+
+from infohr_firebird.emulated import EMULATED
 
 ENGINE = "infohr_firebird"
 MACS_APP_LABEL = "macs"
@@ -42,7 +48,11 @@ def _hr_fields(
 def wide_decimal_messages(model_classes: Iterable[type[models.Model]]) -> list[CheckMessage]:
     messages: list[CheckMessage] = []
     for model, field in _hr_fields(model_classes):
-        if isinstance(field, models.DecimalField) and (field.max_digits or 0) > MAX_DECIMAL_DIGITS:
+        if (
+            isinstance(field, models.DecimalField)
+            and (field.max_digits or 0) > MAX_DECIMAL_DIGITS
+            and not getattr(field, "exact_money", False)  # ExactMoneyField is stored as a double on purpose
+        ):
             messages.append(
                 CheckWarning(
                     f"{model._meta.label}.{field.name} is a DecimalField with max_digits={field.max_digits}.",
@@ -94,6 +104,39 @@ def check_big_integers(app_configs: object, **kwargs: object) -> list[CheckMessa
     return big_integer_messages(apps.get_models(include_auto_created=True))
 
 
+def unknown_conditional_unique_messages(model_classes: Iterable[type[models.Model]]) -> list[CheckMessage]:
+    messages: list[CheckMessage] = []
+    for model in model_classes:
+        meta = model._meta
+        if not meta.managed or meta.app_label == MACS_APP_LABEL:
+            continue
+        for constraint in meta.constraints:
+            if not isinstance(constraint, models.UniqueConstraint) or constraint.condition is None:
+                continue
+            if constraint.name in EMULATED:
+                continue
+            messages.append(
+                Error(
+                    f"{meta.label} has the conditional unique constraint {constraint.name}, "
+                    "which Firebird cannot create as a partial index.",
+                    hint=(
+                        f"Add {constraint.name} to EMULATED in app/infohr_firebird/emulated.py "
+                        "(a UNIQUE index over a COMPUTED BY expression), then create it in the migration."
+                    ),
+                    obj=model,
+                    id="infohr_firebird.E010",
+                )
+            )
+    return messages
+
+
+@register(Tags.models)
+def check_conditional_unique(app_configs: object, **kwargs: object) -> list[CheckMessage]:
+    if not _enabled():
+        return []
+    return unknown_conditional_unique_messages(apps.get_models(include_auto_created=True))
+
+
 @register(Tags.models)
 def check_table_prefix(app_configs: object, **kwargs: object) -> list[CheckMessage]:
     if not _enabled() or settings.HR_TABLE_PREFIX:
@@ -108,3 +151,78 @@ def check_table_prefix(app_configs: object, **kwargs: object) -> list[CheckMessa
             id="infohr_firebird.E001",
         )
     ]
+
+
+@register(Tags.database)
+def check_macs_triggers(
+    app_configs: object = None, databases: Collection[str] | None = None, **kwargs: object
+) -> list[CheckMessage]:
+    """E011: a MACS trigger that HR relies on is missing or inactive (macs.triggers.EXPECTED).
+
+    Django calls every database check with databases=None when no database is being checked, so this
+    returns [] then. It also returns [] outside Firebird mode, without querying anything.
+    """
+    if not _enabled() or not databases or "default" not in databases:
+        return []
+    names = missing_macs_triggers(*sorted(MACS_TRIGGERS))
+    if not names:
+        return []
+    return [
+        Error(
+            f"MACS triggers missing or inactive: {', '.join(names)}.",
+            hint=(
+                "HR writes depend on these triggers. Activate them in the MACS Firebird database "
+                "(ALTER TRIGGER <name> ACTIVE) or restore them from the MACS install. HR refuses writes until then."
+            ),
+            id="infohr_firebird.E011",
+        )
+    ]
+
+
+PROJECT_ZONE = ZoneInfo("Asia/Ulaanbaatar")
+MAX_SERVER_CLOCK_SKEW = timedelta(minutes=2)
+
+
+def _ulaanbaatar_now() -> datetime:
+    """The current time in the project zone, as a naive wall-clock value (the way Firebird stores TIMESTAMP)."""
+    return datetime.now(PROJECT_ZONE).replace(tzinfo=None)
+
+
+def _firebird_server_now() -> datetime:
+    """The Firebird server clock. CURRENT_TIMESTAMP is the server's wall clock, in the server's zone."""
+    with connection.cursor() as cursor:
+        cursor.execute("select current_timestamp from rdb$database")
+        value: datetime = cursor.fetchone()[0]
+    return value
+
+
+def server_time_zone_messages(server_now: datetime, local_now: datetime) -> list[CheckMessage]:
+    """W011 when the server's wall clock differs from Asia/Ulaanbaatar wall clock by more than 2 minutes.
+
+    Both values are naive wall-clock times. A tz-aware server value keeps its own wall clock on purpose: a server
+    set to another zone shows that zone's wall clock, which is the mistake this check looks for.
+    """
+    server_naive = server_now.replace(tzinfo=None)
+    if abs(server_naive - local_now) <= MAX_SERVER_CLOCK_SKEW:
+        return []
+    return [
+        CheckWarning(
+            f"The Firebird server clock reads {server_naive:%Y-%m-%d %H:%M:%S}, "
+            f"but Asia/Ulaanbaatar time is {local_now:%Y-%m-%d %H:%M:%S}.",
+            hint=(
+                f"Server time {server_naive:%Y-%m-%d %H:%M:%S} and Ulaanbaatar time {local_now:%Y-%m-%d %H:%M:%S} "
+                "differ; the Firebird server time zone must be Asia/Ulaanbaatar, or HR records and dates are wrong."
+            ),
+            id="infohr_firebird.W011",
+        )
+    ]
+
+
+@register(Tags.database)
+def check_server_time_zone(
+    app_configs: object = None, databases: Collection[str] | None = None, **kwargs: object
+) -> list[CheckMessage]:
+    """W011: the Firebird server clock is not on Asia/Ulaanbaatar time. Runs only with the 'default' database."""
+    if not _enabled() or not databases or "default" not in databases:
+        return []
+    return server_time_zone_messages(_firebird_server_now(), _ulaanbaatar_now())

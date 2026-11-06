@@ -15,6 +15,7 @@ from typing import Any, NamedTuple, cast
 from accounts import roles
 from accounts.models import User
 from django.db.models import Q, QuerySet
+from employees import history_range
 from employees.models import EmployeeExt, JobRecord
 from leave.services.approvers import _admins, _admitted, manager_user_ids
 
@@ -153,7 +154,7 @@ def _may_have_tasks(user: User, day: date) -> bool:
         return True
     linked = EmployeeExt.objects.filter(user=user).values("employee_id")
     # A row that starts later counts too: a hire with a future start is owned on its start day (`resolution_day`).
-    in_force_or_ahead = Q(period__contains=day) | Q(period__startswith__gt=day)
+    in_force_or_ahead = history_range.on(day) | history_range.starts_after(day)
     if not JobRecord.objects.filter(in_force_or_ahead, manager__in=linked).exists():
         return False
     return _open_tasks().filter(manager=True).exists()

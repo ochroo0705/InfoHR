@@ -17,6 +17,7 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.html import format_html
 from django.views.decorators.http import require_POST
+from employees import history_range
 from employees.access import own_employee
 from employees.models import Employee, JobRecord
 from employees.scope import restriction
@@ -199,7 +200,7 @@ def _others(user: User, req: LeaveRequest, day: date) -> list[Other]:
     if job is None:
         return []
     same_department = (
-        JobRecord.objects.filter(department_id=job.department_id, period__contains=day)
+        JobRecord.objects.filter(history_range.on(day), department_id=job.department_id)
         .exclude(employee_id=req.employee_id)
         .values("employee_id")
     )

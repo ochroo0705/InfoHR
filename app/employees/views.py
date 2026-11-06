@@ -36,7 +36,7 @@ from macs.models import Absence, Command
 from reports.registry import can_open
 from reports.staff_list import REPORT as STAFF_LIST
 
-from employees import access, attention, company_stats, palette, sections, stale
+from employees import access, attention, company_stats, history_range, palette, sections, stale
 from employees import today as facts
 from employees.forms import (
     BIRTH_FIELDS,
@@ -512,7 +512,9 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
     setup_items = setup.status(employee, user) if show_setup else None
     row = row_for(employee, today)
     jobs = _mark_scheduled(
-        employee.job_records.select_related("position", "department", "manager", "event").order_by("-period"),
+        employee.job_records.select_related("position", "department", "manager", "event").order_by(
+            *history_range.ORDER_DESC
+        ),
         user,
         today,
     )
@@ -538,7 +540,9 @@ def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object
         "waiting": _awaiting_rows(employee, user, can_salary),
         "salary": current_salary(employee, today) if can_salary else None,
         "salaries": (
-            _mark_scheduled(employee.salary_records.select_related("event").order_by("-period"), user, today)
+            _mark_scheduled(
+                employee.salary_records.select_related("event").order_by(*history_range.ORDER_DESC), user, today
+            )
             if can_salary
             else []
         ),

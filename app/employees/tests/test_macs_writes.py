@@ -5,8 +5,8 @@ import pytest
 from accounts.models import User
 from django.utils import timezone
 from macs.models import EmployeeHistory, Movement
-from psycopg.types.range import DateRange
 
+from employees import history_range
 from employees.models import (
     ChangeType,
     ContractType,
@@ -117,7 +117,7 @@ def _dept_pos() -> tuple[Department, Position]:
 def _job(employee: Employee, dep: Department, pos: Position, start: date, end: date | None, status: str) -> None:
     JobRecord.objects.create(
         employee=employee,
-        period=DateRange(start, end, "[)"),
+        **history_range.span_kwargs(start, end),
         position=pos,
         department=dep,
         employee_type=EmployeeType.FULL_TIME,
@@ -138,7 +138,7 @@ def test_sync_current_copies_the_job_and_salary_valid_today(actor: User) -> None
     _job(e, dep, pos, date(2026, 1, 5), None, JobStatus.ACTIVE)
     SalaryRecord.objects.create(
         employee=e,
-        period=DateRange(date(2026, 1, 5), None, "[)"),
+        **history_range.span_kwargs(date(2026, 1, 5), None),
         base_salary=Decimal("1500000"),
         change_type=ChangeType.HIRE,
     )

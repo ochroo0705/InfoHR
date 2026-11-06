@@ -14,6 +14,7 @@ from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from employees.models import HOLIDAY_RECOUNT, ActivityEntry, ActivityKind
 from employees.services.macs_writes import ListEntryInUse
+from macs.dialect import lock_suffix
 from macs.models import Employee, Entitlement, LeaveAssign, LeaveTypeRow, LegalHoliday
 
 from leave.models import GrantKind, LeaveExt, LeaveGrantExt, LeaveTypeExt
@@ -395,7 +396,7 @@ def sync_vacation(employee_id: int, year: int) -> None:
     dep = Employee.objects.filter(pk=employee_id).values_list("department_id", flat=True).first()
     with connection.cursor() as cur:
         cur.execute(
-            "SELECT mmonth FROM emp_vacation WHERE emp_ident = %s AND myear = %s ORDER BY mmonth FOR UPDATE",
+            "SELECT mmonth FROM emp_vacation WHERE emp_ident = %s AND myear = %s ORDER BY mmonth" + lock_suffix(),
             [employee_id, year],
         )
         months = [m for (m,) in cur.fetchall()]

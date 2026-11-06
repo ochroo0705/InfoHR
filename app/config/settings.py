@@ -134,7 +134,10 @@ elif DB_ENGINE == "firebird":
     # fields.E180 says the backend has no native JSON type. The backend stores JSON as text, which
     # round-trips (firebird3-foundation Task 4), so the check is silenced rather than lying in the feature flag.
     SILENCED_SYSTEM_CHECKS = ["fields.E180"]
-    # Firebird migration set (ruling R26): these five apps use generated initial migrations (migrations_fb),
+    # models.W036 (no partial unique indexes) is emulated for the rules listed in emulated.py; E010 errors
+    # for any other conditional unique constraint, so the silence cannot hide a missing rule.
+    SILENCED_SYSTEM_CHECKS = [*SILENCED_SYSTEM_CHECKS, "models.W036"]
+    # Firebird migration set (ruling R26): these eight apps use generated initial migrations (migrations_fb),
     # because the PostgreSQL history creates columns named with reserved words before renaming them. The
     # PostgreSQL history is never edited; macs and the contrib apps keep theirs.
     MIGRATION_MODULES = {
@@ -143,9 +146,9 @@ elif DB_ENGINE == "firebird":
         "leave": "leave.migrations_fb",
         "recruitment": "recruitment.migrations_fb",
         "reports": "reports.migrations_fb",
-        # Placeholders: no Firebird migrations yet, so the loader sees no migrations for these apps (ruling R31).
         "employees": "employees.migrations_fb",
         "checklists": "checklists.migrations_fb",
+        "assistant": "assistant.migrations_fb",
     }
 else:
     raise ImproperlyConfigured(f"DB_ENGINE must be 'postgres' or 'firebird', not {DB_ENGINE!r}.")

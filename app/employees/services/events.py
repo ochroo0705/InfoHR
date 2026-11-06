@@ -13,6 +13,7 @@ from django.db.models import Model, Q
 from django.utils import timezone
 from macs.models import FiredReason
 
+from employees import history_range
 from employees.models import (
     ActivityEntry,
     ActivityKind,
@@ -400,6 +401,7 @@ def record(
     offboarding_override: str = "",
     slot_override: str = "",
 ) -> Event:
+    history_range.lock_employee(employee.pk)  # lock order: the history lock, then the Employee row
     Employee.objects.select_for_update().get(pk=employee.pk)
     try:
         event_type = EventType(type)
@@ -433,8 +435,8 @@ def record(
     if pension and event_type not in (EventType.TERMINATION, EventType.CONTRACT):
         raise EventError({"pension": "Тэтгэвэрт гарсан нь зөвхөн ажлаас гарах эсвэл гэрээ өөрчлөхөд хамаарна."})
     new = _validate(employee, event_type, effective, changes, salary, reason, fired_reason, pension)
-    if (new and employee.job_records.filter(period__startswith__gt=effective).exists()) or (
-        salary is not None and employee.salary_records.filter(period__startswith__gt=effective).exists()
+    if (new and employee.job_records.filter(history_range.starts_after(effective)).exists()) or (
+        salary is not None and employee.salary_records.filter(history_range.starts_after(effective)).exists()
     ):
         raise EventError({"__all__": LATER_CHANGE})
     if event_type == EventType.TERMINATION:
@@ -552,6 +554,7 @@ def record(
 def apply_waiting(event: Event, *, by: User) -> None:
     """Apply a change that waited for its signed order, at its own date. Validated again against the history as it is
     now; a same-field change recorded later refuses it (insert_job). Nothing is applied when this raises."""
+    history_range.lock_employee(event.employee_id)  # lock order: the history lock, then the Employee row
     employee = Employee.objects.select_for_update().get(pk=event.employee_id)
     event = Event.objects.select_for_update().get(pk=event.pk)
     if event.applied_at is not None:
@@ -662,6 +665,7 @@ def cancel(event: Event, *, reason: str, by: User, cancel_order_no: str = "") ->
     reason = reason.strip()
     if not reason:
         raise EventError({"reason": "Цуцлах шалтгаанаа бичнэ үү."})
+    history_range.lock_employee(event.employee_id)  # lock order: the history lock, then the Employee row
     Employee.objects.select_for_update().get(pk=event.employee_id)
     event = Event.objects.select_for_update().get(pk=event.pk)
     # A waiting change (no signed order yet) can always be cancelled: nothing was written for it. An applied one only

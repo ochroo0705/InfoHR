@@ -12,6 +12,7 @@ from datetime import date
 from django.db.models import QuerySet
 from macs.models import Department, FiredReason, Position
 
+from employees import history_range
 from employees.models import ChangeType, Employee, HrOrder, JobRecord, OrderState
 
 
@@ -38,7 +39,7 @@ def changes(people: QuerySet[Employee], start: date, end: date, kinds: Collectio
     jobs = list(
         JobRecord.objects.filter(employee__in=people)
         .select_related("employee", "department", "position", "event__fired_reason")
-        .order_by("employee_id", "period")
+        .order_by("employee_id", *history_range.ORDER)
     )
     first_hire: dict[int, int] = {}  # employee_id -> pk of the employee's first hire row
     for job in jobs:

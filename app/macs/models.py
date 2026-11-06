@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.db import models
 
-from macs.fields import SmallintFlagField, TimestampDateField
+from macs.fields import ServerComputedCharField, SmallintFlagField, TimestampDateField
 
 
 class _Table(models.Model):
@@ -255,7 +255,7 @@ class Employee(_Table):
     given_name = models.CharField("Нэр", max_length=25, db_column="name")
     family_name = models.CharField("Эцэг/эхийн нэр", max_length=25, db_column="surname", null=True)
     clan_name = models.CharField("Ургийн овог", max_length=25, db_column="ovog", null=True, blank=True)
-    fullname = models.CharField("Бүтэн нэр", max_length=208, db_column="fullname", null=True, blank=True)
+    fullname = ServerComputedCharField("Бүтэн нэр", max_length=208, db_column="fullname", null=True, blank=True)
     register_no = models.CharField("Регистрийн дугаар", max_length=20, db_column="registerno", null=True)
     birth_date = TimestampDateField("Төрсөн огноо", db_column="birthday", null=True)
     birth_year = models.IntegerField("Төрсөн он", db_column="birthyear", null=True, blank=True)
@@ -465,7 +465,7 @@ class EmployeeHistory(_Table):
     employee_id_value = models.IntegerField(db_column="employee_ident")
     given_name = models.CharField(max_length=25, db_column="name")
     family_name = models.CharField(max_length=25, db_column="surname", null=True)
-    fullname = models.CharField(max_length=208, db_column="fullname", null=True)
+    fullname = ServerComputedCharField(max_length=208, db_column="fullname", null=True)
     salary = models.DecimalField(max_digits=15, decimal_places=2, db_column="salary", default=0)
     status = models.CharField(max_length=8, db_column="status", null=True)
     contract_flag = models.CharField(max_length=12, db_column="contract_emp", null=True)
@@ -517,9 +517,11 @@ class Movement(_Table):
     )
     date = TimestampDateField(db_column="move_date")
     description = models.CharField(max_length=100, db_column="description", null=True, blank=True)
+    old_branch_id_value = models.IntegerField(db_column="old_branchid", null=True)
     old_department_id_value = models.SmallIntegerField(db_column="old_depid", null=True)
     old_position_id_value = models.IntegerField(db_column="old_occupid", null=True)
     old_emptype = models.SmallIntegerField(db_column="old_emptype", null=True)
+    new_branch_id_value = models.IntegerField(db_column="new_branchid", null=True)
     new_department_id_value = models.SmallIntegerField(db_column="new_depid", null=True)
     new_position_id_value = models.IntegerField(db_column="new_occupid", null=True)
     new_emptype = models.SmallIntegerField(db_column="new_emptype", null=True)

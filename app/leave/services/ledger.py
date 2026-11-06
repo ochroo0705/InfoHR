@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from accounts.models import User
 from django.db import transaction
 from django.utils import timezone
+from employees import history_range
 from employees.models import LEAVE_BALANCE_EDITED, ActivityEntry, ActivityKind, Employee, EmployeeType, JobStatus
 from employees.services import history
 from macs.models import LeaveTypeRow
@@ -79,7 +80,7 @@ def _overlaps(a_start: date, a_end: date, b_start: date, b_end: date) -> bool:
 
 
 def _is_intern(employee: Employee, today: date) -> bool:
-    return employee.job_records.filter(period__contains=today, employee_type=EmployeeType.INTERN).exists()
+    return employee.job_records.filter(history_range.on(today), employee_type=EmployeeType.INTERN).exists()
 
 
 @transaction.atomic  # select_for_update below needs a transaction, also when records.check calls this outside one

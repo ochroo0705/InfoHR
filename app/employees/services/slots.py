@@ -16,8 +16,8 @@ from django.db import transaction
 from django.db.models import Count, Q, QuerySet
 from django.db.utils import ProgrammingError
 from macs.models import Branch, Employee, NazgRow, Position
-from psycopg.types.range import DateRange
 
+from employees import history_range
 from employees.listing import LEGACY_NOT_WORKING
 from employees.models import CompanySettings, Event, EventType, JobRecord, JobStatus
 from employees.services import macs_writes
@@ -72,8 +72,10 @@ def _used(position: Position, branch: Branch | None, kind: str, on: date, exclud
     people = people.filter(branch=branch) if branch is not None else people.filter(branch__isnull=True)
     if exclude_employee is not None:
         people = people.exclude(pk=exclude_employee.pk)
-    window = DateRange(on, date(on.year + 1, 1, 1), "[)")  # from `on` to the end of its year
-    with_job = JobRecord.objects.filter(position=position, period__overlap=window).exclude(status=JobStatus.LEFT)
+    year_end = date(on.year + 1, 1, 1)  # from `on` to the end of its year
+    with_job = JobRecord.objects.filter(history_range.overlapping(on, year_end), position=position).exclude(
+        status=JobStatus.LEFT
+    )
     counted = people.filter(pk__in=with_job.values("employee")).count()
     # People with no HR job history are read from the MACS row, like the staff list does.
     legacy = people.filter(position=position).exclude(emptype__in=LEGACY_NOT_WORKING)
@@ -166,10 +168,10 @@ def used_by_key(year: int, on: date) -> dict[tuple[int, int | None, str], int]:
     """`_used` for every position, branch and kind at once (two queries): the people who work on `on` or start later
     in its year, keyed by (position id, branch id, kind). The slot screen reads a whole year with this instead of one
     count per row; `check` stays the rule (a test holds the two equal)."""
-    window = DateRange(on, date(on.year + 1, 1, 1), "[)")
+    year_end = date(on.year + 1, 1, 1)
     found: dict[tuple[int, int | None, str], int] = defaultdict(int)
     with_job = (
-        JobRecord.objects.filter(period__overlap=window)
+        JobRecord.objects.filter(history_range.overlapping(on, year_end))
         .exclude(status=JobStatus.LEFT)
         .values("position_id", "employee__branch_id", "employee__contract_flag")
         .annotate(people=Count("employee", distinct=True))

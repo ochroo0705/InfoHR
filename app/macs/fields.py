@@ -1,7 +1,16 @@
 from datetime import date, datetime
 from typing import Any
 
+from django.conf import settings
 from django.db import models
+
+
+class ServerComputedCharField(models.CharField[Any, Any]):
+    """A text column that the database computes (a Firebird COMPUTED BY column, e.g. MACS EMPLOYEE.FULLNAME).
+    Firebird refuses any write to it, so on Firebird ``generated`` is True: Django then neither inserts nor updates
+    it and reads it back. On PostgreSQL the column is an ordinary text column and ``generated`` stays False."""
+
+    generated = settings.DB_ENGINE == "firebird"
 
 
 class TimestampDateField(models.DateField[Any, Any]):

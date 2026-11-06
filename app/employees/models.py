@@ -4,8 +4,6 @@ from datetime import date
 from typing import Any
 
 from django.conf import settings
-from django.contrib.postgres.constraints import ExclusionConstraint
-from django.contrib.postgres.fields import DateRangeField, RangeOperators
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db import models
@@ -15,6 +13,9 @@ from macs.models import Employee as Employee
 from macs.models import Position as Position
 from macs.models import PresentRow as PresentRow
 
+from employees import history_range
+from employees.exact_money import ExactMoneyField
+from employees.history_range import Span
 from employees.validators import normalize_register_no as normalize_register_no
 from employees.validators import validate_register_no as validate_register_no
 
@@ -354,13 +355,6 @@ class EventProdRow(models.Model):
         return f"{self.event_id}: {self.movement_id}/{self.history_id}"
 
 
-def no_overlap(name: str) -> ExclusionConstraint:
-    return ExclusionConstraint(
-        name=name,
-        expressions=[("employee", RangeOperators.EQUAL), ("period", RangeOperators.OVERLAPS)],
-    )
-
-
 def contract_errors(
     contract_type: str, start: date | None, end: date | None, employee_type: str | None = None
 ) -> dict[str, str]:
@@ -393,7 +387,8 @@ class JobRecord(models.Model):
     )
 
     employee = models.ForeignKey(Employee, verbose_name="Ажилтан", on_delete=models.PROTECT, related_name="job_records")
-    period = DateRangeField("Хугацаа")
+    start_date = models.DateField("Эхлэх огноо")
+    end_date = models.DateField("Дуусах огноо", null=True, blank=True)
     position = models.ForeignKey(Position, verbose_name="Албан тушаал", on_delete=models.PROTECT)
     department = models.ForeignKey(Department, verbose_name="Хэлтэс", on_delete=models.PROTECT)
     manager = models.ForeignKey(
@@ -435,11 +430,16 @@ class JobRecord(models.Model):
     class Meta:
         verbose_name = "Ажлын түүх"
         verbose_name_plural = "Ажлын түүх"
-        ordering = ["employee", "-period"]
-        constraints = [no_overlap("job_record_no_overlap")]
+        ordering = ["employee", "-start_date"]
+        constraints = [models.UniqueConstraint(fields=["employee", "start_date"], name="job_record_one_start")]
 
     def __str__(self) -> str:
         return f"{self.employee.code} {self.period}"
+
+    @property
+    def period(self) -> Span:
+        """Read-only view of the period as plain dates. Write it with history_range.set_span."""
+        return history_range.get_span(self)
 
     def clean(self) -> None:
         if self.contract_type == ContractType.OPEN_ENDED:
@@ -454,8 +454,9 @@ class SalaryRecord(models.Model):
     employee = models.ForeignKey(
         Employee, verbose_name="Ажилтан", on_delete=models.PROTECT, related_name="salary_records"
     )
-    period = DateRangeField("Хугацаа")
-    base_salary = models.DecimalField("Үндсэн цалин", max_digits=14, decimal_places=2)
+    start_date = models.DateField("Эхлэх огноо")
+    end_date = models.DateField("Дуусах огноо", null=True, blank=True)
+    base_salary = ExactMoneyField("Үндсэн цалин")
     change_type = models.CharField("Өөрчлөлтийн төрөл", max_length=20, choices=ChangeType.choices)
     event = models.ForeignKey(
         Event, verbose_name="Өөрчлөлт", null=True, blank=True, on_delete=models.PROTECT, related_name="salary_records"
@@ -474,11 +475,31 @@ class SalaryRecord(models.Model):
     class Meta:
         verbose_name = "Цалингийн түүх"
         verbose_name_plural = "Цалингийн түүх"
-        ordering = ["employee", "-period"]
-        constraints = [no_overlap("salary_record_no_overlap")]
+        ordering = ["employee", "-start_date"]
+        constraints = [models.UniqueConstraint(fields=["employee", "start_date"], name="salary_record_one_start")]
 
     def __str__(self) -> str:
         return f"{self.employee.code} {self.period}"
+
+    @property
+    def period(self) -> Span:
+        """Read-only view of the period as plain dates. Write it with history_range.set_span."""
+        return history_range.get_span(self)
+
+
+class HistoryLock(models.Model):
+    """One row per employee. Every history write updates it first (history_range.lock_employee): on Firebird a
+    writer cannot see another writer's uncommitted period, so this UPDATE is what makes two writers wait or fail.
+    `employee_id` is a plain integer on purpose: HR tables never hold a database foreign key to a MACS table."""
+
+    employee_id = models.IntegerField(unique=True)
+    counter = models.IntegerField(default=0)
+
+    class Meta:
+        default_permissions = ()
+
+    def __str__(self) -> str:
+        return f"{self.employee_id}: {self.counter}"
 
 
 class ActivityKind(models.TextChoices):

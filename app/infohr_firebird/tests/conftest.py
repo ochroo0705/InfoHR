@@ -1,5 +1,7 @@
 import os
 import shutil
+import tempfile
+import time
 import warnings
 from collections.abc import Iterator
 from pathlib import Path
@@ -11,6 +13,7 @@ from pytest_django.fixtures import SettingsWrapper
 from pytest_django.plugin import DjangoDbBlocker
 
 from infohr_firebird.tests.copies import remove_copy
+from infohr_firebird.tests.test_migrations_fb import WORK_DIR, run_manage
 
 
 @pytest.fixture
@@ -77,3 +80,50 @@ def fb_alias(fb_clone: str, settings: SettingsWrapper, django_db_blocker: Django
             connections.__dict__.pop("settings", None)
         else:
             connections.__dict__["settings"] = saved_settings
+
+
+# The foundation acceptance order (docs/superpowers/plans/2026-11-03-firebird3-foundation.md, Task 10).
+MIGRATE_ORDER = (
+    "contenttypes",
+    "auth",
+    "sessions",
+    "admin",
+    "accounts",
+    "lists",
+    "leave",
+    "recruitment",
+    "reports",
+    "macs",
+    "employees",
+    "checklists",
+    "assistant",
+)
+
+
+@pytest.fixture(scope="module")
+def migrated_clone() -> Iterator[str]:
+    """Copy the template into a scratch folder and migrate the copy through every app, one command each."""
+    template_text = os.environ.get("FB_TEMPLATE_FDB", "")
+    if not template_text:
+        pytest.skip("FB_TEMPLATE_FDB is not set")
+    template = Path(template_text)
+    if not template.is_file():
+        pytest.skip(f"Firebird template not found: {template}")
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    folder = Path(tempfile.mkdtemp(prefix="t7b_", dir=WORK_DIR))
+    clone = folder / "migrated.fdb"
+    try:
+        shutil.copyfile(template, clone)
+        started = time.monotonic()
+        for app in MIGRATE_ORDER:
+            proc = run_manage(["migrate", app, "--noinput"], DB_ENGINE="firebird", FIREBIRD_NAME=str(clone))
+            assert proc.returncode == 0, f"migrate {app} failed:\n{proc.stdout}\n{proc.stderr}"
+        print(f"\nmigrate of {len(MIGRATE_ORDER)} apps on a clone took {time.monotonic() - started:.1f} s")
+        yield str(clone)
+    finally:
+        remove_copy(clone)
+        if not clone.exists():
+            try:
+                folder.rmdir()
+            except OSError:
+                pass
