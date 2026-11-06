@@ -229,3 +229,30 @@ def test_user_without_view_employees_is_denied(role_user: Callable[[str], User])
     assert answer.url == ""
     assert answer.query == ""
     assert answer.not_applied == (DENIED_LINE,)
+
+
+def test_group_by_adds_the_grouping_to_the_table_link(role_user: Callable[[str], User]) -> None:
+    user: User = role_user("hr")
+    hire_one(role_user("hr"))
+    answer = table_answer(user, [], group_by="department")
+    assert answer.status == "list"
+    assert answer.group == "department"
+    assert "group=department" in answer.url
+    assert "group=" not in answer.query  # the next question's filters carry no grouping
+
+
+def test_group_by_unknown_column_is_listed_not_applied(role_user: Callable[[str], User]) -> None:
+    user: User = role_user("hr")
+    answer = table_answer(user, [], group_by="gender")
+    assert answer.group == ""
+    assert "group=" not in answer.url
+    assert any("gender" in line for line in answer.not_applied)
+
+
+def test_chart_question_groups_the_table_link_like_the_chart(role_user: Callable[[str], User]) -> None:
+    user: User = role_user("hr")
+    hire_one(role_user("hr"))
+    answer = table_answer(user, [], want="chart", chart_kind="bar", chart_by="department")
+    assert answer.group == "department"
+    assert "group=department" in answer.url
+    assert "group=" not in answer.query

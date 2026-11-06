@@ -10,6 +10,7 @@ There is no removal: the activity log is append-only. To start over, run `script
 `scripts/demo.py assistant-data`.
 """
 
+import random
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -194,3 +195,129 @@ def build(day: date) -> dict[str, int]:
         _person(index, code, slot, day, by)
         people += 1
     return {"people": people, "departments": departments, "positions": positions}
+
+
+# The larger, uneven roster (`build_large`): department sizes that differ a lot, hiring that grew year by year and a few
+# contracts, probations and leavers, so charts of it have a shape. Same register prefix, numbers from LARGE_FROM up.
+LARGE_FROM = 100
+LARGE_COUNT = 150
+LARGE_SEED = 20261106
+# department -> (people, [positions], base monthly salary)
+LARGE_PLAN: dict[str, tuple[int, list[str], int]] = {
+    "Худалдан авалт (Төв)": (30, ["Борлуулалтын менежер", "Борлуулалтын мэргэжилтэн", "Кассчин"], 1_300_000),
+    "Үйлдвэрлэл": (28, ["Үйлдвэрийн ажилтан", "Операторч", "Механик"], 1_450_000),
+    "Логистик": (20, ["Логистикийн ажилтан", "Жолооч", "Агуулахын ажилтан"], 1_350_000),
+    "IT": (18, ["Програмист", "Системийн администратор", "Төслийн менежер"], 3_000_000),
+    "Санхүү": (12, ["Нягтлан бодогч", "Санхүүгийн шинжээч"], 2_200_000),
+    "Маркетинг": (12, ["Маркетингийн мэргэжилтэн", "Дизайнер"], 1_900_000),
+    "Худалдан авалт (Баруун)": (10, ["Борлуулалтын мэргэжилтэн", "Кассчин"], 1_250_000),
+    "Захиргаа": (8, ["Захиргааны ажилтан", "Нарийн бичгийн дарга"], 1_500_000),
+    "Хүний нөөц": (5, ["Хүний нөөцийн мэргэжилтэн"], 2_000_000),
+    "Аюулгүй байдал": (4, ["Хамгаалагч", "Хяналтын ажилтан"], 1_200_000),
+    "Хууль зүй": (3, ["Хуульч"], 2_800_000),
+}
+# Hiring grew: later years get more people (2015 ... 2026).
+LARGE_YEAR_WEIGHTS = [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 6]
+# Employee type codes and how often: mostly regular staff, then fixed-term contracts, probation and leavers.
+LARGE_TYPES = [(1, 82), (5, 10), (9, 5), (3, 3)]
+
+
+def _large_roster(day: date) -> list[dict[str, Any]]:
+    """The plan for every person of the large roster, the same on every run (a fixed seed), in a shuffled order."""
+    rng = random.Random(LARGE_SEED)  # noqa: S311 demo data, a fixed seed on purpose
+    slots = [name for name, (count, _, _) in LARGE_PLAN.items() for _ in range(count)]
+    rng.shuffle(slots)
+    people: list[dict[str, Any]] = []
+    for number, dept in enumerate(slots):
+        _, positions, base = LARGE_PLAN[dept]
+        code = rng.choices([c for c, _ in LARGE_TYPES], weights=[w for _, w in LARGE_TYPES])[0]
+        year = rng.choices(range(2015, 2027), weights=LARGE_YEAR_WEIGHTS)[0]
+        start = date(year, rng.randint(1, 12), rng.randint(1, 28))
+        if code == 9:
+            start = day - timedelta(days=rng.randint(10, 80))  # still on probation
+        else:
+            start = min(start, day - timedelta(days=30))
+        male = rng.random() < 0.5
+        people.append(
+            {
+                "index": LARGE_FROM + number,
+                "dept": dept,
+                "position": rng.choice(positions),
+                "code": code,
+                "start": start,
+                "male": male,
+                "family": rng.choice(FAMILY),
+                "given": rng.choice(GIVEN_M if male else GIVEN_F),
+                "birth": date(rng.randint(1966, 2003), rng.randint(1, 12), rng.randint(1, 28)),
+                "salary": None if rng.random() < 0.08 else Decimal(base + rng.randint(-2, 8) * 100_000),
+                "contract_end": day + timedelta(days=rng.randint(10, 400)),
+            }
+        )
+    return people
+
+
+def _large_person(spec: dict[str, Any], by: User) -> None:
+    code = spec["code"]
+    dept, _ = _department(spec["dept"])
+    position, _ = _position(spec["position"])
+    start: date = spec["start"]
+    job: dict[str, Any] = {
+        "position": position,
+        "department": dept,
+        "employee_type": "full_time",
+        "contract_type": "open_ended",
+        "status": "active",
+        "emptype": code,
+    }
+    if code == 5:
+        job.update(
+            employee_type="contract",
+            contract_type="fixed_term",
+            contract_start=start,
+            contract_end=spec["contract_end"],
+        )
+    if code == 3:
+        job["status"] = "left"
+    ext: dict[str, Any] = {"probation_end": start + timedelta(days=90)} if code == 9 else {}
+    emp = history.hire(
+        {
+            "family_name": spec["family"],
+            "given_name": spec["given"],
+            "clan_name": "",
+            "register_no": f"{DEMO_REGISTER_PREFIX}{spec['index'] + 1:06d}",
+            "birth_date": spec["birth"],
+            "gender": "M" if spec["male"] else "F",
+            "work_phone": f"9911{spec['index']:04d}",
+            "first_hire_date": start,
+            "work_conditions": 1,
+        },
+        ext,
+        start=start,
+        job=job,
+        salary=spec["salary"],
+        by=by,
+    )
+    flags = macs_writes.EMPTYPE_FLAGS[code]
+    macs_writes.update_employee_columns(
+        emp, {"emptype": code, "status": flags[0], "contract_flag": flags[1], "wagetest": flags[2]}
+    )
+
+
+@transaction.atomic
+def build_large(day: date) -> dict[str, int]:
+    """Adds the larger, uneven roster (about LARGE_COUNT people) on top of `build`. Running it again adds nothing.
+    Returns the counts created: {"people", "departments", "positions"}."""
+    by = _actor()
+    before_departments = Department.objects.count()
+    before_positions = Position.objects.count()
+    people = 0
+    for spec in _large_roster(day):
+        if Employee.objects.filter(register_no=f"{DEMO_REGISTER_PREFIX}{spec['index'] + 1:06d}").exists():
+            continue
+        _large_person(spec, by)
+        people += 1
+    return {
+        "people": people,
+        "departments": Department.objects.count() - before_departments,
+        "positions": Position.objects.count() - before_positions,
+    }

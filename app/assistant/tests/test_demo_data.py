@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Callable
 from datetime import date
 
@@ -11,7 +12,7 @@ from reports.filters import Filters
 from reports.staff_list import REPORT
 from reports.table import build_table
 
-from assistant.demo_data import assistant_data_allowed, build, demo_people
+from assistant.demo_data import LARGE_COUNT, assistant_data_allowed, build, build_large, demo_people
 from assistant.resolver import resolve
 from assistant.tests.helpers import hire_one
 
@@ -110,3 +111,18 @@ def test_staff_table_counts_type_five(role_user: Callable[[str], User]) -> None:
     assert type_five >= 2
 
     assert build_table(REPORT, user, Filters(emptype=5)).count == type_five
+
+
+@pytest.mark.django_db
+def test_large_roster_is_uneven_and_repeatable() -> None:
+    build(DAY)
+    first = build_large(DAY)
+    assert first["people"] == LARGE_COUNT
+
+    sizes = Counter(JobRecord.objects.filter(employee__in=demo_people()).values_list("department__name", flat=True))
+    assert max(sizes.values()) >= 3 * min(sizes.values())  # a real spread, not 1 or 2 per department
+
+    again = build_large(DAY)
+    assert again["people"] == 0  # idempotent
+    years = {e.first_hire_date.year for e in demo_people()}
+    assert years == set(range(2015, 2027))

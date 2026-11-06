@@ -29,6 +29,7 @@ from reports.table import usable_filters
 
 from assistant.actions import field_address, leave_address
 from assistant.chart_data import ChartData, chart_data, chart_possible
+from assistant.chart_xlsx import chart_workbook
 from assistant.models import Outcome
 from assistant.people import PEOPLE_SHOWN
 from assistant.plan import Part
@@ -173,7 +174,16 @@ def _rest(raw: str) -> list[Part] | None:
     return parts
 
 
-def _card(request: HttpRequest, result: Answer) -> HttpResponse:
+def _open_chart(raw: str) -> tuple[str, str] | None:
+    """The kind and grouping of the chart open beside the chat, sent as «kind|by». Untrusted: anything that is not a
+    known kind with a grouping the staff table offers is ignored."""
+    kind, _, by = raw.partition("|")
+    if kind in CHART_KINDS and by in REPORT.group_options:
+        return kind, by
+    return None
+
+
+def _card(request: HttpRequest, result: Answer, chart_open: bool = False) -> HttpResponse:
     """The answer card. A table answer adds its pick buttons (`choices`) for the card's template."""
     context: dict[str, object] = {"result": result, **_person_context(result), **_action_context(result)}
     if result.table is not None:
@@ -181,6 +191,8 @@ def _card(request: HttpRequest, result: Answer) -> HttpResponse:
         user = request.user
         assert isinstance(user, User)
         context["chart_url"] = _chart_url(user, result.table)
+        # A chart question asked while a chart is open updates that chart in place (the pane reads data-chart-auto).
+        context["chart_auto"] = chart_open and bool(context["chart_url"])
     return render(request, "assistant/_answer.html", context)
 
 
@@ -212,6 +224,10 @@ def _chart_context(user: User, query: str, data: ChartData) -> dict[str, object]
             for label, count in zip(data.labels, data.counts, strict=True)
         ],
         "table_url": _table_address(user, query, data.by),
+        "state": {"query": query, "kind": data.kind, "by": data.by},
+        "xlsx_url": reverse("assistant:chart_xlsx")
+        + "?"
+        + urlencode({"query": query, "kind": data.kind, "by": data.by}),
     }
 
 
@@ -235,6 +251,29 @@ def chart(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_GET
+def chart_xlsx(request: HttpRequest) -> HttpResponse:
+    """The same chart as an Excel file with a native chart object. Same checks as the chart pane: 400 for an unknown
+    kind or column or an unreadable query, 403 when the user may not see that column or the table."""
+    kind = request.GET.get("kind", "")
+    by = request.GET.get("by", "")
+    query = request.GET.get("query", "")
+    if kind not in CHART_KINDS or by not in REPORT.group_options or not _readable(query):
+        return HttpResponseBadRequest()
+    user = request.user
+    assert isinstance(user, User)
+    data = chart_data(user, query, kind, by)
+    if data is None:
+        return HttpResponseForbidden()
+    response = HttpResponse(
+        chart_workbook(data),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="assistant-chart.xlsx"'
+    return response
+
+
+@login_required
 @require_POST
 def ask(request: HttpRequest) -> HttpResponse:
     question = request.POST.get("q", "").strip()
@@ -245,8 +284,9 @@ def ask(request: HttpRequest) -> HttpResponse:
         raise Http404
     assert isinstance(request.user, User)
     previous = _clean_query(request.POST.get("prev", ""))
-    result = answer(request.user, question, timezone.localdate(), provider, previous)
-    return _card(request, result)
+    open_chart = _open_chart(request.POST.get("chart", ""))
+    result = answer(request.user, question, timezone.localdate(), provider, previous, open_chart)
+    return _card(request, result, chart_open=open_chart is not None)
 
 
 @login_required

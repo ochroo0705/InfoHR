@@ -1297,7 +1297,7 @@ def test_palette_shell_is_a_wide_panel_with_the_key_hint(client: Client, listed:
     assert hint is not None
     assert "hidden" in hint.group(1).split() and "sm:flex" in hint.group(1).split()  # no keys on a phone
     assert "сонгох" in shell and "нээх" in shell and "хаах" in shell
-    assert shell.count("<kbd") == 3
+    assert shell.count("<kbd") == 4  # ↑↓, Enter, Shift+Enter, Esc
     assert 'role="combobox"' in shell and "data-palette-input" in shell  # the input keeps its attributes
 
 

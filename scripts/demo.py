@@ -4,6 +4,7 @@ Usage (from the repo root, venv active):
     python scripts/demo.py reset                # drop + create info_hr_demo, migrate, seed_demo
     python scripts/demo.py run                  # runserver on http://localhost:8001 against info_hr_demo
     python scripts/demo.py assistant-data       # add the help assistant's Mongolian demo staff (idempotent)
+    python scripts/demo.py assistant-data --large   # ... and about 150 more people in uneven departments
 
 `assistant-data` runs `seed_assistant_demo`, which checks PostgreSQL, DEBUG and the info_hr_demo* name itself.
 There is no removal (the activity log is append-only). To start over: `python scripts/demo.py reset`, then
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     elif command == "run":
         manage("runserver", PORT)
     elif command == "assistant-data":
-        manage("seed_assistant_demo")
+        manage("seed_assistant_demo", *sys.argv[2:])  # e.g. --large: about 150 more people, uneven departments
     else:
         print(__doc__)
         sys.exit(1)

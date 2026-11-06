@@ -17,6 +17,7 @@
   var userId = panel.getAttribute("data-user") || "";
   var askOn = panel.getAttribute("data-ask-on") === "1";  // the assistant is on for this user (the «Асуух» row and button)
   var fab = document.querySelector("[data-assistant-fab]");
+  var sendBtn = panel.querySelector("[data-assistant-send]");  // the round send button (only when the assistant is on)
   var DEBOUNCE_MS = 200;
   var RECENT_KEY = "palette-recent-" + userId;  // per user: shared PCs do not mix them
   var RECENT_MAX = 5;
@@ -95,7 +96,24 @@
   function syncMode() {
     var hide = input.value.trim() !== "";
     thread.hidden = hide;
+    // With a typed query the results take the room the thread had; with an empty box they keep their own cap.
+    results.classList.toggle("flex-1", hide);
+    results.style.maxHeight = hide ? "none" : "";
+    if (sendBtn) sendBtn.disabled = !hide || !askOn;
+    autosize();
     if (!hide) scrollThread();  // after the thread shows: a hidden element has no scroll to set
+  }
+
+  // The box grows with its text up to its CSS max-height (then it scrolls) and shrinks back when text is removed.
+  function autosize() {
+    if (panel.hidden) return;  // a hidden box measures 0; it is measured again when the panel opens
+    input.style.height = "auto";
+    input.style.height = input.scrollHeight + "px";
+  }
+
+  function clearBox() {
+    input.value = "";
+    autosize();
   }
 
   function scrollThread() {
@@ -112,7 +130,7 @@
     if (fromUser) saveOpen(true);
     clearTimeout(timer);
     timer = null;
-    input.value = "";
+    clearBox();
     syncMode();
     scrollThread();
     if (fromUser) input.focus();
@@ -220,7 +238,11 @@
   }
 
   // The body of a typed question: the question, and the context of the thread's last answer as `prev` when it has one.
+  // With a chart open beside the chat, the question is about that chart: its filters are the previous filters and its
+  // kind and grouping go along, so «дугуй болго» or «зөвхөн ...» changes it.
   function typedBody(q) {
+    var chart = window.openChartState ? window.openChartState() : null;
+    if (chart) return "q=" + encodeURIComponent(q) + "&prev=" + encodeURIComponent(chart.query) + "&chart=" + encodeURIComponent(chart.kind + "|" + chart.by);
     return questionBody(q, previousContext(answerEntries()));
   }
 
@@ -249,7 +271,7 @@
       li.setAttribute("data-retry-body", body);
     }
     thread.appendChild(li);
-    input.value = "";
+    clearBox();
     clearTimeout(timer);
     timer = null;
     syncMode();
@@ -262,16 +284,17 @@
   // line. `id` is the store's id for the question; it is kept on the item as data-id (none without a store).
   function threadItem(q, id) {
     var li = document.createElement("div");
-    li.className = "mt-3";
+    li.className = "mt-4 first:mt-0";
     li.setAttribute("data-assistant-item", "");
     if (id) li.setAttribute("data-id", id);
     var question = document.createElement("p");
-    question.className = "text-right text-slate-500 break-words";
+    // A chat bubble on the right (the user's own words), the answer card stays on the left.
+    question.className = "ml-auto w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-violet-600 px-3.5 py-2 text-white";
     question.setAttribute("data-assistant-question", "");
     question.textContent = q;
     var slot = document.createElement("div");
     slot.setAttribute("data-assistant-slot", "");
-    slot.appendChild(statusLine(ASK_WAIT));
+    slot.appendChild(waitingLine());
     li.appendChild(question);
     li.appendChild(slot);
     return li;
@@ -323,6 +346,9 @@
       .then(function (html) {
         if (html === null) return;
         setAnswer(li, html);
+        // A chart question asked with a chart open: the chart in the pane is replaced by the new one.
+        var auto = li.querySelector("a[data-chart-auto]");
+        if (auto && window.openAssistantChart) window.openAssistantChart(auto.getAttribute("href"));
         var id = li.getAttribute("data-id");
         if (store && id) store.resolve(id, html, contextOf(slotOf(li)));
       })
@@ -397,6 +423,25 @@
     setRetry(li, UNANSWERED);
   }
 
+  // The waiting line of a question: three bouncing dots and the same words (read aloud as a status).
+  function waitingLine() {
+    var p = document.createElement("p");
+    p.setAttribute("role", "status");
+    p.className = "mt-2 flex items-center gap-2 px-1 py-2 text-sm text-slate-500";
+    var dots = document.createElement("span");
+    dots.className = "flex gap-1";
+    dots.setAttribute("aria-hidden", "true");
+    for (var i = 0; i < 3; i++) {
+      var d = document.createElement("span");
+      d.className = "h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400";
+      d.style.animationDelay = i * 150 + "ms";
+      dots.appendChild(d);
+    }
+    p.appendChild(dots);
+    p.appendChild(document.createTextNode(ASK_WAIT));
+    return p;
+  }
+
   function statusLine(text) {
     var p = document.createElement("p");
     p.setAttribute("role", "status");
@@ -461,11 +506,12 @@
   }
 
   // The «Асуух» row is not selected by default (Enter on a plain search must open a result, not ask the assistant),
-  // unless the text reads as a question (data-palette-ask-first). Then the first real result is selected.
+  // unless the text reads as a question (data-palette-ask-first) or nothing matched (data-palette-empty). Then the first real result is selected.
   function highlightFirst() {
     var list = items();
     var pick = 0;
-    if (list.length > 1 && list[0].hasAttribute("data-palette-ask") && !list[0].hasAttribute("data-palette-ask-first")) {
+    if (list.length > 1 && list[0].hasAttribute("data-palette-ask") && !list[0].hasAttribute("data-palette-ask-first")
+        && !results.querySelector("[data-palette-empty]")) {  // nothing matched: the question is the only real next step
       pick = 1;
     }
     for (var i = 0; i < list.length; i++) list[i].setAttribute("aria-selected", i === pick ? "true" : "false");
@@ -509,6 +555,16 @@
       search(input.value);
     }, DEBOUNCE_MS);
   }, true);
+
+  // The send button asks the typed text at once (Enter may open a highlighted result instead).
+  if (sendBtn) {
+    sendBtn.addEventListener("click", function () {
+      var q = input.value.trim();
+      if (!q || !askOn || loading || timer) return;
+      startAsk(q, panel.getAttribute("data-ask-url"), typedBody(q), false);
+      input.focus();
+    });
+  }
 
   results.addEventListener("mousemove", function (e) {
     var item = e.target.closest && e.target.closest("[data-palette-item]");
@@ -555,7 +611,7 @@
         if (input.value !== "") {
           clearTimeout(timer);
           timer = null;
-          input.value = "";
+          clearBox();
           syncMode();
           search("");
         } else {
@@ -564,6 +620,10 @@
         return;
       }
       if (document.activeElement !== input) return;
+      // A box with several lines keeps its own caret keys; the arrows move through results only from a one-line box.
+      var multiLine = input.value.indexOf("\n") !== -1;
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && multiLine) return;
+      if (e.key === "Enter" && e.shiftKey) return;  // Shift+Enter: a new line
       if (e.key === "ArrowDown") {
         e.preventDefault();
         e.stopPropagation();

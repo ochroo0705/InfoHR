@@ -137,7 +137,7 @@ def test_chart_link_only_for_chart_requests(
         assert f"{CHART_URL}?" in body
         assert urlencode({"kind": "bar"}) in body
         assert urlencode({"by": "department"}) in body
-        assert "data-palette-modal" in body  # opens the pop-up over the page, the panel stays open
+        assert "data-chart-open" in body  # opens the chart pane beside the panel, the panel stays open
 
 
 def test_empty_chart_message(client: Client, role_user: Callable[[str], User]) -> None:

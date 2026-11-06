@@ -55,13 +55,13 @@ def new_candidate(actor: User, vacancy: Vacancy) -> Candidate:
     return pipeline.add_candidate(vacancy, by=actor, surname="Дорж", given_name="Бат")
 
 
-def hire_one(actor: User, *, salary: Decimal | None = Decimal("2500000")) -> Employee:
+def hire_one(actor: User, *, salary: Decimal | None = Decimal("2500000"), department: str = "Санхүү") -> Employee:
     """A hired employee (onboarding not done, no login) with a register number no earlier call used. `salary=None`
     hires without a salary row, so the salary tab offers «Цалин тогтоох»."""
     n = next(_REGISTERS)
     job = {
         "position": macs_writes.save_position("Нягтлан"),
-        "department": macs_writes.save_department("Санхүү"),
+        "department": macs_writes.save_department(department),
         "employee_type": "full_time",
         "status": "active",
         "contract_type": "open_ended",

@@ -21,35 +21,35 @@
 
 @theme {
   --font-sans: "Golos Text", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  /* Turquoise theme (user choice 2026-10-26, mockup docs/mockups/theme-turquoise-seal.html, option A).
-     Class names stay the same: the "slate" greys are remapped to cool frost neutrals, "violet" is remapped to
-     turquoise (keep writing violet-* classes, never teal-*), "amber" is remapped to brass. Red stays red. */
-  --color-slate-50: #f1f5f3;
-  --color-slate-100: #e6edea;
-  --color-slate-200: #d9e1de;
-  --color-slate-300: #c3cfca;
-  --color-slate-400: #8fa09b;
-  --color-slate-500: #5f716c;
-  --color-slate-600: #4a5b57;
-  --color-slate-700: #34433f;
-  --color-slate-800: #10303a;
-  --color-slate-900: #12202a;
-  --color-slate-950: #0a141b;
-  --color-violet-50: #eef8f8;
-  --color-violet-100: #dcefef;
-  --color-violet-200: #bfe0e1;
-  --color-violet-300: #93cbce;
-  --color-violet-400: #54aab0;
-  --color-violet-500: #2b8d96;
-  --color-violet-600: #0f7c86;
-  --color-violet-700: #0b656e;
-  --color-violet-800: #0a4f56;
-  --color-violet-900: #0a3d43;
-  --color-violet-950: #052a2f;
-  --color-amber-300: #e6bd62;
-  --color-amber-400: #d9a63a;
-  --color-amber-500: #b8892b;
-  --color-seal: #c0332a;
+  /* carservice.mn palette (user choice 2026-11-06): the "slate" greys are the site's navy-grey (#2c3e50 family),
+     "violet" is remapped to its red accent (keep writing violet-* classes, never red-* for the primary colour),
+     "amber" is its warn yellow. Danger red (red-*) is the plain Tailwind red. */
+  --color-slate-50: #f4f6f7;
+  --color-slate-100: #ecf0f1;
+  --color-slate-200: #d5dcdf;
+  --color-slate-300: #bdc6c8;
+  --color-slate-400: #95a5a6;
+  --color-slate-500: #5f6b6d;
+  --color-slate-600: #475669;
+  --color-slate-700: #34495e;
+  --color-slate-800: #2c3e50;
+  --color-slate-900: #1e2b38;
+  --color-slate-950: #17222d;
+  --color-violet-50: #fdf0ee;
+  --color-violet-100: #fadbd8;
+  --color-violet-200: #f5b7b1;
+  --color-violet-300: #f1948a;
+  --color-violet-400: #ec7063;
+  --color-violet-500: #e74c3c;
+  --color-violet-600: #c0392b;
+  --color-violet-700: #a93226;
+  --color-violet-800: #922b21;
+  --color-violet-900: #7b241c;
+  --color-violet-950: #4a1410;
+  --color-amber-300: #f7d774;
+  --color-amber-400: #f7c948;
+  --color-amber-500: #d9a82b;
+  --color-seal: #c0392b;
   /* Card and pop-up background: write bg-surface / border-surface, never bg-white (the dark theme swaps it). White
      text on solid fills stays text-white in both themes. */
   --color-surface: #fff;
@@ -145,7 +145,7 @@
 }
 @layer components {
   /* Thin bar at the top while any htmx request runs. */
-  body::before { content: ""; position: fixed; inset: 0 0 auto 0; z-index: 70; height: 3px; background: linear-gradient(90deg, var(--color-violet-600), var(--color-amber-500)); transform: scaleX(0); transform-origin: left; opacity: 0; pointer-events: none; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto 0; z-index: 70; height: 3px; background: linear-gradient(90deg, var(--color-violet-600), var(--color-violet-300)); transform: scaleX(0); transform-origin: left; opacity: 0; pointer-events: none; }
   /* Personal tab: the section a menu link jumped to is tinted and outlined (a ring, so nothing shifts) for a moment, then fades. */
   @keyframes sec-flash { from { background-color: var(--color-violet-100); box-shadow: 0 0 0 2px var(--color-violet-400); } to { background-color: transparent; box-shadow: 0 0 0 2px transparent; } }
   .sec-flash { animation: sec-flash 1.4s ease-out; border-radius: .5rem; }
@@ -196,13 +196,13 @@
   @keyframes pal-in { from { opacity: 0; transform: scale(.97); } }
   /* Cards that hold content lift slightly on hover. */
   .card-hover { transition: box-shadow .15s, border-color .15s, transform .15s; }
-  .card-hover:hover { border-color: var(--color-slate-300); box-shadow: 0 6px 18px rgb(16 48 58 / .08); }
+  .card-hover:hover { border-color: var(--color-slate-300); box-shadow: 0 6px 18px rgb(44 62 80 / .08); }
   /* Soft-lift card (Today page): white, no border line, two-layer cool shadow; links lift on hover. */
-  .card-soft { background: var(--color-surface); border-radius: .875rem; box-shadow: 0 1px 2px rgb(16 48 58 / .06), 0 6px 16px rgb(16 48 58 / .08); transition: box-shadow .15s, transform .15s; }
-  a.card-soft:hover { box-shadow: 0 1px 2px rgb(16 48 58 / .08), 0 10px 24px rgb(16 48 58 / .13); transform: translateY(-1px); }
+  .card-soft { background: var(--color-surface); border-radius: .875rem; box-shadow: 0 1px 2px rgb(44 62 80 / .06), 0 6px 16px rgb(44 62 80 / .08); transition: box-shadow .15s, transform .15s; }
+  a.card-soft:hover { box-shadow: 0 1px 2px rgb(44 62 80 / .08), 0 10px 24px rgb(44 62 80 / .13); transform: translateY(-1px); }
   .ptable.card-soft { border-color: transparent; }
   /* Top bar drop-down menus (base.html): a soft card like the Today tiles, opening with the palette's quick scale-in. */
-  .nav-panel { background: var(--color-surface); border-radius: .875rem; box-shadow: 0 0 0 1px rgb(16 48 58 / .06), 0 4px 8px rgb(16 48 58 / .06), 0 16px 32px rgb(16 48 58 / .14); transform-origin: top; }
+  .nav-panel { background: var(--color-surface); border-radius: .875rem; box-shadow: 0 0 0 1px rgb(44 62 80 / .06), 0 4px 8px rgb(44 62 80 / .06), 0 16px 32px rgb(44 62 80 / .14); transform-origin: top; }
   /* Theme switch in the user menu (base.html, nav.js): three joined buttons, the chosen one filled. */
   .theme-item .theme-check { visibility: hidden; color: var(--color-violet-600); }
   .theme-item[aria-pressed="true"] { font-weight: 500; }
@@ -227,6 +227,8 @@
 @media (min-width: 640px) { body:has(#assistant-panel:not([hidden])) [data-assistant-fab] { right: calc(26rem + 1rem); } }
 /* On a phone the panel is full-screen and would sit under the floating button (z-40, later in the DOM): hide the button while it is open. */
 @media (max-width: 639.98px) { body:has(#assistant-panel:not([hidden])) [data-assistant-fab] { display: none; } }
+/* The chart pane sits where the floating button would be: hide the button while the pane is open. */
+body:has(#assistant-chart-pane:not([hidden])) [data-assistant-fab] { display: none; }
 /* With an empty box the recents/pages list sits above the thread: keep it short so the thread gets the room. While the user
    types the thread is hidden and the list keeps its max-h-[40vh]. Unlayered, so it beats that utility. */
 #assistant-panel:has([data-assistant-thread]:not([hidden])) [data-palette-results] { max-height: 8rem; }
@@ -241,29 +243,29 @@
 @media screen {
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --color-surface: #16252c;
-    --color-slate-50: #0f1b21;
-    --color-slate-100: #1c2c33;
-    --color-slate-200: #27393f;
-    --color-slate-300: #384d54;
-    --color-slate-400: #6f8580;
-    --color-slate-500: #93a5a0;
-    --color-slate-600: #abbab6;
-    --color-slate-700: #c4d0cc;
-    --color-slate-800: #dde6e3;
-    --color-slate-900: #edf2f0;
-    --color-slate-950: #f6f9f8;
-    --color-violet-50: #123139;
-    --color-violet-100: #163e46;
-    --color-violet-200: #1c4f57;
-    --color-violet-300: #2a6c74;
-    --color-violet-400: #3c929a;
-    --color-violet-500: #3fa8b1;
-    --color-violet-600: #148a95;
-    --color-violet-700: #63c6cc;
-    --color-violet-800: #8cd6da;
-    --color-violet-900: #b4e5e7;
-    --color-violet-950: #d8f2f3;
+    --color-surface: #1e2b38;
+    --color-slate-50: #17222d;
+    --color-slate-100: #25364a;
+    --color-slate-200: #2f4357;
+    --color-slate-300: #3b5167;
+    --color-slate-400: #6c7e8c;
+    --color-slate-500: #95a5a6;
+    --color-slate-600: #bdc6c8;
+    --color-slate-700: #d5dcdf;
+    --color-slate-800: #dde3e6;
+    --color-slate-900: #ecf0f1;
+    --color-slate-950: #f7f9f9;
+    --color-violet-50: #3a2024;
+    --color-violet-100: #4a2529;
+    --color-violet-200: #5e2d31;
+    --color-violet-300: #8a3b3b;
+    --color-violet-400: #d9574a;
+    --color-violet-500: #e74c3c;
+    --color-violet-600: #cf3a2b;
+    --color-violet-700: #f1948a;
+    --color-violet-800: #f5b1aa;
+    --color-violet-900: #f9cfca;
+    --color-violet-950: #fce6e3;
     --color-red-50: #361b1d;
     --color-red-100: #452023;
     --color-red-200: #62292d;
@@ -291,17 +293,17 @@
     --color-emerald-100: #12392e;
     --color-emerald-700: #6ee2b4;
     --color-emerald-800: #a5efcf;
-    --color-seal: #e0574d;
+    --color-seal: #e74c3c;
   }
   /* Solid fills: hover shades stay deep under white text; amber badges keep dark text; the top bar and the
      pop-up overlay stay dark. */
-  :root[data-theme="dark"] .hover\:bg-violet-700:hover { background-color: #0f7680; }
+  :root[data-theme="dark"] .hover\:bg-violet-700:hover { background-color: #b0301f; }
   :root[data-theme="dark"] .hover\:bg-red-700:hover { background-color: #c13237; }
   :root[data-theme="dark"] :is(.bg-amber-400, .bg-amber-500) { color: #1d1606; }
-  :root[data-theme="dark"] .bg-slate-800 { background-color: #0a161b; }
+  :root[data-theme="dark"] .bg-slate-800 { background-color: #17222d; }
   :root[data-theme="dark"] .bg-slate-900\/40, :root[data-theme="dark"] .bg-black\/40 { background-color: rgb(0 0 0 / .6); }
   :root[data-theme="dark"] :is(.card-soft, .nav-panel) { box-shadow: 0 0 0 1px var(--color-slate-200), 0 8px 24px rgb(0 0 0 / .35); }
   :root[data-theme="dark"] a.card-soft:hover { box-shadow: 0 0 0 1px var(--color-slate-300), 0 10px 28px rgb(0 0 0 / .45); }
-  :root[data-theme="dark"] .seal { mix-blend-mode: normal; background: rgb(224 87 77 / .08); }
-  :root[data-theme="dark"] .sel-combo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23abbab6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); }
+  :root[data-theme="dark"] .seal { mix-blend-mode: normal; background: rgb(231 76 60 / .08); }
+  :root[data-theme="dark"] .sel-combo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23bdc6c8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); }
 }

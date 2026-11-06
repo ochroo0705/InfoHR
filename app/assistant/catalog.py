@@ -3,6 +3,7 @@
 PROVIDER_CHOICES: list[tuple[str, str]] = [
     ("claude", "Claude (Anthropic)"),
     ("gemini", "Gemini (Google)"),
+    ("deepseek", "DeepSeek"),
     ("groq", "Groq"),
 ]
 
@@ -18,6 +19,9 @@ MODELS: dict[str, list[tuple[str, str]]] = {
         ("gemini-2.5-flash", "Gemini 2.5 Flash"),
         ("gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite"),
         ("gemini-2.5-pro", "Gemini 2.5 Pro"),
+    ],
+    "deepseek": [
+        ("deepseek-chat", "DeepSeek Chat (V3)"),
     ],
     "groq": [
         ("llama-3.3-70b-versatile", "Llama 3.3 70B"),

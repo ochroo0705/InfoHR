@@ -4,11 +4,11 @@ value), options as ticking chips. static/js/admin_checklist_kind.js shows only t
   .chk-groups { display: flex; flex-direction: column; gap: 1rem; }
   .chk-group { border: 1px solid rgb(128 128 128 / .25); border-radius: .75rem; padding: .75rem 1rem 1rem; margin: 0; }
   .chk-group[hidden] { display: none; }
-  .chk-group legend { padding: 0 .5rem; font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-primary-500, #2b8d96); }
+  .chk-group legend { padding: 0 .5rem; font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-primary-500, #e74c3c); }
   .chk-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
   .chk-chip { display: inline-flex; align-items: center; gap: .5rem; padding: .35rem .75rem; border: 1px solid rgb(128 128 128 / .35); border-radius: 999px; font-size: .875rem; cursor: pointer; transition: background-color .15s, border-color .15s; }
-  .chk-chip:hover { border-color: var(--color-primary-500, #2b8d96); }
-  .chk-chip:has(input:checked) { background: color-mix(in srgb, var(--color-primary-600, #0f7c86) 22%, transparent); border-color: var(--color-primary-500, #2b8d96); font-weight: 600; }
+  .chk-chip:hover { border-color: var(--color-primary-500, #e74c3c); }
+  .chk-chip:has(input:checked) { background: color-mix(in srgb, var(--color-primary-600, #c0392b) 22%, transparent); border-color: var(--color-primary-500, #e74c3c); font-weight: 600; }
 </style>
 {% with id=widget.attrs.id %}
 <div{% if id %} id="{{ id }}"{% endif %} class="chk-groups">
