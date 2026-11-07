@@ -18,6 +18,12 @@
       "runtimeExecutable": "E:/WorkProjects/Info HR/.venv/Scripts/python.exe",
       "runtimeArgs": ["app/manage.py", "runserver", "8004"],
       "port": 8004
+    },
+    {
+      "name": "firebird-smoke",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "scripts\\fb_smoke_server.cmd"],
+      "port": 8010
     }
   ]
 }
