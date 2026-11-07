@@ -69,7 +69,7 @@ def _years_worked(e: Elder) -> int | None:
 
 COLUMNS: tuple[Column, ...] = (
     *(on_person(c, _person) for c in PERSON_COLUMNS),
-    Column(key="birth_date", label="Төрсөн огноо", value=lambda e: e.person.row.employee.birth_date),
+    Column(key="birth_date", label="Төрсөн огноо", value=lambda e: e.person.row.employee.birth_date, kind="date"),
     Column(key="age", label="Нас", value=lambda e: e.person.age, numeric=True),
     Column(key="years_worked", label="Ажилласан жил", value=_years_worked, numeric=True),
     Column(key="private_phone", label="Хувийн утас", value=lambda e: e.person.row.employee.private_phone),

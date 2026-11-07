@@ -111,7 +111,7 @@ def _skill_task_note(f: Filters) -> str:
 
 
 TRAINING_COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Огноо", value=lambda r: r.item.start_date),
+    Column(key="date", label="Огноо", value=lambda r: r.item.start_date, kind="date"),
     *PERSON_COLUMNS,
     Column(key="type", label="Хэлбэр", value=lambda r: TR_TYPES.get(r.item.tr_type)),
     Column(key="description", label="Сургалтын нэр", value=lambda r: r.item.description),
@@ -122,7 +122,7 @@ TRAINING_COLUMNS: tuple[Column, ...] = (
 )
 
 SKILL_TASK_COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Огноо", value=lambda r: r.item.sdate),
+    Column(key="date", label="Огноо", value=lambda r: r.item.sdate, kind="date"),
     Column(key="code", label="Код", value=lambda r: r.row.employee.code),
     Column(key="name", label="Ажилтан", value=full_name, href=detail_url),
     Column(key="task_department", label="Хэлтэс", value=_task_department),
@@ -132,7 +132,7 @@ SKILL_TASK_COLUMNS: tuple[Column, ...] = (
 )
 
 COMPLAINT_COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Огноо", value=lambda r: r.item.cdate),
+    Column(key="date", label="Огноо", value=lambda r: r.item.cdate, kind="date"),
     *PERSON_COLUMNS,
     Column(key="type", label="Төрөл", value=lambda r: COMPLAINT_TYPES.get(r.item.ctype)),
     Column(key="kind", label="Гомдол", value=lambda r: COMPLAINT_KINDS.get(r.item.complaint_name)),
@@ -140,12 +140,12 @@ COMPLAINT_COLUMNS: tuple[Column, ...] = (
 )
 
 HEALTH_COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Үзлэгийн огноо", value=lambda r: r.item.inserted_ognoo),
+    Column(key="date", label="Үзлэгийн огноо", value=lambda r: r.item.inserted_ognoo, kind="date"),
     *PERSON_COLUMNS,
     Column(key="gender", label="Хүйс", value=lambda r: or_none(r.row.employee.get_gender_display())),
     Column(key="age", label="Нас", value=_age_today, numeric=True),
     Column(key="term_type", label="Үзлэгийн төрөл", value=lambda r: or_none(r.item.term_type)),
-    Column(key="end_date", label="Дуусах хугацаа", value=lambda r: r.item.end_date),
+    Column(key="end_date", label="Дуусах хугацаа", value=lambda r: r.item.end_date, kind="date"),
     _text("own_letter", "Өөрийн мэдүүлэг"),
     _text("ear", "Чих хамар хоолой"),
     _text("dotor", "Дотор"),

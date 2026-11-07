@@ -111,17 +111,17 @@ PERSON_COLUMNS: tuple[Column, ...] = (
 )
 
 DISCIPLINE_COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Огноо", value=lambda r: r.item.discipline_date),
+    Column(key="date", label="Огноо", value=lambda r: r.item.discipline_date, kind="date"),
     *PERSON_COLUMNS,
     Column(key="type", label="Шийтгэлийн төрөл", value=lambda r: r.item.discipline_type.name),
     Column(key="from_org", label="Хаанаас", value=lambda r: or_none(r.item.from_discipline)),
     Column(key="percent", label="Хувь", value=lambda r: r.item.discipline_sal_percent, numeric=True),
-    Column(key="end", label="Дуусах огноо", value=lambda r: r.item.discipline_enddate),
+    Column(key="end", label="Дуусах огноо", value=lambda r: r.item.discipline_enddate, kind="date"),
     Column(key="description", label="Тайлбар", value=lambda r: or_none(r.item.description)),
 )
 
 AWARD_COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Огноо", value=lambda r: r.item.award_date),
+    Column(key="date", label="Огноо", value=lambda r: r.item.award_date, kind="date"),
     *PERSON_COLUMNS,
     Column(key="award", label="Шагнал", value=lambda r: r.item.award_name),
     Column(key="from_org", label="Хаанаас", value=lambda r: or_none(r.item.give_org)),

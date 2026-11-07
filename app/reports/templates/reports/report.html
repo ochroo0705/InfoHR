@@ -5,30 +5,40 @@
 <div id="report-page">
   <div class="flex flex-wrap items-center gap-3 mb-4">
     <h1 class="text-xl font-semibold">{{ report.title }}</h1>
-    <div class="ml-auto flex flex-wrap items-center gap-3">
+    <div class="ml-auto flex max-w-full min-w-0 flex-wrap items-center gap-3">
       {% if report.saved_views %}
-      {# Saved views are shared: any user who can open the report sees every view. Choosing one opens its address. #}
+      {# Saved views are shared or private (author only); the select lists the ones this user may see, then the starter templates (UI_RULES §4b). Choosing one opens its address. #}
       <select aria-label="Хадгалсан харагдац" data-search="off" onchange="window.location.href=this.value" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
-        <option value="{{ report_url }}"{% if not current_view %} selected{% endif %}>—</option>
+        <option value="{{ plain_url }}"{% if not current_view and not template_current %} selected{% endif %}>—</option>
         {% for o in saved_options %}<option value="{{ o.url }}"{% if o.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}
+        {% if template_options %}<optgroup label="Загвар">{% for o in template_options %}<option value="{{ o.url }}"{% if o.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}</optgroup>{% endif %}
       </select>
       {% if can_edit_view %}<button type="button" hx-get="{% url 'reports:view_edit' current_view.pk %}" hx-target="body" hx-swap="beforeend" class="-ml-1 text-sm text-violet-700 hover:underline">Засах</button>{% endif %}
       {% endif %}
       {# One joined group for the report's tools, so five buttons read as one control, not five competing actions (UI_RULES §4b). #}
-      <div class="inline-flex shrink-0 divide-x divide-slate-300 overflow-hidden rounded-lg border border-slate-300 bg-surface text-sm [&>*]:px-4 [&>*]:py-2 [&>*:hover]:bg-slate-50">
+      <div class="inline-flex max-w-full overflow-x-auto divide-x divide-slate-300 rounded-lg border border-slate-300 bg-surface text-sm [&>*]:whitespace-nowrap [&>*]:px-4 [&>*]:py-2 [&>*:hover]:bg-slate-50">
         {% if report.saved_views %}<button type="button" hx-get="{% url 'reports:view_new' report.key %}?{{ query }}" hx-target="body" hx-swap="beforeend">Хадгалах</button>{% endif %}
         {% if report.picks_columns %}<button type="button" hx-get="{% url 'reports:columns' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">Багана</button>{% endif %}
+        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">Шүүлтүүр</button>{% endif %}
+        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:format' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">Хэлбэр</button>{% endif %}
         {% if print_url %}<a href="{{ print_url }}" target="_blank" rel="noopener">Хэвлэх</a>{% endif %}
         {% if excel_url %}<a href="{{ excel_url }}">Excel</a>{% endif %}
       </div>
     </div>
   </div>
 
+  {# the switcher is its own row under the header, so the title and tool row can wrap at phone width (UI_RULES §4b) #}
+  {% include "reports/_switcher.html" %}
   {% include "reports/_filters.html" %}
+  {% if layout != "table" and layout != "cards" %}{% include "reports/_layout_bar.html" %}{% endif %}
+
+  {% if rules_text and table.shows_count %}
+  <p class="mt-3 text-sm text-slate-700">Нөхцөл: {{ rules_text }} · <button type="button" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend" class="text-violet-700 hover:underline">Засах</button> · <a href="{{ clear_rules_url }}" hx-get="{{ clear_rules_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="text-violet-700 hover:underline">Цэвэрлэх</a></p>
+  {% endif %}
 
   {% if note %}<p class="mt-3 text-sm text-slate-500">{{ note }}</p>{% endif %}
 
-  {% include "reports/_table.html" %}
+  {% if layout == "table" %}{% include "reports/_table.html" %}{% else %}{% include layout_template %}{% endif %}
 
   {% if table.shows_count %}<p class="mt-3 text-sm text-slate-500">Нийт: {{ table.count }}</p>{% endif %}
 </div>

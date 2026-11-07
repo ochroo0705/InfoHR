@@ -33,16 +33,16 @@ def _reason(r: ListRow) -> str | None:
 
 
 def _note(f: Filters) -> str:
-    """The grey line: the loans are entered in the old program, not in Info HR."""
-    return "Зээлийн бүртгэлийг хуучин програмаас харуулна; Info HR-д оруулах дэлгэц байхгүй."
+    """The grey line: the loans are entered in the old program, not in MACS Human Capital."""
+    return "Зээлийн бүртгэлийг хуучин програмаас харуулна; MACS Human Capital-д оруулах дэлгэц байхгүй."
 
 
 COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Зээл авсан огноо", value=lambda r: r.item.get_date),
+    Column(key="date", label="Зээл авсан огноо", value=lambda r: r.item.get_date, kind="date"),
     Column(key="code", label="Код", value=lambda r: r.row.employee.code),
     Column(key="name", label="Ажилтан", value=full_name, href=detail_url),
     Column(key="department", label="Хэлтэс", value=department),
-    Column(key="end_date", label="Зээл дуусах огноо", value=lambda r: r.item.end_date),
+    Column(key="end_date", label="Зээл дуусах огноо", value=lambda r: r.item.end_date, kind="date"),
     Column(key="amount", label="Зээлийн дүн", value=lambda r: r.item.amount, numeric=True, money=True),
     Column(
         key="per_month",

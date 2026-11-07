@@ -65,7 +65,7 @@ COLUMNS: tuple[Column, ...] = (
     *(on_person(c, _person) for c in PERSON_COLUMNS),
     Column(key="child", label="Хүүхдийн нэр", value=lambda c: c.item.given_name),
     Column(key="relation", label="Хамаарал", value=_relation),
-    Column(key="birth_date", label="Төрсөн огноо", value=lambda c: c.item.birth_date),
+    Column(key="birth_date", label="Төрсөн огноо", value=lambda c: c.item.birth_date, kind="date"),
     Column(key="age", label="Нас", value=lambda c: c.age, numeric=True),
 )
 

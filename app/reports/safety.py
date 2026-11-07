@@ -1,6 +1,6 @@
 """E1 «Үйлдвэрийн ослын тайлан» and E2 «Хурц хордлогын тайлан»: the lines of the old procedures CALC_FACTORYACC and
 CALC_FACTORYTOX (docs/migration/legacy-logic/procedures), one row per line with its number, label and count.
-The accident rows (FactoryAccidentRow, kind `accident` or `toxic`) are kept by the old program; Info HR has no screen
+The accident rows (FactoryAccidentRow, kind `accident` or `toxic`) are kept by the old program; MACS Human Capital has no screen
 for them. Both reports share one builder and differ only in their list of lines.
 
 Branch rules as in the old procedures: line 6 filters by the employee's branch, every other accident line by the
@@ -235,7 +235,7 @@ COLUMNS: tuple[Column, ...] = (
 
 def _note(f: Filters) -> str:
     """The grey line: where the rows come from."""
-    return "Осол, хордлогын бүртгэлийг хуучин програмаас харуулна; Info HR-д оруулах дэлгэц байхгүй."
+    return "Осол, хордлогын бүртгэлийг хуучин програмаас харуулна; MACS Human Capital-д оруулах дэлгэц байхгүй."
 
 
 def _report(key: str, title: str, kind: str, lines: list[Line]) -> Report:

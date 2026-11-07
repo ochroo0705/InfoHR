@@ -1,0 +1,1 @@
+{% load hr %}{% comment %}One number of a chart or pivot: money with the mnt filter, a missing value as «—» (docs/UI_RULES.md §4b).{% endcomment %}{% if money %}{% if value is None %}—{% else %}{{ value|mnt }}{% endif %}{% else %}{{ value|default_if_none:"—" }}{% endif %}

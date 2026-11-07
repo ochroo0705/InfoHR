@@ -33,8 +33,8 @@ def no_production_rows() -> None:
 
 def _type_code() -> int:
     """The factory_accident_type row every accident row points to (no model for it): created once, then reused."""
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT faccident_type_id FROM factory_accident_type LIMIT 1")
+    with connection.cursor() as cursor:  # no LIMIT: Firebird has no LIMIT, and fetchone() takes one row
+        cursor.execute("SELECT faccident_type_id FROM factory_accident_type")
         found = cursor.fetchone()
         if found is not None:
             return int(found[0])
@@ -212,7 +212,10 @@ def test_last_day_counts_whole_day_and_next_midnight_does_not(
     midnight = _accident(person, on=date(2027, 1, 1))
     with connection.cursor() as cursor:
         for row, stamp in ((afternoon, "2026-12-31 14:00:00"), (midnight, "2027-01-01 00:00:00")):
-            cursor.execute("UPDATE factory_accident SET accident_date = %s WHERE faccident_id = %s", [stamp, row.pk])
+            cursor.execute(
+                "UPDATE factory_accident SET accident_date = CAST(%s AS TIMESTAMP) WHERE faccident_id = %s",
+                [stamp, row.pk],
+            )
     assert _numbers(ACCIDENTS, hr_user)[3] == 1
 
 

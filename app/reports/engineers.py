@@ -1,6 +1,6 @@
 """A9 «Инженер, техникийн ажилтны судалгаа»: the budgeted posts (the old `nazg` table, NazgRow) per kind and position
 for a year, against the people in those positions (old CALC_REPNAZG). Main counts the non-contract staff, Temporary
-the contract staff. Each person counts once. The budget is kept by the old program; Info HR has no screen for it."""
+the contract staff. Each person counts once. The budget is kept by the old program; MACS Human Capital has no screen for it."""
 
 from collections import Counter
 from dataclasses import dataclass
@@ -80,7 +80,7 @@ COLUMNS: tuple[Column, ...] = (
 def _note(f: Filters) -> str:
     """The grey line: where the budget comes from."""
     return (
-        "Орон тооны бүртгэл хуучин програмаас; Info HR-д оруулах дэлгэц байхгүй. "
+        "Орон тооны бүртгэл хуучин програмаас; MACS Human Capital-д оруулах дэлгэц байхгүй. "
         "Харагдах ажилтны тоо нь таны эрхийн хүрээнд."
     )
 

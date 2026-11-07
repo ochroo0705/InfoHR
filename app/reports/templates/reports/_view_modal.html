@@ -5,8 +5,24 @@
       {% csrf_token %}
       {% if form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
       {% for field in form.visible_fields %}
+      {% if field.name == "visibility" %}
+      <fieldset class="text-sm">
+        <legend class="mb-1">{{ field.label }}</legend>
+        {# a private view cannot open first, so the «үндсэн» box shows only while «Хамтын» is chosen #}
+        <div class="flex flex-wrap gap-4" onchange="this.parentElement.querySelector('[data-default-row]').classList.toggle('hidden', event.target.value !== 'shared')">
+          {% for radio in field %}<label class="inline-flex items-center gap-2">{{ radio.tag }} {{ radio.choice_label }}</label>{% endfor %}
+        </div>
+        {% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}
+      </fieldset>
+      {% elif field.name == "is_default" %}
+      <div data-default-row class="text-sm{% if form.visibility.value == 'private' %} hidden{% endif %}">
+        <label class="inline-flex items-center gap-2">{{ field }} {{ field.label }}</label>
+        {% for e in field.errors %}<span class="block text-xs text-red-600">{{ e }}</span>{% endfor %}
+      </div>
+      {% else %}
       <label class="block text-sm">{{ field.label }}{% if field.field.required %} *{% endif %}
-        {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>{% endfor %}
+        {{ field }}{% for e in field.errors %}<span class="text-xs text-red-600">{{ e }}</span>{% endfor %}</label>
+      {% endif %}{% endfor %}
       {% for field in form.hidden_fields %}{{ field }}{% endfor %}
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>

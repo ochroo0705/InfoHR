@@ -1,0 +1,477 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div data-rules-panel class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-1 text-lg font-semibold">Шүүлтүүр</h2>
+    <p class="mb-4 text-sm text-slate-500">Нөхцөл бүр нэг багана, нэг харьцуулалт, нэг утгаас бүрдэнэ. Бүх нөхцөл биелсэн мөр харагдана.</p>
+    {# A plain GET to the report: the conditions go into the address and the page reloads with them (UI_RULES §4b). The selects and boxes below have no name, so only the hidden inputs are sent. #}
+    <form method="get" action="{% url 'reports:report' report.key %}" class="space-y-4" data-rules-form>
+      {% for name, value in keep %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+      <input type="hidden" name="rules" value="" data-rules-out>
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-rules-advanced class="rounded border-slate-300"> Нарийвчилсан</label>
+      <div data-rules-tree class="space-y-3 text-sm"></div>
+      <p data-rules-error class="hidden text-sm text-red-600"></p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хэрэглэх</button>
+      </div>
+    </form>
+    {{ columns_json|json_script:"rules-columns" }}
+    {{ ops_json|json_script:"rules-ops" }}
+    {{ rules_json|json_script:"rules-current" }}
+    <script>
+    (function () {
+      "use strict";
+      // Limits from reports/rules.py: depth 3 (root is depth 1), 20 rules, a value 100 characters, the text 2000.
+      var MAX_DEPTH = 3;
+      var MAX_RULES = 20;
+      var MAX_VALUE = 100;
+      var MAX_TEXT = 2000;
+      // The same number text reports/rules.py reads (exponent allowed), the same day count, the same date text.
+      var NUMBER_TEXT = /^[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]{1,3})?$/;
+      var DAY_COUNT = /^[0-9]{1,6}$/;
+      var DATE_TEXT = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
+      var panel = (document.currentScript && document.currentScript.closest("[data-rules-panel]")) ||
+        document.querySelector("[data-rules-panel]");
+      if (!panel) return;
+
+      function readJson(id) {
+        var el = panel.querySelector("#" + id);
+        try { return el ? JSON.parse(el.textContent) : null; } catch (err) { return null; }
+      }
+
+      var columns = readJson("rules-columns") || [];
+      var ops = readJson("rules-ops") || {};
+      // rules-current holds the rules as text (a JSON string), so it is read twice: once for the string, once for the tree.
+      var currentText = readJson("rules-current");
+      var current = null;
+      try { current = currentText ? JSON.parse(currentText) : null; } catch (err) { current = null; }
+      var tree = panel.querySelector("[data-rules-tree]");
+      var out = panel.querySelector("[data-rules-out]");
+      var form = panel.querySelector("[data-rules-form]");
+      var toggle = panel.querySelector("[data-rules-advanced]");
+      var errorBox = panel.querySelector("[data-rules-error]");
+
+      function el(tag, cls, text) {
+        var node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text !== undefined && text !== null) node.textContent = text;
+        return node;
+      }
+
+      function option(value, label, selected) {
+        var node = el("option", "", label);
+        node.value = value;
+        if (selected) node.selected = true;
+        return node;
+      }
+
+      // A control that keeps focus across a redraw: its role and the uid of its rule or group.
+      function tag(node, role, owner) {
+        node.dataset.role = role;
+        node.dataset.id = String(owner.uid);
+        return node;
+      }
+
+      var SELECT = "rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm";
+      var INPUT = "rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm";
+      var BUTTON = "rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50";
+      var REMOVE = "rounded px-2 py-1 text-red-600 hover:bg-red-50";
+
+      var seq = 0;
+      function nextId() {
+        seq += 1;
+        return seq;
+      }
+
+      function columnOf(key) {
+        for (var i = 0; i < columns.length; i++) if (columns[i].key === key) return columns[i];
+        return null;
+      }
+
+      function kindOf(key) {
+        var column = columnOf(key);
+        return column ? column.kind : "text";
+      }
+
+      function opsOf(kind) {
+        return ops[kind] || ops.text || [];
+      }
+
+      function firstOp(kind) {
+        var list = opsOf(kind);
+        return list.length ? list[0].code : "";
+      }
+
+      // The operators that take a number of days («ирэх … хоногт», «өнгөрсөн … хоногт»).
+      function isDays(op) {
+        return op === "next_days" || op === "last_days";
+      }
+
+      // Option text: the operator's label without its «…» placeholder («ирэх … хоногт» reads «ирэх»).
+      function opText(label) {
+        return label.replace(/\s*….*$/, "");
+      }
+
+      function inputType(kind) {
+        return kind === "date" ? "date" : kind === "number" ? "number" : "text";
+      }
+
+      // A single value the kind can read, or "" (the box then shows empty too, so the box and the stored value agree).
+      function goodPart(kind, text) {
+        if (text === "") return "";
+        if (kind === "number") return NUMBER_TEXT.test(text) ? text : "";
+        if (kind === "date") return DATE_TEXT.test(text) ? text : "";
+        return text;
+      }
+
+      function cleanValue(kind, op, value) {
+        if (op === "empty" || op === "filled") return "";
+        if (op === "between") {
+          var parts = value.split("..");
+          if (parts.length !== 2) return "";
+          return goodPart(kind, parts[0]) + ".." + goodPart(kind, parts[1]);
+        }
+        if (isDays(op)) return DAY_COUNT.test(value) ? value : "";
+        return goodPart(kind, value);
+      }
+
+      // A loaded rule whose column or operator does not fit the kind is reset to the kind's first operator.
+      function sanitizeRule(rule) {
+        if (!columnOf(rule.c)) rule.c = columns.length ? columns[0].key : "";
+        var kind = kindOf(rule.c);
+        var known = opsOf(kind).some(function (o) { return o.code === rule.o; });
+        if (!known) {
+          rule.o = firstOp(kind);
+          rule.v = "";
+        } else {
+          rule.v = cleanValue(kind, rule.o, rule.v);
+        }
+      }
+
+      function sanitizeTree(group) {
+        group.items.forEach(function (item) {
+          if (item.kind === "rule") sanitizeRule(item);
+          else sanitizeTree(item);
+        });
+      }
+
+      function fromServer(node) {
+        if (node && node.items) {
+          return { kind: "group", uid: nextId(), op: node.op === "or" ? "or" : "and", items: node.items.map(fromServer) };
+        }
+        return {
+          kind: "rule", uid: nextId(), c: String(node.c), o: String(node.o),
+          v: node.v === null || node.v === undefined ? "" : String(node.v),
+        };
+      }
+
+      function isFlat(group) {
+        return group.op === "and" && group.items.every(function (n) { return n.kind === "rule"; });
+      }
+
+      function countRules(group) {
+        return group.items.reduce(function (n, item) {
+          return n + (item.kind === "rule" ? 1 : countRules(item));
+        }, 0);
+      }
+
+      function flatten(group, into) {
+        group.items.forEach(function (item) {
+          if (item.kind === "rule") into.push(item);
+          else flatten(item, into);
+        });
+        return into;
+      }
+
+      function blankRule() {
+        var key = columns.length ? columns[0].key : "";
+        return { kind: "rule", uid: nextId(), c: key, o: firstOp(kindOf(key)), v: "" };
+      }
+
+      var root = current && current.items ? fromServer(current) : { kind: "group", uid: nextId(), op: "and", items: [] };
+      sanitizeTree(root);
+      var advanced = !isFlat(root);
+      if (toggle) toggle.checked = advanced;
+
+      // A rule is ready when it has a value (or needs none). A «между» rule needs at least one side.
+      function ruleReady(rule) {
+        if (rule.o === "empty" || rule.o === "filled") return true;
+        if (rule.o === "between") {
+          var parts = rule.v.split("..");
+          return (parts[0] || "").trim() !== "" || (parts[1] || "").trim() !== "";
+        }
+        return rule.v.trim() !== "";
+      }
+
+      // The tree the server reads: blank rules and empty groups are left out. ctx.tooLong is set when a value is too long.
+      function build(group, ctx) {
+        var items = [];
+        group.items.forEach(function (item) {
+          if (item.kind === "rule") {
+            if (ruleReady(item)) {
+              var value = item.o === "empty" || item.o === "filled" ? "" : item.v;
+              if (value.length > MAX_VALUE) ctx.tooLong = true;
+              items.push({ c: item.c, o: item.o, v: value });
+            }
+          } else {
+            var sub = build(item, ctx);
+            if (sub) items.push(sub);
+          }
+        });
+        return items.length ? { op: group.op, items: items } : null;
+      }
+
+      function showError(text) {
+        errorBox.textContent = text;
+        errorBox.setAttribute("role", "alert");
+        errorBox.classList.remove("hidden");
+      }
+
+      function hideError() {
+        errorBox.classList.add("hidden");
+        errorBox.removeAttribute("role");
+      }
+
+      // Any edit in the pop-up clears the error line.
+      panel.addEventListener("input", hideError);
+      panel.addEventListener("change", hideError);
+
+      function renderRule(rule, parent) {
+        var row = el("div", "flex flex-wrap items-center gap-2");
+        var colSel = tag(el("select", SELECT), "col", rule);
+        colSel.setAttribute("aria-label", "Багана");
+        columns.forEach(function (c) { colSel.appendChild(option(c.key, c.label, c.key === rule.c)); });
+        colSel.addEventListener("change", function () {
+          rule.c = colSel.value;
+          rule.o = firstOp(kindOf(rule.c));
+          rule.v = "";
+          // explicit: select.js runs this change while the popup list has focus, outside the panel
+          render({ role: "col", id: String(rule.uid) });
+        });
+        row.appendChild(colSel);
+
+        var kind = kindOf(rule.c);
+        var opSel = tag(el("select", SELECT), "op", rule);
+        opSel.setAttribute("aria-label", "Харьцуулалт");
+        opsOf(kind).forEach(function (o) {
+          opSel.appendChild(option(o.code, opText(o.label), o.code === rule.o));
+        });
+        opSel.addEventListener("change", function () {
+          rule.o = opSel.value;
+          rule.v = "";
+          render({ role: "op", id: String(rule.uid) });
+        });
+        row.appendChild(opSel);
+
+        if (rule.o === "between") {
+          var parts = rule.v.split("..");
+          var fromInput = tag(el("input", INPUT), "from", rule);
+          var toInput = tag(el("input", INPUT), "to", rule);
+          fromInput.type = inputType(kind);
+          toInput.type = inputType(kind);
+          fromInput.setAttribute("aria-label", "Доод утга");
+          toInput.setAttribute("aria-label", "Дээд утга");
+          fromInput.value = parts[0] || "";
+          toInput.value = parts[1] || "";
+          if (kind === "number") { fromInput.step = "any"; toInput.step = "any"; }
+          if (kind === "text") { fromInput.maxLength = MAX_VALUE; toInput.maxLength = MAX_VALUE; }
+          var sync = function () { rule.v = fromInput.value + ".." + toInput.value; };
+          fromInput.addEventListener("input", sync);
+          toInput.addEventListener("input", sync);
+          row.appendChild(fromInput);
+          row.appendChild(el("span", "text-slate-500", "–"));
+          row.appendChild(toInput);
+        } else if (rule.o !== "empty" && rule.o !== "filled") {
+          var valueInput = tag(el("input", INPUT), "value", rule);
+          if (isDays(rule.o)) {
+            valueInput.type = "number";
+            valueInput.min = "0";
+            valueInput.step = "1";
+            valueInput.className = INPUT + " w-28";
+          } else {
+            valueInput.type = inputType(kind);
+            if (kind === "number") valueInput.step = "any";
+            if (kind === "text") valueInput.maxLength = MAX_VALUE;
+          }
+          valueInput.setAttribute("aria-label", "Утга");
+          valueInput.value = rule.v;
+          valueInput.addEventListener("input", function () { rule.v = valueInput.value; });
+          row.appendChild(valueInput);
+          if (isDays(rule.o)) row.appendChild(el("span", "text-slate-500", "хоног"));
+        }
+
+        var remove = tag(el("button", REMOVE, "×"), "remove", rule);
+        remove.type = "button";
+        remove.setAttribute("aria-label", "Нөхцөл устгах");
+        remove.addEventListener("click", function () {
+          var items = parent.items;
+          var index = items.indexOf(rule);
+          if (index < 0) return;
+          // focus moves to the row above (its ×), or to the group's add button when this was the first item
+          var above = index > 0 ? items[index - 1] : null;
+          var target = above && above.kind === "rule"
+            ? { role: "remove", id: String(above.uid) }
+            : { role: "add-rule", id: String(parent.uid) };
+          items.splice(index, 1);
+          render(target);
+        });
+        row.appendChild(remove);
+        return row;
+      }
+
+      function renderGroup(group, depth, isRoot) {
+        var box = el("div", isRoot ? "space-y-2" : "space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3");
+        if (advanced && !isRoot) {
+          var head = el("div", "flex flex-wrap items-center gap-2");
+          head.appendChild(el("span", "text-slate-500", "Бүлэг:"));
+          head.appendChild(groupOpSelect(group));
+          var drop = tag(el("button", REMOVE, "Бүлгийг устгах"), "group-drop", group);
+          drop.type = "button";
+          drop.addEventListener("click", function () {
+            if (group.items.length >= 2 && !window.confirm("Бүлгийг бүх нөхцөлтэй нь хасах уу?")) return;
+            var parentGroup = findParent(root, group);
+            if (!parentGroup) return;
+            parentGroup.items.splice(parentGroup.items.indexOf(group), 1);
+            render({ role: "add-rule", id: String(parentGroup.uid) });
+          });
+          head.appendChild(drop);
+          box.appendChild(head);
+        } else if (advanced && isRoot) {
+          var rootHead = el("div", "flex flex-wrap items-center gap-2");
+          rootHead.appendChild(el("span", "text-slate-500", "Бүх нөхцөл:"));
+          rootHead.appendChild(groupOpSelect(group));
+          box.appendChild(rootHead);
+        }
+
+        group.items.forEach(function (item) {
+          if (item.kind === "rule") box.appendChild(renderRule(item, group));
+          else box.appendChild(renderGroup(item, depth + 1, false));
+        });
+
+        var buttons = el("div", "flex flex-wrap gap-2");
+        var total = countRules(root);
+        var addRule = tag(el("button", BUTTON, "+ Нөхцөл нэмэх"), "add-rule", group);
+        addRule.type = "button";
+        limit(addRule, total >= MAX_RULES);
+        addRule.addEventListener("click", function () {
+          var created = blankRule();
+          group.items.push(created);
+          render({ role: "col", id: String(created.uid) });
+        });
+        buttons.appendChild(addRule);
+        if (advanced && depth < MAX_DEPTH) {
+          var addGroup = tag(el("button", BUTTON, "+ Бүлэг нэмэх"), "add-group", group);
+          addGroup.type = "button";
+          limit(addGroup, total >= MAX_RULES);
+          addGroup.addEventListener("click", function () {
+            var created = { kind: "group", uid: nextId(), op: "and", items: [blankRule()] };
+            group.items.push(created);
+            render({ role: "col", id: String(created.items[0].uid) });
+          });
+          buttons.appendChild(addGroup);
+        }
+        box.appendChild(buttons);
+        return box;
+      }
+
+      // A button that a limit turns off is disabled and faded (no disabled: variant exists in app.css).
+      function limit(button, off) {
+        button.disabled = off;
+        if (off) button.classList.add("opacity-50");
+      }
+
+      function groupOpSelect(group) {
+        var sel = tag(el("select", SELECT), "group-op", group);
+        sel.setAttribute("aria-label", "Бүлгийн нөхцөл");
+        sel.appendChild(option("and", "Бүгд биелсэн", group.op === "and"));
+        sel.appendChild(option("or", "Аль нэг нь биелсэн", group.op === "or"));
+        sel.addEventListener("change", function () {
+          group.op = sel.value;
+          render({ role: "group-op", id: String(group.uid) });
+        });
+        return sel;
+      }
+
+      function findParent(node, target) {
+        for (var i = 0; i < node.items.length; i++) {
+          var item = node.items[i];
+          if (item === target) return node;
+          if (item.kind === "group") {
+            var found = findParent(item, target);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      // The control that had focus before a redraw, so the redraw can give it back.
+      // A long list is a typing combo (static/js/select.js): the text box sits before the hidden select and has no role,
+      // so the select after it is the control.
+      function focusedControl() {
+        var active = document.activeElement;
+        if (!active || !panel.contains(active) || !active.dataset) return null;
+        var owner = active.dataset.role ? active : active.nextElementSibling;
+        if (!owner || !owner.dataset || !owner.dataset.role) return null;
+        return { role: owner.dataset.role, id: owner.dataset.id };
+      }
+
+      // Redraws the tree. `focus` ({role, id}) names the control to focus afterwards; without it the focused control
+      // keeps its focus (a column or operator change, a group operator change).
+      function render(focus) {
+        var wanted = focus || focusedControl();
+        tree.textContent = "";
+        tree.appendChild(renderGroup(root, 1, true));
+        if (!wanted) return;
+        // Focus after the redraw settles: select.js turns a long select into a combo (hides it, adds a text box)
+        // in a MutationObserver callback, which runs after this function. Focusing the select first loses focus.
+        setTimeout(function () {
+          var target = tree.querySelector('[data-role="' + wanted.role + '"][data-id="' + wanted.id + '"]');
+          if (!target) return;
+          var control = target._selCombo && target._selCombo.input ? target._selCombo.input : target;
+          if (typeof control.focus === "function") control.focus();
+        }, 0);
+      }
+
+      if (toggle) {
+        toggle.addEventListener("change", function () {
+          if (toggle.checked) {
+            advanced = true;
+          } else if (isFlat(root)) {
+            advanced = false;
+          } else if (window.confirm("Бүх нөхцөл нэгэн зэрэг биелсэн байх болно. Үргэлжлүүлэх үү?")) {
+            advanced = false;
+            root = { kind: "group", uid: root.uid, op: "and", items: flatten(root, []) };
+          } else {
+            toggle.checked = true;  // cancelled: advanced mode stays on
+            return;
+          }
+          render();
+        });
+      }
+
+      if (form) {
+        form.addEventListener("submit", function (event) {
+          var ctx = { tooLong: false };
+          var built = build(root, ctx);
+          if (ctx.tooLong) {
+            event.preventDefault();
+            showError("Утга хэт урт байна. Нэг утга 100 тэмдэгтээс ихгүй байх ёстой.");
+            return;
+          }
+          var text = built ? JSON.stringify(built) : "";
+          if (text.length > MAX_TEXT) {
+            event.preventDefault();
+            showError("Нөхцөл хэт урт байна. Утгыг богиносгоно уу.");
+            return;
+          }
+          out.value = text;
+          out.disabled = !built;  // no rules: no «rules» parameter in the address
+        });
+      }
+
+      if (isFlat(root) && root.items.length === 0) root.items.push(blankRule());
+      render();
+    })();
+    </script>
+  </div>
+</div>

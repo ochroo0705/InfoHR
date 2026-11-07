@@ -47,12 +47,12 @@ def _rows(user: User, f: Filters) -> list[Line]:
 
 
 def _source(line: Line) -> str:
-    return "Хуучин програм" if line.leave.from_old_system else "Info HR"
+    return "Хуучин програм" if line.leave.from_old_system else "MACS Human Capital"
 
 
 COLUMNS: tuple[Column, ...] = (
-    Column(key="start", label="Эхлэх", value=lambda line: line.leave.start),
-    Column(key="end", label="Дуусах", value=lambda line: line.leave.end),
+    Column(key="start", label="Эхлэх", value=lambda line: line.leave.start, kind="date"),
+    Column(key="end", label="Дуусах", value=lambda line: line.leave.end, kind="date"),
     Column(key="code", label="Код", value=lambda line: line.person.employee.code),
     Column(
         key="name",
@@ -78,4 +78,5 @@ REPORT = Report(
     needs=LEAVE_NEEDS,
     source=LeaveAssign,
     group_options=("department", "type", "state"),
+    layouts=("board", "calendar", "timeline", "cards", "chart", "pivot"),
 )

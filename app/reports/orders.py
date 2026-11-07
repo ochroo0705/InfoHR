@@ -1,6 +1,6 @@
 """B4 the HR orders («Хүний нөөцийн тушаалууд»): the order register's rows of a period.
 
-Rows come from `employees.services.order_register.register_rows`, so Info HR orders and the old program's commands both
+Rows come from `employees.services.order_register.register_rows`, so MACS Human Capital orders and the old program's commands both
 show. An order with no date cannot sit in a period, so it is left out. Cancelled orders stay, with their state shown.
 """
 
@@ -16,7 +16,7 @@ from reports.types import Column, Report
 
 NEEDS = ("macs.view_employees",)  # the order register's right: an Employee-role user sees only themself and is refused
 NOTE = (
-    "Тушаалын бүртгэлийн мөрүүд (Info HR болон хуучин програмын). Огноогүй тушаал орохгүй. "
+    "Тушаалын бүртгэлийн мөрүүд (MACS Human Capital болон хуучин програмын). Огноогүй тушаал орохгүй. "
     "Хэлтэс нь ажилтны одоогийн хэлтэс."
 )
 
@@ -52,7 +52,7 @@ def _rows(user: User, f: Filters) -> list[RegisterRow]:
 
 
 COLUMNS: tuple[Column, ...] = (
-    Column(key="date", label="Огноо", value=lambda r: r.date),
+    Column(key="date", label="Огноо", value=lambda r: r.date, kind="date"),
     Column(key="number", label="Дугаар", value=lambda r: _or_none(r.number)),
     Column(key="code", label="Код", value=lambda r: _or_none(r.employee_code)),
     Column(key="name", label="Ажилтан", value=lambda r: _or_none(r.employee_name), href=_detail_url),
@@ -75,4 +75,5 @@ REPORT = Report(
     source=None,
     group_options=("type", "department", "state"),
     note=_note,
+    layouts=("board", "calendar", "cards", "chart", "pivot"),
 )

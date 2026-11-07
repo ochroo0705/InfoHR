@@ -24,7 +24,7 @@ def _name(obj: Any) -> str | None:
 
 COLUMNS: tuple[Column, ...] = (
     *survey_common.PERSON_COLUMNS,
-    Column(key="birth_date", label="Төрсөн огноо", value=lambda p: p.row.employee.birth_date),
+    Column(key="birth_date", label="Төрсөн огноо", value=lambda p: p.row.employee.birth_date, kind="date"),
     Column(key="age", label="Нас", value=lambda p: p.age, numeric=True),
     Column(key="bracket", label="Насны бүлэг", value=lambda p: bracket(p.age)),
     Column(key="gender", label="Хүйс", value=lambda p: p.row.employee.get_gender_display()),

@@ -1,7 +1,7 @@
 """The movement reports: B1 the movements of a period, B2 the change list per person, B3 the leavers.
 
 Rows come only from `employees.services.movements.changes`. A change dated after today is not a movement yet, so the
-period is cut at today. People with no Info HR job history show only as a hire (the grey note says so).
+period is cut at today. People with no MACS Human Capital job history show only as a hire (the grey note says so).
 """
 
 from collections.abc import Collection
@@ -21,7 +21,7 @@ from reports.types import Column, Report
 NEEDS = ("macs.view_employees",)  # the employee list's right: an Employee-role user sees only themself and is refused
 LEAVE_KINDS = frozenset({"termination"})
 NOTE = (
-    "Info HR-д бүртгэсэн өөрчлөлтүүд, өнөөдрийг хүртэл. Хуучин програмаас ирсэн ажилтны ажилд орсон огноо нь анх "
+    "MACS Human Capital-д бүртгэсэн өөрчлөлтүүд, өнөөдрийг хүртэл. Хуучин програмаас ирсэн ажилтны ажилд орсон огноо нь анх "
     "ажилд орсон огноогоор гарна; хуучин програмд бүртгэсэн шилжилт, ажлаас гарсан нь энд гарахгүй."
 )
 
@@ -41,7 +41,7 @@ def _detail_url(c: Change) -> str:
 
 
 def _note(f: Filters) -> str:
-    """The same grey line whatever the filters: it says what Info HR holds and what it does not."""
+    """The same grey line whatever the filters: it says what MACS Human Capital holds and what it does not."""
     return NOTE
 
 
@@ -79,7 +79,7 @@ def _leaver_rows(user: User, f: Filters) -> list[Any]:
 
 # The columns B1 and B2 share: the date, the person, the change and the job before and after it, the order.
 MOVEMENT_COLUMNS: tuple[Column, ...] = (
-    Column(key="day", label="Огноо", value=lambda c: c.day),
+    Column(key="day", label="Огноо", value=lambda c: c.day, kind="date"),
     Column(key="code", label="Код", value=lambda c: c.employee.code),
     Column(key="name", label="Ажилтан", value=lambda c: c.employee.full_name, href=_detail_url),
     Column(key="kind", label="Өөрчлөлт", value=lambda c: c.kind_label),
@@ -91,7 +91,7 @@ MOVEMENT_COLUMNS: tuple[Column, ...] = (
 )
 
 LEAVER_COLUMNS: tuple[Column, ...] = (
-    Column(key="day", label="Гарсан огноо", value=lambda c: c.day),
+    Column(key="day", label="Гарсан огноо", value=lambda c: c.day, kind="date"),
     Column(key="code", label="Код", value=lambda c: c.employee.code),
     Column(key="name", label="Ажилтан", value=lambda c: c.employee.full_name, href=_detail_url),
     Column(key="department", label="Хэлтэс", value=lambda c: _name(c.department)),
@@ -117,6 +117,7 @@ MOVEMENTS = Report(
     source=Employee,
     group_options=("kind", "department"),
     note=_note,
+    layouts=("calendar", "timeline", "chart"),
 )
 
 HISTORY = Report(

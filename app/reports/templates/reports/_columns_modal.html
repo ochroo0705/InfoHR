@@ -15,6 +15,7 @@
       <label class="block text-sm">Бүлэглэх
         <select name="group" class="mt-1 w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
           <option value="">Бүлэглэхгүй</option>
+          {% if group_text %}<option value="{{ group }}" selected>{{ group_text }}</option>{% endif %}
           {% for c in group_choices %}<option value="{{ c.key }}"{% if group == c.key %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
         </select>
       </label>

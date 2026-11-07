@@ -1,10 +1,11 @@
 {% load hr %}
+{# tailwind: bg-red-50 text-red-700 bg-amber-50 text-amber-800 bg-green-50 text-green-700 bg-blue-50 text-blue-700 bg-slate-100 text-slate-600 sticky z-10 w-[12rem] min-w-[12rem] max-w-[12rem] truncate overflow-x-auto #}
 <div class="ptable">
   <table>
     <thead>
       <tr>
         {% for h in heads %}
-        <th{% if h.cls %} class="{{ h.cls }}"{% endif %}><a href="{{ h.href }}" hx-get="{{ h.href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="hover:text-violet-700">{{ h.label }}{% if h.arrow %} <span aria-hidden="true">{{ h.arrow }}</span>{% endif %}</a></th>
+        <th{% if h.css %} class="{{ h.css }}"{% endif %}{% if h.sticky_left %} style="{{ h.sticky_left }}"{% endif %}><a href="{{ h.href }}" data-append="{{ h.append_href }}" title="Shift+товшилт: нэмэлт эрэмбэ" onclick="if(event.shiftKey){event.preventDefault();event.stopPropagation();window.location.href=this.dataset.append}" hx-get="{{ h.href }}" hx-trigger="click[!event.shiftKey]" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="hover:text-violet-700">{{ h.label }}{% if h.arrow %} <span aria-hidden="true">{{ h.arrow }}</span>{% endif %}</a></th>
         {% endfor %}
       </tr>
     </thead>
@@ -20,5 +21,14 @@
         {% include "reports/_batch_rows.html" %}
       {% endif %}
     </tbody>
+    {% if table.footer %}
+    <tfoot>
+      <tr class="border-t border-slate-300 font-semibold">
+        {% for cell in table.footer %}
+        <td{% if cell.css %} class="{{ cell.css }}"{% endif %}{% if cell.sticky_left %} style="{{ cell.sticky_left }}"{% endif %}>{% include "reports/_cell.html" %}</td>
+        {% endfor %}
+      </tr>
+    </tfoot>
+    {% endif %}
   </table>
 </div>

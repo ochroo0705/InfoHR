@@ -1,0 +1,57 @@
+{# The calendar (UI_RULES §4b): a Monday-first month grid from 640 px up; below that the same entries as a day list. The arrows change the month (htmx, like the switcher); at the year bounds the arrow is a grey span. #}
+{% if table.count == 0 %}
+<p class="mt-4 py-6 text-center text-sm text-slate-400">Өгөгдөл олдсонгүй</p>
+{% else %}
+<div class="mt-4 flex items-center justify-between gap-2">
+  <h2 class="text-base font-semibold text-slate-900">{{ calendar.month|date:"Y" }} оны {{ calendar.month|date:"n" }}-р сар</h2>
+  <div class="flex shrink-0 items-center gap-1 text-sm">
+    {% if calendar.month.year == 1900 and calendar.month.month == 1 %}
+    <span aria-disabled="true" class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-300"><span class="sr-only">Өмнөх сар</span><span aria-hidden="true">‹</span></span>
+    {% else %}
+    <a href="{{ calendar_prev_url }}" aria-label="Өмнөх сар" hx-get="{{ calendar_prev_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">‹</a>
+    {% endif %}
+    {% if calendar.month.year == 2100 and calendar.month.month == 12 %}
+    <span aria-disabled="true" class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-300"><span class="sr-only">Дараах сар</span><span aria-hidden="true">›</span></span>
+    {% else %}
+    <a href="{{ calendar_next_url }}" aria-label="Дараах сар" hx-get="{{ calendar_next_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">›</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="hidden sm:grid grid-cols-7 gap-1 mt-4">
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Да</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Мя</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Лх</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Пү</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Ба</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Бя</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Ня</div>
+  {% for week in calendar.weeks %}{% for day in week %}
+  <div data-day="{{ day.day|date:'Y-m-d' }}" class="min-h-20 rounded-lg border border-slate-200 p-1.5 {% if day.in_month %}bg-surface{% else %}bg-slate-50{% endif %}">
+    <p class="text-xs font-medium {% if day.in_month %}text-slate-700{% else %}text-slate-400{% endif %}">{{ day.day|date:"j" }}</p>
+    <ul class="mt-1 space-y-1">
+      {% for item in day.items %}{% include "reports/layouts/_entry.html" %}{% endfor %}
+    </ul>
+    {% if day.more %}<p class="mt-1 text-xs text-slate-500">+{{ day.more }}</p>{% endif %}
+  </div>
+  {% endfor %}{% endfor %}
+</div>
+
+<div class="sm:hidden mt-4 space-y-3">
+  {% for day in calendar.busy_days %}
+  <section data-list-day="{{ day.day|date:'Y-m-d' }}" class="rounded-xl border border-slate-200 bg-surface p-3">
+    <h3 class="text-sm font-semibold text-slate-900">{{ day.day|date:"Y-m-d" }}</h3>
+    <ul class="mt-2 space-y-1">
+      {% for item in day.items %}{% include "reports/layouts/_entry.html" %}{% endfor %}
+    </ul>
+    {% if day.more %}<p class="mt-1 text-xs text-slate-500">+{{ day.more }}</p>{% endif %}
+  </section>
+  {% empty %}
+  <p class="py-6 text-center text-sm text-slate-400">Энэ сард оруулга алга</p>
+  {% endfor %}
+</div>
+
+{% if calendar.undated %}
+<p class="mt-3 text-sm text-slate-500">Огноогүй: {{ calendar.undated }}</p>
+{% endif %}
+{% endif %}

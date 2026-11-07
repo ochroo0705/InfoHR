@@ -1,0 +1,8 @@
+{# The cards (UI_RULES §4b): a responsive grid of the rows as cards, the first batch here and the rest by «Цааш харуулах». #}
+{% if table.count == 0 %}
+<p class="mt-4 py-6 text-center text-sm text-slate-400">Өгөгдөл олдсонгүй</p>
+{% else %}
+<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+  {% include "reports/layouts/_cards_batch.html" %}
+</div>
+{% endif %}

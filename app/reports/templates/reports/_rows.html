@@ -1,7 +1,7 @@
 {% for row in rows %}
 <tr>
   {% for cell in row %}
-  <td{% if cell.cls %} class="{{ cell.cls }}"{% endif %}>{% if cell.href %}<a href="{{ cell.href }}" class="text-violet-700 hover:underline">{% endif %}{% include "reports/_cell.html" %}{% if cell.href %}</a>{% endif %}</td>
+  <td{% if cell.css %} class="{{ cell.css }}"{% endif %}{% if cell.sticky_left %} style="{{ cell.sticky_left }}"{% endif %}>{% if cell.href %}<a href="{{ cell.href }}" class="text-violet-700 hover:underline">{% endif %}{% include "reports/_cell.html" %}{% if cell.href %}</a>{% endif %}</td>
   {% endfor %}
 </tr>
 {% endfor %}

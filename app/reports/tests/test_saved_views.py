@@ -1,18 +1,23 @@
+import json
 import re
 import string
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import quote
 
 import pytest
 from accounts.models import User
 from django.contrib.auth.models import Group, Permission
 from django.db import IntegrityError
+from django.http import QueryDict
 from django.test import Client
 from django.utils import timezone
 
+from reports.filters import parse_filters, to_query
 from reports.models import SavedView
 from reports.registry import REPORTS
 from reports.types import Column, Report
+from reports.views import QUERY_LIMIT, _cleaned_for
 
 pytestmark = pytest.mark.django_db
 
@@ -139,7 +144,18 @@ def test_report_without_saved_views_has_no_saved_view_routes(
 
 
 def test_overflowing_address_is_refused_not_a_500(client: Client, login_hr: User, wide_report: Report) -> None:
-    query = "&".join(f"cols={c.key}" for c in wide_report.columns)  # 60 known keys, about 2.7k characters
+    keys = [c.key for c in wide_report.columns]
+    rules = {"op": "and", "items": [{"c": k, "o": "contains", "v": "a" * 100} for k in keys[:10]]}
+    rules_text = json.dumps(rules, separators=(",", ":"), ensure_ascii=False)  # 10 known rules, about 1.8k characters
+    assert 1500 < len(rules_text) <= 2000
+    query = "&".join(
+        [*(f"cols={k}" for k in keys), f"sort={','.join(keys[:5])}", f"rules={quote(rules_text)}"]
+    )  # 60 known columns, 5 known sort keys and the rules: well over the stored limit
+    assert QUERY_LIMIT is not None
+    assert len(query) > QUERY_LIMIT
+    cleaned = to_query(_cleaned_for(login_hr, wide_report, parse_filters(QueryDict(query))))
+    assert QUERY_LIMIT is not None
+    assert len(cleaned) > QUERY_LIMIT  # the view must really refuse, not store a shorter query
     resp = client.post("/reports/wide/views/new/", {"name": "Дэлгэрэнгүй", "query": query}, HTTP_HX_REQUEST="true")
     assert resp.status_code == 200 and "Харагдац хэт урт байна." in resp.content.decode()
     assert not SavedView.objects.filter(report="wide").exists()

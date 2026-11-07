@@ -1,0 +1,454 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div data-format-panel class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-1 text-lg font-semibold">Хэлбэр</h2>
+    <p class="mb-4 text-sm text-slate-500">Нийт дүн, түгжих багана, өнгөөр ялгах. Бусад шүүлтүүр хэвээр үлдэнэ.</p>
+    {# A plain GET to the report: the totals, colours and pin go into the address and the page reloads with them (UI_RULES §4b). The selects and boxes below have no name, so only the hidden inputs are sent. #}
+    <form method="get" action="{% url 'reports:report' report.key %}" class="space-y-6" data-format-form>
+      {% for name, value in keep %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+      <input type="hidden" name="totals" value="" data-format-totals-out>
+      <input type="hidden" name="pin" value="" data-format-pin-out>
+      <input type="hidden" name="marks" value="" data-format-marks-out>
+
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold text-slate-900">Нийт дүн</h3>
+        <p class="text-xs text-slate-500">Харагдаж буй багана бүрт дүн нэмж болно. «—» бол дүн харагдахгүй.</p>
+        <div data-format-totals class="space-y-2 text-sm"></div>
+      </section>
+
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold text-slate-900">Түгжих багана</h3>
+        <p class="text-xs text-slate-500">Хүснэгтийг хажуу тийш гүйлгэхэд эхний хэдэн багана хэвээр үлдэх вэ.</p>
+        <select aria-label="Түгжих багана" data-format-pin class="rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </section>
+
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold text-slate-900">Өнгөөр ялгах</h3>
+        <p class="text-xs text-slate-500">Утга дүрэмд таарвал мөрийн нүд өнгөтэй харагдана. Хамгийн ихдээ 5 дүрэм.</p>
+        <div data-format-marks class="space-y-2 text-sm"></div>
+        <button type="button" data-format-add class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">+ Өнгө нэмэх</button>
+      </section>
+
+      <p data-format-error class="hidden text-sm text-red-600"></p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хэрэглэх</button>
+      </div>
+    </form>
+    {{ columns_json|json_script:"format-columns" }}
+    {{ shown_json|json_script:"format-shown" }}
+    {{ ops_json|json_script:"format-ops" }}
+    {{ aggs_json|json_script:"format-aggs" }}
+    {{ agg_labels_json|json_script:"format-agg-labels" }}
+    {{ colours_json|json_script:"format-colours" }}
+    {{ totals_json|json_script:"format-totals" }}
+    {{ marks_json|json_script:"format-marks" }}
+    {{ pin|json_script:"format-pin" }}
+    <script>
+    (function () {
+      "use strict";
+      // Limits from reports/marks.py and reports/rules.py: 5 colour rules, a value 100 characters, the text 2000.
+      var MAX_MARKS = 5;
+      var MAX_VALUE = 100;
+      var MAX_TEXT = 2000;
+      // The same number text, day count and date text reports/rules.py reads.
+      var NUMBER_TEXT = /^[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]{1,3})?$/;
+      var DAY_COUNT = /^[0-9]{1,6}$/;
+      var DATE_TEXT = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
+      var panel = (document.currentScript && document.currentScript.closest("[data-format-panel]")) ||
+        document.querySelector("[data-format-panel]");
+      if (!panel) return;
+
+      function readJson(id) {
+        var el = panel.querySelector("#" + id);
+        try { return el ? JSON.parse(el.textContent) : null; } catch (err) { return null; }
+      }
+
+      var columns = readJson("format-columns") || [];
+      var shown = readJson("format-shown") || [];
+      var ops = readJson("format-ops") || {};
+      var aggs = readJson("format-aggs") || {};
+      var aggLabels = readJson("format-agg-labels") || {};
+      var colours = readJson("format-colours") || [];
+      var totalsNow = readJson("format-totals") || [];
+      var marksNow = readJson("format-marks") || [];
+      var pinNow = readJson("format-pin") || 0;
+
+      var form = panel.querySelector("[data-format-form]");
+      var totalsBox = panel.querySelector("[data-format-totals]");
+      var pinSel = panel.querySelector("[data-format-pin]");
+      var marksBox = panel.querySelector("[data-format-marks]");
+      var addButton = panel.querySelector("[data-format-add]");
+      var totalsOut = panel.querySelector("[data-format-totals-out]");
+      var pinOut = panel.querySelector("[data-format-pin-out]");
+      var marksOut = panel.querySelector("[data-format-marks-out]");
+      var errorBox = panel.querySelector("[data-format-error]");
+
+      function el(tag, cls, text) {
+        var node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text !== undefined && text !== null) node.textContent = text;
+        return node;
+      }
+
+      function option(value, label, selected) {
+        var node = el("option", "", label);
+        node.value = value;
+        if (selected) node.selected = true;
+        return node;
+      }
+
+      // A control that keeps focus across a redraw: its role and the uid of its colour rule.
+      function tag(node, role, uid) {
+        node.dataset.role = role;
+        node.dataset.id = String(uid);
+        return node;
+      }
+
+      var SELECT = "rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm";
+      var INPUT = "rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm";
+      var REMOVE = "rounded px-2 py-1 text-red-600 hover:bg-red-50";
+
+      var seq = 0;
+      function nextId() {
+        seq += 1;
+        return seq;
+      }
+
+      function columnOf(key) {
+        for (var i = 0; i < columns.length; i++) if (columns[i].key === key) return columns[i];
+        return null;
+      }
+
+      function kindOf(key) {
+        var column = columnOf(key);
+        return column ? column.kind : "text";
+      }
+
+      function colourOf(key) {
+        for (var i = 0; i < colours.length; i++) if (colours[i].key === key) return colours[i];
+        return null;
+      }
+
+      function opsOf(kind) {
+        return ops[kind] || ops.text || [];
+      }
+
+      function firstOp(kind) {
+        var list = opsOf(kind);
+        return list.length ? list[0].code : "";
+      }
+
+      function aggsOf(kind) {
+        return aggs[kind] || aggs.text || [];
+      }
+
+      // The operators that take a number of days («ирэх … хоногт», «өнгөрсөн … хоногт»).
+      function isDays(op) {
+        return op === "next_days" || op === "last_days";
+      }
+
+      // Option text: the operator's label without its «…» placeholder.
+      function opText(label) {
+        return label.replace(/\s*….*$/, "");
+      }
+
+      function inputType(kind) {
+        return kind === "date" ? "date" : kind === "number" ? "number" : "text";
+      }
+
+      // A single value the kind can read, or "" (the box then shows empty too, so the box and the stored value agree).
+      function goodPart(kind, text) {
+        if (text === "") return "";
+        if (kind === "number") return NUMBER_TEXT.test(text) ? text : "";
+        if (kind === "date") return DATE_TEXT.test(text) ? text : "";
+        return text;
+      }
+
+      function cleanValue(kind, op, value) {
+        if (op === "empty" || op === "filled") return "";
+        if (op === "between") {
+          var parts = value.split("..");
+          if (parts.length !== 2) return "";
+          return goodPart(kind, parts[0]) + ".." + goodPart(kind, parts[1]);
+        }
+        if (isDays(op)) return DAY_COUNT.test(value) ? value : "";
+        return goodPart(kind, value);
+      }
+
+      // A loaded colour rule whose column, operator or colour does not fit is reset to a valid default.
+      function sanitizeMark(mark) {
+        if (!columnOf(mark.c)) mark.c = columns.length ? columns[0].key : "";
+        var kind = kindOf(mark.c);
+        var known = opsOf(kind).some(function (o) { return o.code === mark.o; });
+        if (!known) {
+          mark.o = firstOp(kind);
+          mark.v = "";
+        } else {
+          mark.v = cleanValue(kind, mark.o, mark.v);
+        }
+        if (!colourOf(mark.k)) mark.k = colours.length ? colours[0].key : "";
+      }
+
+      // A colour rule is ready when it has a value (or needs none). A «между» rule needs at least one side.
+      function ruleReady(mark) {
+        if (mark.o === "empty" || mark.o === "filled") return true;
+        if (mark.o === "between") {
+          var parts = mark.v.split("..");
+          return (parts[0] || "").trim() !== "" || (parts[1] || "").trim() !== "";
+        }
+        return mark.v.trim() !== "";
+      }
+
+      function showError(text) {
+        errorBox.textContent = text;
+        errorBox.setAttribute("role", "alert");
+        errorBox.classList.remove("hidden");
+      }
+
+      function hideError() {
+        errorBox.classList.add("hidden");
+        errorBox.removeAttribute("role");
+      }
+
+      // Any edit in the pop-up clears the error line.
+      panel.addEventListener("input", hideError);
+      panel.addEventListener("change", hideError);
+
+      // ---- totals ----
+
+      var totalFor = {};
+      totalsNow.forEach(function (pair) {
+        if (pair && pair.length === 2) totalFor[String(pair[0])] = String(pair[1]);
+      });
+
+      function renderTotals() {
+        totalsBox.textContent = "";
+        shown.forEach(function (key) {
+          var column = columnOf(key);
+          if (!column) return;
+          var offered = aggsOf(kindOf(key));
+          var current = totalFor[key] || "";
+          var row = el("div", "flex flex-wrap items-center gap-2");
+          row.appendChild(el("span", "min-w-40 text-slate-700", column.label));
+          var sel = el("select", SELECT);
+          sel.dataset.key = key;
+          sel.setAttribute("aria-label", column.label);
+          sel.appendChild(option("", "—", current === "" || offered.indexOf(current) < 0));
+          offered.forEach(function (agg) {
+            sel.appendChild(option(agg, aggLabels[agg] || agg, agg === current));
+          });
+          row.appendChild(sel);
+          totalsBox.appendChild(row);
+        });
+        if (!totalsBox.firstChild) totalsBox.appendChild(el("p", "text-slate-500", "Харагдаж буй багана алга."));
+      }
+
+      function totalsText() {
+        var pairs = [];
+        totalsBox.querySelectorAll("select[data-key]").forEach(function (sel) {
+          if (sel.value) pairs.push(sel.dataset.key + ":" + sel.value);
+        });
+        return pairs.join(",");
+      }
+
+      // ---- pinned columns ----
+
+      var pin = parseInt(String(pinNow), 10);
+      pinSel.value = String(pin >= 0 && pin <= 3 ? pin : 0);
+
+      // ---- colour rules ----
+
+      var markRows = marksNow.slice(0, MAX_MARKS).map(function (m) {
+        var mark = {
+          uid: nextId(), c: String(m.c), o: String(m.o),
+          v: m.v === null || m.v === undefined ? "" : String(m.v), k: String(m.k),
+        };
+        sanitizeMark(mark);
+        return mark;
+      });
+
+      function blankMark() {
+        var key = columns.length ? columns[0].key : "";
+        return { uid: nextId(), c: key, o: firstOp(kindOf(key)), v: "", k: colours.length ? colours[0].key : "" };
+      }
+
+      // The control that had focus before a redraw, so the redraw can give it back.
+      // A long list is a typing combo (static/js/select.js): the text box sits before the hidden select and has no role,
+      // so the select after it is the control.
+      function focusedControl() {
+        var active = document.activeElement;
+        if (!active || !panel.contains(active) || !active.dataset) return null;
+        var owner = active.dataset.role ? active : active.nextElementSibling;
+        if (!owner || !owner.dataset || !owner.dataset.role) return null;
+        return { role: owner.dataset.role, id: owner.dataset.id };
+      }
+
+      // Redraws the colour rules. `focus` ({role, id}) names the control to focus afterwards; without it the focused
+      // control keeps its focus (a column, operator or colour change).
+      function renderMarks(focus) {
+        var wanted = focus || focusedControl();
+        marksBox.textContent = "";
+        markRows.forEach(function (mark) { marksBox.appendChild(renderMark(mark)); });
+        if (markRows.length === 0) marksBox.appendChild(el("p", "text-slate-500", "Өнгөний дүрэм алга."));
+        var full = markRows.length >= MAX_MARKS;
+        addButton.disabled = full;
+        addButton.classList.toggle("opacity-50", full);
+        if (!wanted) return;
+        // Focus after the redraw settles: select.js turns a long select into a combo (hides it, adds a text box)
+        // in a MutationObserver callback, which runs after this function. Focusing the select first loses focus.
+        setTimeout(function () {
+          var target = panel.querySelector('[data-role="' + wanted.role + '"][data-id="' + wanted.id + '"]');
+          if (!target) return;
+          var control = target._selCombo && target._selCombo.input ? target._selCombo.input : target;
+          if (typeof control.focus === "function") control.focus();
+        }, 0);
+      }
+
+      function renderMark(mark) {
+        var row = el("div", "flex flex-wrap items-center gap-2");
+        var colSel = tag(el("select", SELECT), "col", mark.uid);
+        colSel.setAttribute("aria-label", "Багана");
+        columns.forEach(function (c) { colSel.appendChild(option(c.key, c.label, c.key === mark.c)); });
+        colSel.addEventListener("change", function () {
+          mark.c = colSel.value;
+          mark.o = firstOp(kindOf(mark.c));
+          mark.v = "";
+          // explicit: select.js runs this change while the popup list has focus, outside the panel
+          renderMarks({ role: "col", id: String(mark.uid) });
+        });
+        row.appendChild(colSel);
+
+        var kind = kindOf(mark.c);
+        var opSel = tag(el("select", SELECT), "op", mark.uid);
+        opSel.setAttribute("aria-label", "Харьцуулалт");
+        opsOf(kind).forEach(function (o) {
+          opSel.appendChild(option(o.code, opText(o.label), o.code === mark.o));
+        });
+        opSel.addEventListener("change", function () {
+          mark.o = opSel.value;
+          mark.v = "";
+          renderMarks({ role: "op", id: String(mark.uid) });
+        });
+        row.appendChild(opSel);
+
+        if (mark.o === "between") {
+          var parts = mark.v.split("..");
+          var fromInput = tag(el("input", INPUT), "from", mark.uid);
+          var toInput = tag(el("input", INPUT), "to", mark.uid);
+          fromInput.type = inputType(kind);
+          toInput.type = inputType(kind);
+          fromInput.setAttribute("aria-label", "Доод утга");
+          toInput.setAttribute("aria-label", "Дээд утга");
+          fromInput.value = parts[0] || "";
+          toInput.value = parts[1] || "";
+          if (kind === "number") { fromInput.step = "any"; toInput.step = "any"; }
+          if (kind === "text") { fromInput.maxLength = MAX_VALUE; toInput.maxLength = MAX_VALUE; }
+          var sync = function () { mark.v = fromInput.value + ".." + toInput.value; };
+          fromInput.addEventListener("input", sync);
+          toInput.addEventListener("input", sync);
+          row.appendChild(fromInput);
+          row.appendChild(el("span", "text-slate-500", "–"));
+          row.appendChild(toInput);
+        } else if (mark.o !== "empty" && mark.o !== "filled") {
+          var valueInput = tag(el("input", INPUT), "value", mark.uid);
+          if (isDays(mark.o)) {
+            valueInput.type = "number";
+            valueInput.min = "0";
+            valueInput.step = "1";
+            valueInput.className = INPUT + " w-28";
+          } else {
+            valueInput.type = inputType(kind);
+            if (kind === "number") valueInput.step = "any";
+            if (kind === "text") valueInput.maxLength = MAX_VALUE;
+          }
+          valueInput.setAttribute("aria-label", "Утга");
+          valueInput.value = mark.v;
+          valueInput.addEventListener("input", function () { mark.v = valueInput.value; });
+          row.appendChild(valueInput);
+          if (isDays(mark.o)) row.appendChild(el("span", "text-slate-500", "хоног"));
+        }
+
+        // the colour select, and beside it the same colour as a swatch word
+        var colSelect = tag(el("select", SELECT), "colour", mark.uid);
+        colSelect.setAttribute("aria-label", "Өнгө");
+        colours.forEach(function (c) { colSelect.appendChild(option(c.key, c.label, c.key === mark.k)); });
+        colSelect.addEventListener("change", function () {
+          mark.k = colSelect.value;
+          renderMarks({ role: "colour", id: String(mark.uid) });
+        });
+        row.appendChild(colSelect);
+        var current = colourOf(mark.k);
+        row.appendChild(el("span", "rounded px-2 py-1 text-xs " + (current ? current.classes : ""), current ? current.label : ""));
+
+        var remove = tag(el("button", REMOVE, "×"), "remove", mark.uid);
+        remove.type = "button";
+        remove.setAttribute("aria-label", "Дүрэм устгах");
+        remove.addEventListener("click", function () {
+          var index = markRows.indexOf(mark);
+          if (index < 0) return;
+          // focus moves to the row above (its ×), or to the add button when this was the first row
+          var above = index > 0 ? markRows[index - 1] : null;
+          var target = above ? { role: "remove", id: String(above.uid) } : { role: "add", id: "0" };
+          markRows.splice(index, 1);
+          renderMarks(target);
+        });
+        row.appendChild(remove);
+        return row;
+      }
+
+      function marksJson() {
+        var items = [];
+        var tooLong = false;
+        markRows.forEach(function (mark) {
+          if (!ruleReady(mark)) return;
+          var value = mark.o === "empty" || mark.o === "filled" ? "" : mark.v;
+          if (value.length > MAX_VALUE) tooLong = true;
+          items.push({ c: mark.c, o: mark.o, v: value, k: mark.k });
+        });
+        return { tooLong: tooLong, text: items.length ? JSON.stringify(items) : "" };
+      }
+
+      addButton.dataset.role = "add";
+      addButton.dataset.id = "0";
+      addButton.addEventListener("click", function () {
+        if (markRows.length >= MAX_MARKS) return;
+        var created = blankMark();
+        markRows.push(created);
+        renderMarks({ role: "col", id: String(created.uid) });
+      });
+
+      if (form) {
+        form.addEventListener("submit", function (event) {
+          var marks = marksJson();
+          if (marks.tooLong) {
+            event.preventDefault();
+            showError("Утга хэт урт байна. Нэг утга 100 тэмдэгтээс ихгүй байх ёстой.");
+            return;
+          }
+          if (marks.text.length > MAX_TEXT) {
+            event.preventDefault();
+            showError("Өнгөний дүрэм хэт урт байна. Утгыг богиносгоно уу.");
+            return;
+          }
+          var totals = totalsText();
+          totalsOut.value = totals;
+          totalsOut.disabled = !totals;  // no totals: no «totals» parameter in the address
+          marksOut.value = marks.text;
+          marksOut.disabled = !marks.text;  // no colour rules: no «marks» parameter in the address
+          pinOut.value = pinSel.value;
+          pinOut.disabled = pinSel.value === "0";  // no pinned columns: no «pin» parameter in the address
+        });
+      }
+
+      renderTotals();
+      renderMarks();
+    })();
+    </script>
+  </div>
+</div>

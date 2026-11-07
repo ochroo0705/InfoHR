@@ -1,0 +1,11 @@
+{% load hr %}{# One batch of cards and, when more follow, the «Цааш харуулах» pill (config/batching.py). Sent alone for a batch request. #}
+{% for item in cards_items %}
+<article class="flex flex-col gap-1 rounded-xl border border-slate-200 bg-surface p-4 text-sm {{ item.mark }}">
+  <h2 class="line-clamp-2 font-semibold text-slate-900">{% if item.href %}<a href="{{ item.href }}" class="text-violet-700 hover:underline">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h2>
+  {% if item.subtitle %}<p class="line-clamp-2 text-slate-500">{{ item.subtitle }}</p>{% endif %}
+  {% for label, value, money in item.extras %}
+  <p class="text-slate-700"><span class="text-slate-500">{{ label }}:</span> {% if money %}{{ value|mnt }}{% elif value.isoformat %}{{ value|date:"Y-m-d" }}{% else %}{{ value|default_if_none:"" }}{% endif %}</p>
+  {% endfor %}
+</article>
+{% endfor %}
+{% if cards_next_query %}{% include "_more_batch.html" with url=batch_url next_query=cards_next_query kind="div" %}{% endif %}

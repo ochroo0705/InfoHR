@@ -17,6 +17,8 @@ from macs.models import AddressRow, BirthPlace, Department, Employee, Position
 
 from reports.column_filters import COLUMN_FILTERS
 from reports.filters import NO_WORKING_STATE, Filters
+from reports.rules import Rule
+from reports.starter import rule_template
 from reports.table import usable_filters
 from reports.types import Column, Report
 
@@ -120,6 +122,7 @@ COLUMNS: tuple[Column, ...] = (
         value=lambda s: s.row.employee.birth_date,
         group=GROUP_NAME,
         needs=PERSONAL,
+        kind="date",
     ),
     Column(
         key="age",
@@ -128,6 +131,7 @@ COLUMNS: tuple[Column, ...] = (
         group=GROUP_NAME,
         needs=PERSONAL,
         numeric=True,
+        kind="number",
     ),
     Column(
         key="gender",
@@ -172,6 +176,7 @@ COLUMNS: tuple[Column, ...] = (
         label="Ажилд орсон",
         value=lambda s: s.row.employee.first_hire_date,
         group=GROUP_JOB,
+        kind="date",
     ),
     Column(
         key="years_worked",
@@ -179,6 +184,7 @@ COLUMNS: tuple[Column, ...] = (
         value=lambda s: age_on(s.row.employee.first_hire_date, s.as_of),
         group=GROUP_JOB,
         numeric=True,
+        kind="number",
     ),
     Column(
         key="work_conditions",
@@ -204,14 +210,16 @@ COLUMNS: tuple[Column, ...] = (
         label="Гэрээ байгуулсан",
         value=lambda s: s.row.job.contract_start if s.row.job is not None else None,
         group=GROUP_CONTRACT,
+        kind="date",
     ),
     Column(
         key="contract_end",
         label="Гэрээ дуусах",
         value=lambda s: s.row.job.contract_end if s.row.job is not None else None,
         group=GROUP_CONTRACT,
+        kind="date",
     ),
-    Column(key="probation_end", label="Туршилт дуусах", value=_probation_end, group=GROUP_CONTRACT),
+    Column(key="probation_end", label="Туршилт дуусах", value=_probation_end, group=GROUP_CONTRACT, kind="date"),
     Column(
         key="insured_category",
         label="Даатгуулагчийн төрөл",
@@ -307,6 +315,7 @@ COLUMNS: tuple[Column, ...] = (
         group=GROUP_SALARY,
         needs=SALARY,
         numeric=True,
+        kind="number",
         money=True,
     ),
 )
@@ -376,7 +385,7 @@ def _kept(r: listing.Row, f: Filters, day: date, today: date, *, by_type: bool =
     if not no_state and f.state == "upcoming" and r.state != "upcoming":
         return False
     if day != today and r.legacy and r.employee.first_hire_date is not None and r.employee.first_hire_date > day:
-        return False  # no Info HR job history: the first hire date is the only record of when they started
+        return False  # no MACS Human Capital job history: the first hire date is the only record of when they started
     if not no_state and f.state == "left" and r.state != "left":
         return False
     job = r.job
@@ -548,7 +557,7 @@ def _note(f: Filters) -> str:
         return ""
     return (
         f"{f.as_of.isoformat()} өдрийн байдлаар: төлөв, хэлтэс, албан тушаал, гэрээ тухайн өдрийнх "
-        "(Info HR-д ажлын түүхгүй ажилтных өнөөдрийнх); нас, ажилласан жил тухайн өдрөөр; бусад багана өнөөдрийнх."
+        "(MACS Human Capital-д ажлын түүхгүй ажилтных өнөөдрийнх); нас, ажилласан жил тухайн өдрөөр; бусад багана өнөөдрийнх."
     )
 
 
@@ -567,4 +576,12 @@ REPORT = Report(
     picks_columns=True,
     saved_views=True,
     note=_note,
+    layouts=("board", "calendar", "timeline", "cards", "chart", "pivot"),
+    layout_date="first_hire_date",  # the employment start; filled for everyone hired (birth date is never a default)
+    layout_date2="contract_end",  # blank for open-ended contracts: then the timeline shows a one-day marker
+    templates=(
+        rule_template("Гэрээ дуусах дөхсөн", Rule("contract_end", "next_days", "60")),
+        rule_template("Туршилтын хугацаа дуусах дөхсөн", Rule("probation_end", "next_days", "30")),
+        rule_template("Нас 55+", Rule("age", "gte", "55")),
+    ),
 )

@@ -62,11 +62,11 @@ def _values(table: Table) -> list[object]:
     return [row[0].value for _, rows in table.groups for row in rows]
 
 
-def test_mixed_types_sort_both_ways_with_none_last(hr_user: User, mixed_report: Report) -> None:
+def test_mixed_types_sort_both_ways_with_blanks_last(hr_user: User, mixed_report: Report) -> None:
     ascending = build_table(mixed_report, hr_user, Filters(columns=("v",), sort="v"))
-    assert _values(ascending) == [1, 3, "", "abc", None]
+    assert _values(ascending) == [1, 3, "abc", "", None]  # the blanks ("" and None) last, in row order
     descending = build_table(mixed_report, hr_user, Filters(columns=("v",), sort="-v"))
-    assert _values(descending) == ["abc", "", 3, 1, None]
+    assert _values(descending) == ["abc", 3, 1, "", None]
 
 
 def test_mixed_values_sort_on_the_page(client: Client, login_as: Callable[..., User], mixed_report: Report) -> None:

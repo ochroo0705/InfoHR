@@ -20,6 +20,15 @@ class Column:
     numeric: bool = False  # right-aligned in the table
     money: bool = False  # an amount, shown as 2,500,000₮ (the mnt filter, UI_RULES §2b)
     href: Callable[[Any], str] | None = None  # link target of the cell (e.g. the employee page)
+    kind: str = ""  # "text", "number" or "date"; empty means worked out from the values (reports.kinds)
+
+
+@dataclass(frozen=True)
+class Template:
+    """A ready-made setup («Загвар») shown read-only in the saved-views select. `query` is an address query."""
+
+    name: str
+    query: str
 
 
 @dataclass(frozen=True)
@@ -41,3 +50,7 @@ class Report:
     filter_needs: dict[str, str] = field(default_factory=dict)  # filter name -> permission it needs, e.g. gender
     shows_count: bool = True  # the «Нийт: N» line under the table (off when the rows are statistic lines)
     column_filters: tuple[str, ...] = ()  # names of COLUMN_FILTERS the report offers; gated by their column
+    templates: tuple[Template, ...] = ()  # starter setups («Загвар») offered read-only beside the saved views
+    layouts: tuple[str, ...] = ()  # the non-table views this report offers (reports.filters.LAYOUTS); () = table only
+    layout_date: str = ""  # key of the default start date of calendar and timeline; "" = the first allowed date column
+    layout_date2: str = ""  # key of the default end date of the timeline; "" = the next allowed date column

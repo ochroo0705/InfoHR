@@ -128,6 +128,7 @@
     {% if group_choices %}
       <select name="group" aria-label="Бүлэглэх" data-search="off" class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
         <option value="">Бүлэглэхгүй</option>
+        {% if group_text %}<option value="{{ filters.group }}" selected>{{ group_text }}</option>{% endif %}
         {% for c in group_choices %}<option value="{{ c.key }}"{% if filters.group == c.key %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
       </select>
     {% endif %}
@@ -135,8 +136,20 @@
     {% for c in filters.columns %}<input type="hidden" name="cols" value="{{ c }}">{% endfor %}
     {% if filters.group and not group_choices %}<input type="hidden" name="group" value="{{ filters.group }}">{% endif %}
     {% if filters.sort %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
+    {# the rule tree, totals, colour rules and pinned columns survive a change of any bar filter #}
+    {% if filters.rules %}<input type="hidden" name="rules" value="{{ filters.rules }}">{% endif %}
+    {% if filters.totals %}<input type="hidden" name="totals" value="{{ filters.totals }}">{% endif %}
+    {% if filters.marks %}<input type="hidden" name="marks" value="{{ filters.marks }}">{% endif %}
+    {% if filters.pin > 0 %}<input type="hidden" name="pin" value="{{ filters.pin }}">{% endif %}
+    {# the layout and its own columns survive a change of any bar filter (the layout bar sends its own) #}
+    {% if filters.layout %}<input type="hidden" name="layout" value="{{ filters.layout }}">{% endif %}
+    {% if filters.lby %}<input type="hidden" name="lby" value="{{ filters.lby }}">{% endif %}
+    {% if filters.lby2 %}<input type="hidden" name="lby2" value="{{ filters.lby2 }}">{% endif %}
+    {% if filters.lval %}<input type="hidden" name="lval" value="{{ filters.lval }}">{% endif %}
+    {% if filters.lchart %}<input type="hidden" name="lchart" value="{{ filters.lchart }}">{% endif %}
+    {% if filters.lmonth %}<input type="hidden" name="lmonth" value="{{ filters.lmonth }}">{% endif %}
   </form>
   {% include "reports/_column_filters.html" with part="picker" %}
-  <a href="{{ request.path }}" hx-get="{{ request.path }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true"
+  <a href="{{ clear_url }}" hx-get="{{ clear_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true"
      class="shrink-0 rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-surface hover:text-violet-700">Цэвэрлэх</a>
 </div>

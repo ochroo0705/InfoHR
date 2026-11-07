@@ -1,0 +1,29 @@
+{% load static %}{% comment %}The chart layout: the drawing (static/js/report_chart.js loads Plotly and draws it into the marked div) and,
+always, the same numbers as a plain table, for screen readers, no-script, print and copy. docs/UI_RULES.md §4b.{% endcomment %}
+{% if chart.points %}
+<div class="mt-4">
+  {{ chart_json|json_script:"report-chart-data" }}
+  <div data-report-chart data-kind="{{ chart.kind }}" data-plotly-src="{% static 'vendor/plotly/plotly-basic.min.js' %}" role="img" aria-label="{{ chart_kind_label }}: {{ chart.value_label }}" class="h-80 w-full"></div>
+  <p data-report-chart-failed hidden class="mb-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">График ачаалж чадсангүй. Доорх хүснэгтээс харна уу.</p>
+</div>
+<div class="ptable mt-4 overflow-x-auto">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">{% if spec.by %}{{ spec.by.label }}{% else %}Ангилал{% endif %}</th>
+        <th scope="col" class="text-right">{{ chart.value_label }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for point in chart.points %}
+      <tr>
+        <td>{{ point.label }}</td>
+        <td class="text-right">{% include "reports/layouts/_figure.html" with value=point.value money=point.money %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="mt-4 py-6 text-center text-sm text-slate-400">Өгөгдөл олдсонгүй</p>
+{% endif %}

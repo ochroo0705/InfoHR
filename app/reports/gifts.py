@@ -45,7 +45,7 @@ def _total(r: ListRow) -> int:
 
 
 GIVEN_COLUMNS: tuple[Column, ...] = (
-    Column(key="year", label="Он", value=lambda r: r.item.given_year),
+    Column(key="year", label="Он", value=lambda r: r.item.given_year, kind="number"),
     *personal_lists.PERSON_COLUMNS,
     Column(key="present", label="Баярын нэр", value=_present_name),
     Column(key="child_age", label="Нас", value=lambda r: r.item.child_age, numeric=True),
@@ -53,7 +53,7 @@ GIVEN_COLUMNS: tuple[Column, ...] = (
     Column(key="price", label="Бэлгийн үнэ", value=lambda r: r.item.price, numeric=True, money=True),
     Column(key="total", label="Нийт үнэ", value=_total, numeric=True, money=True),
     Column(key="given", label="Өгсөн", value=lambda r: "Тийм" if r.item.given else "Үгүй"),
-    Column(key="date", label="Огноо", value=lambda r: r.item.pdate),
+    Column(key="date", label="Огноо", value=lambda r: r.item.pdate, kind="date"),
 )
 
 

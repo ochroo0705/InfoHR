@@ -115,7 +115,7 @@ def test_as_of_note_only_for_another_day() -> None:
     assert REPORT.note(Filters()) == ""
     assert REPORT.note(Filters(as_of=date(2026, 3, 1))) == (
         "2026-03-01 өдрийн байдлаар: төлөв, хэлтэс, албан тушаал, гэрээ тухайн өдрийнх "
-        "(Info HR-д ажлын түүхгүй ажилтных өнөөдрийнх); нас, ажилласан жил тухайн өдрөөр; бусад багана өнөөдрийнх."
+        "(MACS Human Capital-д ажлын түүхгүй ажилтных өнөөдрийнх); нас, ажилласан жил тухайн өдрөөр; бусад багана өнөөдрийнх."
     )
 
 
@@ -149,7 +149,13 @@ def _district(city: City, name: str) -> District:
 
 
 def _address_queries(ctx: CaptureQueriesContext) -> list[str]:
-    return [q["sql"] for q in ctx.captured_queries if '"address"' in q["sql"] or '"birth_place"' in q["sql"]]
+    # Table names are quoted on PostgreSQL and plain upper case on Firebird: ask the backend for its spelling.
+    names = [connection.ops.quote_name(t) for t in ("address", "birth_place")]
+    return [q["sql"] for q in ctx.captured_queries if any(_word(name, q["sql"]) for name in names)]
+
+
+def _word(name: str, sql: str) -> bool:
+    return re.search(rf"(?<!\w){re.escape(name)}(?!\w)", sql) is not None
 
 
 def test_address_and_birthplace_text(hr_user: User, hired: Employee) -> None:
@@ -253,7 +259,7 @@ def test_gender_select_only_with_view_personal(client: Client, login_as: Callabl
     assert 'name="gender"' in client.get("/reports/staff-list/").content.decode()
 
 
-# Legacy people (no Info HR job history) on another day.
+# Legacy people (no MACS Human Capital job history) on another day.
 
 
 def _listed(user: User, f: Filters) -> set[int]:

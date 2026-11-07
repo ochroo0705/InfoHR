@@ -22,6 +22,9 @@ from macs.models import (
     PresentType,
 )
 
+from reports import marks as marks_mod
+from reports import rules as rules_mod
+from reports import totals as totals_mod
 from reports.column_filters import describe_extra, name_of, parse_extra
 
 STATES: dict[str, str] = {
@@ -87,10 +90,19 @@ FILTER_FIELDS: dict[str, tuple[str, ...]] = {
     "age_range": ("age_from", "age_to"),
 }
 MAX_COLUMNS = 60
+# The views a report can show its rows in (the switcher). "table" is the default and is never written to the address.
+LAYOUTS = ("table", "board", "calendar", "timeline", "cards", "chart", "pivot")
+CHARTS = ("bar", "line", "donut")
+MIN_MONTH_YEAR = 1900
+_MONTH = re.compile(r"([0-9]{4})-(0[1-9]|1[0-2])")
 
 # Column, group and sort keys are short lowercase words. A sort key may start with "-" for descending order.
+# Sort takes up to MAX_SORT_KEYS comma-separated keys and group up to MAX_GROUP_KEYS.
+MAX_SORT_KEYS = 5
+MAX_GROUP_KEYS = 3
 _KEY = re.compile(r"[a-z_]{1,40}")
-_SORT = re.compile(r"-?[a-z_]{1,40}")
+_SORT_KEY = re.compile(r"-?[a-z_]{1,40}")
+_GROUP_KEY = re.compile(r"[a-z_]{1,40}")
 
 
 @dataclass(frozen=True)
@@ -124,6 +136,34 @@ class Filters:
     group: str = ""
     sort: str = ""  # column key; a leading "-" sorts descending
     extra: tuple[tuple[str, str], ...] = ()  # column filters: (parameter, value) pairs; see column_filters.py
+    rules: str = ""  # the rule tree as compact JSON (rules.dump_rules); "" = no rules
+    totals: str = ""  # footer totals «col:agg,col:agg» (totals.dump_totals); "" = none
+    marks: str = ""  # conditional colours as compact JSON (marks.dump_marks); "" = none
+    pin: int = 0  # how many leading columns stay fixed when scrolling sideways, 0-3
+    layout: str = ""  # a key of LAYOUTS; "" = the table
+    lby: str = ""  # the layout's main column key (board lanes, calendar/timeline start, chart category, pivot row)
+    lby2: str = ""  # the layout's second column key (timeline end, pivot column)
+    lval: str = ""  # what a chart or pivot adds up: "count" or one "col:agg"; "" = count
+    lchart: str = ""  # a key of CHARTS; "" = bar
+    lmonth: str = ""  # the calendar month as "YYYY-MM"; "" = this month
+
+
+def _keys(text: str, pattern: re.Pattern[str], limit: int) -> str:
+    """A comma-separated list of keys: every part must match, at most `limit` parts, a repeated key is dropped.
+    Any bad part gives "" for the whole value."""
+    if not text:
+        return ""
+    parts = text.split(",")
+    if len(parts) > limit or any(pattern.fullmatch(part) is None for part in parts):
+        return ""
+    kept: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        bare = part.lstrip("-")
+        if bare not in seen:
+            seen.add(bare)
+            kept.append(part)
+    return ",".join(kept)
 
 
 def _order_type(value: str | None) -> int | None:
@@ -156,6 +196,27 @@ def _int_in(value: str | None, low: int, high: int) -> int | None:
     return number if low <= number <= high else None
 
 
+def _layout_key(value: str | None) -> str:
+    """A column key for lby or lby2, else "". Never raises."""
+    return value if value and _KEY.fullmatch(value) else ""
+
+
+def _layout_value(value: str | None) -> str:
+    """«count», or the first valid «col:agg» pair, else "". Never raises."""
+    if value == "count":
+        return value
+    pairs = totals_mod.parse_totals(value or "")
+    return f"{pairs[0][0]}:{pairs[0][1]}" if pairs else ""
+
+
+def _month(value: str | None) -> str:
+    """A month as «YYYY-MM» with the year from MIN_MONTH_YEAR to MAX_YEAR, else "". Never raises."""
+    match = _MONTH.fullmatch(value or "")
+    if match is None or not MIN_MONTH_YEAR <= int(match.group(1)) <= MAX_YEAR:
+        return ""
+    return value or ""
+
+
 def parse_filters(get: QueryDict) -> Filters:
     """Read report parameters from the address. Bad values fall back to the defaults; this never raises."""
     columns: list[str] = []
@@ -166,9 +227,14 @@ def parse_filters(get: QueryDict) -> Filters:
     gender = get.get("gender", "")
     change = get.get("change", "")
     group = get.get("group", "")
-    sort = get.get("sort", "")
+    sort = _keys(get.get("sort", ""), _SORT_KEY, MAX_SORT_KEYS)
     leave_state = get.get("leave_state", "")
     attribute = get.get("attribute", "")
+    rule_tree = rules_mod.parse_rules(get.get("rules", ""))
+    totals = totals_mod.dump_totals(totals_mod.parse_totals(get.get("totals", "")))
+    marks = marks_mod.dump_marks(marks_mod.parse_marks(get.get("marks", "")))
+    layout = get.get("layout", "")
+    lchart = get.get("lchart", "")
     return Filters(
         state=state if state in STATES else "working",
         as_of=date_param(get.get("as_of")),
@@ -196,9 +262,19 @@ def parse_filters(get: QueryDict) -> Filters:
         quarter=_int_in(get.get("quarter"), 1, 4),
         present_type=id_param(get.get("present_type")),
         columns=tuple(columns[:MAX_COLUMNS]),
-        group=group if _KEY.fullmatch(group) else "",
-        sort=sort if _SORT.fullmatch(sort) else "",
+        group=_keys(group, _GROUP_KEY, MAX_GROUP_KEYS),
+        sort=sort,
         extra=parse_extra(get),
+        rules=rules_mod.dump_rules(rule_tree),
+        totals=totals,
+        marks=marks,
+        pin=_int_in(get.get("pin"), 0, 3) or 0,
+        layout=layout if layout in LAYOUTS and layout != "table" else "",
+        lby=_layout_key(get.get("lby")),
+        lby2=_layout_key(get.get("lby2")),
+        lval=_layout_value(get.get("lval")),
+        lchart=lchart if lchart in CHARTS else "",
+        lmonth=_month(get.get("lmonth")),
     )
 
 
@@ -271,6 +347,26 @@ def to_query(f: Filters) -> str:
         params["group"] = f.group
     if f.sort:
         params["sort"] = f.sort
+    if f.rules:
+        params["rules"] = f.rules
+    if f.totals:
+        params["totals"] = f.totals
+    if f.marks:
+        params["marks"] = f.marks
+    if f.pin > 0:
+        params["pin"] = f.pin
+    if f.layout and f.layout != "table":
+        params["layout"] = f.layout
+    if f.lby:
+        params["lby"] = f.lby
+    if f.lby2:
+        params["lby2"] = f.lby2
+    if f.lval:
+        params["lval"] = f.lval
+    if f.lchart:
+        params["lchart"] = f.lchart
+    if f.lmonth:
+        params["lmonth"] = f.lmonth
     return urlencode(params, doseq=True)
 
 
@@ -282,10 +378,13 @@ def period_of(f: Filters) -> tuple[date, date]:
     return (start, end) if start <= end else (end, start)
 
 
-def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> list[str]:
+def describe(
+    f: Filters, shown: tuple[str, ...], *, for_log: bool = False, labels: dict[str, str] | None = None
+) -> list[str]:
     """Filter lines for print and Excel, in the order of `shown`. A filter that is set but has no name to show
     (an unknown id, a name left empty) reads «—», so the paper never hides an applied filter.
-    `for_log` is the system log's label: it names no person (the employee line only says that one was chosen)."""
+    `for_log` is the system log's label: it names no person (the employee line only says that one was chosen), and its
+    rules line names only the columns the rules use, never the values typed."""
     lines: list[str] = []
     for key in shown:
         if key == "state":
@@ -343,4 +442,15 @@ def describe(f: Filters, shown: tuple[str, ...], *, for_log: bool = False) -> li
         elif key == "present_type" and f.present_type is not None:
             lines.append(f"Бэлгийн төрөл: {name_of(PresentType.objects, f.present_type) or '—'}")
     lines.extend(describe_extra(f.extra))
+    if f.rules:
+        tree = rules_mod.parse_rules(f.rules)
+        if for_log:
+            named = dict.fromkeys((labels or {}).get(column, column) for column in rules_mod.rule_columns(tree))
+            names = ", ".join(named)
+            if names:
+                lines.append(f"Нөхцөл: {names}")
+        else:
+            words = rules_mod.describe_rules(tree, labels or {})
+            if words:
+                lines.append(f"Нөхцөл: {words}")
     return lines

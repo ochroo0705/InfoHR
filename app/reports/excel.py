@@ -71,6 +71,11 @@ def workbook_bytes(title: str, lines: list[str], table: Table, *, sheet: str = "
                 _write(ws, row, col, cell.value)
                 widths[col - 1] = max(widths[col - 1], len(_text(cell.value)))
             row += 1
+    if table.footer is not None:  # the totals row sits under the data, above the count line
+        for col, cell in enumerate(table.footer, start=1):
+            _write(ws, row, col, cell.value, bold=True)
+            widths[col - 1] = max(widths[col - 1], len(_text(cell.value)))
+        row += 1
     if table.shows_count:
         _write(ws, row, 1, f"Нийт: {table.count}")
 

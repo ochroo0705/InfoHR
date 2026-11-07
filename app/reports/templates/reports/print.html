@@ -15,7 +15,15 @@
   th { background: #eee; }
   .text-right { text-align: right; }
   .pl-6 { padding-left: 1.5rem; }
+  /* the colour rules (reports/marks.py COLOURS): print has no app.css, so the light values are written here; each oklch
+     value has a hex fallback before it for browsers without oklch */
+  .bg-red-50 { background-color: #fef2f2; background-color: oklch(97.1% .013 17.38); } .text-red-700 { color: #b91c1c; color: oklch(50.5% .213 27.518); }
+  .bg-amber-50 { background-color: #fffbeb; background-color: oklch(98.7% .022 95.277); } .text-amber-800 { color: #92400e; color: oklch(47.3% .137 46.201); }
+  .bg-green-50 { background-color: #f0fdf4; background-color: oklch(98.2% .018 155.826); } .text-green-700 { color: #15803d; color: oklch(52.7% .154 150.069); }
+  .bg-blue-50 { background-color: #eff6ff; background-color: oklch(97% .014 254.604); } .text-blue-700 { color: #1d4ed8; color: oklch(48.8% .243 264.376); }
+  .bg-slate-100 { background-color: #ecf0f1; } .text-slate-600 { color: #475669; }
   td.group { font-weight: bold; background: #f6f6f6; }
+  tfoot td { font-weight: bold; border-top: 2px solid #000; }
   .total { margin-top: 8px; }
   .noprint { margin-bottom: 8px; }
   @media print { .noprint { display: none; } body { margin: 0; } tr { page-break-inside: avoid; } thead { display: table-header-group; } }
@@ -40,11 +48,16 @@
         <tr><td colspan="{{ heads|length }}" class="group">{{ label }} · {{ rows|length }}</td></tr>
         {% endif %}
         {% for row in rows %}
-        <tr>{% for cell in row %}<td{% if cell.cls %} class="{{ cell.cls }}"{% endif %}>{% include "reports/_cell.html" %}</td>{% endfor %}</tr>
+        <tr>{% for cell in row %}<td{% if cell.cls or cell.mark %} class="{{ cell.cls }}{% if cell.mark %} {{ cell.mark }}{% endif %}"{% endif %}>{% include "reports/_cell.html" %}</td>{% endfor %}</tr>
         {% endfor %}
       {% endfor %}
     {% endif %}
   </tbody>
+  {% if table.footer %}
+  <tfoot>
+    <tr>{% for cell in table.footer %}<td{% if cell.cls or cell.mark %} class="{{ cell.cls }}{% if cell.mark %} {{ cell.mark }}{% endif %}"{% endif %}>{% include "reports/_cell.html" %}</td>{% endfor %}</tr>
+  </tfoot>
+  {% endif %}
 </table>
 {% if table.shows_count %}<p class="total">Нийт: {{ table.count }}</p>{% endif %}
 </body>

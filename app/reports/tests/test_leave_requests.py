@@ -97,7 +97,7 @@ def test_info_hr_row_is_marked_as_such(
     emp = make_employee(actor, hired=date(2024, 3, 1))
     writes.record_assign(emp, sick, date(2026, 2, 2), date(2026, 2, 4), 3, "", actor)
     (line,) = _lines(hr_user, _year())
-    assert _cells(line)["source"] == "Info HR"
+    assert _cells(line)["source"] == "MACS Human Capital"
 
 
 def test_leave_type_filter(

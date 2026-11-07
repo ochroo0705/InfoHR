@@ -50,4 +50,5 @@ REPORT = dataclasses.replace(
     picks_columns=True,
     group_options=("department", "branch", "position"),
     note=_note,
+    layouts=(),  # inherits the staff list's layouts otherwise; this report stays a table
 )

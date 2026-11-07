@@ -7,8 +7,12 @@ class SavedView(models.Model):
 
     report = models.CharField(max_length=40)
     name = models.CharField("Нэр", max_length=60)
-    query = models.CharField(max_length=2000, blank=True)  # the report's query string, as shown in the address
+    query = models.CharField(max_length=4000, blank=True)  # the report's query string, as shown in the address
     author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    visibility = models.CharField(
+        "Харагдах байдал", max_length=10, default="shared", choices=[("shared", "Хамтын"), ("private", "Хувийн")]
+    )
+    is_default = models.BooleanField("Үндсэн", default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

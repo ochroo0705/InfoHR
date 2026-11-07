@@ -18,7 +18,7 @@ from reports.filters import Filters, period_of
 from reports.leave_common import LEAVE_NEEDS, Person, detail_url, people, sort_key
 from reports.types import Column, Report
 
-LEAVE_SOURCE = "Чөлөө"  # a counted leave row written in Info HR
+LEAVE_SOURCE = "Чөлөө"  # a counted leave row written in MACS Human Capital
 OLD_LOG_SOURCE = "Амралтын бүртгэл (MACS)"  # a row of MACS's «Амралт» log
 NO_TYPE = "—"  # an old-log row whose type row is missing
 ABSENCES_NOTE = "MACS-ын «Амралт» бүртгэл. Дууссан огноогүй мөр нэг өдөр гэж тооцогдоно."
@@ -161,8 +161,8 @@ def _end(entry: Entry) -> date:
 
 
 ABSENCE_COLUMNS: tuple[Column, ...] = (
-    Column(key="start", label="Эхэлсэн", value=_start),
-    Column(key="end", label="Дууссан", value=_end),
+    Column(key="start", label="Эхэлсэн", value=_start, kind="date"),
+    Column(key="end", label="Дууссан", value=_end, kind="date"),
     Column(key="code", label="Код", value=lambda e: e.person.employee.code),
     Column(
         key="name",
@@ -198,8 +198,8 @@ AWAY_COLUMNS: tuple[Column, ...] = (
     ),
     Column(key="department", label="Хэлтэс", value=lambda e: e.person.department),
     Column(key="type", label="Төрөл", value=lambda e: e.kind),
-    Column(key="start", label="Эхлэх", value=_start),
-    Column(key="end", label="Дуусах", value=_end),
+    Column(key="start", label="Эхлэх", value=_start, kind="date"),
+    Column(key="end", label="Дуусах", value=_end, kind="date"),
     Column(key="source", label="Эх сурвалж", value=lambda e: e.source),
     Column(key="comment", label="Тайлбар", value=lambda e: e.comment or None),
 )
