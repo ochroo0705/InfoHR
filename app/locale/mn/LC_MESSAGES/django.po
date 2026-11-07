@@ -1,4 +1,4 @@
-# Mongolian translations: Info HR labels + django-unfold (which ships no Mongolian).
+# Mongolian translations: MACS Human Capital labels + django-unfold (which ships no Mongolian).
 # Django's own admin/auth text is already translated by Django itself; the last section
 # replaces its wordings that read wrong or backwards (this file wins over Django's).
 # Edit here, then run: python scripts/compile_messages.py
@@ -8,7 +8,7 @@ msgstr ""
 "Language: mn\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-# --- Info HR labels (settings.UNFOLD) ---
+# --- MACS Human Capital labels (settings.UNFOLD) ---
 msgid "Back office"
 msgstr "Удирдлагын хэсэг"
 
@@ -177,7 +177,7 @@ msgstr "Хэрэглэгч үүсгэсний дараа бусад тохирг
 
 # --- Django admin/auth: replaces Django's Mongolian where it reads wrong ---
 msgid "View site"
-msgstr "Info HR руу очих"
+msgstr "MACS Human Capital руу очих"
 
 msgid "Site administration"
 msgstr "Удирдлагын хэсэг"

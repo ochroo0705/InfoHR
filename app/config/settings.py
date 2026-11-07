@@ -1,4 +1,4 @@
-"""Django settings for Info HR. Secrets and per-machine values come from ../.env."""
+"""Django settings for MACS Human Capital. Secrets and per-machine values come from ../.env."""
 
 from pathlib import Path
 
@@ -83,6 +83,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 AUTH_USER_MODEL = "accounts.User"
+AUTHENTICATION_BACKENDS = ["accounts.backends.LengthCheckedModelBackend"]  # Firebird: over-long usernames (see backend)
 
 AUTH_PASSWORD_VALIDATORS = [  # user decision 2026-10-15: 8+ characters with upper, lower and a digit
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
@@ -94,7 +95,7 @@ LANGUAGES = [("mn", "Монгол"), ("en", "English")]
 LOCALE_PATHS = [BASE_DIR / "locale"]  # compile with scripts/compile_messages.py
 TIME_ZONE = "Asia/Ulaanbaatar"
 
-# Database engine (firebird3-foundation plan, Task 10a). "postgres" = the Info HR database (default);
+# Database engine (firebird3-foundation plan, Task 10a). "postgres" = the MACS Human Capital database (default);
 # "firebird" = the MACS Firebird 3 file (SQL dialect 1), where HR tables get the IHR_ prefix.
 DB_ENGINE = env.str("DB_ENGINE", default="postgres")
 if DB_ENGINE == "postgres":
@@ -155,6 +156,7 @@ else:
 
 # HR-owned table prefix in a shared database: IHR_ on Firebird (MACS already has HR_* tables), empty on PostgreSQL.
 HR_TABLE_PREFIX = env.str("DJANGO_HR_TABLE_PREFIX", default="IHR_" if DB_ENGINE == "firebird" else "")
+FB_GBAK = env.str("FB_GBAK", default=r"C:\Program Files\Firebird\Firebird_3_0\gbak.exe")  # cut-over backups (fb_cutover)
 USE_I18N = True
 USE_TZ = True
 
@@ -213,8 +215,8 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 # Admin theme (django-unfold). The admin is the back office for logins and roles;
 # HR staff work in the app's own screens.
 UNFOLD = {
-    "SITE_TITLE": "Info HR",
-    "SITE_HEADER": "Info HR",
+    "SITE_TITLE": "MACS Human Capital",
+    "SITE_HEADER": "MACS Human Capital",
     "SITE_SUBHEADER": _("Back office"),
     "SITE_SYMBOL": "badge",
     "SITE_URL": "/",

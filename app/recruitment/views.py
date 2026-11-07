@@ -22,6 +22,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 from employees import access as employee_access
+from macs.dialect import search_match
 from macs.models import Branch, Position
 
 from recruitment import access
@@ -79,9 +80,7 @@ def vacancies(request: HttpRequest) -> HttpResponse:
     if status != "all":
         rows = rows.filter(status=status)
     for word in q.split():  # every word must match the title, position or department
-        rows = rows.filter(
-            Q(title__icontains=word) | Q(position__name__icontains=word) | Q(department__name__icontains=word)
-        )
+        rows = rows.filter(search_match(word, "title", "position__name", "department__name", icase=True))
     rows = (
         rows.select_related("position", "department", "hiring_manager")
         .annotate(**_stage_counts())

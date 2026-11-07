@@ -197,7 +197,7 @@ class _OpenAICompatProvider:
         headers = {
             "Authorization": "Bearer " + self._api_key,
             "Content-Type": "application/json",
-            "User-Agent": "InfoHR-assistant/1",
+            "User-Agent": "MACSHumanCapital-assistant/1",
         }
         try:
             reply = self._post(self.url, body, headers, self._timeout)
@@ -291,7 +291,7 @@ class ClaudeProvider:
             "x-api-key": self._api_key,
             "anthropic-version": CLAUDE_VERSION,
             "content-type": "application/json",
-            "User-Agent": "InfoHR-assistant/1",
+            "User-Agent": "MACSHumanCapital-assistant/1",
         }
         try:
             reply = self._post(CLAUDE_URL, body, headers, self._timeout)

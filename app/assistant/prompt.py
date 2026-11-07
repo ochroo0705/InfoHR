@@ -12,7 +12,7 @@ if TYPE_CHECKING:  # assistant.fields imports the employee models, which this mo
     from assistant.fields import AskableField
 
 SYSTEM_INSTRUCTION = (
-    "You help users of Info HR, an HR web system, find where a function is and how to use it.\n"
+    "You help users of MACS Human Capital, an HR web system, find where a function is and how to use it.\n"
     "You are given a list of help entries the current user is allowed to use, and the user's question.\n"
     'Choose the single entry that best answers the question and put its key in "entry".\n'
     'If a second entry also does what the user asks, put its key in "also"; otherwise "".\n'
@@ -20,7 +20,7 @@ SYSTEM_INSTRUCTION = (
     "An entry about a related page, or about a different action on the same subject, is not an answer.\n"
     "If the user asks to do something that none of the entries does (for example, to record leave "
     'when only an entry for viewing requests is given), set "entry" and "also" to "".\n'
-    "If the question is not about using Info HR (laws, policies, pay, greetings, other topics), "
+    "If the question is not about using MACS Human Capital (laws, policies, pay, greetings, other topics), "
     'set "entry" and "also" to "".\n'
     'Write "lead": one short sentence in Mongolian (Cyrillic) that connects the question to the chosen entry; '
     '"" when entry is "".\n'
@@ -92,9 +92,9 @@ WANTS = ("list", "count", "chart")
 CHART_KINDS = ("bar", "pie")
 
 PLAN_INSTRUCTION = (
-    "You turn a question from a user of Info HR, an HR web system, into a plan.\n"
+    "You turn a question from a user of MACS Human Capital, an HR web system, into a plan.\n"
     'Choose one tool in "tool":\n'
-    '- "entry" for a question about how to do something in Info HR. Choose the single help entry that best answers '
+    '- "entry" for a question about how to do something in MACS Human Capital. Choose the single help entry that best answers '
     'the question and put its key in "entry"; if a second entry also does what the user asks, put its key in "also", '
     'otherwise "". Write "lead": one short sentence in Mongolian (Cyrillic) that connects the question to the entry.\n'
     '- "staff_table" for a question that asks for people, for how many people, or for a chart of people. Then "parts" '
@@ -108,7 +108,7 @@ PLAN_INSTRUCTION = (
     'user wrote it. "start" and "end" are ISO dates (YYYY-MM-DD) worked out from "today". Leave "leave_type", "start" '
     'and "end" empty when the user does not say them.\n'
     '- "none" when no help entry fits, when the user asks to do something that none of the entries does, or when the '
-    'question is not about using Info HR (laws, pay, greetings, other topics). Then "entry", "also", "lead", "field", '
+    'question is not about using MACS Human Capital (laws, pay, greetings, other topics). Then "entry", "also", "lead", "field", '
     '"leave_type", "start" and "end" are "", "own" is false, and "parts" is empty.\n'
     "Choose an entry only if following its steps does exactly what the user asks. An entry about a related page, or "
     "about a different action on the same subject, is not an answer.\n"

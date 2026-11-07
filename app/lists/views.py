@@ -149,6 +149,10 @@ def _existing(spec: ListSpec, name: str, parent: str = "") -> Any | None:
     A list with a parent (district -> city) matches only inside the same parent."""
     if not name:
         return None
+    # A name longer than the column cannot be stored, so it cannot match. Firebird raises SQL -303 on
+    # the lookup itself; returning None here lets the form report the length error.
+    if len(name) > spec.model._meta.get_field("name").max_length:
+        return None
     qs = spec.model.objects.filter(name__iexact=name)
     if spec.parent:
         parent_id = _int(parent)

@@ -2,7 +2,7 @@
 <html lang="mn">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Info HR{% endblock %} · Info HR</title>
+  <title>{% block title %}MACS Human Capital{% endblock %} · MACS Human Capital</title>
   {# Theme before first paint: the user-menu choice (localStorage "theme": light | dark), else the computer's setting. nav.js owns the switch. #}
   <script>(function(){var t;try{t=localStorage.getItem('theme')}catch(e){}if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
@@ -15,7 +15,7 @@
   <script src="{% static 'js/order_suggest.js' %}" defer></script>
   <script src="{% static 'js/modal.js' %}" defer></script>
   <script src="{% static 'js/validation_mn.js' %}" defer></script>
-  {% if user.is_authenticated %}<script src="{% static 'js/assistant_chart.js' %}" defer></script><script src="{% static 'js/thread_store.js' %}" defer></script><script src="{% static 'js/palette.js' %}" defer></script><script src="{% static 'js/nav.js' %}" defer></script>{% endif %}
+  {% if user.is_authenticated %}<script src="{% static 'js/report_chart.js' %}" defer></script><script src="{% static 'js/assistant_chart.js' %}" defer></script><script src="{% static 'js/thread_store.js' %}" defer></script><script src="{% static 'js/palette.js' %}" defer></script><script src="{% static 'js/nav.js' %}" defer></script>{% endif %}
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800"{% if perms.lists.manage_lists %} data-can-add-lists{% endif %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}
