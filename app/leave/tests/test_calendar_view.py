@@ -60,7 +60,7 @@ def test_calendar_title_names_the_page_once(actor: User) -> None:
     c = Client()
     c.force_login(actor)
     body = c.get(reverse("leave:calendar"), {"month": "2026-11"}).content.decode()
-    assert "<title>Чөлөөний хуанли · Info HR</title>" in body
+    assert "<title>Чөлөөний хуанли · MACS Human Capital</title>" in body
 
 
 def test_calendar_highlights_today(actor: User, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -8,6 +8,7 @@ from accounts import roles
 from accounts.models import AccessScope, User
 from django.db.models import Q
 from django.utils import timezone
+from macs.dialect import is_firebird
 from macs.models import Department
 
 from employees import history_range
@@ -36,10 +37,22 @@ def team_ids(employee_id: int, day: date) -> set[int]:
     return team
 
 
+SMALLINT_MIN, SMALLINT_MAX = -32768, 32767
+
+
+def _storable_department_ids(ids: Iterable[int]) -> set[int]:
+    """The ids a department column can hold. On Firebird the MACS department id is a SMALLINT (DEPS.DEP_ID,
+    EMPLOYEE.DEP_IDENT) and the driver refuses to bind a value outside it. No row can hold such an id, so it is left
+    out of the filter there; PostgreSQL's columns hold every id and keep them all."""
+    if not is_firebird():
+        return set(ids)
+    return {dep_id for dep_id in ids if SMALLINT_MIN <= dep_id <= SMALLINT_MAX}
+
+
 def department_ids(roots: Iterable[int], *, include_sub: bool) -> set[int]:
     """The given departments, plus (when `include_sub`) every department below them in the parent tree.
-    Unknown ids are returned as given."""
-    result = set(roots)
+    Unknown ids are returned as given (ids the department column cannot hold are not, see _storable_department_ids)."""
+    result = _storable_department_ids(roots)
     if not result:
         return set()
     if not include_sub:

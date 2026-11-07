@@ -1,4 +1,6 @@
 import base64
+from datetime import date
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
@@ -12,6 +14,8 @@ from PIL import Image
 from employees.forms import EmployeeForm
 from employees.images import JPEG_SIGNATURE, MAX_SIDE, MAX_UPLOAD_BYTES, photo_bytes, shrink_photo, thumbnail_url
 from employees.models import Employee
+
+from .conftest import hire_values
 
 
 def _upload(
@@ -212,3 +216,24 @@ def test_thumbnail_keeps_the_top_of_a_tall_photo() -> None:
     assert square.getpixel((50, 20)) == (255, 0, 0)  # the head is in the frame
     middle = ImageOps.fit(tall, (100, 100))
     assert (255, 0, 0) not in {middle.getpixel((50, y)) for y in range(100)}  # a middle crop loses it
+
+
+@pytest.mark.django_db
+def test_attach_photo_digests_hashes_lowest_id_photo(hired: Employee, actor: Any, job_values: dict[str, Any]) -> None:
+    """The list lookup gives the md5 of the lowest-id photo, and "" for a person without one."""
+    import hashlib
+
+    from macs.models import EmployeePhoto
+
+    from employees.images import attach_photo_digests
+    from employees.services import history
+
+    no_photo = history.hire(
+        hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor
+    )
+    first = _jpeg_bytes((30, 30))
+    EmployeePhoto.objects.create(employee=hired, data=first)  # created first, so the lower id
+    EmployeePhoto.objects.create(employee=hired, data=_jpeg_bytes((40, 40)))
+    attach_photo_digests([hired, no_photo])
+    assert hired._photo_md5 == hashlib.md5(first, usedforsecurity=False).hexdigest()  # type: ignore[attr-defined]
+    assert no_photo._photo_md5 == ""  # type: ignore[attr-defined]

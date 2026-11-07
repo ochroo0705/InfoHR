@@ -29,9 +29,10 @@ def test_missing_is_empty_on_postgres(postgres: SettingsWrapper) -> None:
 
 
 def test_require_is_a_no_op_on_postgres(postgres: SettingsWrapper) -> None:
+    triggers._verified_at.clear()  # the cache is per process: an earlier Firebird test may have filled it
     require(*sorted(EXPECTED))
     require()
-    assert triggers._verified == set()  # nothing cached on PostgreSQL
+    assert triggers._verified_at == {}  # nothing cached on PostgreSQL
 
 
 def test_expected_table_map_has_the_agreed_triggers() -> None:

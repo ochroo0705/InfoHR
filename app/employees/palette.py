@@ -14,16 +14,20 @@ from datetime import date
 from typing import Any
 
 from accounts.models import User
-from django.db.models import Case, CharField, Count, F, Func, IntegerField, Q, QuerySet, Value, When, Window
+from django.db.models import Case, CharField, F, Func, IntegerField, Q, QuerySet, Value, When
 from django.db.models.functions import Coalesce, Lower
 from django.urls import reverse
 from django.utils import timezone
+from logs.foldtext import fold
+from macs.dialect import is_firebird, search_match, search_prefix
 from macs.models import Department, Position
 
 from employees import access
 from employees.listing import Row, employee_rows
 from employees.models import Employee, EventType, HrOrder, JobRecord
 from employees.services.orders import _key as order_key
+
+_fold = fold  # the palette's rule, also read by the assistant (defined in logs.foldtext)
 
 PEOPLE_LIMIT = 8  # at most this many people in one palette answer
 PEOPLE_MORE_LIMIT = 50  # at most this many people after «show all» (the user types more to narrow it)
@@ -34,6 +38,8 @@ _MONTH = re.compile(r"[0-9]{4}-[0-9]{2}")  # a typed month, YYYY-MM
 REPORT_LIMIT = 8  # at most this many individual reports in one palette answer (only after a word is typed)
 LIST_LIMIT = 8  # at most this many lists (Жагсаалтууд) in one palette answer (only after a word is typed)
 QUERY_LIMIT = 100  # characters of the typed query that are read at all
+_CODE_LENGTH = Employee._meta.get_field("code").max_length or 0  # the longest employee code (the code column's length)
+_NUMBER_KEY_LENGTH = HrOrder._meta.get_field("number_key").max_length or 0  # the order number key's column length
 RECENT_LIMIT = 5  # at most this many remembered items (Сүүлд нээсэн) in the empty box
 RECENT_PARAM_LIMIT = 400  # characters of the browser's recent parameter that are read at all
 FROM_LIMIT = 200  # characters of the page path the browser sends (the page the palette opened on) that are read
@@ -195,11 +201,6 @@ _ACTIONS: tuple[tuple[str, str, tuple[Need, ...], bool], ...] = (
 )
 
 
-def _fold(text: str) -> str:
-    """Case-folded text with Mongolian ө read as о and ү as у, so the letters match with or without them."""
-    return text.casefold().replace("ө", "о").replace("ү", "у")
-
-
 # Capital Cyrillic letters (Mongolian: А–Я, Ё, Ө, Ү) and the small ө, ү, mapped to what `_fold` makes of them. Used by
 # `_sql_fold`: PostgreSQL's lower() folds Cyrillic only when the database's locale knows it, translate() always does.
 _FOLD_FROM = "АБВГДЕЁЖЗИЙКЛМНОӨПРСТУҮФХЦЧШЩЪЫЬЭЮЯөү"
@@ -208,14 +209,24 @@ _FOLD_TO = "".join(_fold(ch) for ch in _FOLD_FROM)
 
 def _sql_fold(expression: Any) -> Func:
     """`_fold` in SQL: lower() for Latin letters, then translate() for Cyrillic capitals, ө and ү. NULL reads as "",
-    so a missing name or job matches no word and `exclude` treats it as plain text too."""
-    return Func(
-        Lower(Coalesce(expression, Value(""))),
-        Value(_FOLD_FROM),
-        Value(_FOLD_TO),
-        function="translate",
-        output_field=CharField(),
-    )
+    so a missing name or job matches no word and `exclude` treats it as plain text too.
+
+    Firebird has no translate(), so there each letter pair is one nested REPLACE(), the same mapping in the same
+    order. PostgreSQL keeps the translate() expression unchanged."""
+    folded = Lower(Coalesce(expression, Value("")))
+    if not is_firebird():
+        return Func(
+            folded,
+            Value(_FOLD_FROM),
+            Value(_FOLD_TO),
+            function="translate",
+            output_field=CharField(),
+        )
+    out: Any = folded
+    for src, dst in zip(_FOLD_FROM, _FOLD_TO, strict=True):
+        if src != dst:
+            out = Func(out, Value(src), Value(dst), function="REPLACE", output_field=CharField())
+    return out
 
 
 def _ranked[T](words: list[str], found: list[tuple[str, T]]) -> list[T]:
@@ -312,7 +323,8 @@ def orders(user: User, q: str) -> list[OrderHit]:
     """
     if not user.is_active or not user.has_perm("macs.view_employees"):
         return []
-    keys = _order_keys(q)
+    # A key longer than the number column cannot be a saved number, so it is left out (Firebird refuses such a value).
+    keys = [k for k in _order_keys(q) if len(k) <= _NUMBER_KEY_LENGTH]
     if not keys:
         return []
     found = (
@@ -419,22 +431,21 @@ def find_people(user: User, q: str, today: date, limit: int = PEOPLE_LIMIT) -> t
     base = _candidates(access.visible_employees(user), words).filter(ext__isnull=False)  # people HR has touched
     by_name = Q()
     for word in words:
-        by_name &= Q(f_family__contains=word) | Q(f_given__contains=word) | Q(f_code__contains=word)
+        by_name &= search_match(word, "f_family", "f_given", "f_code")
+    # A code equal to a word has the word's length, so a word longer than the code column cannot be one: it is left out
+    # of the code test (on Firebird a value longer than the column is refused, not compared).
+    codes = [w for w in words if len(w) <= _CODE_LENGTH]
     named = base.filter(by_name).annotate(
         rank=Case(
-            When(f_code__in=words, then=Value(0)),
-            When(Q(f_family__startswith=words[0]) | Q(f_given__startswith=words[0]), then=Value(1)),
+            When(f_code__in=codes, then=Value(0)),
+            When(search_prefix(words[0], "f_family", "f_given"), then=Value(1)),
             default=Value(2),
             output_field=IntegerField(),
         )
     )
-    first = list(
-        named.annotate(total=Window(Count("pk")))  # every name match, read with the first ones: one scan, not two
-        .order_by("rank", "family_name", "given_name", "pk")
-        .values_list("pk", "total")[:limit]
-    )
-    shown = [pk for pk, _ in first]
-    named_total = first[0][1] if first else 0
+    # The total is a second, cheap count query: a window count (one scan for both) is not portable, Firebird has none.
+    named_total = named.count()
+    shown = list(named.order_by("rank", "family_name", "given_name", "pk").values_list("pk", flat=True)[:limit])
     rows = employee_rows(
         base.filter(Q(pk__in=shown) | ~by_name).order_by("family_name", "given_name", "pk"),
         today,
@@ -472,13 +483,15 @@ def _candidates(qs: QuerySet[Employee], words: list[str]) -> QuerySet[Employee]:
         f_code=_sql_fold(F("code")),
     )
     for word in words:
-        positions = Position.objects.alias(f_name=_sql_fold(F("name"))).filter(f_name__contains=word).values("pk")
-        departments = Department.objects.alias(f_name=_sql_fold(F("name"))).filter(f_name__contains=word).values("pk")
+        positions = (
+            Position.objects.alias(f_name=_sql_fold(F("name"))).filter(search_match(word, "f_name")).values("pk")
+        )
+        departments = (
+            Department.objects.alias(f_name=_sql_fold(F("name"))).filter(search_match(word, "f_name")).values("pk")
+        )
         jobs = JobRecord.objects.filter(Q(position__in=positions) | Q(department__in=departments))
         qs = qs.filter(
-            Q(f_family__contains=word)
-            | Q(f_given__contains=word)
-            | Q(f_code__contains=word)
+            search_match(word, "f_family", "f_given", "f_code")
             | Q(position__in=positions)
             | Q(department__in=departments)
             | Q(pk__in=jobs.values("employee_id"))

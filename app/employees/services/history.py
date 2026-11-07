@@ -5,10 +5,10 @@ from decimal import Decimal
 from typing import Any, cast
 
 from accounts.models import User
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
 
-from employees import history_range
+from employees import history_range, named_lock
 from employees.models import (
     ActivityEntry,
     ActivityKind,
@@ -25,12 +25,14 @@ from employees.models import (
     SalaryRecord,
 )
 from employees.money import group
+from employees.named_lock import Lock, LockBusy
 from employees.scope import manager_error
 from employees.services import macs_writes, orders, personal_writes
 from employees.services.display import shown
 from employees.services.orders import OrderError
 
-# Fixed key for the advisory lock that serialises employee-code generation in hire().
+# PostgreSQL advisory key of the hire lock. hire() takes it through named_lock.take(Lock.HIRE), which uses this
+# same number on PostgreSQL; kept defined because other code may import it.
 HIRE_LOCK_KEY = 7301
 
 
@@ -110,8 +112,10 @@ def hire(
         order_number.strip() or order_date is not None or order_summary.strip() or order_issued_by.strip()
     ):
         raise ValueError("Тушаалгүй бүртгэхэд тушаалын талбар оруулах боломжгүй.")
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [HIRE_LOCK_KEY])
+    try:
+        named_lock.take(Lock.HIRE)
+    except LockBusy as exc:
+        raise HistoryError(exc.message) from exc
     employee = macs_writes.create_employee(
         values, {"setup_required": True, **ext_values}, code=macs_writes.next_code(), by=by
     )

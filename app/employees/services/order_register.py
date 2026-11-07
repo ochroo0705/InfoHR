@@ -1,11 +1,12 @@
-"""The order register: Info HR orders plus MACS's own order rows, for the people a user may see."""
+"""The order register: MACS Human Capital orders plus MACS's own order rows, for the people a user may see."""
 
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
 from accounts.models import User
-from django.db.models import F, Q, QuerySet
+from django.db.models import F, QuerySet
+from macs.dialect import search_match
 from macs.models import Command
 
 from employees import access
@@ -62,10 +63,7 @@ def _matching(rows: QuerySet[Any], words: list[str]) -> QuerySet[Any]:
     """Every word must be part of the order number or the employee's name or code (case does not matter)."""
     for word in words:
         rows = rows.filter(
-            Q(number__icontains=word)
-            | Q(employee__family_name__icontains=word)
-            | Q(employee__given_name__icontains=word)
-            | Q(employee__code__icontains=word)
+            search_match(word, "number", "employee__family_name", "employee__given_name", "employee__code", icase=True)
         )
     return rows
 
@@ -147,7 +145,7 @@ def _legacy(c: Command, today: date) -> RegisterRow:
 
 
 def _newest_first(row: RegisterRow) -> tuple[date, bool, int]:
-    """Sort key: by date, an Info HR order before an old-program order of the same day, then the later record."""
+    """Sort key: by date, an MACS Human Capital order before an old-program order of the same day, then the later record."""
     return row.date or date.min, row.order_id is not None, row.order_id or row.command_id or 0
 
 

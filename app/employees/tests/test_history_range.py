@@ -23,6 +23,8 @@ from employees.history_range import (
 from employees.models import ChangeType, Employee, HistoryLock, JobRecord, SalaryRecord
 from employees.services.history import HistoryError
 
+from .conftest import duplicate_start_refused
+
 pytestmark = pytest.mark.django_db
 
 
@@ -124,7 +126,7 @@ def test_period_property_matches_fields(hired: Employee, job_values: dict[str, A
 def test_unique_start_per_employee(hired: Employee, job_values: dict[str, Any]) -> None:
     _only_job_records(hired)
     _record(hired, job_values, date(2026, 1, 5), None)
-    with pytest.raises(IntegrityError), transaction.atomic():
+    with duplicate_start_refused("IHR_JOB_OVERLAP"), transaction.atomic():
         _record(hired, job_values, date(2026, 1, 5), date(2026, 2, 1))
 
 
@@ -135,6 +137,10 @@ def test_no_range_column_remains() -> None:
         assert {"start_date", "end_date"} <= names
 
 
+@pytest.mark.pg_only(
+    "PostgreSQL only: the 0024 and 0025 migrations convert a PostgreSQL range column (period) to start_date and "
+    "end_date, and the test runs PostgreSQL SET CONSTRAINTS; Firebird has no range column"
+)
 def test_period_migration_reverses_and_reapplies_with_data(hired: Employee, job_values: dict[str, Any]) -> None:
     """Rolled back with the test transaction. Runs the 0025 migration backwards and forwards over real rows."""
     from django.db import connection

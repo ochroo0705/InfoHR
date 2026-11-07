@@ -1,6 +1,6 @@
 """emp_vacation: one total row per employee per year for annual leave (Q-13; user 2026-10-19: one total per year)."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 import pytest
@@ -13,14 +13,20 @@ from leave.services import writes
 pytestmark = pytest.mark.django_db
 
 
+def _day(value: Any) -> Any:
+    """Firebird dialect 1 has no DATE-only type: a DATE comes back as midnight timestamp. PostgreSQL returns a date."""
+    return value.date() if isinstance(value, datetime) else value
+
+
 def _rows(employee: Employee) -> list[tuple[Any, ...]]:
     with connection.cursor() as cur:
         cur.execute(
-            "SELECT myear, mmonth, v_day, is_vacation, start_date::date, end_date::date, dep_ident, xmonth"
+            "SELECT myear, mmonth, v_day, is_vacation, CAST(start_date AS DATE), CAST(end_date AS DATE),"
+            " dep_ident, xmonth"
             " FROM emp_vacation WHERE emp_ident = %s ORDER BY myear, mmonth",
             [employee.pk],
         )
-        return list(cur.fetchall())
+        return [tuple(_day(value) for value in row) for row in cur.fetchall()]
 
 
 def test_record_annual_writes_year_row(employee: Employee, annual: LeaveTypeRow, actor: User) -> None:

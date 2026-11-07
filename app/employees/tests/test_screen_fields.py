@@ -68,7 +68,8 @@ def test_hire_writes_job_figure_default_and_birth_place(
     assert (stored.city_id, stored.district_id, stored.description) == (city.pk, district.pk, "Сумын төв")
     records.set_birth_place(emp, city, district, "Өөр газар", actor)
     assert BirthPlace.objects.filter(employee=emp).count() == 1  # replaced, not added
-    assert emp.activity.filter(changes__contains=[{"field": "Төрсөн газар"}]).count() == 2
+    # Read in Python: JSON containment is not a Firebird query (the same test as `changes__contains` on PostgreSQL).
+    assert sum(any(c.get("field") == "Төрсөн газар" for c in e.changes) for e in emp.activity.all()) == 2
     records.set_birth_place(emp, None, None, "", actor)
     assert not BirthPlace.objects.filter(employee=emp).exists()
 

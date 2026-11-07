@@ -130,7 +130,32 @@ class DatabaseOperations(BaseDatabaseOperations):
         # Firebird uses WEEKDAY keyword.
         if lookup_type == 'week_day':
             return f"EXTRACT(WEEKDAY FROM {sql}) + 1", params
+        if lookup_type == 'quarter':
+            return self._quarter_sql(sql), params
         return f"EXTRACT({lookup_type.upper()} FROM {sql})", params
+
+    def _quarter_start_month_sql(self, sql):
+        """First month (1, 4, 7 or 10) of the quarter that holds the month of ``sql``.
+
+        Only integer MOD and subtraction are used: in dialect 1 integer division returns a decimal,
+        so a division-based formula would print as "3.000000000000000".
+        """
+        months_into_quarter = f"(EXTRACT(MONTH FROM {sql}) - 1)"
+        return f"CAST({months_into_quarter} - MOD({months_into_quarter}, 3) + 1 AS INTEGER)"
+
+    def _quarter_sql(self, sql):
+        """Quarter number 1..4 of ``sql``, as an INTEGER (the division is exact, so the CAST cannot round)."""
+        return f"CAST(({self._quarter_start_month_sql(sql)} - 1) / 3 + 1 AS INTEGER)"
+
+    def _midnight_sql(self, sql):
+        """Truncate a TIMESTAMP expression to midnight and keep the TIMESTAMP type.
+
+        In dialect 1, CAST(x AS DATE) keeps the time part, so it cannot cut a day. DATEDIFF counts the
+        day boundaries between 1970-01-01 00:00:00 and x; the start is midnight, so that count is the
+        whole number of days, and adding it back gives midnight of x's own day (before 1970 too).
+        """
+        epoch = "TIMESTAMP '1970-01-01 00:00:00'"
+        return f"DATEADD(DATEDIFF(DAY FROM {epoch} TO {sql}) DAY TO {epoch})"
 
     def _convert_sql_to_tz(self, sql, params, tzname):
         if not (self.connection.features.supports_timezones and settings.USE_TZ and tzname):
@@ -150,17 +175,21 @@ class DatabaseOperations(BaseDatabaseOperations):
             sql = f"EXTRACT(year FROM {sql})||'-01-01'"
         elif lookup_type == 'month':
             sql = f"EXTRACT(year FROM {sql})||'-'||EXTRACT(month FROM {sql})||'-01'"
+        elif lookup_type == 'quarter':
+            sql = f"EXTRACT(year FROM {sql})||'-'||{self._quarter_start_month_sql(sql)}||'-01'"
         elif lookup_type == 'week':
             # Truncate to the preceding Monday. Firebird's WEEKDAY runs
             # Sunday=0..Saturday=6, so Monday lies (WEEKDAY+6) mod 7 days back.
-            return (f"CAST(DATEADD(-MOD(EXTRACT(WEEKDAY FROM {sql}) + 6, 7) DAY TO {sql}) AS DATE)", params)
+            midnight = self._midnight_sql(sql)
+            return (f"CAST(DATEADD(-MOD(EXTRACT(WEEKDAY FROM {sql}) + 6, 7) DAY TO {midnight}) AS DATE)", params)
         elif lookup_type == 'day':
             sql = f"EXTRACT(year FROM {sql})||'-'||EXTRACT(month FROM {sql})||'-'||EXTRACT(day FROM {sql})"
         return f"CAST({sql} AS DATE)", params
 
     def datetime_cast_date_sql(self, sql, params, tzname):
         sql, params = self._convert_sql_to_tz(sql, params, tzname)
-        return f'CAST({sql} AS DATE)', params
+        # Keeps the TIMESTAMP type at midnight: CAST(x AS DATE) would keep the time part in dialect 1.
+        return self._midnight_sql(sql), params
 
     def datetime_cast_time_sql(self, sql, params, tzname):
         sql, params = self._convert_sql_to_tz(sql, params, tzname)
@@ -175,6 +204,8 @@ class DatabaseOperations(BaseDatabaseOperations):
         """
         if lookup_type == 'week_day':
             return f"EXTRACT(WEEKDAY FROM {sql}) + 1", params
+        elif lookup_type == 'quarter':
+            return self._quarter_sql(sql), params
         else:
             return f"EXTRACT({lookup_type} FROM {sql})", params
 
@@ -196,10 +227,13 @@ class DatabaseOperations(BaseDatabaseOperations):
             sql = "%s||'-01-01 00:00:00'" % year
         elif lookup_type == 'month':
             sql = "%s||'-'||%s||'-01 00:00:00'" % (year, month)
+        elif lookup_type == 'quarter':
+            sql = f"{year}||'-'||{self._quarter_start_month_sql(sql)}||'-01 00:00:00'"
         elif lookup_type == 'week':
             # Truncate to midnight of the preceding Monday (WEEKDAY runs
             # Sunday=0..Saturday=6).
-            return (f"CAST(CAST(DATEADD(-MOD(EXTRACT(WEEKDAY FROM {sql}) + 6, 7) DAY TO {sql}) AS DATE) AS TIMESTAMP)", params)
+            midnight = self._midnight_sql(sql)
+            return (f"CAST(DATEADD(-MOD(EXTRACT(WEEKDAY FROM {sql}) + 6, 7) DAY TO {midnight}) AS TIMESTAMP)", params)
         elif lookup_type == 'day':
             sql = "%s||'-'||%s||'-'||%s||' 00:00:00'" % (year, month, day)
         elif lookup_type == 'hour':
@@ -684,15 +718,19 @@ class DatabaseOperations(BaseDatabaseOperations):
 
         # Firebird cannot temporarily disable foreign key checks, so delete
         # from referencing tables before the tables they reference.
-        tables = self._flush_table_order(tables)
+        tables = self._flush_table_order(self._flush_tables(tables))
         sql = ['%s %s %s;' %
                (style.SQL_KEYWORD('DELETE'),
                 style.SQL_KEYWORD('FROM'),
                 style.SQL_TABLE(self.quote_name(table))
                 ) for table in tables]
         if reset_sequences:
+            generators = self._generator_names()
             for table in tables:
                 sequence_name = self.get_sequence_name(table)
+                if sequence_name not in generators:
+                    # Only a table with an automatic key has a generator (schema.py creates it).
+                    continue
                 query = "%s %s %s 0;" % (
                     style.SQL_KEYWORD('ALTER SEQUENCE'),
                     sequence_name,
@@ -701,12 +739,43 @@ class DatabaseOperations(BaseDatabaseOperations):
                 sql.append(query)
         return sql
 
+    def _flush_tables(self, tables):
+        """
+        Add the Django-owned tables that django_table_names() left out.
+
+        Firebird stores a name longer than 31 characters shortened (with a
+        hash), and django_table_names(only_existing=True) compares the full
+        name with the stored one, so such a table never reaches the flush. Its
+        rows then block the delete of the rows it references. Every managed
+        table that exists under its stored name is added here.
+        """
+        introspection = self.connection.introspection
+        listed = list(tables)
+        listed_keys = {introspection.table_name_converter(table) for table in listed}
+        stored = set(introspection.table_names(include_views=False))
+        for table in introspection.django_table_names(only_existing=False, include_views=False):
+            key = introspection.table_name_converter(table)
+            if key in stored and key not in listed_keys:
+                listed.append(table)
+                listed_keys.add(key)
+        return listed
+
+    def _generator_names(self):
+        """The names of the user generators (sequences) in the database, as stored (upper case, no padding)."""
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT TRIM(RDB$GENERATOR_NAME) FROM RDB$GENERATORS WHERE RDB$SYSTEM_FLAG = 0")
+            return {row[0] for row in cursor.fetchall()}
+
     def _flush_table_order(self, tables):
         """
         Order tables so that every table comes before the tables it references
         with a foreign key (self-references are ignored). Cycles keep their
         input order.
         """
+        # Relations name the referenced table as stored (shortened, lower case),
+        # so match them by the stored name, not by the Django name.
+        by_stored_name = {self.connection.introspection.table_name_converter(table): table
+                          for table in tables}
         depends = {}
         with self.connection.cursor() as cursor:
             for table in tables:
@@ -716,8 +785,9 @@ class DatabaseOperations(BaseDatabaseOperations):
                     relations = {}
                 # get_relations values are (other_field, other_table) tuples,
                 # with a trailing db_on_delete element on Django >= 6.1.
-                depends[table] = {rel[1] for rel in relations.values()
-                                  if rel[1] in tables and rel[1] != table}
+                parents = {by_stored_name.get(rel[1]) for rel in relations.values()}
+                depends[table] = {parent for parent in parents
+                                  if parent is not None and parent != table}
         ordered = []
         remaining = list(tables)
         while remaining:

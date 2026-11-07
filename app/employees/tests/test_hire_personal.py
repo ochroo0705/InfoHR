@@ -9,7 +9,9 @@ from django.test import Client
 from django.urls import reverse
 from macs.models import AddressRow, City, ContactRow, ContactType, District
 
+from employees import history_range, named_lock
 from employees.models import ActivityEntry, Department, Employee, Position
+from employees.named_lock import LockBusy
 from employees.services import history
 from employees.services import personal_writes as pw
 
@@ -171,6 +173,20 @@ def test_hire_post_personal_conflict_shows_form_error(
     )
     assert response.status_code == 400
     assert "Энэ хаяг аль хэдийн бүртгэгдсэн байна" in response.content.decode()
+    assert not Employee.objects.exists()
+
+
+def test_hire_post_hire_lock_busy_shows_form_error(
+    hr_client: Client, place: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Another hire holds the hire lock: history.hire raises HistoryError, which the view must show, not a 500.
+    def busy(lock: named_lock.Lock) -> None:
+        raise LockBusy()
+
+    monkeypatch.setattr(named_lock, "take", busy)
+    response = hr_client.post("/employees/new/", hire_post(place))
+    assert response.status_code == 400
+    assert history_range.LOCK_BUSY_MESSAGE in response.content.decode()
     assert not Employee.objects.exists()
 
 

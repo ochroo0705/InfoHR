@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.db import connection
+from macs.dialect import physical_order
 from macs.models import (
     AcademicDegree,
     AddressRow,
@@ -231,7 +232,7 @@ _SPECS: dict[str, _Spec] = {
     ),
 }
 
-# Physical (ctid) order is used for talents, as the brief asks; there is no PK to order by.
+# Physical row order (macs.dialect.physical_order) is used for talents; there is no PK to order by.
 _TALENT_LIST_SQL = "SELECT talent_ident, trained_year, description FROM emp_talents WHERE emp_ident = %s"
 
 
@@ -257,7 +258,7 @@ def _raw(kind: str, employee: Employee, key: object) -> list[Any]:
             sql += " AND talent_ident = %s"
             params.append(key)
         with connection.cursor() as cur:
-            cur.execute(sql + " ORDER BY ctid", params)
+            cur.execute(sql + f" ORDER BY {physical_order()}", params)
             return list(cur.fetchall())
     qs = spec.model.objects.filter(employee=employee)
     if key is not _ALL:

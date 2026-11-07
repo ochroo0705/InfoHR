@@ -679,5 +679,41 @@ class FirebirdCursorWrapper(object):
         else:
             return getattr(self.cursor, attr)
 
+    def _map_fetch_error(self, e):
+        """A row lock refused while rows are fetched is RecordBusy, as it is at execute; other errors pass through."""
+        busy = busy_error_for(e)
+        if busy is not None:
+            raise busy from e
+
+    def fetchone(self):
+        try:
+            return self.cursor.fetchone()
+        except DatabaseError as e:
+            self._map_fetch_error(e)
+            raise
+
+    def fetchmany(self, *args, **kwargs):
+        try:
+            return self.cursor.fetchmany(*args, **kwargs)
+        except DatabaseError as e:
+            self._map_fetch_error(e)
+            raise
+
+    def fetchall(self):
+        try:
+            return self.cursor.fetchall()
+        except DatabaseError as e:
+            self._map_fetch_error(e)
+            raise
+
     def __iter__(self):
-        return iter(self.cursor)
+        rows = iter(self.cursor)
+        while True:
+            try:
+                row = next(rows)
+            except StopIteration:
+                return
+            except DatabaseError as e:
+                self._map_fetch_error(e)
+                raise
+            yield row

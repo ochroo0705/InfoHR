@@ -35,11 +35,15 @@ class ChecklistError(Exception):
 
 
 def template_for(kind: str, reason: str | None) -> ChecklistTemplate | None:
-    """The active template of `kind` that lists `reason`, else the active default of that kind, else None."""
+    """The active template of `kind` that lists `reason`, else the active default of that kind, else None.
+
+    The reasons are checked in Python, in pk order: there are only a few templates per kind, and a JSON contains
+    lookup is not portable (Firebird has none).
+    """
     if reason:
-        by_reason = ChecklistTemplate.objects.filter(kind=kind, active=True, reasons__contains=[reason]).first()
-        if by_reason is not None:
-            return by_reason
+        for template in ChecklistTemplate.objects.filter(kind=kind, active=True).order_by("pk"):
+            if reason in (template.reasons or []):
+                return template
     return ChecklistTemplate.objects.filter(kind=kind, active=True, is_default=True).first()
 
 
@@ -133,7 +137,9 @@ def _move_anchor_day(checklist: Checklist, anchor_day: date, *, by: User) -> Non
 def tick(task: ChecklistTask, *, by: User) -> ChecklistTask:
     """Mark `task` done. A task already done is returned unchanged and nothing is logged."""
     with transaction.atomic():
-        task = ChecklistTask.objects.select_for_update().select_related("checklist__employee").get(pk=task.pk)
+        # One table per locking statement: Firebird refuses FOR UPDATE on a join. The checklist row is locked too.
+        task = ChecklistTask.objects.select_for_update().get(pk=task.pk)
+        task.checklist = Checklist.objects.select_for_update().get(pk=task.checklist_id)
         if task.done_at is not None:
             return task
         if task.checklist.state != ChecklistState.OPEN:
@@ -159,7 +165,7 @@ def untick(task: ChecklistTask, *, by: User) -> ChecklistTask:
     A completed checklist without an event (a finished onboarding one) is reopened.
     """
     with transaction.atomic():
-        task = ChecklistTask.objects.select_for_update().select_related("checklist__employee").get(pk=task.pk)
+        task = ChecklistTask.objects.select_for_update().get(pk=task.pk)
         checklist = Checklist.objects.select_for_update().get(pk=task.checklist_id)
         if checklist.event_id is not None:
             raise ChecklistError("Ажлаас гаргасан жагсаалтын даалгаврыг буцаах боломжгүй.")
@@ -213,7 +219,7 @@ def cancel(checklist: Checklist, *, by: User) -> Checklist:
     Refused when it is not open or already linked to an event. A new checklist can start afterwards.
     """
     with transaction.atomic():
-        checklist = Checklist.objects.select_for_update().select_related("employee").get(pk=checklist.pk)
+        checklist = Checklist.objects.select_for_update().get(pk=checklist.pk)
         if checklist.state != ChecklistState.OPEN:
             raise ChecklistError("Жагсаалт нээлттэй биш байна.")
         if checklist.event_id is not None:
@@ -246,7 +252,6 @@ def cancel_open(
     with transaction.atomic():
         checklist = (
             Checklist.objects.select_for_update()
-            .select_related("employee")
             .filter(employee=employee, kind=kind, state=ChecklistState.OPEN, event__isnull=True)
             .first()
         )

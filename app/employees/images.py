@@ -8,6 +8,7 @@ from pathlib import Path
 
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile, UploadedFile
+from macs.dialect import is_firebird
 from PIL import Image, ImageOps
 
 from employees.models import Employee
@@ -81,13 +82,24 @@ def attach_photo_digests(employees: Iterable[Employee]) -> None:
     people = list(employees)
     for person in people:
         person._photo_md5 = ""  # type: ignore[attr-defined]
+    by_pk = {p.pk: p for p in people}
+    if is_firebird():
+        # Firebird 3 has no MD5 function, so the bytes are hashed here; hexdigest matches PostgreSQL's md5() text.
+        rows = (
+            EmployeePhoto.objects.filter(employee_id__in=list(by_pk), data__isnull=False)
+            .order_by("-id")  # lowest id is assigned last and wins, as on PostgreSQL and `.first()` in thumbnail_url
+            .values_list("employee_id", "data")
+        )
+        for employee_id, raw in rows:
+            digest = hashlib.md5(bytes(raw), usedforsecurity=False).hexdigest()
+            by_pk[employee_id]._photo_md5 = digest  # type: ignore[attr-defined]
+        return
     hashed = (
         EmployeePhoto.objects.filter(employee_id__in=[p.pk for p in people], data__isnull=False)
         .annotate(digest=Func(F("data"), function="md5", output_field=CharField()))
         .order_by("-id")  # lowest id is assigned last and wins, as `.first()` does in thumbnail_url
         .values_list("employee_id", "digest")
     )
-    by_pk = {p.pk: p for p in people}
     for employee_id, digest in hashed:
         by_pk[employee_id]._photo_md5 = digest or ""  # type: ignore[attr-defined]
 

@@ -1,9 +1,11 @@
+from contextlib import AbstractContextManager
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
 import pytest
 from accounts.models import User
+from django.db import DatabaseError, IntegrityError, connection
 from macs.models import ClothesSize
 
 from employees.models import Employee, EmployeeExt, ensure_ext
@@ -62,6 +64,18 @@ def hire_values(register_no: str = "УБ99112233") -> dict[str, Any]:
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
+
+
+def duplicate_start_refused(trigger: str) -> AbstractContextManager[Any]:
+    """Expects a second history row with the same start day to be refused.
+
+    PostgreSQL: the unique (employee, start_date) constraint raises IntegrityError.
+    Firebird: the BEFORE INSERT no-overlap trigger named in `trigger` refuses the row first (exception 59, a
+    DatabaseError). Both refuse the same thing: two periods of one employee that start on the same day.
+    """
+    if connection.vendor == "firebird":
+        return pytest.raises(DatabaseError, match=trigger)
+    return pytest.raises(IntegrityError)
 
 
 @pytest.fixture

@@ -18,10 +18,13 @@ AMOUNTS = [Decimal("1234567.89"), Decimal("99999999999.99"), Decimal("0.01"), De
 
 
 def _record(employee: Employee, amount: Decimal, number: int = 0) -> SalaryRecord:
-    # (employee, start_date) is unique, so every record gets its own start date
+    # (employee, start_date) is unique, so every record gets its own start date. Each record is closed after one
+    # day: an open-ended salary period would overlap the hire's open salary row (Firebird overlap trigger).
+    start = date(1990, 1, 1) + timedelta(days=number)
     return SalaryRecord.objects.create(
         employee=employee,
-        start_date=date(1990, 1, 1) + timedelta(days=number),
+        start_date=start,
+        end_date=start + timedelta(days=1),
         base_salary=amount,
         change_type=ChangeType.CORRECTION,
     )

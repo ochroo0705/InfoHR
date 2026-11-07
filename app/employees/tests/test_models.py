@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, connection, transaction
+from django.db import connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from macs.models import EducRow, EduType, PresentRow, PresentType
 
@@ -28,6 +28,8 @@ from employees.models import (
     validate_register_no,
 )
 
+from .conftest import duplicate_start_refused
+
 
 @pytest.mark.django_db
 def test_employee_is_the_production_table() -> None:
@@ -41,11 +43,15 @@ def test_ext_rows_live_in_hr_and_point_at_production_ids() -> None:
     e = Employee.objects.create(given_name="Сараа", family_name="Батын", birth_date=date(1999, 1, 1))
     ext = ensure_ext(e)
     assert ensure_ext(e) == ext
-    assert EmployeeExt._meta.db_table == "employees_employeeext"
     assert e.ext.employee_id == e.pk
     d = Department.objects.create(name="Санхүү")
     DepartmentExt.objects.create(department=d)
     assert d.ext.active is True
+
+
+@pytest.mark.pg_only("checks the PostgreSQL table names; on Firebird the HR tables carry the IHR_ prefix")
+def test_ext_table_names_are_the_postgres_names() -> None:
+    assert EmployeeExt._meta.db_table == "employees_employeeext"
 
 
 @pytest.mark.django_db
@@ -85,10 +91,11 @@ def test_job_periods_may_touch() -> None:
 def test_job_one_start_per_employee_in_db() -> None:
     emp = make_employee()
     make_job(emp, date(2026, 1, 1), date(2026, 3, 1))
-    with pytest.raises(IntegrityError), transaction.atomic():
+    with duplicate_start_refused("IHR_JOB_OVERLAP"), transaction.atomic():
         make_job(emp, date(2026, 1, 1))
 
 
+@pytest.mark.pg_only("checks the PostgreSQL extension btree_gist; Firebird has no extensions")
 @pytest.mark.django_db
 def test_btree_gist_installed() -> None:
     with connection.cursor() as cursor:
@@ -120,7 +127,7 @@ def test_salary_one_start_per_employee_in_db() -> None:
         base_salary=Decimal("2500000.00"),
         change_type=ChangeType.HIRE,
     )
-    with pytest.raises(IntegrityError), transaction.atomic():
+    with duplicate_start_refused("IHR_SAL_OVERLAP"), transaction.atomic():
         SalaryRecord.objects.create(
             employee=emp,
             **history_range.span_kwargs(date(2026, 1, 1), None),
@@ -158,6 +165,9 @@ def test_view_salary_moved_to_macs_and_grants_kept() -> None:
     assert not Group.objects.get(name="HR").permissions.filter(pk=perm.pk).exists()
 
 
+@pytest.mark.pg_only(
+    "runs the PostgreSQL lineage's migration accounts.0002_role_groups; Firebird has its own seed (migrations_fb)"
+)
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)
 def test_view_salary_migration_carries_over_existing_grants() -> None:
     old_state = [("employees", "0001_initial"), ("accounts", "0002_role_groups")]

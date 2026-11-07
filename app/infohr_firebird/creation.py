@@ -1,12 +1,137 @@
+import base64
+import datetime
+import decimal
+import json
 import sys
-import firebird.driver as Database
+from typing import Any
 
+import firebird.driver as Database
+from django.apps import apps
+from django.db import transaction
 from django.db.backends.base.creation import BaseDatabaseCreation
 
 TEST_MODE = 0
 
+# Version of the raw snapshot written by serialize_db_to_string. A snapshot of another version is refused.
+SNAPSHOT_FORMAT = 1
+
+
+def _encode_value(value: Any) -> Any:
+    """One cell of the snapshot. Text, numbers, booleans and None are plain JSON; the other types carry a tag."""
+    if hasattr(value, "read") and not isinstance(value, (str, bytes, bytearray, memoryview)):
+        value = value.read()  # a BLOB is streamed by the driver; the whole value is read here
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, datetime.datetime):
+        return {"$": "datetime", "v": value.isoformat()}
+    if isinstance(value, datetime.date):
+        return {"$": "date", "v": value.isoformat()}
+    if isinstance(value, datetime.time):
+        return {"$": "time", "v": value.isoformat()}
+    if isinstance(value, decimal.Decimal):
+        return {"$": "decimal", "v": str(value)}
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return {"$": "bytes", "v": base64.b64encode(bytes(value)).decode("ascii")}
+    raise TypeError(f"the Firebird test snapshot cannot store a {type(value).__name__} value")
+
+
+def _decode_value(value: Any) -> Any:
+    """The inverse of _encode_value: a tagged cell becomes the exact Python value it was read from."""
+    if not isinstance(value, dict):
+        return value
+    kind, text = value["$"], value["v"]
+    if kind == "datetime":
+        return datetime.datetime.fromisoformat(text)
+    if kind == "date":
+        return datetime.date.fromisoformat(text)
+    if kind == "time":
+        return datetime.time.fromisoformat(text)
+    if kind == "decimal":
+        return decimal.Decimal(text)
+    if kind == "bytes":
+        return base64.b64decode(text)
+    raise ValueError(f"unknown snapshot tag: {kind!r}")
+
 
 class DatabaseCreation(BaseDatabaseCreation):
+
+    def _snapshot_tables(self) -> list[tuple[str, Any]]:
+        """(table, model) for every managed HR table, children before the tables they reference (the flush order).
+
+        The same list the flush deletes, so a snapshot holds exactly the tables a flush empties. Unmanaged MACS tables
+        are never in it.
+        """
+        ops = self.connection.ops
+        models = {
+            model._meta.db_table: model
+            for model in apps.get_models(include_auto_created=True)
+            if model._meta.managed and model._meta.app_label != "macs"
+        }
+        names = ops._flush_table_order(
+            ops._flush_tables(self.connection.introspection.django_table_names(only_existing=True, include_views=False))
+        )
+        return [(name, models[name]) for name in names]
+
+    def serialize_db_to_string(self) -> str:
+        """Every row of every managed HR table as JSON, read with plain SQL (not the ORM serializer).
+
+        Django's serializer streams rows through a cursor that a second read can interrupt, and Firebird then refuses
+        the fetch. Here each table is read in one fetchall, parents first, with its column names and exact values.
+        """
+        ops = self.connection.ops
+        tables = []
+        with self.connection.cursor() as cursor:
+            for name, model in reversed(self._snapshot_tables()):  # parents first: the restore inserts in this order
+                columns = [field.column for field in model._meta.local_concrete_fields]
+                select_list = ", ".join(ops.quote_name(column) for column in columns)
+                pk_column = ops.quote_name(model._meta.pk.column)
+                cursor.execute(f"SELECT {select_list} FROM {ops.quote_name(name)} ORDER BY {pk_column}")  # noqa: S608
+                rows = [[_encode_value(value) for value in row] for row in cursor.fetchall()]
+                tables.append({"table": name, "columns": columns, "rows": rows})
+        return json.dumps({"format": SNAPSHOT_FORMAT, "tables": tables}, ensure_ascii=False, separators=(",", ":"))
+
+    def deserialize_db_from_string(self, data: str) -> None:
+        """Empty the managed HR tables, then insert the snapshot's rows with their ids, in one transaction.
+
+        Children are deleted before parents and inserted after them (the flush order). Each generator is then set to
+        the largest restored id, so the next new row gets an id above it.
+        """
+        snapshot = json.loads(data)
+        if snapshot.get("format") != SNAPSHOT_FORMAT:
+            raise ValueError(f"unknown snapshot format: {snapshot.get('format')!r}")
+        ops = self.connection.ops
+        current = self._snapshot_tables()
+        if {entry["table"] for entry in snapshot["tables"]} != {name for name, _ in current}:
+            raise ValueError("the snapshot holds different tables from this database")
+        with transaction.atomic(using=self.connection.alias), self.connection.cursor() as cursor:
+            for name, _ in current:  # children first
+                cursor.execute(f"DELETE FROM {ops.quote_name(name)}")  # noqa: S608 (quoted names)
+            for entry in snapshot["tables"]:  # parents first
+                columns = entry["columns"]
+                names = ", ".join(ops.quote_name(column) for column in columns)
+                marks = ", ".join(["%s"] * len(columns))
+                sql = f"INSERT INTO {ops.quote_name(entry['table'])} ({names}) VALUES ({marks})"  # noqa: S608
+                for row in entry["rows"]:
+                    cursor.execute(sql, [_decode_value(value) for value in row])
+            self._restore_generators(cursor, current)
+
+    def _restore_generators(self, cursor: Any, tables: list[tuple[str, Any]]) -> None:
+        """Set each table's generator to its largest id (0 for an empty table); the next value is then above it.
+
+        Only a table with an automatic key has a generator (schema.py creates it), so the others are skipped, as the
+        flush skips them.
+        """
+        ops = self.connection.ops
+        generators = ops._generator_names()
+        for name, model in tables:
+            sequence_name = ops.get_sequence_name(name)
+            if sequence_name not in generators:
+                continue
+            pk_column = ops.quote_name(model._meta.pk.column)
+            cursor.execute(f"SELECT MAX({pk_column}) FROM {ops.quote_name(name)}")  # noqa: S608 (quoted names)
+            top = int(cursor.fetchone()[0] or 0)
+            cursor.execute(f"ALTER SEQUENCE {sequence_name} RESTART WITH {top}")  # noqa: S608 (quoted name)
+
 
     def sql_for_inline_foreign_key_references(self, model, field, known_models, style):
         # Always pending

@@ -72,6 +72,27 @@ def test_start_uses_reason_template_before_default(hired: Employee, actor: User,
 
 
 @pytest.mark.django_db
+def test_template_for_reason_then_default() -> None:
+    # Same three lookups as the Firebird scenario test_template_for_reason_on_firebird.
+    resigned = ChecklistTemplate.objects.create(
+        kind=ChecklistKind.OFFBOARDING, name="Өөрөө гарсан", reasons=["resigned"], active=True
+    )
+    assert lifecycle.template_for("offboarding", "resigned") == resigned
+    assert lifecycle.template_for("offboarding", "retired") == _starter()
+    assert lifecycle.template_for("offboarding", None) == _starter()
+
+
+@pytest.mark.django_db
+def test_template_for_reason_takes_first_active_by_pk_and_ignores_inactive() -> None:
+    first = ChecklistTemplate.objects.create(kind=ChecklistKind.OFFBOARDING, name="Нэг", reasons=["moved"], active=True)
+    ChecklistTemplate.objects.create(kind=ChecklistKind.OFFBOARDING, name="Хоёр", reasons=["moved"], active=True)
+    ChecklistTemplate.objects.create(kind=ChecklistKind.OFFBOARDING, name="Идэвхгүй", reasons=["retired"], active=False)
+    # Two active templates list "moved": the lower pk wins. The inactive one lists "retired" and is never used.
+    assert lifecycle.template_for("offboarding", "moved") == first
+    assert lifecycle.template_for("offboarding", "retired") == _starter()
+
+
+@pytest.mark.django_db
 def test_start_again_moves_open_due_dates_keeps_done(hired: Employee, actor: User) -> None:
     first = lifecycle.start(hired, ChecklistKind.OFFBOARDING, reason=None, anchor_day=LAST_DAY, by=actor)
     assert first is not None

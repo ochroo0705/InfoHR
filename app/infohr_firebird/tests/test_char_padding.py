@@ -43,7 +43,9 @@ print("RESULT " + json.dumps({
 
 
 def test_orm_read_trims_char_padding_and_filter_still_matches(migrated_clone: str) -> None:
-    """A CHAR status read through the ORM comes back as 'active'; an ORM filter on 'active' still matches the padded row.
+    """A CHAR status read through the ORM comes back as 'active'.
+
+    An ORM filter on 'active' still matches the padded row.
 
     The raw cursor is checked too: the converter must not change raw results. Only the ORM path is trimmed.
     Assertions on ``raw_status`` expect the padded value (Firebird CHAR pads to the declared length).

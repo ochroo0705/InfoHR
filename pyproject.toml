@@ -44,4 +44,5 @@ testpaths = ["app"]
 python_files = ["tests.py", "test_*.py", "tests_*.py"]
 markers = [
     "real_daily_sync: keep the request-time DailySyncMiddleware sync on (employees tests turn it off by default)",
+    "pg_only(reason): the test checks something only PostgreSQL has; skipped on Firebird with the reason (the reason is required)",
 ]

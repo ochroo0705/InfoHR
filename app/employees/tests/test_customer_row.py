@@ -6,8 +6,10 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.db import connection
+from macs.dialect import is_firebird
 from macs.models import City, District
 
+from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.services import personal_writes as pw
 
@@ -23,9 +25,16 @@ SELECT_ROWS = (
 
 
 def _rows(employee: Any) -> list[dict[str, Any]]:
+    # MACS CHAR columns and the MACS trigger TR_EMPCUST pad with spaces; trailing spaces are dropped here (rtrim only).
     with connection.cursor() as c:
         c.execute(SELECT_ROWS, [employee.pk])
-        return [dict(zip(COLUMNS, row, strict=True)) for row in c.fetchall()]
+        return [
+            {
+                name: value.rstrip(" ") if isinstance(value, str) else value
+                for name, value in zip(COLUMNS, row, strict=True)
+            }
+            for row in c.fetchall()
+        ]
 
 
 def _drop_rows(employee: Any) -> None:
@@ -55,7 +64,12 @@ def test_hire_creates_customer_row(actor: User) -> None:
     employee = _create(actor, passport_no="AB123")
     [row] = _rows(employee)
     assert row["description"] == "Сараа.Б"
-    assert row["code"] == employee.code
+    if is_firebird():
+        # T-044: on Firebird the MACS trigger TR_EMPCUST writes EMPLOYEE.ecode (the account number, not the empno)
+        # into the customer code, and the trigger's value stands. PostgreSQL has no such trigger: it keeps empno.
+        assert row["code"] == Employee.objects.get(pk=employee.pk).account_no
+    else:
+        assert row["code"] == employee.code
     assert row["passport"] == "AB123"
     assert row["register"] == "УБ99112233"
     assert row["employee"] == "yes"

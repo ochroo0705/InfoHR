@@ -256,11 +256,15 @@ def test_gate_locks_the_matching_rows(position: Position, branch: Branch, actor:
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
 
+    from macs import dialect
+
     _switch()
     _row(position, branch, 2)
     with CaptureQueriesContext(connection) as queries:
         _gate(position, branch, actor)
-    assert any("FOR UPDATE" in q["sql"] and '"nazg"' in q["sql"] for q in queries)
+    # The backend's own lock clause and table name: FOR UPDATE and "nazg" on PostgreSQL, WITH LOCK and NAZG on Firebird.
+    table = connection.ops.quote_name(NazgRow._meta.db_table)
+    assert any(dialect.lock_suffix().strip() in q["sql"] and table in q["sql"] for q in queries)
 
 
 def test_permissions_are_declared_and_defaulted() -> None:

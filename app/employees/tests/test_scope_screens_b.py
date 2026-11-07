@@ -45,7 +45,9 @@ from .test_scope_screens import (  # noqa: F401 (fixtures and helpers shared wit
     people,
     root,
     south,
+    working_day,
 )
+from .test_today import frozen_today  # noqa: F401 (the pinned clock, used by working_day)
 
 pytestmark = pytest.mark.django_db
 
@@ -114,7 +116,7 @@ def _writes_count() -> list[int]:
 def _type_code() -> int:
     """The factory_accident_type row every accident row points to (no model for it)."""
     with connection.cursor() as cursor:
-        cursor.execute("SELECT faccident_type_id FROM factory_accident_type LIMIT 1")
+        cursor.execute("SELECT faccident_type_id FROM factory_accident_type")  # no LIMIT: Firebird has none
         found = cursor.fetchone()
         if found is not None:
             return int(found[0])

@@ -47,7 +47,10 @@ _E_NUMBER = re.compile(r"E([0-9]{4,})")
 def next_code() -> str:
     """Next E-number. Compares the digits as numbers, so E10000 follows E9999. Codes that are not E followed by
     4 or more digits are ignored. The digits are read in Python: Firebird has no regex operator, and a SQL cast
-    of a junk code would fail."""
+    of a junk code would fail.
+
+    Call only while holding `Lock.HIRE` (employees.named_lock): two hires that read the same top code would both
+    take the same number otherwise. This function does not take the lock itself."""
     top = 0
     for code in Employee.objects.filter(code__startswith="E").values_list("code", flat=True):
         match = _E_NUMBER.fullmatch(code or "")

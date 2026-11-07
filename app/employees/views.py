@@ -14,7 +14,7 @@ from config.params import id_param as _id_param
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import DataError, IntegrityError, transaction
-from django.db.models import Q, QuerySet
+from django.db.models import F, QuerySet
 from django.forms.utils import ErrorDict
 from django.http import (
     FileResponse,
@@ -32,6 +32,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.vary import vary_on_headers
 from leave import access as leave_access
 from leave.services import ledger as leave_ledger
+from macs.dialect import search_match
 from macs.models import Absence, Command
 from reports.registry import can_open
 from reports.staff_list import REPORT as STAFF_LIST
@@ -124,10 +125,9 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     qs = access.visible_employees(_user(request)).filter(ext__isnull=False)  # only people HR has touched
     q = request.GET.get("q", "").strip()
     if q:
-        match = Q(family_name__icontains=q) | Q(given_name__icontains=q) | Q(code__icontains=q)
-        match |= Q(work_phone__icontains=q)
+        match = search_match(q, "family_name", "given_name", "code", "work_phone", icase=True)
         if _user(request).has_perm("macs.view_personal"):  # the register number is personal data
-            match |= Q(register_no__icontains=q)
+            match |= search_match(q, "register_no", icase=True)
         qs = qs.filter(match)
     today = timezone.localdate()
     rows = employee_rows(qs, today)
@@ -402,9 +402,12 @@ ORDER_WARNING_KEY = "order_warning"  # session: MACS number clash, shown once on
 
 def order_rows(employee: Employee) -> list[dict[str, Any]]:
     """Our orders (newest first) plus MACS's own command rows (read-only, state «MACS»)."""
-    ours = list(employee.hr_orders.select_related("event").order_by("-date", "-pk"))
+    # An order without a date (waiting for its number) is the newest: NULLs first, as PostgreSQL sorts them
+    # by default. Firebird sorts NULL last on DESC, which would move the hire order and change which row claims it.
+    newest_first = (F("date").desc(nulls_first=True), "-pk")
+    ours = list(employee.hr_orders.select_related("event").order_by(*newest_first))
     taken = {o.command_id for o in ours if o.command_id}
-    legacy = [c for c in Command.objects.filter(employee_id=employee.pk).order_by("-date", "-pk") if c.pk not in taken]
+    legacy = [c for c in Command.objects.filter(employee_id=employee.pk).order_by(*newest_first) if c.pk not in taken]
     links = orders.cancellation_links(ours)
     rows: list[dict[str, Any]] = [{"order": o, "legacy": None, **links[o.pk]} for o in ours]
     rows += [{"order": None, "legacy": c} for c in legacy]
@@ -788,6 +791,21 @@ def employee_add(request: HttpRequest) -> HttpResponse:
         except OrderError as error:  # the hire is rolled back with its order
             if order_form is not None:
                 order_form.add_service_errors(error.errors)
+            return _hire_form(
+                request,
+                person,
+                job,
+                extras,
+                allow_salary,
+                si,
+                address,
+                contact,
+                order_form,
+                status=400,
+                candidate_id=cid,
+            )
+        except HistoryError as error:  # another hire holds the hire lock; the hire is rolled back
+            person.add_error(None, str(error))
             return _hire_form(
                 request,
                 person,

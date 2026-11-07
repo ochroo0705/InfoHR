@@ -223,4 +223,5 @@ def test_leaves_without_a_day_count_read_the_holidays_once(staff: list[Employee]
         found, _ = rows.leaves_page(Employee.objects.all(), offset=0, size=50)
     assert len(found) == 6
     assert [lv.days for lv in found] == [calendar.working_days(lv.start, lv.end) for lv in found]
-    assert sum('FROM "hr_legalholidays"' in q["sql"] for q in queries.captured_queries) == 1
+    holiday_read = "FROM " + connection.ops.quote_name("hr_legalholidays")  # the backend's spelling of the name
+    assert sum(holiday_read in q["sql"] for q in queries.captured_queries) == 1

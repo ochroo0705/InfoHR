@@ -1,5 +1,6 @@
 """Structured old and new values in the activity log for the personal list rows (audit-logs task 12)."""
 
+import re
 from datetime import date
 from typing import Any
 
@@ -26,6 +27,16 @@ TODAY = date(2026, 10, 29)
 
 def _latest(employee: Employee) -> ActivityEntry:
     return ActivityEntry.objects.filter(employee=employee).latest("id")
+
+
+def _list_name(pk: int) -> str:
+    """The stored name of a code-list row. MACS's trigger on Firebird writes list names in upper case, so the
+    expected text is read back from the row rather than written as typed."""
+    return str(FamilyRelation.objects.get(pk=pk).name)
+
+
+def _mentions(sql: str, table: str) -> bool:
+    return re.search(rf"(?<!\w){re.escape(connection.ops.quote_name(table))}(?!\w)", sql) is not None
 
 
 def _header(entry: ActivityEntry) -> str:
@@ -89,14 +100,16 @@ def test_changed_list_name_costs_one_query_per_list(hired: Employee, lists: dict
     assert loaded is not None
     with CaptureQueriesContext(connection) as changed:
         pw.update("family", hired, key, loaded, {"relation_id": other}, {}, actor)
-    assert _latest(hired).changes == [{"field": "Хамаарал", "old": "Эцэг", "new": "Ээж"}]
+    assert _latest(hired).changes == [
+        {"field": "Хамаарал", "old": _list_name(lists["relation"].pk), "new": _list_name(other)}
+    ]
     loaded = pw.load("family", hired, key)
     assert loaded is not None
     with CaptureQueriesContext(connection) as unchanged:
         pw.update("family", hired, key, loaded, {"given_name": "Дорж"}, {}, actor)
-    list_queries = [q for q in changed.captured_queries if "family_members" in q["sql"]]
+    list_queries = [q for q in changed.captured_queries if _mentions(q["sql"], "family_members")]
     assert len(list_queries) == 1
-    assert not [q for q in unchanged.captured_queries if "family_members" in q["sql"]]
+    assert not [q for q in unchanged.captured_queries if _mentions(q["sql"], "family_members")]
     assert len(changed.captured_queries) - len(unchanged.captured_queries) <= 1
 
 
@@ -107,7 +120,7 @@ def test_family_add_logs_the_entered_name_as_new(client: Client, hired: Employee
     assert entry.message == "Гэр бүл: нэмсэн — Дорж"
     assert entry.kind == ActivityKind.ADDED and entry.personal is True
     assert {"field": "Нэр", "old": "", "new": "Дорж"} in entry.changes
-    assert {"field": "Хамаарал", "old": "", "new": "Эцэг"} in entry.changes  # the list name, not the id
+    assert {"field": "Хамаарал", "old": "", "new": _list_name(lists["relation"].pk)} in entry.changes  # name, not id
 
 
 def test_talent_add_logs_the_talent_name(client: Client, hired: Employee, lists: dict[str, Any]) -> None:

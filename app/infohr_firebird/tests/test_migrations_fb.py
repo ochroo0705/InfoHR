@@ -8,8 +8,6 @@ test_settings_seam.py, so config.settings is read fresh with the environment eac
 
 import os
 import shutil
-import subprocess
-import sys
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -17,8 +15,9 @@ from pathlib import Path
 import pytest
 
 from infohr_firebird.reserved import RESERVED_WORDS
+from infohr_firebird.testdb import run_manage
 from infohr_firebird.tests.copies import remove_copy
-from infohr_firebird.tests.test_settings_seam import FIREBIRD_PATH, POSTGRES_URL, SEAM_VARS, result_of, run_django
+from infohr_firebird.tests.test_settings_seam import FIREBIRD_PATH, POSTGRES_URL, result_of, run_django
 
 APP_DIR = Path(__file__).resolve().parents[2]  # <repo>/app
 WORK_DIR = APP_DIR.parent / "db" / "work"  # scratch copies live here (git-ignored), never in the template's place
@@ -128,21 +127,6 @@ print("RESULT " + json.dumps({
 """
 
 
-def run_manage(args: list[str], **overrides: str) -> subprocess.CompletedProcess[str]:
-    """Run manage.py in a fresh interpreter with the seam variables cleared, then set the overrides."""
-    env = {key: value for key, value in os.environ.items() if key not in SEAM_VARS}
-    env.update({"DJANGO_SETTINGS_MODULE": "config.settings", "PYTHONPATH": str(APP_DIR)})
-    env.update(overrides)
-    return subprocess.run(  # noqa: S603 (fixed argv, our own script)
-        [sys.executable, "-B", str(APP_DIR / "manage.py"), *args],
-        env=env,
-        cwd=str(APP_DIR),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
 @pytest.fixture
 def work_copy() -> Iterator[str]:
     """Copy the Firebird template into a folder under db/work and yield the copy's path.
@@ -181,12 +165,18 @@ SECOND_MIGRATIONS = {"employees": "0002_history_overlap_guard", "checklists": "0
 # employees and checklists already have a second migration, so their seed is the third.
 SEED_MIGRATIONS = {app: "0002_seed" for app in ("accounts", "lists", "leave", "recruitment", "reports", "assistant")}
 SEED_MIGRATIONS.update({app: "0003_seed" for app in ("employees", "checklists")})
+# The change_text column of the two log tables (plan 5, task 5b), added after the seed migrations.
+CHANGE_TEXT_MIGRATIONS = {"employees": "0004_activityentry_change_text", "accounts": "0003_systemlogentry_change_text"}
+# The SavedView visibility, default flag and longer query (reports part 1, task 8), added after the seed.
+VISIBILITY_MIGRATIONS = {"reports": "0003_savedview_visibility_default"}
 
 
 def _expected_names(app: str) -> list[str]:
     second = [SECOND_MIGRATIONS[app]] if app in SECOND_MIGRATIONS else []
     seed = [SEED_MIGRATIONS[app]] if app in SEED_MIGRATIONS else []
-    return ["0001_initial", *second, *seed]
+    change_text = [CHANGE_TEXT_MIGRATIONS[app]] if app in CHANGE_TEXT_MIGRATIONS else []
+    visibility = [VISIBILITY_MIGRATIONS[app]] if app in VISIBILITY_MIGRATIONS else []
+    return ["0001_initial", *second, *seed, *change_text, *visibility]
 
 
 def test_every_firebird_app_has_a_real_initial_set() -> None:
@@ -198,10 +188,15 @@ def test_every_firebird_app_has_a_real_initial_set() -> None:
 
 
 def test_firebird_sets_have_the_second_migrations() -> None:
-    for app, name in [*SECOND_MIGRATIONS.items(), *SEED_MIGRATIONS.items()]:
+    for app, name in [*SECOND_MIGRATIONS.items(), *SEED_MIGRATIONS.items(), *CHANGE_TEXT_MIGRATIONS.items()]:
         assert (APP_DIR / app / "migrations_fb" / f"{name}.py").is_file(), (app, name)
     data = result_of(run_django(LOAD_CODE, DB_ENGINE="firebird", FIREBIRD_NAME=FIREBIRD_PATH))
-    assert data["names"]["employees"] == ["0001_initial", "0002_history_overlap_guard", "0003_seed"]
+    assert data["names"]["employees"] == [
+        "0001_initial",
+        "0002_history_overlap_guard",
+        "0003_seed",
+        "0004_activityentry_change_text",
+    ]
     assert data["names"]["checklists"] == ["0001_initial", "0002_emulated_unique", "0003_seed"]
     assert data["names"]["assistant"] == ["0001_initial", "0002_seed"]
     assert data["names"]["leave"] == ["0001_initial", "0002_seed"]

@@ -51,6 +51,11 @@ def _overlapping_later_salary(employee: Employee) -> None:
     )
 
 
+@pytest.mark.pg_only(
+    "the test writes an overlapping row on purpose. The Firebird overlap triggers (IHR_JOB_OVERLAP, "
+    "IHR_SAL_OVERLAP) refuse that row on insert, so the premise cannot be set up on Firebird; the triggers are tested "
+    "in app/infohr_firebird/tests/test_history_trigger.py"
+)
 def test_history_writers_call_the_guard(hired: Employee, actor: User, job_values: dict[str, Any]) -> None:
     _overlapping_later_job(hired, job_values)
     _overlapping_later_salary(hired)

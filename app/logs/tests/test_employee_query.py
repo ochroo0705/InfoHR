@@ -7,13 +7,13 @@ from zoneinfo import ZoneInfo
 import pytest
 from accounts.models import User
 from django.contrib.auth.models import Group
-from django.db import connection
 from django.http import QueryDict
 from employees import access
 from employees.models import ActivityEntry, ActivityKind, Employee, ensure_ext
 from employees.services import history, macs_writes
 
 from logs.employee_query import AREAS, EmployeeLogFilter, filtered, page, parse_filter, visible_entries
+from logs.foldtext import backfill, fold
 from logs.params import parse_date, parse_id, words
 
 pytestmark = pytest.mark.django_db
@@ -80,12 +80,9 @@ def _entry(employee: Employee, message: str, **fields: Any) -> ActivityEntry:
 
 
 def _set_at(entry: ActivityEntry, when: datetime) -> None:
-    # The log is append-only in the ORM (AppendOnlyQuerySet.update raises), so the test moves the timestamp in SQL.
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f'UPDATE "{ActivityEntry._meta.db_table}" SET "at_time" = %s WHERE id = %s',  # noqa: S608
-            [when, entry.pk],
-        )
+    # The log is append-only in the ORM (AppendOnlyQuerySet.update raises), so the test moves the timestamp through
+    # the plain base manager, as logs.foldtext.backfill does.
+    ActivityEntry._base_manager.filter(pk=entry.pk).update(at=when)
 
 
 @dataclass
@@ -186,6 +183,18 @@ def test_field_filter_exact(world: World) -> None:
     rows = filtered(world.admin, EmployeeLogFilter(field="Хаяг"))
     assert [e.message for e in rows] == ["Хаяг өөрчлөгдсөн"]
     assert not list(filtered(world.admin, EmployeeLogFilter(field="Хаяг орон")))
+
+
+def test_field_filter_matches_exact_label(world: World) -> None:
+    quoted = 'Тэмдэг"т\\'  # a label with a double quote and a backslash must match itself
+    _entry(world.other, "Нэмэгдэл авсан", changes=[{"field": "Цалингийн нэмэгдэл", "old": "", "new": "1"}])
+    _entry(world.other, "Тэмдэгт", changes=[{"field": quoted, "old": "", "new": "1"}])
+    # Only the salary entry of the fixture has the field "Цалин": "Цалингийн нэмэгдэл" is not a prefix match
+    assert [e.message for e in filtered(world.admin, EmployeeLogFilter(field="Цалин"))] == ["Цалин өөрчлөгдсөн"]
+    assert [e.message for e in filtered(world.admin, EmployeeLogFilter(field="Цалингийн нэмэгдэл"))] == [
+        "Нэмэгдэл авсан"
+    ]
+    assert [e.message for e in filtered(world.admin, EmployeeLogFilter(field=quoted))] == ["Тэмдэгт"]
 
 
 def test_date_range_inclusive(world: World) -> None:
@@ -296,3 +305,46 @@ def test_area_filters_stay_inside_drawer(world: World, area: str) -> None:
         for employee in access.visible_employees(user):
             drawer |= _ids(access.visible_activity(user, employee))
         assert _ids(filtered(user, EmployeeLogFilter(area=area))) <= drawer, (user.username, area)
+
+
+def test_new_activity_entry_gets_change_text(actor: User, job_values: dict[str, Any]) -> None:
+    employee = _hire(actor, job_values, "УБ99110010", "Батын", "Дорж")
+    entry = _entry(employee, "Цалин өөрчлөгдсөн", changes=[{"field": "Цалин", "old": None, "new": 2000000}])
+    assert ActivityEntry.objects.get(pk=entry.pk).change_text == "цалин 2000000"
+
+
+def test_backfill_fills_old_rows(actor: User, job_values: dict[str, Any]) -> None:
+    employee = _hire(actor, job_values, "УБ99110011", "Батын", "Мөнх")
+    entry = _entry(employee, "Хаяг өөрчлөгдсөн", changes=[{"field": "Хаяг", "old": "Сүхбаатар", "new": "Баянзүрх"}])
+    # a row written before the column existed: blank text, changes kept
+    ActivityEntry._base_manager.filter(pk=entry.pk).update(change_text="")
+    assert backfill(ActivityEntry) == 1
+    refreshed = ActivityEntry.objects.get(pk=entry.pk)
+    assert refreshed.change_text == "хаяг сухбаатар баянзурх"
+    assert refreshed.changes == [{"field": "Хаяг", "old": "Сүхбаатар", "new": "Баянзүрх"}]
+
+
+def test_search_matches_old_and_new_values_case_insensitively(world: World) -> None:
+    for word in ["сүхбаатар", "СҮХБААТАР", "баянзүрх", "БАЯНЗҮРХ", "баянзурх"]:
+        assert [e.message for e in filtered(world.admin, EmployeeLogFilter(q=word))] == ["Хаяг өөрчлөгдсөн"], word
+
+
+def test_backfilled_row_is_found_by_search(world: World, actor: User, job_values: dict[str, Any]) -> None:
+    employee = _hire(actor, job_values, "УБ99110012", "Батын", "Энх")
+    entry = _entry(employee, "Гэр солигдсон", changes=[{"field": "Хаяг", "old": "Чингэлтэй", "new": "Налайх"}])
+    # a row written before the column existed: blank text, changes kept
+    ActivityEntry._base_manager.filter(pk=entry.pk).update(change_text="")
+    assert [e.message for e in filtered(world.admin, EmployeeLogFilter(q="чингэлтэй"))] == []
+    assert backfill(ActivityEntry) == 1
+    assert [e.message for e in filtered(world.admin, EmployeeLogFilter(q="чингэлтэй"))] == ["Гэр солигдсон"]
+    assert [e.message for e in filtered(world.admin, EmployeeLogFilter(q="налайх"))] == ["Гэр солигдсон"]
+
+
+def test_a_search_term_longer_than_the_columns_finds_nothing(world: World) -> None:
+    # words() cuts each word to 100 characters, so a 300-character term is still longer than the short columns
+    # (names, code); on Firebird that raised -303 before the operand was bound with a cast
+    long = "ж" * 300
+    for f in (EmployeeLogFilter(emp=long), EmployeeLogFilter(by=long), EmployeeLogFilter(q=long)):
+        assert list(filtered(world.admin, f)) == []
+    # the stored change text is a blob column: a 5000-character term is matched without an error
+    assert not ActivityEntry.objects.filter(change_text__contains=fold("ж" * 5000)).exists()

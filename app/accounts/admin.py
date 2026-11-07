@@ -51,14 +51,28 @@ class UserPermissionCheckboxes(GroupedCheckboxes):
         return context
 
 
+def _card_app_label(permission: Permission) -> str:
+    # The employee switches sit on the production table model (macs.Employee), so they show under Ажилтан.
+    app_label = permission.content_type.app_label
+    return {"macs": "employees"}.get(app_label, app_label)
+
+
+# The order of the module cards after the Switches card. Fixed here, because the database's content type ids
+# (which the permission rows arrive in) differ between databases: the Firebird template orders them otherwise.
+CARD_ORDER = ("accounts", "employees", "checklists", "leave", "lists", "recruitment", "reports")
+
+
 def permission_group(permission: Permission) -> str:
     """Card title: one card per module (app). The accounts app holds the cross-module switches."""
-    app_label = permission.content_type.app_label
+    app_label = _card_app_label(permission)
     if app_label == "accounts":
         return _("Switches")
-    # The employee switches sit on the production table model (macs.Employee), so they show under Ажилтан.
-    app_label = {"macs": "employees"}.get(app_label, app_label)
     return str(apps.get_app_config(app_label).verbose_name)
+
+
+def _card_rank(permission: Permission) -> int:
+    app_label = _card_app_label(permission)
+    return CARD_ORDER.index(app_label) if app_label in CARD_ORDER else len(CARD_ORDER)
 
 
 def is_default_permission(permission: Permission) -> bool:
@@ -93,7 +107,7 @@ class PermissionField(forms.ModelMultipleChoiceField):  # type: ignore[type-arg]
 
     def _get_grouped_choices(self) -> list[tuple[str, list[tuple[int, str]]]]:
         grouped: dict[str, list[tuple[int, str]]] = {_("Switches"): []}
-        for permission in self.queryset or []:
+        for permission in sorted(self.queryset or [], key=_card_rank):  # stable: keeps the order inside a card
             grouped.setdefault(permission_group(permission), []).append((permission.pk, permission_label(permission)))
         return [(group, options) for group, options in grouped.items() if options]
 

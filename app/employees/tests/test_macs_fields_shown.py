@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.contrib.auth.models import Permission
+from django.db import connection
 from django.test import Client
 from macs.models import AcademicDegree, Branch, EducationLevel
 
@@ -239,6 +240,22 @@ def test_unrelated_save_on_legacy_row_without_code_does_not_demand_one(client: C
     assert row.foreign_emp is None
 
 
+def _stored(employee: Employee, names: list[str]) -> dict[str, Any]:
+    """The values as the database holds them. The ORM trims trailing spaces on text read (T-041), so a legacy
+    value such as 'A1   ' is checked here by a raw read, which returns it unchanged on both databases."""
+    columns: list[str] = []
+    for name in names:
+        field: Any = Employee._meta.get_field(name)
+        columns.append(field.column)
+    with connection.cursor() as c:
+        c.execute(
+            f"select {', '.join(columns)} from {Employee._meta.db_table} where {Employee._meta.pk.column} = %s",  # noqa: S608 (identifiers come from model metadata, not user input)
+            [employee.pk],
+        )
+        row = c.fetchone()
+    return dict(zip(names, row, strict=True))
+
+
 @pytest.mark.parametrize(
     "columns",
     [
@@ -259,4 +276,4 @@ def test_unusual_legacy_values_survive_an_unrelated_save(
     assert response.status_code == 303, response.context["form"].errors
     after = Employee.objects.get(pk=emp.pk)
     assert after.work_phone == "99112233"
-    assert {name: getattr(after, name) for name in columns} == columns
+    assert _stored(emp, list(columns)) == columns

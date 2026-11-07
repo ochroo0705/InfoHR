@@ -1,5 +1,6 @@
 """The order register and the «Түүх» activity drawer load in batches (config/batching.py)."""
 
+import re
 from datetime import date
 from typing import Any
 from urllib.parse import parse_qs
@@ -165,7 +166,12 @@ def test_register_page_reads_only_a_batch_from_the_database(hr: Client, hired: E
     with CaptureQueriesContext(connection) as queries:
         rows, more = order_register.register_page(user, **_filters(), offset=0, size=3)
     assert len(rows) == 3 and more
-    assert all(
-        "LIMIT 4" in q["sql"] for q in queries.captured_queries if '"hrorder"' in q["sql"] or '"command"' in q["sql"]
-    )
-    assert any('"command"' in q["sql"] for q in queries.captured_queries)
+    # The batch limit is written in the active dialect (LIMIT on PostgreSQL, FETCH FIRST on Firebird).
+    limit = connection.ops.limit_offset_sql(0, 4).strip()
+    batch_sql = [q["sql"] for q in queries.captured_queries if _mentions(q["sql"], "hrorder", "command")]
+    assert batch_sql and all(limit in sql for sql in batch_sql)
+    assert any(_mentions(sql, "command") for sql in batch_sql)
+
+
+def _mentions(sql: str, *tables: str) -> bool:
+    return any(re.search(rf"(?<!\w){re.escape(connection.ops.quote_name(t))}(?!\w)", sql) for t in tables)

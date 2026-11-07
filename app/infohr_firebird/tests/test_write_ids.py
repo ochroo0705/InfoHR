@@ -292,14 +292,6 @@ def test_orm_inserts_never_reach_last_insert_id(written: dict[str, Any]) -> None
     assert written["last_insert_id_calls"] == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "orders._validate runs SELECT pg_advisory_xact_lock(...), a PostgreSQL-only function, so registering an "
-        "order (create_for_change / register) fails on Firebird before any MACS row is written. Needs a Firebird "
-        "lock (for example a lock row) chosen by the user; strict so the marker is removed when it is fixed."
-    ),
-)
 def test_order_registration_runs_on_firebird(written: dict[str, Any]) -> None:
     assert written["order_registration_error"] is None, written["order_registration_error"]
 

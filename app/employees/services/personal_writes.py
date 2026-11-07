@@ -185,7 +185,9 @@ def _talent_row(employee: Employee, talent_ident: Any, *, lock: bool) -> tuple[A
 
 
 def _conflict(exc: Exception) -> PersonalConflict:
-    text = str(exc)
+    # Firebird reports an unquoted index name in upper case (EMP_TALENTS_IDX1, UNQ1_GIVEN_PRESENT);
+    # PostgreSQL reports the lower-case name it was created with. Matching on the lower-cased text makes both match.
+    text = str(exc).lower()
     for constraint, message in _DUPLICATE_CONSTRAINTS.items():
         if constraint in text:
             return PersonalConflict(message)

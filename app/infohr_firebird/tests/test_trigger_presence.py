@@ -66,6 +66,56 @@ except MacsTriggerMissing:
 print("RESULT " + json.dumps({"missing": missing("MOVEMENT"), "raised": raised}))
 """
 
+# Requires EMPLOYEE_HISTORY on a copy whose EMPLOYEE_HISTORY_BD0 is inactive from the start (R9d: no test covered it).
+HISTORY_CODE = """
+import json
+import django
+django.setup()
+from django.db import connection
+from macs.triggers import MacsTriggerMissing, require
+with connection.cursor() as cursor:
+    cursor.execute("ALTER TRIGGER EMPLOYEE_HISTORY_BD0 INACTIVE")
+raised = False
+message = ""
+try:
+    require("EMPLOYEE_HISTORY")
+except MacsTriggerMissing as error:
+    raised = True
+    message = str(error)
+print("RESULT " + json.dumps({"raised": raised, "message": message}))
+"""
+
+# Requires MOVEMENT at clock 1000, deactivates MOVEMENT_AI0, then steps a fake time.monotonic clock:
+# - still inside RECHECK_SECONDS the cached positive result applies, so require() stays silent;
+# - after RECHECK_SECONDS the triggers are checked again and require() raises, naming the trigger.
+RECHECK_CODE = """
+import json
+import time
+import django
+django.setup()
+from django.db import connection
+from macs.triggers import MacsTriggerMissing, RECHECK_SECONDS, require
+clock = [1000.0]
+time.monotonic = lambda: clock[0]
+require("MOVEMENT")
+with connection.cursor() as cursor:
+    cursor.execute("ALTER TRIGGER MOVEMENT_AI0 INACTIVE")
+within_window_raised = False
+try:
+    require("MOVEMENT")
+except MacsTriggerMissing:
+    within_window_raised = True
+clock[0] += RECHECK_SECONDS + 1
+raised = False
+message = ""
+try:
+    require("MOVEMENT")
+except MacsTriggerMissing as error:
+    raised = True
+    message = str(error)
+print("RESULT " + json.dumps({"within_window_raised": within_window_raised, "raised": raised, "message": message}))
+"""
+
 E011_CODE = """
 import json
 import django
@@ -103,6 +153,19 @@ def test_deactivated_trigger_is_reported_and_require_refuses(fb_clone: str) -> N
 
     again = result_of(run_django(AFTER_RESTART_CODE, DB_ENGINE="firebird", FIREBIRD_NAME=fb_clone))
     assert again == {"missing": ["MOVEMENT_AI0"], "raised": True}
+
+
+def test_require_refuses_when_employee_history_bd0_is_inactive(fb_clone: str) -> None:
+    data = result_of(run_django(HISTORY_CODE, DB_ENGINE="firebird", FIREBIRD_NAME=fb_clone))
+    assert data["raised"] is True
+    assert "EMPLOYEE_HISTORY_BD0" in data["message"]
+
+
+def test_a_trigger_switched_off_after_the_first_write_is_noticed(fb_clone: str) -> None:
+    data = result_of(run_django(RECHECK_CODE, DB_ENGINE="firebird", FIREBIRD_NAME=fb_clone))
+    assert data["within_window_raised"] is False
+    assert data["raised"] is True
+    assert "MOVEMENT_AI0" in data["message"]
 
 
 def test_system_check_e011_is_silent_when_triggers_are_present(migrated_clone: str) -> None:

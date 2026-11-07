@@ -1,8 +1,8 @@
 """The system log (audit trail) query layer for the system-log page (/logs/system/, Admin only).
 
 Every filter runs in SQL. The rows keep the actor's username in `actor_name`, so an entry still says who did it
-after that user is deleted. The `q` search matches the message and the VALUES of the changes (never JSON key names),
-using the same `ChangeValues` expression as the employee log.
+after that user is deleted. The `q` search matches the message and the values of the changes (never JSON key names),
+through the folded `change_text` column that both log tables keep (see `logs.foldtext`).
 
 URL names read by `parse_system_filter`: q, category (repeatable), action, by, target, ip, from, to (YYYY-MM-DD),
 oldest=1 (oldest first). Every value that does not parse is dropped.
@@ -15,10 +15,12 @@ from datetime import date
 
 from accounts.audit import ACTIONS, Category
 from accounts.models import SystemLogEntry
-from django.db.models import F, Q, QuerySet, TextField
+from django.db.models import Q, QuerySet
 from django.http import QueryDict
+from macs.dialect import search_match
 
-from logs.employee_query import PAGE_MAX_OFFSET, PAGE_MAX_SIZE, ChangeValues
+from logs.employee_query import PAGE_MAX_OFFSET, PAGE_MAX_SIZE
+from logs.foldtext import fold
 from logs.params import clean_text, parse_date, words
 
 CATEGORIES_LIMIT = 10  # category filters kept from the URL (there are four categories)
@@ -73,20 +75,14 @@ def filtered(f: SystemLogFilter) -> QuerySet[SystemLogEntry]:
         entries = entries.filter(category__in=f.categories)
     if f.action:
         entries = entries.filter(action=f.action)
-    search = words(f.q)
-    if search:
-        entries = entries.annotate(change_values=ChangeValues(F("changes"), output_field=TextField()))
-    for word in search:
-        entries = entries.filter(Q(message__icontains=word) | Q(change_values__icontains=word))
+    for word in words(f.q):  # the message is matched as typed; the changed values through their folded copy
+        entries = entries.filter(Q(message__icontains=word) | Q(change_text__contains=fold(word)))
     for word in words(f.by):
         entries = entries.filter(
-            Q(actor_name__icontains=word)
-            | Q(actor__username__icontains=word)
-            | Q(actor__first_name__icontains=word)
-            | Q(actor__last_name__icontains=word)
+            search_match(word, "actor_name", "actor__username", "actor__first_name", "actor__last_name", icase=True)
         )
     for word in words(f.target):
-        entries = entries.filter(Q(target_label__icontains=word) | Q(target_type__icontains=word))
+        entries = entries.filter(search_match(word, "target_label", "target_type", icase=True))
     if f.ip:
         try:
             entries = entries.filter(ip=str(ipaddress.ip_address(f.ip)))  # a full address: exact match only

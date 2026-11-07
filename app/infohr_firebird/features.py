@@ -37,6 +37,11 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     # In firebird, check constraint are table based, no column based
     supports_column_check_constraints = False
 
+    # Firebird needs a FROM clause in every SELECT. Django's Q.check() (used by CheckConstraint.validate and by
+    # conditional UniqueConstraint.validate) compiles a SELECT with no table; without this suffix that query fails,
+    # and Q.check() reads the failure as a violation (unique) or as a pass (check). See checklists tests.
+    bare_select_suffix = " FROM RDB$DATABASE"
+
     can_introspect_foreign_keys = True
     can_introspect_small_integer_field = True
 

@@ -138,11 +138,19 @@ def test_same_number_next_year_ok(hired: Employee, actor: User, lead: Position) 
     assert reg(hire_order, actor, "А/54", date(2027, 1, 1)).state == OrderState.REGISTERED
 
 
-def test_register_number_race_is_serialised(hired: Employee, actor: User, lead: Position) -> None:
-    first, hire_order = two_orders(hired, actor, lead)
+@pytest.mark.pg_only(
+    "checks the PostgreSQL advisory-lock SQL; the Firebird lock is in infohr_firebird/tests/test_named_lock_firebird.py"
+)
+def test_register_number_race_takes_the_advisory_lock(hired: Employee, actor: User, lead: Position) -> None:
+    first, _hire_order = two_orders(hired, actor, lead)
     with CaptureQueriesContext(connection) as ctx:
         reg(first, actor, "А/7")
     assert any("pg_advisory_xact_lock" in q["sql"] for q in ctx.captured_queries)
+
+
+def test_register_number_race_is_serialised(hired: Employee, actor: User, lead: Position) -> None:
+    first, hire_order = two_orders(hired, actor, lead)
+    reg(first, actor, "А/7")
     with pytest.raises(OrderError):
         reg(hire_order, actor, "А/7")
     assert HrOrder.objects.filter(number_key="а/7").count() == 1

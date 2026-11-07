@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from logs import foldtext
 
 if TYPE_CHECKING:
     from macs.models import Employee
@@ -91,6 +92,7 @@ class SystemLogEntry(models.Model):
     target_label = models.CharField("Объект", max_length=200, blank=True)
     message = models.TextField("Мессеж", blank=True)
     changes = models.JSONField("Өөрчлөлтүүд", default=list, blank=True)  # [{"field", "old", "new"}]
+    change_text = models.TextField(blank=True, default="", editable=False)  # folded copy of changes, for search
     ip = models.GenericIPAddressField("IP хаяг", null=True, blank=True)
 
     objects = AppendOnlyLogQuerySet.as_manager()
@@ -112,6 +114,7 @@ class SystemLogEntry(models.Model):
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self.pk is not None:
             raise PermissionError("System log is append-only")
+        self.change_text = foldtext.change_text(self.changes)
         super().save(*args, **kwargs)
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:

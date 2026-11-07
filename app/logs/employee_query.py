@@ -8,16 +8,21 @@ system=1 (only entries made by the system), oldest=1 (oldest first). Every value
 """
 
 import dataclasses
+import json
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from accounts.models import User
-from django.db.models import F, Func, Q, QuerySet, TextField
+from django.db import connections
+from django.db.models import ExpressionWrapper, F, Q, QuerySet, TextField
 from django.http import QueryDict
 from employees import access
 from employees.models import ActivityEntry, ActivityKind
 from employees.scope import restriction
+from macs.dialect import search_match
 
+from logs.foldtext import fold
 from logs.params import clean_text, parse_date, parse_id, words
 
 AREAS = ("salary", "personal", "orders", "notes")
@@ -26,11 +31,17 @@ PAGE_MAX_OFFSET = 2**31 - 1  # offsets are clamped to this (a 32-bit row number;
 PAGE_MAX_SIZE = 500
 
 
-class ChangeValues(Func):
-    """The values of every change (field label, old and new) joined by spaces. No JSON key names and no quotes,
-    so searching `old`, `new`, `field` or `"` never matches on JSON syntax."""
+def with_field(entries: QuerySet[Any], label: str) -> QuerySet[Any]:
+    """The entries whose changes include a field with exactly this label.
 
-    template = "(SELECT string_agg(v #>> '{}', ' ') FROM jsonb_path_query(%(expressions)s, '$[*].*') AS v)"
+    PostgreSQL: a JSON containment test. Firebird: the text `"field": "<label>"` as Django writes it (json.dumps),
+    so a label cannot match inside another label or inside a value. That comparison is case-sensitive, like the JSON
+    test."""
+    if connections[entries.db].vendor == "firebird":
+        fragment = json.dumps({"field": label})[1:-1]
+        stored_text = ExpressionWrapper(F("changes"), output_field=TextField())  # the stored JSON text, read as text
+        return entries.alias(change_json=stored_text).filter(change_json__contains=fragment)
+    return entries.filter(changes__contains=[{"field": label}])
 
 
 TEXT_LIMIT = 500  # characters kept from a free-text field before the word split
@@ -99,19 +110,12 @@ def filtered(user: User, f: EmployeeLogFilter) -> QuerySet[ActivityEntry]:
         entries = entries.filter(employee_id=f.employee)
     for word in words(f.emp):
         entries = entries.filter(
-            Q(employee__family_name__icontains=word)
-            | Q(employee__given_name__icontains=word)
-            | Q(employee__code__icontains=word)
+            search_match(word, "employee__family_name", "employee__given_name", "employee__code", icase=True)
         )
-    search = words(f.q)
-    if search:
-        entries = entries.annotate(change_values=ChangeValues(F("changes"), output_field=TextField()))
-    for word in search:
-        entries = entries.filter(Q(message__icontains=word) | Q(change_values__icontains=word))
+    for word in words(f.q):  # the message is matched as typed; the changed values through their folded copy
+        entries = entries.filter(Q(message__icontains=word) | Q(change_text__contains=fold(word)))
     for word in words(f.by):
-        entries = entries.filter(
-            Q(by__username__icontains=word) | Q(by__first_name__icontains=word) | Q(by__last_name__icontains=word)
-        )
+        entries = entries.filter(search_match(word, "by__username", "by__first_name", "by__last_name", icase=True))
     if f.kinds:
         entries = entries.filter(kind__in=f.kinds)
     if f.area == "salary":
@@ -123,7 +127,7 @@ def filtered(user: User, f: EmployeeLogFilter) -> QuerySet[ActivityEntry]:
     elif f.area == "notes":
         entries = entries.filter(kind=ActivityKind.NOTE)
     if f.field:
-        entries = entries.filter(changes__contains=[{"field": f.field}])
+        entries = with_field(entries, f.field)
     if f.date_from is not None:
         entries = entries.filter(at__date__gte=f.date_from)
     if f.date_to is not None:

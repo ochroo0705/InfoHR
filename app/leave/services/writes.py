@@ -344,13 +344,17 @@ def recount_assigns(days: set[date], by: User) -> int:
     if not days:
         return 0
     changed = 0
-    covering = (
+    # One table per locking statement: Firebird refuses FOR UPDATE on a join. The assign rows are locked first, then
+    # the employees and leave types they point at (the PostgreSQL join lock used to cover those rows too).
+    locked = list(
         LeaveAssign.objects.select_for_update()
         .filter(pk__in=LeaveExt.objects.values("pk"))
         .filter(Q(status=LeaveAssign.APPROVED) | Q(status__isnull=True))
         .filter(date1__lte=max(days), date2__gte=min(days))
-        .select_related("employee", "leave_type")
     )
+    list(Employee.objects.select_for_update().filter(pk__in={row.employee_id for row in locked}))
+    list(LeaveTypeRow.objects.select_for_update().filter(pk__in={row.leave_type_id for row in locked}))
+    covering = LeaveAssign.objects.select_related("employee", "leave_type").filter(pk__in=[row.pk for row in locked])
     for row in covering:
         if not any(row.date1 <= d <= row.date2 for d in days):
             continue

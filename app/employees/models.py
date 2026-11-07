@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db import models
+from logs import foldtext
 from macs.models import Department as Department
 from macs.models import EducRow as EducRow
 from macs.models import Employee as Employee
@@ -623,6 +624,7 @@ class ActivityEntry(models.Model):
     kind = models.CharField("Төрөл", max_length=20, choices=ActivityKind.choices)
     message = models.TextField("Мессеж")
     changes = models.JSONField("Өөрчлөлтүүд", default=list, blank=True)  # [{"field", "old", "new"}]
+    change_text = models.TextField(blank=True, default="", editable=False)  # folded copy of changes, for search
     sensitive = models.BooleanField(
         "Цалингийн мэдээлэл", default=False, db_column="is_sensitive"
     )  # salary data: hidden without view_salary
@@ -645,6 +647,7 @@ class ActivityEntry(models.Model):
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self.pk is not None:
             raise PermissionError("Activity log is append-only")
+        self.change_text = foldtext.change_text(self.changes)
         super().save(*args, **kwargs)
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:

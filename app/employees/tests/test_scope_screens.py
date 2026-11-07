@@ -42,6 +42,10 @@ from employees.services import events, history, macs_writes
 
 from .conftest import hire_values, link_login, named, set_ext
 from .helpers import record_signed
+from .test_today import frozen_today  # noqa: F401 (the pinned clock every test in this file runs on)
+
+# F811: the pinned clock fixture is imported, then requested as a parameter, which is how pytest uses it.
+# ruff: noqa: F811
 
 pytestmark = pytest.mark.django_db
 
@@ -127,6 +131,11 @@ def people(actor: User, job_values: dict[str, Any], north: Branch, south: Branch
 def hr_north(north: Branch, people: tuple[Employee, Employee]) -> Client:
     """An HR user limited to branch north (no employee row of their own)."""
     return _client(_user_in(roles.HR, "hr_north", limit=[north.pk]))
+
+
+@pytest.fixture(autouse=True)
+def working_day(frozen_today: date) -> None:
+    """Pins today to a Wednesday (frozen_today): the leave fixtures need a working day, which a weekend lacks."""
 
 
 @pytest.fixture

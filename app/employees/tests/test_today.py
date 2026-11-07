@@ -49,7 +49,7 @@ def test_today_page_needs_login(client: Client) -> None:
     assert client.get(reverse("employees:today")).status_code == 302
 
 
-def test_today_page_shows_tiles_and_empty_states(client: Client, hired: Employee) -> None:
+def test_today_page_shows_tiles_and_empty_states(client: Client, hired: Employee, frozen_today: date) -> None:
     login_as(client, "HR")
     body = client.get(reverse("employees:today")).content.decode()
     assert 'data-tile="headcount">1<' in body

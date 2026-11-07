@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from accounts.audit import Category, record_safe
 from accounts.models import User
-from django.db import DataError, IntegrityError, connection, transaction
+from django.db import DataError, IntegrityError, transaction
 from django.utils import timezone
 from macs.models import Bank, Department, InsuredCategory, Position
 from openpyxl import Workbook
@@ -19,7 +19,9 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Font
 from openpyxl.worksheet.worksheet import Worksheet
 
+from employees import named_lock
 from employees.models import StaffImportDraft
+from employees.named_lock import Lock, LockBusy
 from employees.services import history, macs_writes, records
 from employees.services.personal_writes import PersonalConflict
 from employees.staff_import.plan import Preview, build_preview
@@ -152,7 +154,8 @@ def _rejected_workbook(headings: list[str], rows: list[ParsedRow]) -> bytes:
     return buffer.getvalue()
 
 
-# Fixed key for the advisory lock that serialises the claim of an import (history.HIRE_LOCK_KEY is 7301).
+# PostgreSQL advisory key of the import claim lock. _claim takes it through named_lock.take(Lock.STAFF_IMPORT),
+# which uses this key on PostgreSQL.
 RUN_LOCK_KEY = 7302
 # A run that started longer ago than this is treated as dead (the process was killed): it no longer blocks a new run.
 STALE_AFTER = timedelta(minutes=30)
@@ -192,11 +195,14 @@ def run_import(draft: StaffImportDraft, *, by: User, allow_salary: bool) -> Staf
 
 def _claim(draft: StaffImportDraft) -> None:
     """Marks the draft "running" if no other import is running. The check and the update share one transaction
-    under an advisory lock, so two runs cannot both pass the check (a double click, or a re-upload of the same file)."""
+    under the STAFF_IMPORT named lock, so two runs cannot both pass the check (a double click, or a re-upload of the
+    same file)."""
     now = timezone.now()
     with transaction.atomic():
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [RUN_LOCK_KEY])
+        try:
+            named_lock.take(Lock.STAFF_IMPORT)
+        except LockBusy as exc:
+            raise DraftBusy("Өөр импорт явагдаж байна.") from exc
         busy = (
             StaffImportDraft.objects.filter(state="running", started_at__gte=now - STALE_AFTER)
             .exclude(pk=draft.pk)

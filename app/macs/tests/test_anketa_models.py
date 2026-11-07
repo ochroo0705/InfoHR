@@ -359,8 +359,9 @@ def test_body_row_roundtrip(employee: Employee) -> None:
     assert row.skin == "Хэвийн"
     assert row.conclusion == "Ажилд тохиромжтой"
     assert row.sign == "Б.Болд"
+    column = connection.ops.quote_name("finally")  # "finally" on PostgreSQL; Firebird dialect 1 reads "..." as a string
     with connection.cursor() as cur:
-        cur.execute('select "finally" from body where body_id = %s', [row.pk])
+        cur.execute(f"select {column} from body where body_id = %s", [row.pk])  # noqa: S608 (column from quote_name)
         assert cur.fetchone() == ("Ажилд тохиромжтой",)
 
 

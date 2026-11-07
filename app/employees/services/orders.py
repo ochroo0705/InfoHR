@@ -5,10 +5,10 @@ from typing import Any
 
 from accounts.models import User
 from django.core.files.uploadedfile import UploadedFile
-from django.db import connection, transaction
+from django.db import transaction
 from macs.models import Command
 
-from employees import history_range
+from employees import history_range, named_lock
 from employees.models import (
     ActivityEntry,
     ActivityKind,
@@ -21,9 +21,11 @@ from employees.models import (
     OrderState,
     OrderType,
 )
+from employees.named_lock import Lock, LockBusy
 from employees.services import macs_writes
 
-# Fixed key for the advisory lock that serialises order-number checks (same pattern as history.HIRE_LOCK_KEY).
+# PostgreSQL advisory key of the order-number lock. _validate takes it through named_lock.take(Lock.ORDER_NUMBER),
+# which uses this key on PostgreSQL.
 ORDER_NUMBER_LOCK_KEY = 7302
 NUMBER_MAX = 10
 SUMMARY_MAX = 50
@@ -207,8 +209,10 @@ def _validate(number: str, date: datetime.date | None, summary: str, issued_by: 
     if errors:
         raise OrderError(errors)
     assert date is not None  # noqa: S101
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [ORDER_NUMBER_LOCK_KEY])
+    try:
+        named_lock.take(Lock.ORDER_NUMBER)
+    except LockBusy as exc:
+        raise OrderError({"number": exc.message}) from exc
     taken = HrOrder.objects.filter(number_key=_key(number), date__year=date.year)
     if pk is not None:
         taken = taken.exclude(pk=pk)

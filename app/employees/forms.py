@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from lists.models import DEATH, MeaningfulEntry
 from lists.quick import mark_addable
+from macs.dialect import is_firebird
 from macs.models import (
     AcademicDegree,
     BirthPlace,
@@ -249,13 +250,26 @@ class EmployeeForm(StyledForm):
         value = normalize_register_no(raw)
         validate_register_no(value)
         # Stored rows may hold unnormalised numbers (e.g. "уб 99112233"): compare normalised to normalised.
-        stored = Employee.objects.annotate(
-            register_norm=Func(Upper(F("register_no")), Value(r"\s+"), Value(""), Value("g"), function="regexp_replace")
-        )
-        clash = stored.filter(register_norm=value)
-        if self.employee is not None:
-            clash = clash.exclude(pk=self.employee.pk)
-        if clash.exists():
+        if is_firebird():
+            # Firebird has no REGEXP_REPLACE, and a space can sit inside the digits, so no SQL substring is certain to
+            # find every stored spelling. Every stored number is read (a short text column, one query) and normalised
+            # here. At a few thousand employees this is a few milliseconds per hire save.
+            others = Employee.objects.exclude(register_no__isnull=True)
+            if self.employee is not None:
+                others = others.exclude(pk=self.employee.pk)
+            clash_found = any(
+                normalize_register_no(stored) == value for stored in others.values_list("register_no", flat=True)
+            )
+        else:
+            clash = Employee.objects.annotate(
+                register_norm=Func(
+                    Upper(F("register_no")), Value(r"\s+"), Value(""), Value("g"), function="regexp_replace"
+                )
+            ).filter(register_norm=value)
+            if self.employee is not None:
+                clash = clash.exclude(pk=self.employee.pk)
+            clash_found = clash.exists()
+        if clash_found:
             raise forms.ValidationError("Энэ регистрийн дугаартай ажилтан аль хэдийн бүртгэлтэй.")
         return value
 

@@ -20,21 +20,10 @@ from django.db import models
 from django.test.utils import isolate_apps
 from pytest_django.fixtures import SettingsWrapper
 
+from infohr_firebird.testdb import SEAM_VARS
+
 APP_DIR = Path(__file__).resolve().parents[2]  # <repo>/app
 PROJECT_TIME_ZONE = "Asia/Ulaanbaatar"
-SEAM_VARS = (
-    "DB_ENGINE",
-    "FIREBIRD_HOST",
-    "FIREBIRD_PORT",
-    "FIREBIRD_NAME",
-    "FIREBIRD_USER",
-    "FIREBIRD_PASSWORD",
-    "DJANGO_HR_TABLE_PREFIX",
-    "DJANGO_DB_NAME",
-    "DATABASE_URL",
-    "FIREBIRD_CLIENT_LIBRARY",
-    "FIREBIRD_DIALECT",
-)
 POSTGRES_URL = "postgres://x:x@127.0.0.1:1/x"  # parsed only; never used for a connection
 FIREBIRD_PATH = str(APP_DIR / "no-such-folder" / "clone.fdb")  # a string only; the folder does not exist
 
@@ -115,6 +104,11 @@ def run_django(code: str, **overrides: str) -> subprocess.CompletedProcess[str]:
     """Run code in a fresh interpreter with the seam variables cleared, then set the overrides."""
     env = {key: value for key, value in os.environ.items() if key not in SEAM_VARS}
     env.update({"DJANGO_SETTINGS_MODULE": "config.settings", "PYTHONPATH": str(APP_DIR)})
+    if os.environ.get("FB_RUNTIME_USER") and overrides.get("DB_ENGINE") == "firebird":
+        # Optional (plan 5 spike): the app connection runs as the limited runtime user. Unset = unchanged.
+        env.update(
+            {"FIREBIRD_USER": os.environ["FB_RUNTIME_USER"], "FIREBIRD_PASSWORD": os.environ.get("FB_RUNTIME_PASSWORD", "")}
+        )
     env.update(overrides)
     return subprocess.run(  # noqa: S603 (fixed argv, our own code string)
         [sys.executable, "-B", "-c", code],

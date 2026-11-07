@@ -8,9 +8,9 @@ import pytest
 from accounts.audit import Category
 from accounts.models import SystemLogEntry, User
 from django.contrib.auth.models import Group
-from django.db import connection
 from django.http import QueryDict
 
+from logs.foldtext import backfill
 from logs.system_query import SystemLogFilter, filtered, parse_system_filter, system_page
 
 pytestmark = pytest.mark.django_db
@@ -37,12 +37,9 @@ def _row(message: str, **fields: Any) -> SystemLogEntry:
 
 
 def _set_at(entry: SystemLogEntry, when: datetime) -> None:
-    # The log is append-only in the ORM (AppendOnlyLogQuerySet.update raises), so the test moves the timestamp in SQL.
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f'UPDATE "{SystemLogEntry._meta.db_table}" SET "at_time" = %s WHERE id = %s',  # noqa: S608
-            [when, entry.pk],
-        )
+    # The log is append-only in the ORM (AppendOnlyLogQuerySet.update raises), so the test moves the timestamp through
+    # the plain base manager, as logs.foldtext.backfill does.
+    SystemLogEntry._base_manager.filter(pk=entry.pk).update(at=when)
 
 
 def _messages(f: SystemLogFilter) -> list[str]:
@@ -177,6 +174,11 @@ def test_search_matches_message_and_change_values(world: dict[str, SystemLogEntr
     assert _messages(SystemLogFilter(q="Сүхбаатар")) == ["Хаяг өөрчлөгдсөн"]  # an old value in changes
 
 
+def test_search_matches_change_values_case_insensitively(world: dict[str, SystemLogEntry]) -> None:
+    for word in ["сүхбаатар", "СҮХБААТАР", "баянзүрх", "БАЯНЗҮРХ"]:
+        assert _messages(SystemLogFilter(q=word)) == ["Хаяг өөрчлөгдсөн"], word
+
+
 @pytest.mark.parametrize("word", ["old", "new", "field", '"'])
 def test_search_never_matches_json_key_names(world: dict[str, SystemLogEntry], word: str) -> None:
     assert _messages(SystemLogFilter(q=word)) == []
@@ -229,3 +231,38 @@ def test_query_count_flat_at_20000_rows(world: dict[str, SystemLogEntry], django
     with django_assert_max_num_queries(6):
         rows, more = system_page(SystemLogFilter(q="жишээ"), 0, 60)
     assert len(rows) == 60 and more is True
+
+
+def test_new_system_log_entry_gets_change_text() -> None:
+    entry = _row("Хэрэглэгч засварласан", changes=[{"field": "Нэр", "old": "Сүхбаатар", "new": None}])
+    assert SystemLogEntry.objects.get(pk=entry.pk).change_text == "нэр сухбаатар"
+
+
+def test_backfill_fills_old_system_rows() -> None:
+    entry = _row("Хэрэглэгч засварласан", changes=[{"field": "Нэр", "old": "Өнөр", "new": "Үнэн"}])
+    # a row written before the column existed: blank text, changes kept
+    SystemLogEntry._base_manager.filter(pk=entry.pk).update(change_text="")
+    assert backfill(SystemLogEntry) == 1
+    refreshed = SystemLogEntry.objects.get(pk=entry.pk)
+    assert refreshed.change_text == "нэр онор унэн"
+    assert refreshed.changes == [{"field": "Нэр", "old": "Өнөр", "new": "Үнэн"}]
+
+
+def test_backfill_skips_changes_that_are_not_a_list_of_dicts() -> None:
+    # Stored values from before the change_text rules: a list with a junk entry, and a value that is not a list.
+    odd = _row("Хэрэглэгч засварласан", changes=[])
+    bad = _row("Хэрэглэгч засварласан", changes=[])
+    SystemLogEntry._base_manager.filter(pk=odd.pk).update(
+        change_text="", changes=["junk", {"field": "Нэр", "new": "Үнэн"}]
+    )
+    SystemLogEntry._base_manager.filter(pk=bad.pk).update(change_text="", changes={"field": "Нэр", "new": "Үнэн"})
+    assert backfill(SystemLogEntry) == 1
+    assert SystemLogEntry.objects.get(pk=odd.pk).change_text == "нэр унэн"
+    assert SystemLogEntry.objects.get(pk=bad.pk).change_text == ""
+
+
+def test_a_search_term_longer_than_the_columns_finds_nothing(world: dict[str, SystemLogEntry]) -> None:
+    # words() cuts each word to 100 characters, which is longer than target_type (60) and the short name columns
+    long = "ж" * 300
+    for f in (SystemLogFilter(by=long), SystemLogFilter(target=long), SystemLogFilter(q=long)):
+        assert _messages(f) == []

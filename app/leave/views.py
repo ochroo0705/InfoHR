@@ -8,7 +8,7 @@ from config import batching
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -19,6 +19,7 @@ from employees import listing
 from employees import palette as employee_palette
 from employees.models import Department, Employee, JobStatus
 from employees.services.macs_writes import ListEntryInUse
+from macs.dialect import search_match
 from macs.models import LeaveAssign, LeaveTypeRow
 
 from leave import access
@@ -111,9 +112,7 @@ def leave_list(request: HttpRequest) -> HttpResponse:
         q = person.full_name if person else q
     else:
         for word in q.split():  # every word must match a name part or the code
-            people = people.filter(
-                Q(family_name__icontains=word) | Q(given_name__icontains=word) | Q(code__icontains=word)
-            )
+            people = people.filter(search_match(word, "family_name", "given_name", "code", icase=True))
     status = f.get("status", "recorded")
     state = None if status == "all" else status.upper()
     start, end, type_id = _iso(f.get("from", "")), _iso(f.get("to", "")), _int(f.get("type"))

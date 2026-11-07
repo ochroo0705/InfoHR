@@ -7,12 +7,14 @@ import pytest
 from accounts.models import User
 from django.contrib.auth.models import Group, Permission
 from django.db import connection
+from django.db.models import F
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from leave.models import LeaveSettings
 from lists.registry import LISTS
 from macs.models import FiredReason
+from pytest_django.fixtures import SettingsWrapper
 from reports.catalogue import CATALOGUE
 from reports.models import SavedView
 from reports.registry import REPORTS, can_open
@@ -312,6 +314,17 @@ def test_people_query_is_cut_to_100_chars(listed: Employee) -> None:
     assert [h.employee.pk for h in palette.people(hr, "Батын" + " " * 99 + "zzz", TODAY)] == [listed.pk]
 
 
+def test_a_code_as_long_as_the_code_column_is_found(actor: User, job_values: dict[str, Any]) -> None:
+    """The code column holds 10 characters. A typed 9-character part of a code, or the whole 10-character code, is
+    still found: on Firebird the search word is cast to its own length, so the LIKE pattern (the word with % at both
+    ends) is not cut to the column length (which raises -303)."""
+    other = _hire(actor, job_values, "УБ99112233", "Ганбат", "Бат")
+    Employee.objects.filter(pk=other.pk).update(code="УБ99112234")  # the code column holds 10 characters
+    hr = _user("HR", "pal_hr12")
+    assert [h.employee.pk for h in palette.people(hr, "Б99112234", TODAY)] == [other.pk]
+    assert [h.employee.pk for h in palette.people(hr, "УБ99112234", TODAY)] == [other.pk]
+
+
 def test_people_only_include_employees_hr_has_touched(actor: User, job_values: dict[str, Any]) -> None:
     """Like the employee list: a person with no HR row is not searched, even by an HR user."""
     emp = history.hire(
@@ -479,6 +492,31 @@ def test_people_query_count_does_not_grow_with_more_candidates(actor: User, job_
     with CaptureQueriesContext(connection) as many:
         assert len(palette.people(hr, "Тоолол", TODAY)) == 8
     assert len(many.captured_queries) == len(few.captured_queries)
+
+
+def test_people_total_counts_every_match_past_the_limit(actor: User, job_values: dict[str, Any]) -> None:
+    """Eight shown, twelve counted. The Firebird twin is test_palette_search_on_firebird."""
+    hr = _user("HR", "pal_total1")
+    baseline = palette.find_people(hr, "бат", TODAY, limit=1000)[1]  # whatever already matches counts too
+    for i in range(12):
+        _hire(actor, job_values, f"УБ{99180000 + i:08d}", "Батбаяр", f"Нэр{i}")
+    hits, total = palette.find_people(hr, "бат", TODAY, limit=8)
+    assert len(hits) == 8
+    assert total == baseline + 12
+    assert palette.find_people(hr, "zzqx", TODAY) == ([], 0)
+
+
+def test_sql_fold_is_translate_on_postgres_and_replace_on_firebird(settings: SettingsWrapper) -> None:
+    """Compile only, no rows: PostgreSQL keeps translate(); Firebird (no translate) gets nested REPLACE() calls."""
+    settings.DB_ENGINE = "postgres"  # the mode is read when the expression is built, so build it per mode
+    pg_sql = str(Employee.objects.annotate(folded=palette._sql_fold(F("family_name"))).query).lower()
+    assert "translate(" in pg_sql
+    assert "replace(" not in pg_sql
+    settings.DB_ENGINE = "firebird"
+    fb_sql = str(Employee.objects.annotate(folded=palette._sql_fold(F("family_name"))).query).lower()
+    assert "translate(" not in fb_sql
+    changed = sum(1 for src, dst in zip(palette._FOLD_FROM, palette._FOLD_TO, strict=True) if src != dst)
+    assert fb_sql.count("replace(") == changed  # one REPLACE per letter whose folded form differs
 
 
 # --- The two new quick actions ---
