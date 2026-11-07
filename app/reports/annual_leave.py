@@ -99,4 +99,5 @@ REPORT = Report(
     source=None,
     group_options=("department",),
     note=_note,
+    person=lambda line: line.person.employee.pk,
 )

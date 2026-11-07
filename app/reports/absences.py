@@ -243,4 +243,5 @@ TOTALS: Report = Report(
     source=None,
     group_options=("department",),
     note=lambda _f: TOTALS_NOTE,
+    person=lambda t: t.person.employee.pk,
 )

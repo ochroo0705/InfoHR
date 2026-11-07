@@ -55,6 +55,7 @@ class Cell:
     money: bool = False  # the column is an amount, formatted by the template
     mark: str = ""  # the CSS classes of the colour rule that passes for this cell, "" for none (set by build_table)
     sticky_left: str = ""  # the inline offset of a pinned column, e.g. "left: 12rem"; "" when not pinned
+    person: int = 0  # the employee id of the row this cell is in (Report.person); 0 when the report has none
 
     @property
     def css(self) -> str:
@@ -345,6 +346,7 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
 
     def cells(row: Any) -> list[Cell]:
         out: list[Cell] = []
+        person = report.person(row) if report.person else 0
         for i, (c, cls) in enumerate(zip(shown, classes, strict=True)):
             value = c.value(row)
             mark = marks_mod.mark_for(marks, c.key, value, mark_kinds[c.key], today) if c.key in mark_kinds else ""
@@ -356,6 +358,7 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
                     money=c.money,
                     mark=mark,
                     sticky_left=pin_style(i, pin),
+                    person=person,
                 )
             )
         return out

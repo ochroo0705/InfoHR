@@ -48,4 +48,5 @@ REPORT = Report(
     source=Employee,
     group_options=("bracket", "department"),
     note=_note,
+    person=lambda p: p.row.employee.pk,
 )

@@ -1,0 +1,45 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-1 text-lg font-semibold">Жагсаалт эхлүүлэх</h2>
+    <p class="mb-4 text-sm text-slate-500">
+      {% if all_people %}Тайлангийн бүх {{ count }} хүнд{% else %}Сонгосон {{ count }} хүнд{% endif %} жагсаалт нэмнэ.
+      Хүн бүрт тусад нь шалгана; нэг нь алдаа гарсан ч бусад нь эхэлнэ.
+    </p>
+    {% if errors %}
+    <div class="mb-3 space-y-1 rounded bg-red-50 p-2 text-sm text-red-700">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>
+    {% endif %}
+    {% if template_missing %}
+    <p class="mb-3 rounded bg-amber-50 p-2 text-sm text-amber-800">Энэ төрөлд идэвхтэй загвар алга. Жагсаалт эхлэхгүй.</p>
+    {% endif %}
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
+      {% csrf_token %}
+      <label class="block text-sm">Жагсаалтын төрөл *
+        <select name="kind" required class="mt-1 w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
+          {% for value, label in kinds %}<option value="{{ value }}"{% if value == kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">Шалтгаан
+        <select name="reason" class="mt-1 w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
+          <option value="">Шалтгаангүй (үндсэн загвар)</option>
+          {% for value, label in reasons %}<option value="{{ value }}"{% if value == reason %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <span class="mt-1 block text-xs text-slate-500">Шалтгаанд тохирох загвар байвал түүнийг, үгүй бол үндсэн загварыг ашиглана.</span>
+      </label>
+      <label class="block text-sm">Хугацааны эхлэл *
+        <input type="date" name="anchor_day" value="{{ anchor_day }}" min="{{ anchor_min }}" max="{{ anchor_max }}" required
+          class="mt-1 w-full rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm">
+        <span class="mt-1 block text-xs text-slate-500">Ажилд орох бол ажилд орсон өдөр, ажлаас гарах бол сүүлийн ажлын өдөр.</span>
+      </label>
+      <input type="hidden" name="query" value="{{ query }}">
+      {% if all_people %}
+      <input type="hidden" name="all" value="1">
+      {% else %}
+      {% for pk in ids %}<input type="hidden" name="ids" value="{{ pk }}">{% endfor %}
+      {% endif %}
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+        <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Эхлүүлэх</button>
+      </div>
+    </form>
+  </div>
+</div>

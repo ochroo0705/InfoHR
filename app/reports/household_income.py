@@ -103,4 +103,5 @@ REPORT = Report(
     source=IncomeLevel,
     group_options=("department", "level"),
     note=_note,
+    person=lambda line: line.person.row.employee.pk,
 )

@@ -101,4 +101,5 @@ REPORT = Report(
     source=Employee,
     group_options=("department",),
     note=_note,
+    person=lambda e: e.person.row.employee.pk,
 )

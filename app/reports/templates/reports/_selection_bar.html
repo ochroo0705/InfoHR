@@ -1,0 +1,15 @@
+{# The selection bar (UI_RULES §4b, row selection). Hidden until a row is ticked; report_select.js shows it and fills [data-count]. data-query is the report's address for the POST, data-url the action. #}
+<div id="selection-bar" hidden data-query="{{ query }}" class="mb-3 flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm">
+  <span class="font-medium text-slate-900"><span data-count>0</span> сонгосон</span>
+  <span data-select-msg role="status" hidden class="text-sm text-slate-700"></span>
+  {% if selection_over_cap %}<span data-over-cap hidden class="px-2 py-1 text-xs text-slate-500">{{ selection_max }}-аас олон мөр сонгох боломжгүй. Шүүлтүүрээр нарийвчилна уу.</span>
+  {% else %}<button type="button" data-select-matching hidden class="rounded-lg px-2 py-1 text-violet-700 hover:underline">Бүх {{ selection_total }} мөрийг сонгох</button>{% endif %}
+  <div class="ml-auto flex max-w-full min-w-0 flex-wrap items-center gap-2">
+    {% if selection_urls.excel %}<button type="button" data-action="excel" data-url="{{ selection_urls.excel }}" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 hover:bg-slate-50">Excel</button>{% endif %}
+    {% if selection_urls.csv %}<button type="button" data-action="csv" data-url="{{ selection_urls.csv }}" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 hover:bg-slate-50">CSV</button>{% endif %}
+    {% if selection_urls.print %}<button type="button" data-action="print" data-url="{{ selection_urls.print }}" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 hover:bg-slate-50">Хэвлэх</button>{% endif %}
+    {% if selection_urls.copy %}<button type="button" data-action="copy" data-url="{{ selection_urls.copy }}" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 hover:bg-slate-50">Хуулах</button>{% endif %}
+    {% if selection_urls.checklist %}<button type="button" data-action="checklist" data-url="{{ selection_urls.checklist }}" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 hover:bg-slate-50">Жагсаалт эхлүүлэх</button>{% endif %}
+    <button type="button" data-select-cancel class="rounded-lg px-3 py-1.5 text-slate-600 hover:underline">Болих</button>
+  </div>
+</div>

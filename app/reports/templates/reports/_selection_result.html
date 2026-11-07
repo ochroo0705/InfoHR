@@ -1,0 +1,24 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-2 text-lg font-semibold">Жагсаалт эхлүүлэх: үр дүн</h2>
+    <p class="mb-3 text-sm text-slate-700" data-selection-counts>
+      Эхэлсэн {{ counts.started }} · Нээлттэй байсан {{ counts.already_open }} · Загвар алга {{ counts.no_template }}{% if counts.not_allowed %} · Харах эрх алга {{ counts.not_allowed }}{% endif %}{% if counts.error %} · Алдаа гарлаа {{ counts.error }}{% endif %}
+    </p>
+    {% if dropped %}
+    <p class="mb-3 rounded bg-amber-50 p-2 text-sm text-amber-800">{{ dropped }} хүн энэ тайланд харагдахгүй тул орсонгүй.</p>
+    {% endif %}
+    <ul class="divide-y divide-slate-100 text-sm">
+      {% for row in rows %}
+      <li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
+        <span class="min-w-0 break-words">{{ row.code }} {{ row.name }}</span>
+        <span class="shrink-0 text-slate-600">{{ row.outcome }}</span>
+      </li>
+      {% empty %}
+      <li class="py-2 text-sm text-slate-500">Хүн алга.</li>
+      {% endfor %}
+    </ul>
+    <div class="flex justify-end pt-4">
+      <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хаах</button>
+    </div>
+  </div>
+</div>

@@ -54,3 +54,5 @@ class Report:
     layouts: tuple[str, ...] = ()  # the non-table views this report offers (reports.filters.LAYOUTS); () = table only
     layout_date: str = ""  # key of the default start date of calendar and timeline; "" = the first allowed date column
     layout_date2: str = ""  # key of the default end date of the timeline; "" = the next allowed date column
+    # the employee id of one raw row; None = the report offers no row selection
+    person: Callable[[Any], int] | None = None

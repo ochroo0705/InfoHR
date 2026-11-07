@@ -263,4 +263,5 @@ SUMMARY = Report(
     source=AddedValBudgetRow,
     group_options=("department",),
     note=_summary_note,
+    person=lambda s: s.person.row.employee.pk,
 )

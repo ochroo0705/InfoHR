@@ -576,6 +576,7 @@ REPORT = Report(
     picks_columns=True,
     saved_views=True,
     note=_note,
+    person=lambda s: s.row.employee.pk,
     layouts=("board", "calendar", "timeline", "cards", "chart", "pivot"),
     layout_date="first_hire_date",  # the employment start; filled for everyone hired (birth date is never a default)
     layout_date2="contract_end",  # blank for open-ended contracts: then the timeline shows a one-day marker

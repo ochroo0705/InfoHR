@@ -8,6 +8,7 @@ from urllib.parse import parse_qsl, urlencode
 
 from accounts.audit import record_export
 from accounts.models import User
+from checklists import access as checklist_access
 from config import batching
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser
@@ -38,6 +39,7 @@ from reports import excel, registry
 from reports import layouts as layouts_mod
 from reports import marks as marks_mod
 from reports import rules as rules_mod
+from reports import selection as selection_mod
 from reports import totals as totals_mod
 from reports.catalogue import CATALOGUE, GROUPS, Entry
 from reports.column_filters import COLUMN_FILTERS, params_of
@@ -475,6 +477,26 @@ def _layout_context(
     return context, cards
 
 
+SELECTION_KEYS = ("excel", "csv", "print", "copy", "checklist")  # the bulk actions of the selection bar
+
+
+def _selection_urls(user: User, report: Report) -> dict[str, str]:
+    """The selection bar's action URLs. An action the user may not use has an empty URL, and the bar leaves it out:
+    Excel and CSV need the export permission, the checklist needs the right to start one."""
+
+    def url(name: str, allowed: bool) -> str:
+        return reverse(f"reports:sel_{name}", args=[report.key]) if allowed else ""
+
+    can_export = user.has_perm(EXPORT_PERM)
+    return {
+        "excel": url("excel", can_export),
+        "csv": url("csv", can_export),
+        "print": url("print", True),
+        "copy": url("copy", True),
+        "checklist": url("checklist", checklist_access.can_start(user)),
+    }
+
+
 @login_required
 @vary_on_headers("HX-Request")
 def report_page(request: HttpRequest, key: str) -> HttpResponse:
@@ -521,6 +543,7 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
             )
         )
     names = offered_filters(report, user)  # the filter bar draws these, in the report's order
+    selectable = report.person is not None and table.spec.layout == "table"
     period_start, period_end = period_of(f)
     context = {
         "report": report,
@@ -576,6 +599,13 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
             [] if report.picks_columns else [c for c in allowed_columns(report, user) if c.key in report.group_options]
         ),
         "group_text": _group_text(f.group, [c for c in allowed_columns(report, user) if c.key in report.group_options]),
+        # row selection: a table of a report that names its people (Report.person); the checkbox column adds one cell
+        "selectable": selectable,
+        "selection_urls": _selection_urls(user, report) if selectable else dict.fromkeys(SELECTION_KEYS, ""),
+        "selection_total": table.count,
+        "selection_over_cap": table.count > selection_mod.MAX_PEOPLE,
+        "selection_max": selection_mod.MAX_PEOPLE,
+        "table_span": len(heads) + (1 if selectable else 0),
     }
     context.update(layout_context)
     if batch is not None and batch.offset:
