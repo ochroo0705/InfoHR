@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "app/employees/templates/employees/selfform/_review_panel.html"
+        ],
+        "createdAt": "2026-11-07T18:49:35.582Z",
+        "reason": "Claude judged: violet is the project's established accent (base.html, docs/UI_RULES.md); the panel uses flat violet tints, no gradient; not user confirmed"
+      }
+    ]
+  }
+}

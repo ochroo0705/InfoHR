@@ -934,7 +934,9 @@ def _add_rows(client: Client, employee: Employee, lists: dict[str, Any], numbers
 # 169 since the nav link also asks whether requests still wait while approval is off (spec 5.1): one cheap query.
 # 171 since the offboarding panel (checklists.views.section_context): one checklist lookup + one template lookup.
 # 172 since base.html asks whether the assistant is on (the floating «Асуух» button, tag assistant_on): one settings lookup.
-PERSONAL_TAB_QUERIES = 172
+# 173 since the nav link «Өөрөө бөглөх анкет» shows the count of submitted self-forms to users who can manage staff:
+# one cheap COUNT (accounts/nav.py, employee self-form spec).
+PERSONAL_TAB_QUERIES = 173
 
 
 def test_personal_tab_query_count(
@@ -961,7 +963,8 @@ def test_personal_tab_query_count(
 # 169 since Task 6 (see PERSONAL_TAB_QUERIES: 168 + the waiting-change lookups).
 # 170 with the nav query above.
 # 172 with the offboarding panel's two lookups (see PERSONAL_TAB_QUERIES).
-WAITING_ONE_QUERIES = 173
+# 174 with the self-form nav count (see PERSONAL_TAB_QUERIES: 173 + the waiting-change lookup).
+WAITING_ONE_QUERIES = 174
 
 
 def test_personal_tab_query_count_with_one_waiting_change(

@@ -478,6 +478,8 @@ def _layout_context(
 
 
 SELECTION_KEYS = ("excel", "csv", "print", "copy", "checklist")  # the bulk actions of the selection bar
+CHECK_PINNED_CSS = "w-10 sticky z-10 bg-surface"  # the checkbox cell when columns are pinned (unpinned: w-10 only)
+CHECK_PINNED_STYLE = "left: 0rem"
 
 
 def _selection_urls(user: User, report: Report) -> dict[str, str]:
@@ -539,7 +541,7 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
                 ),
                 arrow=_sort_mark(f.sort, c.key),
                 cls=cls,
-                sticky_left=pin_style(i, table.pin),
+                sticky_left=pin_style(i, table.pin, table.pin_base),
             )
         )
     names = offered_filters(report, user)  # the filter bar draws these, in the report's order
@@ -604,6 +606,10 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         "selection_urls": _selection_urls(user, report) if selectable else dict.fromkeys(SELECTION_KEYS, ""),
         "selection_total": table.count,
         "selection_over_cap": table.count > selection_mod.MAX_PEOPLE,
+        # the checkbox column is sticky at the far left when columns are pinned (table.pin_base offsets the rest)
+        "check_pinned": selectable and table.pin > 0,
+        "check_css": CHECK_PINNED_CSS if selectable and table.pin > 0 else "w-10",
+        "check_style": CHECK_PINNED_STYLE if selectable and table.pin > 0 else "",
         "selection_max": selection_mod.MAX_PEOPLE,
         "table_span": len(heads) + (1 if selectable else 0),
     }

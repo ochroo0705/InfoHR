@@ -2,9 +2,12 @@
 {% block title %}Ажилтан нэмэх{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-xl font-semibold">Ажилтан нэмэх</h1>
+{% for message in messages %}<p class="mb-4 rounded p-2 text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-emerald-50 text-emerald-800{% endif %}">{{ message }}</p>{% endfor %}
 {% for e in person.non_field_errors %}<p class="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
 <form id="add-form" method="post" enctype="multipart/form-data" hx-post="{{ request.path }}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML" class="space-y-6 pb-24">{% csrf_token %}
   {% if candidate_id %}<input type="hidden" name="candidate" value="{{ candidate_id }}">{% endif %}
+  {% if submission_id %}<input type="hidden" name="submission" value="{{ submission_id }}">{% endif %}
+  {% if review %}{% include "employees/selfform/_review_panel.html" %}{% endif %}
   <div class="flex flex-col gap-6 md:flex-row">
     <nav role="tablist" aria-label="Табууд" class="flex gap-1 overflow-x-auto md:w-52 md:shrink-0 md:flex-col md:overflow-visible">
       <button type="button" role="tab" data-tab-btn="basic" onclick="showTab('basic')" class="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100">Үндсэн <span data-badge="basic" class="ml-auto rounded-full px-1.5 text-xs font-semibold"></span></button>
@@ -122,6 +125,11 @@
     </div>
   </div>
 </form>
+{% if review %}
+{# Send-back and reject are separate forms: a form cannot nest in the hire form. The panel's controls point at them. #}
+<form id="selfform-send-back-form" method="post" action="{% url 'employees:selfform_send_back' submission_id %}">{% csrf_token %}</form>
+<form id="selfform-reject-form" method="post" action="{% url 'employees:selfform_reject' submission_id %}">{% csrf_token %}</form>
+{% endif %}
 
 <script>
 (function () {

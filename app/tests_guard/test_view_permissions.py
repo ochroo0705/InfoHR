@@ -46,6 +46,7 @@ from django.test import Client
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from django.utils import timezone
 from employees.models import Employee, HrOrder
+from employees.selfform.service import create_invitation
 from employees.services import events, history, macs_writes, orders
 from employees.tests.conftest import hire_values
 from reports.models import SavedView
@@ -103,6 +104,11 @@ EXPECTED: dict[str, Rule] = {
     "logout": PUBLIC,  # ends the session
     "password_change": LOGIN_ONLY,  # changes the user's own password only
     "set_language": PUBLIC,  # Django language switch; no HR data
+    # Employee self-form pages (employees/views_apply.py): anonymous by design, reached with an unguessable token.
+    # The gate is the token itself, plus the throttle and CSRF checks in the views; they never show HR data.
+    "apply:form": PUBLIC,  # the form for a token; closed or unknown tokens get the same "not found" style page
+    "apply:draft": PUBLIC,  # autosave of the form for a token (POST, throttled)
+    "apply:not_found": PUBLIC,  # catch-all for any other path under /apply/
     # --- employees (employees/urls.py) ---
     "employees:today": LOGIN_ONLY,  # Today page: rows come from visible_employees (own record only for Employee)
     "employees:today_away": LOGIN_ONLY,  # fragment: rows from visible_employees; names need the leave right
@@ -151,6 +157,14 @@ EXPECTED: dict[str, Rule] = {
     "employees:personal_add": ("macs.manage_employees", "macs.view_personal"),
     "employees:personal_edit": ("macs.manage_employees", "macs.view_personal"),
     "employees:personal_delete": ("macs.manage_employees", "macs.view_personal"),
+    # --- employee self-form, HR side (employees/views_selfform.py): every view refuses without manage_employees ---
+    "employees:selfforms": ("macs.manage_employees",),
+    "employees:selfform_new": ("macs.manage_employees",),
+    "employees:selfform_show": ("macs.manage_employees",),
+    "employees:selfform_revoke": ("macs.manage_employees",),
+    "employees:selfform_extend": ("macs.manage_employees",),
+    "employees:selfform_send_back": ("macs.manage_employees",),
+    "employees:selfform_reject": ("macs.manage_employees",),
     "employees:slots": ("employees.manage_position_slots",),
     "employees:slot_add": ("employees.manage_position_slots",),
     "employees:slot_edit": ("employees.manage_position_slots",),
@@ -233,6 +247,9 @@ SKIP: dict[str, str] = {
     "login": "public by design: the login form itself",
     "logout": "public by design: ends the session; anonymous logout does nothing",
     "set_language": "public by design: Django language switch, no HR data",
+    "apply:form": "public by design: the employee self-form, gated by an unguessable token (views_apply.py)",
+    "apply:draft": "public by design: autosave of the employee self-form, gated by its token and throttle",
+    "apply:not_found": "public by design: the catch-all answer for any other path under /apply/",
 }
 
 # Permission routes whose sub-object this file does not build, so the refusal may be a 404 (the object is missing
@@ -298,6 +315,16 @@ ARG_OVERRIDES: dict[str, dict[str, Any]] = {
 }
 LEAVE_EMPLOYEE_ROUTES = frozenset({"leave:grant", "leave:adjust", "leave:carry"})  # pk is an employee there too
 VIEW_ROUTES = frozenset({"reports:view_edit", "reports:view_delete"})  # pk is a saved report view there
+# pk is an invitation there
+SELFFORM_ROUTES = frozenset(
+    {
+        "employees:selfform_show",
+        "employees:selfform_revoke",
+        "employees:selfform_extend",
+        "employees:selfform_send_back",
+        "employees:selfform_reject",
+    }
+)
 
 _CONVERTER = re.compile(r"<(?:(?P<conv>\w+):)?(?P<name>\w+)>")
 SCAN = b"%PDF-1.4\n%test\n"
@@ -324,6 +351,7 @@ class Scenario:
     job_record: int  # `pending`'s hire job row (correct_job)
     salary_record: int  # `pending`'s hire salary row (correct_salary)
     view: int  # a saved report view written by `actor` (view_edit, view_delete)
+    invitation: int  # an open employee self-form invitation (selfform_show, selfform_revoke, selfform_extend)
 
 
 def _walk(patterns: list[Any], prefix: str, namespace: str) -> list[tuple[str | None, str, str]]:
@@ -382,6 +410,8 @@ def _ids(name: str, s: Scenario, view_pk: int = 0) -> dict[str, int]:
         return {"pk": s.pending.employee.pk}
     if name in VIEW_ROUTES:
         return {"pk": view_pk}
+    if name in SELFFORM_ROUTES:
+        return {"pk": s.invitation}
     if not name.startswith("employees:"):
         return {}
     subject = {
@@ -521,6 +551,7 @@ def scenario(db: None) -> Scenario:
         job_record=_first_pk(pending.employee.job_records.all()),
         salary_record=_first_pk(pending.employee.salary_records.all()),
         view=view.pk,
+        invitation=create_invitation(label="Guard", branch=None, hours=24, by=actor).pk,
     )
 
 

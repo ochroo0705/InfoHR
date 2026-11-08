@@ -1,6 +1,7 @@
 """Daily MACS sync: copies today's job and salary onto every production employee row, so changes
 dated in the future reach production on their day. It also adds the current year's automatic leave grant
-(leave.services.ledger.ensure_grants) when that switch is on.
+(leave.services.ledger.ensure_grants) when that switch is on. After each sync it also runs the self-form
+retention purge (employees.selfform.service.purge_old).
 
 Two callers, one code path (run_daily_sync -> sync_all_employees):
 - `manage.py sync_current_jobs`, meant to be scheduled daily, always runs;
@@ -24,6 +25,7 @@ from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 
 from employees.models import DailySync, Employee
+from employees.selfform import service as selfform_service
 from employees.services import macs_writes
 
 logger = logging.getLogger(__name__)
@@ -70,7 +72,16 @@ def run_daily_sync(today: date, *, force: bool = False) -> int | None:
     _synced_day = today
     with audit_context.system():  # the sync is nobody's action, even when a request ran it
         record_safe(Category.IMPORT, "macs_sync", actor=None, message=f"{changed} ажилтны мэдээлэл шинэчлэгдсэн")
+    _purge_selfform(today)
     return changed
+
+
+def _purge_selfform(today: date) -> None:
+    """The self-form retention purge, after the sync. A failure is logged and never breaks the sync."""
+    try:
+        selfform_service.purge_old(today)
+    except Exception:
+        logger.exception("Self-form retention purge failed; the next daily sync tries again")
 
 
 def _needs_sync(request: HttpRequest) -> bool:

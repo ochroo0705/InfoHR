@@ -1,0 +1,139 @@
+"""Employee self-form on Firebird (Task 2): the SelfFormInvitation table and the selfform_* settings.
+
+The same operations as the PostgreSQL 0029_selfform, written for the Firebird initial set. The
+column names are checked against infohr_firebird.reserved, so none of them is quoted or renamed.
+The migration is atomic: it has no data step.
+"""
+
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ("employees", "0004_activityentry_change_text"),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="companysettings",
+            name="selfform_base_url",
+            field=models.URLField(
+                blank=True,
+                help_text="Ажилтанд илгээх холбоосын үндсэн хаяг, жишээ нь https://hr.example.mn",
+                verbose_name="Маягтын хаяг",
+            ),
+        ),
+        migrations.AddField(
+            model_name="companysettings",
+            name="selfform_default_hours",
+            field=models.PositiveSmallIntegerField(
+                default=72,
+                help_text="Ажилтны маягтын холбоос анх үүсгэхдээ хүчинтэй байх цаг.",
+                verbose_name="Холбоосын хугацаа (цаг)",
+            ),
+        ),
+        migrations.AddField(
+            model_name="companysettings",
+            name="selfform_notice",
+            field=models.TextField(
+                blank=True,
+                help_text="Ажилтан маягт илгээхдээ хүлээн зөвшөөрөх мэдэгдэл.",
+                verbose_name="Зөвшөөрлийн текст",
+            ),
+        ),
+        migrations.AddField(
+            model_name="companysettings",
+            name="selfform_retention_days",
+            field=models.PositiveSmallIntegerField(
+                default=30,
+                help_text="Баталгаажуулаагүй маягтын өгөгдлийг энэ хугацааны дараа автоматаар устгана.",
+                verbose_name="Хадгалах хугацаа (хоног)",
+            ),
+        ),
+        migrations.CreateModel(
+            name="SelfFormInvitation",
+            fields=[
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("token", models.CharField(max_length=64, unique=True, verbose_name="Токен")),
+                ("label", models.CharField(max_length=100, verbose_name="Хэнд зориулсан")),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("open", "Нээлттэй"),
+                            ("submitted", "Илгээсэн"),
+                            ("confirmed", "Баталгаажсан"),
+                            ("rejected", "Татгалзсан"),
+                            ("revoked", "Цуцалсан"),
+                        ],
+                        default="open",
+                        max_length=10,
+                        verbose_name="Төлөв",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True, verbose_name="Үүсгэсэн огноо")),
+                ("expires_at", models.DateTimeField(verbose_name="Дуусах огноо")),
+                ("answers", models.TextField(default="{}", verbose_name="Хариулт")),
+                ("photo_b64", models.TextField(blank=True, default="", verbose_name="Зураг")),
+                ("hr_note", models.TextField(blank=True, default="", verbose_name="HR тэмдэглэл")),
+                ("submitted_at", models.DateTimeField(blank=True, null=True, verbose_name="Илгээсэн огноо")),
+                ("consented_at", models.DateTimeField(blank=True, null=True, verbose_name="Зөвшөөрсөн огноо")),
+                ("consent_text", models.TextField(blank=True, default="", verbose_name="Зөвшөөрлийн текст")),
+                ("reviewed_at", models.DateTimeField(blank=True, null=True, verbose_name="Хянасан огноо")),
+                ("reject_reason", models.TextField(blank=True, default="", verbose_name="Буцаасан шалтгаан")),
+                ("purged_at", models.DateTimeField(blank=True, null=True, verbose_name="Устгасан огноо")),
+                (
+                    "branch",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="macs.branch",
+                        verbose_name="Салбар",
+                    ),
+                ),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Үүсгэсэн хэрэглэгч",
+                    ),
+                ),
+                (
+                    "employee",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to="macs.employee",
+                        verbose_name="Ажилтан",
+                    ),
+                ),
+                (
+                    "reviewed_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Хянасан хэрэглэгч",
+                    ),
+                ),
+            ],
+            options={
+                "verbose_name": "Ажилтны маягтын урилга",
+                "verbose_name_plural": "Ажилтны маягтын урилга",
+                "ordering": ["-created_at", "-pk"],
+                "default_permissions": (),
+            },
+        ),
+    ]

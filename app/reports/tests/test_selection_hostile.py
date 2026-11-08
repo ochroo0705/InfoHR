@@ -118,12 +118,12 @@ def _cases(p: dict[str, Employee]) -> dict[str, dict[str, Any]]:
     }
 
 
-def _post(client: Client, user: User, url: str, data: dict[str, Any], *, kind: bool = True) -> Any:
-    """POST as `user`. The checklist gets a valid kind and date unless `kind` is False (the pop-up's first load)."""
+def _post(client: Client, user: User, url: str, data: dict[str, Any], *, confirm: bool = True) -> Any:
+    """POST as `user`. The checklist gets `confirm` and a valid date unless `confirm` is False (the first load)."""
     client.force_login(user)
     payload = dict(data)
-    if url == ENDPOINTS["checklist"] and kind:
-        payload.setdefault("kind", ChecklistKind.ONBOARDING.value)
+    if url == ENDPOINTS["checklist"] and confirm:
+        payload.setdefault("confirm", "1")
         payload.setdefault("anchor_day", "2026-12-01")
     return client.post(url, payload)
 
@@ -155,11 +155,11 @@ def scoped(people: dict[str, Employee]) -> User:
 
 
 @pytest.fixture
-def onboarding_ready() -> ChecklistTemplate:
-    """One active default onboarding template, so a checklist start can succeed."""
-    ChecklistTemplate.objects.filter(kind=ChecklistKind.ONBOARDING.value, is_default=True).delete()
+def offboarding_ready() -> ChecklistTemplate:
+    """One active default offboarding template, so a checklist start can succeed."""
+    ChecklistTemplate.objects.filter(kind=ChecklistKind.OFFBOARDING.value, is_default=True).delete()
     template = ChecklistTemplate.objects.create(
-        kind=ChecklistKind.ONBOARDING.value, name="hostile default", is_default=True, reasons=[], active=True
+        kind=ChecklistKind.OFFBOARDING.value, name="hostile default", is_default=True, reasons=[], active=True
     )
     ChecklistTemplateTask.objects.create(template=template, title="Даалгавар", manager=True, due_offset_days=0)
     return template
@@ -171,7 +171,7 @@ def test_hostile_body_never_gives_500(
     client: Client,
     hr_user: User,
     people: dict[str, Employee],
-    onboarding_ready: ChecklistTemplate,
+    offboarding_ready: ChecklistTemplate,
     endpoint: str,
     case: str,
 ) -> None:
@@ -181,10 +181,10 @@ def test_hostile_body_never_gives_500(
 
 
 @pytest.mark.parametrize("case", CASE_NAMES)
-def test_checklist_pop_up_without_kind_always_answers_200(
+def test_checklist_pop_up_without_confirm_always_answers_200(
     client: Client, hr_user: User, people: dict[str, Employee], case: str
 ) -> None:
-    resp = _post(client, hr_user, ENDPOINTS["checklist"], _cases(people)[case], kind=False)
+    resp = _post(client, hr_user, ENDPOINTS["checklist"], _cases(people)[case], confirm=False)
     assert resp.status_code == 200  # a refused selection comes back as the pop-up with its message
     assert Checklist.objects.count() == 0
 
@@ -195,7 +195,7 @@ def test_person_hidden_by_a_filter_or_rule_never_reaches_the_output(
     client: Client,
     hr_user: User,
     people: dict[str, Employee],
-    onboarding_ready: ChecklistTemplate,
+    offboarding_ready: ChecklistTemplate,
     endpoint: str,
     case: str,
 ) -> None:
@@ -216,7 +216,7 @@ def test_forged_out_of_scope_person_never_reaches_any_output(
     client: Client,
     scoped: User,
     people: dict[str, Employee],
-    onboarding_ready: ChecklistTemplate,
+    offboarding_ready: ChecklistTemplate,
     endpoint: str,
 ) -> None:
     ids = [str(people["A"].pk), str(people["D"].pk), "98765"]
@@ -239,7 +239,7 @@ def test_all_matching_over_the_cap_is_refused(
     client: Client,
     hr_user: User,
     people: dict[str, Employee],
-    onboarding_ready: ChecklistTemplate,
+    offboarding_ready: ChecklistTemplate,
     monkeypatch: pytest.MonkeyPatch,
     endpoint: str,
 ) -> None:
@@ -254,7 +254,7 @@ def test_all_matching_over_the_cap_is_refused(
 
 @pytest.mark.parametrize("endpoint", list(ENDPOINTS))
 def test_501_posted_ids_are_refused(
-    client: Client, hr_user: User, people: dict[str, Employee], onboarding_ready: ChecklistTemplate, endpoint: str
+    client: Client, hr_user: User, people: dict[str, Employee], offboarding_ready: ChecklistTemplate, endpoint: str
 ) -> None:
     ids = [str(n) for n in range(1, selection.MAX_PEOPLE + 2)]  # 501 distinct ids, no monkeypatch
     resp = _post(client, hr_user, ENDPOINTS[endpoint], {"query": QUERY, "ids": ids})
@@ -300,11 +300,11 @@ def test_user_without_export_switch_is_refused_files_but_may_print_and_copy(
 
 
 def test_user_who_cannot_start_checklists_gets_403_on_form_and_action(
-    client: Client, people: dict[str, Employee], onboarding_ready: ChecklistTemplate
+    client: Client, people: dict[str, Employee], offboarding_ready: ChecklistTemplate
 ) -> None:
     accountant = _make_user("Accountant", "hostile-accountant")
     body = {"query": QUERY, "ids": [str(people["A"].pk)]}
-    assert _post(client, accountant, ENDPOINTS["checklist"], body, kind=False).status_code == 403
+    assert _post(client, accountant, ENDPOINTS["checklist"], body, confirm=False).status_code == 403
     assert _post(client, accountant, ENDPOINTS["checklist"], body).status_code == 403
     assert Checklist.objects.count() == 0
 

@@ -68,6 +68,14 @@ ACTIONS: dict[str, str] = {
     "candidate_file_added": "Ажил хүсэгчийн файл нэмсэн",
     "candidate_file_downloaded": "Ажил хүсэгчийн файл татсан",
     "candidates_purged": "Хуучин ажил хүсэгчдыг устгасан",
+    "selfform_created": "Ажилтны маягтын холбоос үүсгэсэн",
+    "selfform_revoked": "Ажилтны маягтын холбоосыг цуцалсан",
+    "selfform_extended": "Ажилтны маягтын холбоосын хугацааг сунгасан",
+    "selfform_submitted": "Ажилтан маягтаа илгээсэн",
+    "selfform_sent_back": "Ажилтны маягтыг засахаар буцаасан",
+    "selfform_rejected": "Ажилтны маягтыг татгалзсан",
+    "selfform_confirmed": "Ажилтны маягтыг баталгаажуулсан",
+    "selfform_purged": "Ажилтны маягтын хуучин өгөгдлийг устгасан",
 }
 
 

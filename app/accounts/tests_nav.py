@@ -36,7 +36,7 @@ def _shape(groups: list[NavGroup]) -> dict[str, list[str]]:
 def test_hr_gets_six_groups_with_menus() -> None:
     assert _shape(_nav(_user("nav_hr", "HR"), own_record=True)) == {
         "today": ["Өнөөдөр"],
-        "employees": ["Ажилтнууд", "Тушаалын бүртгэл"],
+        "employees": ["Ажилтнууд", "Тушаалын бүртгэл", "Өөрөө бөглөх анкет"],
         "leave": ["Чөлөө, амралт"],
         "recruitment": ["Ажилд авах"],
         "reports": ["Тайлан", "Бүртгэл"],
@@ -82,7 +82,7 @@ def test_manager_without_leave_right_gets_requests_as_a_plain_link() -> None:
 def test_open_screen_marks_its_link_and_group() -> None:
     groups = {g.key: g for g in _nav(_user("nav_hr4", "HR"), path=reverse("employees:orders"))}
     assert groups["employees"].active
-    assert [item.active for item in groups["employees"].items] == [False, True]
+    assert [item.active for item in groups["employees"].items] == [False, True, False]
     assert not groups["today"].active
 
 

@@ -10,7 +10,11 @@ from typing import Any
 from django.http import HttpRequest
 from django.urls import reverse
 
+from accounts.models import User
+
 SLOT_PAGES = ("slots", "slot_add", "slot_edit", "slot_delete")  # the position-slot screen (settings group)
+# the employee self-form screens (employees/views_selfform.py)
+SELFFORM_PAGES = ("selfforms", "selfform_new", "selfform_show", "selfform_revoke", "selfform_extend")
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,22 @@ def _sees_recruitment(request: HttpRequest) -> bool:
     return cached
 
 
+def _selfform_waiting(request: HttpRequest) -> int:
+    """How many submitted self-forms the user may see (the «Өөрөө бөглөх анкет» badge): one count per request, kept on
+    the request. Asked only for a user who may manage employees."""
+    cached: int | None = getattr(request, "_selfform_waiting", None)
+    if cached is None:
+        from employees.models import SelfFormStatus  # local import: employees imports accounts
+        from employees.selfform.service import visible_invitations
+
+        user = request.user
+        cached = 0
+        if isinstance(user, User):
+            cached = visible_invitations(user).filter(status=SelfFormStatus.SUBMITTED).count()
+        request._selfform_waiting = cached  # type: ignore[attr-defined]
+    return cached
+
+
 def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, Any]) -> list[NavGroup]:
     """The groups of the top bar for this user, in order; groups with no link the user may open are left out.
 
@@ -85,7 +105,7 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             NavItem(
                 "Ажилтнууд",
                 reverse("employees:list"),
-                app == "employees" and name not in ("today", "orders", "orders_print", *SLOT_PAGES),
+                app == "employees" and name not in ("today", "orders", "orders_print", *SLOT_PAGES, *SELFFORM_PAGES),
                 icon="people",
                 hint="Жагсаалт, хайлт, хувийн хэрэг",
             ),
@@ -97,6 +117,16 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
                 hint="Бүх тушаал, дугаар, хэвлэх",
             )
             if sees_staff
+            else None,
+            NavItem(
+                "Өөрөө бөглөх анкет",
+                reverse("employees:selfforms"),
+                app == "employees" and name in SELFFORM_PAGES,
+                _selfform_waiting(request),
+                icon="inbox",
+                hint="Ажилтны бөглөсөн анкет, холбоос",
+            )
+            if user.has_perm("macs.manage_employees")
             else None,
         ),
         group(

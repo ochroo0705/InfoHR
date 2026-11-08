@@ -15,6 +15,7 @@ urlpatterns = [
     path("me/", me_page, name="me"),
     path("me/notice/", dismiss_notice, name="me_notice"),
     path("employees/", include("employees.urls")),
+    path("apply/", include("employees.urls_apply")),
     path("assistant/", include("assistant.urls")),
     path("leave/", include("leave.urls")),
     path("checklists/", include("checklists.urls")),

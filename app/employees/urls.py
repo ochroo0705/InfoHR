@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_slots
+from . import views, views_selfform, views_slots
 from .staff_import import views as import_views
 
 app_name = "employees"
@@ -31,6 +31,13 @@ urlpatterns = [
     path("import/<uuid:pk>/run/", import_views.import_run, name="import_run"),
     path("import/<uuid:pk>/result/", import_views.import_result, name="import_result"),
     path("import/<uuid:pk>/rejected.xlsx", import_views.import_rejected, name="import_rejected"),
+    path("self-forms/", views_selfform.selfform_list, name="selfforms"),
+    path("self-forms/new/", views_selfform.selfform_new, name="selfform_new"),
+    path("self-forms/<int:pk>/", views_selfform.selfform_show, name="selfform_show"),
+    path("self-forms/<int:pk>/revoke/", views_selfform.selfform_revoke, name="selfform_revoke"),
+    path("self-forms/<int:pk>/extend/", views_selfform.selfform_extend, name="selfform_extend"),
+    path("self-forms/<int:pk>/send-back/", views_selfform.selfform_send_back, name="selfform_send_back"),
+    path("self-forms/<int:pk>/reject/", views_selfform.selfform_reject, name="selfform_reject"),
     path("<int:pk>/", views.employee_detail, name="detail"),
     path("<int:pk>/save/", views.employee_save, name="save"),
     path("<int:pk>/login/", views.login_create, name="login_create"),

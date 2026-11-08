@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import re
 from collections.abc import Mapping
@@ -61,6 +62,7 @@ from employees.forms import (
     SetSalaryForm,
 )
 from employees.images import attach_photo_digests
+from employees.images import photo_bytes as decode_stored_photo
 from employees.listing import STATE_LABELS, Row, current_salary, employee_rows, is_working, row_for
 from employees.models import (
     EXT_FIELDS,
@@ -78,7 +80,18 @@ from employees.models import (
     JobRecord,
     OrderState,
     OrderType,
+    SelfFormInvitation,
+    SelfFormStatus,
     ext_of,
+)
+from employees.selfform import review as selfform_review
+from employees.selfform.answers import AnswerErrors, rows_for_confirm
+from employees.selfform.service import (
+    SelfFormError,
+    mark_confirmed,
+    positive_id,
+    reviewable_submission,
+    visible_status,
 )
 from employees.services import (
     events,
@@ -647,6 +660,53 @@ def _link_candidate_locked(candidate_id: int, employee: Employee, user: User) ->
         raise _CandidateGone from error
 
 
+SUBMISSION_GONE = "Энэ анкет аль хэдийн шийдвэрлэгдсэн эсвэл буцаагдсан байна. Хуудсыг дахин нээнэ үү."
+SUBMISSION_ROW_INVALID = (
+    "Ажилтны өгсөн боловсрол эсвэл гэр бүлийн нэг мөр одоогийн шаардлагад тохирохгүй байна. "
+    "Анкетыг «Буцаах» товчоор ажилтанд буцаана уу."
+)
+SUBMISSION_PHOTO_INVALID = "Ажилтны илгээсэн зураг эвдэрсэн байна. Анкетыг «Буцаах» товчоор ажилтанд буцаана уу."
+SUBMISSION_NOT_SENT = "Энэ анкет ажилтны гарт байгаа, одоохондоо илгээгээгүй байна."
+
+
+class _SubmissionGone(Exception):
+    """The posted self-form is no longer waiting for review; the hire is rolled back."""
+
+
+def _confirm_submission_locked(
+    submission: SelfFormInvitation,
+    employee: Employee,
+    rows: list[tuple[str, dict[str, Any], dict[str, Any]]],
+    stored_photo: bytes | None,
+    has_photo: bool,
+    user: User,
+) -> None:
+    """Inside the hire transaction: confirm the submission (or raise `_SubmissionGone`, which rolls the hire back),
+    write its education and family rows, and save the submitted photo when HR uploaded none. `rows` and
+    `stored_photo` were read before the lock; a re-submission since then makes them stale, so it is refused."""
+    try:
+        locked = mark_confirmed(submission.pk, employee, user)
+    except SelfFormError as error:  # confirmed or closed by another request first
+        raise _SubmissionGone from error
+    if locked.submitted_at != submission.submitted_at:  # sent again after this page was read: the rows are stale
+        raise _SubmissionGone
+    for kind, columns, ext in rows:
+        pw.add(kind, employee, columns, ext, by=user)
+    if not has_photo and stored_photo:
+        macs_writes.save_photo(employee, stored_photo)
+
+
+def _review_context(user: User, submission: SelfFormInvitation | None) -> dict[str, Any]:
+    """Template context while HR reviews a submitted self-form on the hire page; {} when there is none."""
+    if submission is None:
+        return {}
+    return {
+        "submission_id": submission.pk,
+        "review": selfform_review.panel(submission),
+        "duplicate": selfform_review.duplicate_for(submission, user),
+    }
+
+
 @login_required
 def employee_add(request: HttpRequest) -> HttpResponse:
     user = _user(request)
@@ -660,6 +720,9 @@ def employee_add(request: HttpRequest) -> HttpResponse:
     # A candidate this user sees but can no longer convert (hired in another tab, closed) must not be dropped
     # silently on POST: that would hire the person twice. Only a missing, bad or foreign value is ignored.
     gone = request.method == "POST" and candidate is None and _visible_candidate(user, posted.get("candidate"))
+    # A submitted self-form HR is hiring from (a bad, foreign or not-submitted value is ignored silently).
+    submission = reviewable_submission(user, posted.get("submission"))
+    review_ctx = _review_context(user, submission)
     if request.method != "POST":
         _prefill_hire_forms(request.GET, person, job)
     extras = HireExtrasForm(request.POST or None)
@@ -667,13 +730,47 @@ def employee_add(request: HttpRequest) -> HttpResponse:
     si = SalaryInsuranceForm(request.POST or None, prefix="si") if allow_salary else None
     address = HireAddressForm(request.POST or None, prefix="addr")
     contact = HireContactForm(request.POST or None, prefix="contact")
+    if submission is not None and request.method != "POST":  # never over posted values
+        person.initial.update(selfform_review.person_initial(submission))
+        contact.initial.update(selfform_review.contact_initial(submission))
     # An install that keeps hire orders on paper (CompanySettings, D-052) gets no order fields and no order.
     hire_order = orders.requires_order(OrderType.HIRED.value)
     order_form = OrderFieldsForm(request.POST or None, prefix="order") if hire_order else None
     if gone:
         person.add_error(None, CANDIDATE_GONE)
         return _hire_form(
-            request, person, job, extras, allow_salary, si, address, contact, order_form, status=400, candidate_id=None
+            request,
+            person,
+            job,
+            extras,
+            allow_salary,
+            si,
+            address,
+            contact,
+            order_form,
+            status=400,
+            candidate_id=None,
+            **review_ctx,
+        )
+    # A submission HR can see but cannot review now must not turn into a plain hire. Only a missing, bad or foreign
+    # value is ignored. An invitation the employee has not sent yet gets its own message.
+    seen = visible_status(user, posted.get("submission")) if request.method == "POST" and submission is None else None
+    if seen is not None:
+        person.add_error(None, SUBMISSION_NOT_SENT if seen == SelfFormStatus.OPEN else SUBMISSION_GONE)
+        # The refused id stays in the form, so a second save is refused here too. No review panel for a refused form.
+        return _hire_form(
+            request,
+            person,
+            job,
+            extras,
+            allow_salary,
+            si,
+            address,
+            contact,
+            order_form,
+            status=400,
+            candidate_id=cid,
+            submission_id=positive_id(posted.get("submission")),
         )
     if (
         request.method == "POST"
@@ -685,6 +782,46 @@ def employee_add(request: HttpRequest) -> HttpResponse:
         and address.is_valid()
         and contact.is_valid()
     ):
+        confirm_rows: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+        stored_photo: bytes | None = None
+        if submission is not None:
+            try:
+                confirm_rows = rows_for_confirm(json.loads(submission.answers or "{}"))
+            except (AnswerErrors, ValueError, TypeError, AttributeError):  # stored answers are corrupt or stale
+                # nothing is written; HR sends the form back
+                person.add_error(None, SUBMISSION_ROW_INVALID)
+                return _hire_form(
+                    request,
+                    person,
+                    job,
+                    extras,
+                    allow_salary,
+                    si,
+                    address,
+                    contact,
+                    order_form,
+                    status=400,
+                    candidate_id=cid,
+                    **review_ctx,
+                )
+            if submission.photo_b64:  # decoded before the transaction: a corrupt photo refuses the confirm
+                stored_photo = decode_stored_photo(submission.photo_b64.encode())
+                if stored_photo is None:
+                    person.add_error(None, SUBMISSION_PHOTO_INVALID)
+                    return _hire_form(
+                        request,
+                        person,
+                        job,
+                        extras,
+                        allow_salary,
+                        si,
+                        address,
+                        contact,
+                        order_form,
+                        status=400,
+                        candidate_id=cid,
+                        **review_ctx,
+                    )
         salary = extras.cleaned_data["base_salary"] if allow_salary else None
         skip = {*EXT_FIELDS, *PHOTO_FIELDS, *BIRTH_FIELDS}
         columns = {k: person.cleaned_data[k] for k in person.fields if k not in skip}
@@ -733,6 +870,8 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 if si is not None and si.has_changed():
                     # Salary and insurance are production columns; logged as one sensitive entry.
                     records.update_salary_insurance(employee, {f: si.cleaned_data[f] for f in si.changed_data}, user)
+                if submission is not None:  # confirmed here, so a second post cannot confirm it again
+                    _confirm_submission_locked(submission, employee, confirm_rows, stored_photo, bool(photo), user)
                 if extras.cleaned_data["create_login"]:
                     login, password = logins.create_login(employee, extras.cleaned_data["username"], by=user)
                     request.session[ONE_TIME_LOGIN_KEY] = {
@@ -756,6 +895,7 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 order_form,
                 status=400,
                 candidate_id=cid,
+                **review_ctx,
             )
         except _CandidateGone:  # the hire is rolled back; nothing was saved
             request.session.pop(ONE_TIME_LOGIN_KEY, None)
@@ -772,8 +912,26 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 order_form,
                 status=400,
                 candidate_id=None,
+                **review_ctx,
             )
-        except pw.PersonalConflict as error:  # the hire is rolled back with the address or contact
+        except _SubmissionGone:  # the hire is rolled back; the form is no longer waiting for review
+            person.add_error(None, SUBMISSION_GONE)
+            # The id stays in the form (no review panel): a second save is refused, not made into a plain hire.
+            return _hire_form(
+                request,
+                person,
+                job,
+                extras,
+                allow_salary,
+                si,
+                address,
+                contact,
+                order_form,
+                status=400,
+                candidate_id=cid,
+                submission_id=submission.pk if submission is not None else None,
+            )
+        except pw.PersonalConflict as error:  # the hire is rolled back with the address, contact or self-form rows
             person.add_error(None, str(error))
             return _hire_form(
                 request,
@@ -787,6 +945,7 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 order_form,
                 status=400,
                 candidate_id=cid,
+                **review_ctx,
             )
         except OrderError as error:  # the hire is rolled back with its order
             if order_form is not None:
@@ -803,6 +962,7 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 order_form,
                 status=400,
                 candidate_id=cid,
+                **review_ctx,
             )
         except HistoryError as error:  # another hire holds the hire lock; the hire is rolled back
             person.add_error(None, str(error))
@@ -818,6 +978,7 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 order_form,
                 status=400,
                 candidate_id=cid,
+                **review_ctx,
             )
         except (IntegrityError, DataError) as exc:
             person.add_error(None, DB_REFUSED)
@@ -834,6 +995,7 @@ def employee_add(request: HttpRequest) -> HttpResponse:
                 order_form,
                 status=400,
                 candidate_id=cid,
+                **review_ctx,
             )
         _start_onboarding(employee, job_values, job.cleaned_data["start"], user)
         _remember_warning(request, HrOrder.objects.filter(employee=employee, is_hire=True).first())
@@ -847,7 +1009,9 @@ def employee_add(request: HttpRequest) -> HttpResponse:
             response["HX-Redirect"] = url
             return response
         return redirect(url)
-    return _hire_form(request, person, job, extras, allow_salary, si, address, contact, order_form, candidate_id=cid)
+    return _hire_form(
+        request, person, job, extras, allow_salary, si, address, contact, order_form, candidate_id=cid, **review_ctx
+    )
 
 
 def _hire_contract_flag(job_values: dict[str, Any], ext: dict[str, Any]) -> str:
@@ -872,9 +1036,15 @@ def _hire_form(
     order_form: OrderFieldsForm | None,
     status: int = 200,
     candidate_id: int | None = None,
+    submission_id: int | None = None,
+    review: dict[str, Any] | None = None,
+    duplicate: dict[str, Any] | None = None,
 ) -> HttpResponse:
     context = {
         "candidate_id": candidate_id,
+        "submission_id": submission_id,
+        "review": review,
+        "duplicate": duplicate,
         "person": person,
         "job": job,
         "extras": extras,

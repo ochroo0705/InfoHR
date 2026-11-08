@@ -732,6 +732,29 @@ class CompanySettings(models.Model):
         ),
     )
 
+    # Employee self-form (Ажилтны өөрийн маягт): the links, the consent text and the retention period.
+    selfform_base_url = models.URLField(
+        "Маягтын хаяг",
+        max_length=200,
+        blank=True,
+        help_text="Ажилтанд илгээх холбоосын үндсэн хаяг, жишээ нь https://hr.example.mn",
+    )
+    selfform_notice = models.TextField(
+        "Зөвшөөрлийн текст",
+        blank=True,
+        help_text="Ажилтан маягт илгээхдээ хүлээн зөвшөөрөх мэдэгдэл.",
+    )
+    selfform_retention_days = models.PositiveSmallIntegerField(
+        "Хадгалах хугацаа (хоног)",
+        default=30,
+        help_text="Баталгаажуулаагүй маягтын өгөгдлийг энэ хугацааны дараа автоматаар устгана.",
+    )
+    selfform_default_hours = models.PositiveSmallIntegerField(
+        "Холбоосын хугацаа (цаг)",
+        default=72,
+        help_text="Ажилтны маягтын холбоос анх үүсгэхдээ хүчинтэй байх цаг.",
+    )
+
     ORDER_FLAGS = {
         OrderType.HIRED.value: "order_hired",
         OrderType.DEPARTMENT.value: "order_department",
@@ -834,3 +857,72 @@ class StaffImportDraft(models.Model):
 
     def __str__(self) -> str:
         return self.filename
+
+
+class SelfFormStatus(models.TextChoices):
+    OPEN = "open", "Нээлттэй"
+    SUBMITTED = "submitted", "Илгээсэн"
+    CONFIRMED = "confirmed", "Баталгаажсан"
+    REJECTED = "rejected", "Татгалзсан"
+    REVOKED = "revoked", "Цуцалсан"
+
+
+class SelfFormInvitation(models.Model):
+    """One employee self-form link: the employee fills in their own details, HR reviews and confirms them.
+    The token is the only key the employee has; it is random and unique."""
+
+    token = models.CharField("Токен", max_length=64, unique=True)
+    label = models.CharField("Хэнд зориулсан", max_length=100)
+    branch = models.ForeignKey(
+        "macs.Branch",
+        verbose_name="Салбар",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+    status = models.CharField("Төлөв", max_length=10, choices=SelfFormStatus.choices, default=SelfFormStatus.OPEN)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Үүсгэсэн хэрэглэгч",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    created_at = models.DateTimeField("Үүсгэсэн огноо", auto_now_add=True)
+    expires_at = models.DateTimeField("Дуусах огноо")
+    answers = models.TextField("Хариулт", default="{}")  # JSON text: the employee's answers, by field key
+    photo_b64 = models.TextField("Зураг", blank=True, default="")
+    hr_note = models.TextField("HR тэмдэглэл", blank=True, default="")
+    submitted_at = models.DateTimeField("Илгээсэн огноо", null=True, blank=True)
+    consented_at = models.DateTimeField("Зөвшөөрсөн огноо", null=True, blank=True)
+    consent_text = models.TextField("Зөвшөөрлийн текст", blank=True, default="")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Хянасан хэрэглэгч",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    reviewed_at = models.DateTimeField("Хянасан огноо", null=True, blank=True)
+    reject_reason = models.TextField("Буцаасан шалтгаан", blank=True, default="")
+    employee = models.ForeignKey(
+        "macs.Employee",
+        verbose_name="Ажилтан",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    purged_at = models.DateTimeField("Устгасан огноо", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Ажилтны маягтын урилга"
+        verbose_name_plural = "Ажилтны маягтын урилга"
+        default_permissions = ()
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self) -> str:
+        return self.label

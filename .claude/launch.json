@@ -14,6 +14,12 @@
       "port": 8001
     },
     {
+      "name": "selfform-demo-8031",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set DEMO_DB=info_hr_selfform_demo&& set PORT=8031&& .venv\\Scripts\\python scripts\\demo.py run"],
+      "port": 8031
+    },
+    {
       "name": "assistant-8004",
       "runtimeExecutable": "E:/WorkProjects/Info HR/.venv/Scripts/python.exe",
       "runtimeArgs": ["app/manage.py", "runserver", "8004"],

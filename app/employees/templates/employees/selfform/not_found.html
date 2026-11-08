@@ -1,0 +1,21 @@
+{% load static %}<!doctype html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Холбоос олдсонгүй</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+<main class="mx-auto max-w-2xl px-4 py-6">
+  {% if too_many %}
+  <h1 class="text-xl font-semibold">Хэт олон оролдлого хийлээ</h1>
+  <p class="mt-3 text-sm text-slate-700">Хэсэг хугацааны дараа дахин оролдоно уу.</p>
+  {% else %}
+  <h1 class="text-xl font-semibold">Холбоос олдсонгүй</h1>
+  <p class="mt-3 text-sm text-slate-700">Холбоосоо дахин шалгана уу. Асуух зүйл байвал HR хэлтэст хандана уу.</p>
+  {% endif %}
+</main>
+</body>
+</html>

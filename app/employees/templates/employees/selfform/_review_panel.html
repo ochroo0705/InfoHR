@@ -1,0 +1,70 @@
+<section class="rounded-xl border border-violet-300 bg-violet-50 p-4 text-sm text-slate-900" aria-labelledby="selfform-review-title">
+  <h2 id="selfform-review-title" class="font-medium text-violet-900">Ажилтны өөрөө бөглөсөн анкет</h2>
+  <p class="mt-1 text-xs text-slate-500">
+    Илгээсэн: {{ review.submitted_at|date:"Y-m-d" }}. Доорх утгыг хэсгүүдэд урьдчилан бөглөсөн; өөрчилж болно.
+    Ажилтны анхны хариулт өөрчлөгдөхгүй хадгалагдана.
+  </p>
+
+  {% if duplicate %}
+  <div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">
+    {% if duplicate.visible %}
+    Энэ регистрийн дугаар <a href="{% url 'employees:detail' duplicate.employee.pk %}" class="text-violet-700 hover:underline">{{ duplicate.employee.family_name }} {{ duplicate.employee.given_name }}</a>-д аль хэдийн харьяалагдсан байна.
+    {% else %}
+    Энэ регистрийн дугаартай ажилтан бүртгэлтэй байна.
+    {% endif %}
+    Энэ дугаараар шинэ ажилтан хадгалах боломжгүй. Дугаар буруу оруулсан бол дээрх талбарт зөв дугаараа бичнэ үү. Бусад тохиолдолд маягтыг буцаах эсвэл татгалзах.
+  </div>
+  {% endif %}
+
+  {% if review.has_photo %}<p class="mt-3">Ажилтан зураг илгээсэн: хадгалахад хавсарна</p>{% endif %}
+
+  <h3 class="mt-4 font-medium text-slate-800">Боловсрол</h3>
+  {% for row in review.education %}
+  <ul class="mt-1 space-y-0.5 rounded-lg bg-surface p-2">{% for label, value in row %}<li><span class="text-slate-500">{{ label }}:</span> {{ value }}</li>{% endfor %}</ul>
+  {% empty %}
+  <p class="mt-1 text-slate-500">бүртгэгдээгүй</p>
+  {% endfor %}
+
+  <h3 class="mt-4 font-medium text-slate-800">Гэр бүл</h3>
+  {% for row in review.family %}
+  <ul class="mt-1 space-y-0.5 rounded-lg bg-surface p-2">{% for label, value in row %}<li><span class="text-slate-500">{{ label }}:</span> {{ value }}</li>{% endfor %}</ul>
+  {% empty %}
+  <p class="mt-1 text-slate-500">бүртгэгдээгүй</p>
+  {% endfor %}
+
+  <h3 class="mt-4 font-medium text-slate-800">Яаралтай үед холбогдох</h3>
+  {% if review.contact %}
+  <ul class="mt-1 space-y-0.5 rounded-lg bg-surface p-2">{% for label, value in review.contact %}<li><span class="text-slate-500">{{ label }}:</span> {{ value }}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="mt-1 text-slate-500">бүртгэгдээгүй</p>
+  {% endif %}
+
+  {% if review.hr_note %}
+  <p class="mt-4"><span class="text-slate-500">HR тэмдэглэл:</span> {{ review.hr_note }}</p>
+  {% endif %}
+
+  {# Controls for HR's decision. The inputs and buttons belong to the two forms outside the hire form (add.html). #}
+  <div class="mt-5 border-t border-violet-200 pt-4">
+    <h3 class="font-medium text-slate-800">Анкетын шийдвэр</h3>
+    <div class="mt-2 flex flex-wrap items-end gap-3">
+      <label class="min-w-64 flex-1">
+        <span class="block text-xs text-slate-600">Тайлбар *</span>
+        <input type="text" name="note" form="selfform-send-back-form" required maxlength="500" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <button type="submit" form="selfform-send-back-form" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Буцаах</button>
+    </div>
+    <p class="mt-1 text-xs text-slate-500">Буцаахад ажилтан маягтаа засаж дахин илгээнэ. Тайлбарыг ажилтан харна.</p>
+
+    <details class="mt-4">
+      <summary class="select-none cursor-pointer rounded px-2 py-1 text-red-600 hover:bg-red-50">Татгалзах</summary>
+      <div class="mt-2 rounded-lg border border-red-200 bg-red-50 p-3">
+        <label class="block">
+          <span class="block text-xs text-slate-600">Шалтгаан *</span>
+          <input type="text" name="reason" form="selfform-reject-form" required maxlength="500" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        </label>
+        <p class="mt-2 text-xs text-slate-500">Татгалзсан анкетыг дахин нээх боломжгүй. Шалтгаан анкетад хадгалагдана.</p>
+        <button type="submit" form="selfform-reject-form" class="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">Тийм, татгалзах</button>
+      </div>
+    </details>
+  </div>
+</section>

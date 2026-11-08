@@ -4,7 +4,7 @@
   <table>
     <thead>
       <tr>
-        {% if selectable %}<th class="w-10"><input type="checkbox" data-select-all autocomplete="off" aria-label="Бүгдийг сонгох"></th>{% endif %}
+        {% if selectable %}<th class="{{ check_css }}"{% if check_style %} style="{{ check_style }}"{% endif %}><input type="checkbox" data-select-all autocomplete="off" aria-label="Бүгдийг сонгох"></th>{% endif %}
         {% for h in heads %}
         <th{% if h.css %} class="{{ h.css }}"{% endif %}{% if h.sticky_left %} style="{{ h.sticky_left }}"{% endif %}><a href="{{ h.href }}" data-append="{{ h.append_href }}" title="Shift+товшилт: нэмэлт эрэмбэ" onclick="if(event.shiftKey){event.preventDefault();event.stopPropagation();window.location.href=this.dataset.append}" hx-get="{{ h.href }}" hx-trigger="click[!event.shiftKey]" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="hover:text-violet-700">{{ h.label }}{% if h.arrow %} <span aria-hidden="true">{{ h.arrow }}</span>{% endif %}</a></th>
         {% endfor %}
@@ -25,7 +25,7 @@
     {% if table.footer %}
     <tfoot>
       <tr class="border-t border-slate-300 font-semibold">
-        {% if selectable %}<td></td>{% endif %}
+        {% if selectable %}<td{% if check_pinned %} class="{{ check_css }}" style="{{ check_style }}"{% endif %}></td>{% endif %}
         {% for cell in table.footer %}
         <td{% if cell.css %} class="{{ cell.css }}"{% endif %}{% if cell.sticky_left %} style="{{ cell.sticky_left }}"{% endif %}>{% include "reports/_cell.html" %}</td>
         {% endfor %}

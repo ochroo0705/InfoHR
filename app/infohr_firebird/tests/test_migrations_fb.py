@@ -169,14 +169,17 @@ SEED_MIGRATIONS.update({app: "0003_seed" for app in ("employees", "checklists")}
 CHANGE_TEXT_MIGRATIONS = {"employees": "0004_activityentry_change_text", "accounts": "0003_systemlogentry_change_text"}
 # The SavedView visibility, default flag and longer query (reports part 1, task 8), added after the seed.
 VISIBILITY_MIGRATIONS = {"reports": "0003_savedview_visibility_default"}
+# The employee self-form (SelfFormInvitation and the selfform_* settings), added after change_text.
+SELFFORM_MIGRATIONS = {"employees": "0005_selfform"}
 
 
 def _expected_names(app: str) -> list[str]:
     second = [SECOND_MIGRATIONS[app]] if app in SECOND_MIGRATIONS else []
     seed = [SEED_MIGRATIONS[app]] if app in SEED_MIGRATIONS else []
     change_text = [CHANGE_TEXT_MIGRATIONS[app]] if app in CHANGE_TEXT_MIGRATIONS else []
+    selfform = [SELFFORM_MIGRATIONS[app]] if app in SELFFORM_MIGRATIONS else []
     visibility = [VISIBILITY_MIGRATIONS[app]] if app in VISIBILITY_MIGRATIONS else []
-    return ["0001_initial", *second, *seed, *change_text, *visibility]
+    return ["0001_initial", *second, *seed, *change_text, *selfform, *visibility]
 
 
 def test_every_firebird_app_has_a_real_initial_set() -> None:
@@ -188,7 +191,12 @@ def test_every_firebird_app_has_a_real_initial_set() -> None:
 
 
 def test_firebird_sets_have_the_second_migrations() -> None:
-    for app, name in [*SECOND_MIGRATIONS.items(), *SEED_MIGRATIONS.items(), *CHANGE_TEXT_MIGRATIONS.items()]:
+    for app, name in [
+        *SECOND_MIGRATIONS.items(),
+        *SEED_MIGRATIONS.items(),
+        *CHANGE_TEXT_MIGRATIONS.items(),
+        *SELFFORM_MIGRATIONS.items(),
+    ]:
         assert (APP_DIR / app / "migrations_fb" / f"{name}.py").is_file(), (app, name)
     data = result_of(run_django(LOAD_CODE, DB_ENGINE="firebird", FIREBIRD_NAME=FIREBIRD_PATH))
     assert data["names"]["employees"] == [
@@ -196,6 +204,7 @@ def test_firebird_sets_have_the_second_migrations() -> None:
         "0002_history_overlap_guard",
         "0003_seed",
         "0004_activityentry_change_text",
+        "0005_selfform",
     ]
     assert data["names"]["checklists"] == ["0001_initial", "0002_emulated_unique", "0003_seed"]
     assert data["names"]["assistant"] == ["0001_initial", "0002_seed"]

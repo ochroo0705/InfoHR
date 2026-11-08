@@ -1,4 +1,5 @@
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 from accounts.audit import record_export
 from django import forms
@@ -137,10 +138,68 @@ class ActivityAdmin(ReadOnlyAdmin):
     list_display = ("employee", "at", "kind", "message", "personal", "sensitive")
 
 
+class CompanySettingsForm(forms.ModelForm):  # type: ignore[type-arg]
+    """The limits and help of the self-form settings. They live in the form, not on the model fields, so the
+    migrations do not change."""
+
+    class Meta:
+        model = CompanySettings
+        fields = ["selfform_base_url", "selfform_notice", "selfform_retention_days", "selfform_default_hours"]
+        help_texts = {
+            "selfform_base_url": (
+                "Ажилтанд илгээх холбоосын эхлэл хэсэг, жишээ нь https://hr.example.mn. "
+                "Хоосон бол маягтыг үүсгэж буй хөтчийн хаягийг ашиглана."
+            ),
+            "selfform_retention_days": (
+                "Ажилтны хувийн мэдээлэл (хариулт, зураг) баталгаажуулсан, татгалзсан, цуцалсан эсвэл "
+                "хугацаа дууссанаас хойш энэ хоногийн дараа автоматаар устгана. Нэр, огноо, үр дүн хадгалагдана. "
+                "1-3650 хоног."
+            ),
+            "selfform_default_hours": ("Холбоос үүсгэхэд анхдагчаар хүчинтэй байх цаг. 1-8760 цаг (нэг жил) хооронд."),
+        }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        notice = self.fields["selfform_notice"]
+        notice.help_text = (
+            "Ажилтан маягт илгээхдээ хүлээн зөвшөөрөх мэдэгдэл. {company} гэж бичвэл байгууллагын нэр, "
+            "{days} гэж бичвэл хадгалах хоног орно."
+        )
+        if not self.instance.selfform_notice.strip():
+            notice.help_text += (
+                " Одоо хоосон тул загвар текст ашиглагдана. Энэ загварын үгийг байгууллага хэрэглэхээс өмнө "
+                "өөрөө уншиж, хууль зүйн хувьд баталгаажуулсан байх ёстой."
+            )
+
+    def clean_selfform_default_hours(self) -> int:
+        hours: int = self.cleaned_data["selfform_default_hours"]
+        if not 1 <= hours <= 8760:
+            raise forms.ValidationError("Холбоосын хугацаа 1-8760 цагийн хооронд байх ёстой.")
+        return hours
+
+    def clean_selfform_retention_days(self) -> int:
+        days: int = self.cleaned_data["selfform_retention_days"]
+        if not 1 <= days <= 3650:
+            raise forms.ValidationError("Хадгалах хугацаа 1-3650 хоногийн хооронд байх ёстой.")
+        return days
+
+    def clean_selfform_base_url(self) -> str:
+        url: str = self.cleaned_data["selfform_base_url"].strip()
+        if not url:
+            return url
+        parts = urlsplit(url)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            raise forms.ValidationError("Хаяг http:// эсвэл https:// -ээр эхэлсэн, домэйнтэй байх ёстой.")
+        if len(url) > 200:
+            raise forms.ValidationError("Хаяг 200 тэмдэгтээс хэтрэхгүй байх ёстой.")
+        return url
+
+
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
     """One row only (CompanySettings.get): it can be added once and never deleted."""
 
+    form = CompanySettingsForm
     fieldsets = (
         (None, {"fields": ("name", "director_name")}),
         (
@@ -154,6 +213,21 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
             },
         ),
         ("Орон тоо", {"fields": ("enforce_position_slots",)}),
+        (
+            "Өөрөө бөглөх анкет",
+            {
+                "description": (
+                    "Ажилтан өөрөө маягтаа бөглөх холбоосын тохиргоо. Хувийн мэдээллийг хадгалах хугацаа "
+                    "энд тохируулагдана; хугацаа өнгөрөхөд хариулт, зургийг автоматаар устгана."
+                ),
+                "fields": (
+                    "selfform_base_url",
+                    "selfform_notice",
+                    "selfform_retention_days",
+                    "selfform_default_hours",
+                ),
+            },
+        ),
     )
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:

@@ -1,0 +1,11 @@
+<div class="grid min-w-0 gap-1.5"{% if f.errors %} data-has-error{% endif %}>
+  <label for="{{ f.name }}" class="text-base font-medium">{{ f.label }}{% if f.required %} <span class="text-red-600">*</span>{% endif %}</label>
+  {% if f.choices %}
+  <select id="{{ f.name }}" name="{{ f.name }}" class="min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base"{% if f.errors %} aria-invalid="true"{% endif %}>
+    {% for value, label in f.choices %}<option value="{{ value }}"{% if value == f.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  {% else %}
+  <input id="{{ f.name }}" name="{{ f.name }}" type="{{ f.input_type }}" value="{{ f.value }}"{% if f.max_length %} maxlength="{{ f.max_length }}"{% endif %} class="min-h-11 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-base"{% if f.errors %} aria-invalid="true"{% endif %}>
+  {% endif %}
+  {% for message in f.errors %}<p class="text-xs text-red-600">{{ message }}</p>{% endfor %}
+</div>

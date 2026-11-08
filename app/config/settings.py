@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "employees.selfform.middleware.SelfFormHeadersMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "config.middleware.DefaultLanguageMiddleware",
     "django.middleware.common.CommonMiddleware",

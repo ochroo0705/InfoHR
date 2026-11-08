@@ -64,15 +64,17 @@ class Cell:
 
 
 PIN_WIDTH_REM = 12  # the width of one pinned column, so the offsets of the pinned columns add up
+CHECK_WIDTH_REM = 2.5  # the width of the selection checkbox column (w-10), which sits before the pinned columns
 # the classes of a pinned header or cell; the template comment in reports/_table.html lists them for Tailwind
 STICKY = "sticky z-10 w-[12rem] min-w-[12rem] max-w-[12rem] truncate"
 
 
-def pin_style(index: int, pin: int) -> str:
-    """The inline left offset of the column at `index` (0-based) when the first `pin` columns are pinned, else ""."""
+def pin_style(index: int, pin: int, base_rem: float = 0) -> str:
+    """The inline left offset of the column at `index` (0-based) when the first `pin` columns are pinned, else "".
+    `base_rem` is the width of whatever sits before the pinned columns (the selection checkbox column), 0 for none."""
     if index >= pin:
         return ""
-    return f"left: {PIN_WIDTH_REM * index}rem"
+    return f"left: {base_rem + PIN_WIDTH_REM * index}rem"
 
 
 def css_classes(cls: str, mark: str, sticky_left: str) -> str:
@@ -99,6 +101,7 @@ class Table:
     rules_text: str = ""  # the rules in words, for the screen and print; "" when none
     footer: list[Cell] | None = None  # the footer totals, one cell per shown column; None when there are none
     pin: int = 0  # how many leading columns stay fixed when scrolling sideways
+    pin_base: float = 0  # the width in rem before the first pinned column: the checkbox column of a selectable table
     rows: list[Any] = field(default_factory=list)  # every filtered, sorted raw row, for the other layouts
     spec: layouts_mod.LayoutSpec = field(default_factory=_table_spec)  # the layout chosen and its columns
 
@@ -338,11 +341,16 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
         rows = _sorted_rows(rows, column, descending)
     # the colour rules judge a value by its column's kind over the filtered rows; only shown columns are coloured
     mark_kinds = {c.key: column_kind(c, rows) for c in shown if any(m.column == c.key for m in marks)}
+    # the layout again, now with the filtered rows, so an untyped column's kind is read from its values; it comes
+    # before the pins, because a selectable table (Report.person, table layout) puts its checkbox column first
+    if spec.layout != "table":
+        spec = layouts_mod.resolve(report, user, filters, rows)
     pin = min(filters.pin, len(shown))
+    base = CHECK_WIDTH_REM if report.person is not None and spec.layout == "table" and pin > 0 else 0
     # every filtered row, not only the page's batch; an empty table has no totals row
     footer = _footer(shown, classes, totals, rows) if rows else None
     if footer is not None:
-        footer = [replace(cell, sticky_left=pin_style(i, pin)) for i, cell in enumerate(footer)]
+        footer = [replace(cell, sticky_left=pin_style(i, pin, base)) for i, cell in enumerate(footer)]
 
     def cells(row: Any) -> list[Cell]:
         out: list[Cell] = []
@@ -357,7 +365,7 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
                     cls=cls,
                     money=c.money,
                     mark=mark,
-                    sticky_left=pin_style(i, pin),
+                    sticky_left=pin_style(i, pin, base),
                     person=person,
                 )
             )
@@ -382,9 +390,6 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
             groups.append((_group_label(blank, group_cols), buckets[blank]))
 
     labels = {c.key: c.label for c in by_key.values()}
-    # the layout again, now with the filtered rows, so an untyped column's kind is read from its values
-    if spec.layout != "table":
-        spec = layouts_mod.resolve(report, user, filters, rows)
     used = replace(
         filters,
         columns=tuple(c.key for c in shown),
@@ -401,6 +406,7 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
         rules_text=rules_mod.describe_rules(rule_tree, labels),
         footer=footer,
         pin=pin,
+        pin_base=base,
         rows=rows,
         spec=spec,
     )

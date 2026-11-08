@@ -1,8 +1,9 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
   <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
-    <h2 class="mb-1 text-lg font-semibold">Жагсаалт эхлүүлэх</h2>
+    <h2 class="mb-1 text-lg font-semibold">Ажлаас гарах жагсаалт эхлүүлэх</h2>
     <p class="mb-4 text-sm text-slate-500">
-      {% if all_people %}Тайлангийн бүх {{ count }} хүнд{% else %}Сонгосон {{ count }} хүнд{% endif %} жагсаалт нэмнэ.
+      {% if all_people %}Тайлангийн бүх {{ count }} хүнд{% else %}Сонгосон {{ count }} хүнд{% endif %} «Ажлаас гарах» жагсаалт нэмнэ.
+      Ажлаас аль хэдийн гарсан хүнд, эсвэл нээлттэй жагсаалттай хүнд шинээр жагсаалт нэмэгдэхгүй.
       Хүн бүрт тусад нь шалгана; нэг нь алдаа гарсан ч бусад нь эхэлнэ.
     </p>
     {% if errors %}
@@ -13,11 +14,7 @@
     {% endif %}
     <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" class="space-y-3">
       {% csrf_token %}
-      <label class="block text-sm">Жагсаалтын төрөл *
-        <select name="kind" required class="mt-1 w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
-          {% for value, label in kinds %}<option value="{{ value }}"{% if value == kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select>
-      </label>
+      <input type="hidden" name="confirm" value="1">
       <label class="block text-sm">Шалтгаан
         <select name="reason" class="mt-1 w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
           <option value="">Шалтгаангүй (үндсэн загвар)</option>
