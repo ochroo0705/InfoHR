@@ -936,7 +936,9 @@ def _add_rows(client: Client, employee: Employee, lists: dict[str, Any], numbers
 # 172 since base.html asks whether the assistant is on (the floating «Асуух» button, tag assistant_on): one settings lookup.
 # 173 since the nav link «Өөрөө бөглөх анкет» shows the count of submitted self-forms to users who can manage staff:
 # one cheap COUNT (accounts/nav.py, employee self-form spec).
-PERSONAL_TAB_QUERIES = 173
+# 174 since the «Модулиуд» nav link asks whether the user is an Admin (accounts.views_modules.may_manage_modules: one
+# group lookup per request, skipped for a superuser). The module on/off state itself is cached per process for 30 s.
+PERSONAL_TAB_QUERIES = 174
 
 
 def test_personal_tab_query_count(
@@ -964,7 +966,8 @@ def test_personal_tab_query_count(
 # 170 with the nav query above.
 # 172 with the offboarding panel's two lookups (see PERSONAL_TAB_QUERIES).
 # 174 with the self-form nav count (see PERSONAL_TAB_QUERIES: 173 + the waiting-change lookup).
-WAITING_ONE_QUERIES = 174
+# 175 with the «Модулиуд» nav link's group lookup (see PERSONAL_TAB_QUERIES).
+WAITING_ONE_QUERIES = 175
 
 
 def test_personal_tab_query_count_with_one_waiting_change(

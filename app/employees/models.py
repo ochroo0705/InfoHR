@@ -732,6 +732,10 @@ class CompanySettings(models.Model):
         ),
     )
 
+    # Which optional modules an admin has switched on or off (accounts/modules.py): a JSON object {key: true|false}.
+    # A module not named here is on, so an install that never opens the page keeps every module.
+    modules = models.TextField("Модулиуд", default="{}", blank=True)
+
     # Employee self-form (Ажилтны өөрийн маягт): the links, the consent text and the retention period.
     selfform_base_url = models.URLField(
         "Маягтын хаяг",

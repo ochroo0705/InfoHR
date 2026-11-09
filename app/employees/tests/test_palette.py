@@ -57,7 +57,6 @@ def test_screens_with_empty_query_list_every_allowed_screen(listed: Employee) ->
     expected = [
         "Өнөөдөр",
         "Миний даалгавар",
-        "Ажилтнууд",
         "Тушаалын бүртгэл",
         "Чөлөө, амралт",
         "Багийн хуанли",
@@ -77,7 +76,7 @@ def test_screens_with_empty_query_list_every_allowed_screen(listed: Employee) ->
 def test_screens_hide_what_the_user_may_not_open(listed: Employee) -> None:
     emp = _user("Employee", "pal_emp")
     titles = [s.title for s in palette.screens(emp, "")]
-    assert "Ажилтнууд" in titles
+    assert "Миний даалгавар" in titles
     assert "Өнөөдөр" not in titles  # as the top bar: Today is for those who see the staff
     assert "Ажилтны бүртгэл" not in titles
     assert "Тушаалын бүртгэл" not in titles
@@ -94,11 +93,11 @@ def test_screens_match_typed_words_case_insensitively(listed: Employee) -> None:
 
 def test_reports_are_found_by_a_word_of_their_title(listed: Employee) -> None:
     hr = _user("HR", "pal_rep1")
-    found = palette.screens(hr, "мэдээлэл")
+    found = palette.screens(hr, "хүснэгт")
     assert [s for s in found if s.title.startswith("Тайлан · ")] == [
-        palette.Screen("Тайлан · Ажилтны товч анкет", reverse("reports:report", args=["employee-info"]))
+        palette.Screen("Тайлан · Ажилтны хүснэгт", reverse("reports:report", args=["staff-list"]))
     ]
-    assert reverse("reports:report", args=["employee-info"]) == "/reports/employee-info/"
+    assert reverse("reports:report", args=["staff-list"]) == "/reports/staff-list/"
 
 
 def test_reports_are_not_listed_for_an_empty_query(listed: Employee) -> None:
@@ -1351,12 +1350,15 @@ def test_group_headers_show_how_many_rows_each_group_has(
 
 
 def test_empty_state_keeps_its_text_and_offers_the_employee_list(client: Client, listed: Employee) -> None:
-    client.force_login(_user("Employee", "pal_empty1"))
+    client.force_login(_user("HR", "pal_empty1"))
     body = client.get(reverse("employees:palette"), {"q": "zzzzqq"}).content.decode()
     assert "data-palette-empty" in body and "Юу ч олдсонгүй" in body
     assert body.index("Юу ч олдсонгүй") < body.index("Эсвэл нээх:") < body.index("Ажилтнууд</span>")
     link = _anchor(body, reverse("employees:list"))
     assert "data-palette-item" in link and 'role="option"' in link  # keyboard-selectable like any row
+    client.force_login(_user("Employee", "pal_empty2"))
+    body = client.get(reverse("employees:palette"), {"q": "zzzzqq"}).content.decode()
+    assert "Ажилтнууд</span>" not in body  # the employees screen is the staff report: not offered without the right
     assert "Ажилтан нэмэх" not in body  # the Employee role may not add a person
 
 
@@ -1570,10 +1572,9 @@ def test_logs_are_offered_by_their_own_rights(listed: Employee) -> None:
     system_log = palette.Screen("Системийн бүртгэл", reverse("logs:system"))
     assert employee_log in palette.screens(hr, "")
     assert (system_log in palette.screens(hr, "")) == hr.has_perm("accounts.view_audit")
-    # The employee list is offered to everyone, as in the top bar; it shows only who the user may see.
+    # The employees screen is the staff-list report: only who may open that report is offered it.
     assert palette.screens(auditor, "") == [
         palette.Screen("Миний даалгавар", reverse("checklists:mine")),
-        palette.Screen("Ажилтнууд", reverse("employees:list")),
         system_log,
     ]
     assert palette.screens(auditor, "бүртгэл") == [system_log]

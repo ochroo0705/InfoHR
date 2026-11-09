@@ -30,7 +30,7 @@ def test_catalogue_links_all_six_for_hr_and_none_greyed(client: Client, login_as
     page = client.get("/reports/").content.decode()
     for key in LEAVE_REPORTS:
         assert f'href="/reports/{key}/"' in page, key
-    assert page.count("удахгүй") == 33 - len(REPORTS)
+    assert page.count("удахгүй") == 28 - len(REPORTS)
 
 
 def test_print_and_excel_work_for_each_leave_report(

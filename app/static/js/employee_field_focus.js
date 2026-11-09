@@ -39,13 +39,17 @@
     var target = pick(hits);
     if (!target) {
       // A personal-tab field in a topic group that is not open (wide screens show one group at a time):
-      // open it with the group's own menu link, as a click on it does (sections.js), then look again.
+      // open it as a menu click does (sections.js window.hrOpenGroup, quietly), then look again. Without that hook
+      // (an older sections.js) the group's own menu link is clicked.
       var group = hits[0].closest('[data-pgroup]');
       var name = group && group.getAttribute('data-pgroup');
-      var link = group && group.hasAttribute('data-off') && KEY.test(name)
-        ? document.querySelector('#personal-nav a[data-pgroup-link="' + name + '"]') : null;
-      if (link) {
-        link.click();
+      if (group && group.hasAttribute('data-off') && KEY.test(name)) {
+        if (window.hrOpenGroup) {
+          window.hrOpenGroup(name, false);
+        } else {
+          var link = document.querySelector('#personal-nav a[data-pgroup-link="' + name + '"]');
+          if (link) link.click();
+        }
         target = pick(hits);
       }
     }

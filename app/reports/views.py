@@ -22,6 +22,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.decorators.vary import vary_on_headers
 from employees import access, listing
+from employees.images import attach_photo_digests
 from employees.models import CompanySettings
 from macs.models import (
     AbsenceType,
@@ -283,7 +284,10 @@ def columns_modal(request: HttpRequest, key: str) -> HttpResponse:
         # the chips named by `add` survive the pop-up's round trip too, as the page's own filter form keeps them
         # the hidden inputs carry this viewer's cleaned address, so a hidden column key never echoes back
         "keep": parse_qsl(to_query(replace(_cleaned_for(user, report, f), columns=(), group="")))
-        + [("add", name) for name in _added_names(request.GET, offered_column_filters(report, user))],
+        + [
+            ("add", name)
+            for name in _added_names(request.GET, _offered_adds(report, user, offered_filters(report, user)))
+        ],
     }
     return render(request, "reports/_columns_modal.html", context)
 
@@ -319,7 +323,10 @@ def rules_modal(request: HttpRequest, key: str) -> HttpResponse:
         "rules_json": rules_mod.dump_rules(current),
         # every current filter except the rules, as the page's own filter form keeps them; the `add` chips survive too
         "keep": parse_qsl(to_query(replace(_cleaned_for(user, report, f), rules="")))
-        + [("add", name) for name in _added_names(request.GET, offered_column_filters(report, user))],
+        + [
+            ("add", name)
+            for name in _added_names(request.GET, _offered_adds(report, user, offered_filters(report, user)))
+        ],
     }
     return render(request, "reports/_rules_modal.html", context)
 
@@ -371,7 +378,10 @@ def format_modal(request: HttpRequest, key: str) -> HttpResponse:
         # every current filter except the totals, colours and pin, as the page's own filter form keeps them;
         # the `add` chips survive too
         "keep": parse_qsl(to_query(replace(_cleaned_for(user, report, f), totals="", marks="", pin=0)))
-        + [("add", name) for name in _added_names(request.GET, offered_column_filters(report, user))],
+        + [
+            ("add", name)
+            for name in _added_names(request.GET, _offered_adds(report, user, offered_filters(report, user)))
+        ],
     }
     return render(request, "reports/_format_modal.html", context)
 
@@ -386,6 +396,71 @@ LAYOUT_LABELS = {  # the switcher's labels (UI_RULES §4b)
     "pivot": "Хөрвүүлэлт",
 }
 CHART_LABELS = {"bar": "Баганан", "line": "Шугаман", "donut": "Дугуй"}  # the chart kinds of the layout bar
+# A long filter bar (more than FILTERS_SLIM_FROM filters) keeps only the FILTERS_QUICK most useful ones on screen. The
+# others are offered in the «Шүүлтүүр нэмэх» menu and appear as a control with a ✕ once picked (`add=<name>` in the
+# address) or as soon as they hold a value. Only the filters in FOLDABLE can be folded: each maps to the Filters
+# fields its ✕ resets, which is also how «holds a value» is read from the address.
+FILTERS_QUICK = 4
+FILTERS_SLIM_FROM = 5
+FILTERS_PRIORITY = ("state", "as_of", "period", "department", "emptype", "employee", "branch", "year", "quarter")
+FOLDABLE: dict[str, tuple[str, ...]] = {
+    "branch": ("branch",),
+    "department": ("department",),
+    "position": ("position",),
+    "gender": ("gender",),
+    "emptype": ("emptype",),
+    "age_range": ("age_from", "age_to"),
+    "employee": ("employee",),
+}
+FILTER_LABELS = {
+    "branch": "Салбар",
+    "department": "Хэлтэс",
+    "position": "Албан тушаал",
+    "gender": "Хүйс",
+    "emptype": "Ажилтны төрөл",
+    "age_range": "Нас",
+    "employee": "Ажилтан",
+}
+
+
+def _secondary_filters(names: Sequence[str]) -> tuple[str, ...]:
+    """The filters that start folded away: all but the FILTERS_QUICK most useful ones (FILTERS_PRIORITY order, then the
+    report's own order), and only those that can be folded. Empty for a short bar."""
+    if len(names) <= FILTERS_SLIM_FROM:
+        return ()
+    rank = {n: i for i, n in enumerate(FILTERS_PRIORITY)}
+    quick = sorted(names, key=lambda n: (rank.get(n, len(rank)), list(names).index(n)))[:FILTERS_QUICK]
+    return tuple(n for n in names if n not in quick and n in FOLDABLE)
+
+
+def _holds_value(name: str, f: Filters) -> bool:
+    return any(getattr(f, field) not in (None, "") for field in FOLDABLE[name])
+
+
+def _builtin_panels(
+    path: str, f: Filters, secondary: Sequence[str], adds: list[str], plain: bool
+) -> tuple[list[str], list[tuple[str, str, str]], dict[str, str]]:
+    """The folded built-in filters for the bar and the menu: the names to draw now (those with a value or named by
+    `add`), the menu entries (name, label, href) for the others, and each drawn one's ✕ address (its fields reset, its
+    `add` dropped)."""
+    shown: list[str] = []
+    choices: list[tuple[str, str, str]] = []
+    removes: dict[str, str] = {}
+    for name in secondary:
+        if name in adds or _holds_value(name, f):
+            shown.append(name)
+            reset = replace(f, **{field: ("" if field == "gender" else None) for field in FOLDABLE[name]})
+            removes[name] = _address(path, reset, [a for a in adds if a != name], plain=plain)
+        else:
+            choices.append((name, FILTER_LABELS.get(name, name), _address(path, f, [*adds, name], plain=plain)))
+    return shown, choices, removes
+
+
+def _offered_adds(report: Report, user: User, names: Sequence[str]) -> list[str]:
+    """Every name `add` may carry for this user: the column filters and the foldable built-in filters."""
+    return [*offered_column_filters(report, user), *_secondary_filters(names)]
+
+
 CARD_EXTRAS = 4  # the shown columns after the title and subtitle, drawn as label: value lines on a card
 
 
@@ -470,8 +545,10 @@ def _layout_context(
         # one line per row: its label, its cells and its total (a template cannot index cells by row)
         context["pivot_lines"] = list(zip(pivot.row_labels, pivot.cells, pivot.row_totals, strict=True))
     elif spec.layout == "cards":
-        items = layouts_mod.make_items(table, table.rows, marks, today, extras=CARD_EXTRAS)
+        items = layouts_mod.make_items(table, table.rows, marks, today, extras=CARD_EXTRAS, photo_of=report.photo)
         cards = batching.window(request, items)
+        if report.photo is not None:  # one query for the photos on show, not one per card
+            attach_photo_digests(i.photo for i in cards.shown if i.photo is not None)
         context["cards_items"] = cards.shown
         context["cards_next_query"] = cards.next_query
     return context, cards
@@ -524,10 +601,21 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         batch = batching.window(request, table.groups[0][1])
         table.groups = [("", batch.shown)]
     column_names = offered_column_filters(report, user)
-    adds = _added_names(request.GET, column_names)  # the picker's chips without a value yet; never stored
+    names = offered_filters(report, user)  # the filter bar draws these, in the report's order
+    secondary = _secondary_filters(names)
+    adds = _added_names(
+        request.GET, [*column_names, *secondary]
+    )  # the picker's chips without a value yet; never stored
     plain = bool(report.saved_views)  # an empty address then says view=plain, not the bare default-view address
     layout_context, cards = _layout_context(request, user, report, table, adds, plain)
     column_choices, column_chips = _column_filter_panels(request.path, f, column_names, adds, plain)
+    shown_secondary, builtin_choices, filter_removes = _builtin_panels(request.path, f, secondary, adds, plain)
+    # one «Шүүлтүүр нэмэх» menu: the folded built-in filters first, then the column filters (label, href, heading)
+    picker = [(label, href, "Шүүлтүүр" if i == 0 else "") for i, (_n, label, href) in enumerate(builtin_choices)]
+    picker += [
+        (label, href, "Баганаар" if i == 0 and builtin_choices else "")
+        for i, (_n, label, href) in enumerate(column_choices)
+    ]
     # the Багана button's address: the report's query plus the chips named by `add`
     columns_query = "&".join(part for part in (to_query(f), urlencode([("add", n) for n in adds])) if part)
     heads = []
@@ -544,7 +632,6 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
                 sticky_left=pin_style(i, table.pin, table.pin_base),
             )
         )
-    names = offered_filters(report, user)  # the filter bar draws these, in the report's order
     selectable = report.person is not None and table.spec.layout == "table"
     period_start, period_end = period_of(f)
     context = {
@@ -562,8 +649,17 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         "shown_rows": batch.shown if batch is not None else [],
         "next_query": batch.next_query if batch is not None else "",
         "batch_url": request.path,
+        "staff_actions": report.key == "staff-list"
+        and access.can_manage(request.user),  # hire and import beside the title
         "note": report.note(f) if report.note is not None else "",
-        "filter_names": names,
+        "filter_names": [n for n in names if n not in secondary or n in shown_secondary],
+        "secondary_filters": secondary,  # drawn with a ✕ (and a hidden `add`) when shown
+        "filter_items": [
+            {"name": n, "remove": filter_removes.get(n, "")}
+            for n in names
+            if n not in secondary or n in shown_secondary
+        ],
+        "filter_picker": picker,
         "column_filter_choices": column_choices,
         "active_column_filters": column_chips,
         "states": STATES,
@@ -746,10 +842,13 @@ def _saved_context(user: User, report: Report, query: str) -> dict[str, Any]:
 
 def _template_allowed(user: User, report: Report, template: Template) -> bool:
     """A template is offered when its rules parse and use only columns this user may see."""
-    tree = rules_mod.parse_rules(parse_filters(QueryDict(template.query)).rules)
-    if tree is None:
-        return False
-    return set(rules_mod.rule_columns(tree)) <= {c.key for c in allowed_columns(report, user)}
+    f = parse_filters(QueryDict(template.query))
+    tree = rules_mod.parse_rules(f.rules)
+    if tree is None and f.rules:
+        return False  # rules that do not parse
+    used = set(rules_mod.rule_columns(tree)) if tree is not None else set()
+    used |= {k for k in (*f.columns, f.lby, f.lby2) if k}  # the columns and the layout's categories it names
+    return used <= {c.key for c in allowed_columns(report, user)}
 
 
 @login_required

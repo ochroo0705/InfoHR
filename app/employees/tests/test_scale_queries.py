@@ -42,7 +42,6 @@ PAGES = [
     "/reports/absences/",
     "/reports/away-on-date/",
     "/reports/household-income/",
-    "/reports/ages/",
 ]
 
 

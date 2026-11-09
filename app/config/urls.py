@@ -1,4 +1,5 @@
 from accounts.views import ForcedPasswordChangeView, home
+from accounts.views_modules import modules_page
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -12,6 +13,7 @@ urlpatterns = [
     path("login/", auth_views.LoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("password/change/", ForcedPasswordChangeView.as_view(), name="password_change"),
+    path("modules/", modules_page, name="modules"),
     path("me/", me_page, name="me"),
     path("me/notice/", dismiss_notice, name="me_notice"),
     path("employees/", include("employees.urls")),

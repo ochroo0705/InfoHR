@@ -56,3 +56,7 @@ class Report:
     layout_date2: str = ""  # key of the default end date of the timeline; "" = the next allowed date column
     # the employee id of one raw row; None = the report offers no row selection
     person: Callable[[Any], int] | None = None
+    # the optional module this report belongs to (accounts/modules.py key): off = the report cannot be opened; "" = none
+    module: str = ""
+    # the employee of one raw row, so a card can show their photo; None = cards without photos
+    photo: Callable[[Any], Any] | None = None

@@ -84,10 +84,11 @@ def employees_count() -> int:
 
 def test_list_shows_import_button_only_to_managers(client: Client) -> None:
     login_as(client, "HR", "hr_one")
-    assert "Ажилтан импортлох" in client.get(reverse("employees:list")).content.decode()
+    report = reverse("reports:report", args=["staff-list"])
+    assert "Ажилтан импортлох" in client.get(report).content.decode()
     client.logout()
     login_as(client, "Employee", "plain_one")
-    assert "Ажилтан импортлох" not in client.get(reverse("employees:list")).content.decode()
+    assert client.get(report).status_code == 403  # the employee role has no staff report, so no import button
 
 
 def test_upload_stores_draft_and_opens_map(client: Client) -> None:

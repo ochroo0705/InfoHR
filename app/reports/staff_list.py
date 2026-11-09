@@ -13,12 +13,12 @@ from django.utils import timezone
 from employees import access, listing
 from employees.models import JobStatus, ext_of
 from employees.services.order_register import age_on
-from macs.models import AddressRow, BirthPlace, Department, Employee, Position
+from macs.models import AddressRow, BirthPlace, ContactRow, Department, Employee, Position
 
 from reports.column_filters import COLUMN_FILTERS
 from reports.filters import NO_WORKING_STATE, Filters
-from reports.rules import Rule
-from reports.starter import rule_template
+from reports.rules import Group, Rule, dump_rules
+from reports.starter import rule_template, view_template
 from reports.table import usable_filters
 from reports.types import Column, Report
 
@@ -64,6 +64,7 @@ class StaffRow:
     birthplace: str  # "" unless the birthplace column is shown
     salary: Decimal | None  # today's base salary; read only when the salary column is shown
     as_of: date  # the day the row is read for; ages and years count to it
+    contacts: str = ""  # "" unless the contacts column is shown: the emergency contacts joined with «; »
 
 
 def _detail_url(s: StaffRow) -> str:
@@ -88,6 +89,20 @@ def _job_position(s: StaffRow) -> str | None:
 def _probation_end(s: StaffRow) -> date | None:
     ext = ext_of(s.row.employee)
     return ext.probation_end if ext is not None else None
+
+
+def _bracket(age: int | None) -> str | None:
+    from reports.survey_common import bracket  # survey_common imports this module
+
+    return bracket(age)
+
+
+def _contact_text(c: ContactRow) -> str:
+    """One emergency contact as «<type>: <value> (<name>, <relative>)». Empty parts are left out."""
+    kind: Any = c.contact_type
+    head = ": ".join(part for part in (kind.name, c.value) if part)
+    who = ", ".join(part for part in (c.name, c.relative) if part)
+    return " ".join(part for part in (head, f"({who})" if who else "") if part)
 
 
 COLUMNS: tuple[Column, ...] = (
@@ -123,6 +138,13 @@ COLUMNS: tuple[Column, ...] = (
         group=GROUP_NAME,
         needs=PERSONAL,
         kind="date",
+    ),
+    Column(
+        key="bracket",
+        label="Насны бүлэг",
+        value=lambda s: _bracket(age_on(s.row.employee.birth_date, s.as_of)),
+        group=GROUP_NAME,
+        needs=PERSONAL,
     ),
     Column(
         key="age",
@@ -258,6 +280,13 @@ COLUMNS: tuple[Column, ...] = (
         needs=PERSONAL,
     ),
     Column(key="email", label="И-мэйл", value=lambda s: s.row.employee.email, group=GROUP_CONTACT),
+    Column(
+        key="contacts",
+        label="Яаралтай үед холбогдох",
+        value=lambda s: s.contacts,
+        group=GROUP_CONTACT,
+        needs=PERSONAL,
+    ),
     Column(key="address", label="Гэрийн хаяг", value=lambda s: s.address, group=GROUP_CONTACT, needs=PERSONAL),
     Column(
         key="education_level",
@@ -526,6 +555,10 @@ def rows(user: User, f: Filters) -> list[StaffRow]:
         addresses = first_per_employee(
             AddressRow.objects.filter(employee_id__in=ids).select_related("city", "district")
         )
+    contacts: dict[int, list[str]] = {}
+    if "contacts" in shown and user.has_perm(PERSONAL):
+        for c in ContactRow.objects.select_related("contact_type").filter(employee_id__in=ids).order_by("id"):
+            contacts.setdefault(c.employee_id, []).append(_contact_text(c))
     birthplaces: dict[int, Any] = {}
     if "birthplace" in shown:
         birthplaces = first_per_employee(
@@ -546,6 +579,7 @@ def rows(user: User, f: Filters) -> list[StaffRow]:
                 birthplace=_birthplace_text(birthplace) if birthplace is not None else "",
                 salary=salary.base_salary if salary is not None else None,
                 as_of=day,
+                contacts="; ".join(contacts.get(emp.pk, [])),
             )
         )
     return result
@@ -572,11 +606,35 @@ REPORT = Report(
     rows=rows,
     needs=("macs.view_employees",),
     source=Employee,
-    group_options=("department", "branch", "position"),
+    # every code-list column can group the board, chart and pivot: with these a user builds the counts of the old
+    # surveys (by age bracket, gender, education, shoe size…) themselves
+    group_options=(
+        "department",
+        "branch",
+        "position",
+        "gender",
+        "bracket",
+        "state",
+        "education_level",
+        "academic_degree",
+        "marital_status",
+        "nationality",
+        "citizenship",
+        "social_origin",
+        "housing_condition",
+        "car_ownership",
+        "clothing_size",
+        "shoe_size",
+        "bank",
+        "insured_category",
+        "work_conditions",
+        "elected_position",
+    ),
     picks_columns=True,
     saved_views=True,
     note=_note,
     person=lambda s: s.row.employee.pk,
+    photo=lambda s: s.row.employee,
     layouts=("board", "calendar", "timeline", "cards", "chart", "pivot"),
     layout_date="first_hire_date",  # the employment start; filled for everyone hired (birth date is never a default)
     layout_date2="contract_end",  # blank for open-ended contracts: then the timeline shows a one-day marker
@@ -584,5 +642,16 @@ REPORT = Report(
         rule_template("Гэрээ дуусах дөхсөн", Rule("contract_end", "next_days", "60")),
         rule_template("Туршилтын хугацаа дуусах дөхсөн", Rule("probation_end", "next_days", "30")),
         rule_template("Нас 55+", Rule("age", "gte", "55")),
+        # the retired surveys, now plain setups of this report (the counts are the pivot view)
+        view_template(
+            "Өндөр настнууд (60+), холбоо барих",
+            columns=("code", "name", "department", "position", "birth_date", "age", "years_worked", "private_phone", "contacts", "address"),
+            rules=dump_rules(Group("and", (Rule("age", "gte", "60"),))),
+            sort="-age",
+        ),
+        view_template("Насны бүлэг, хүйсээр", layout="pivot", lby="bracket", lby2="gender"),
+        view_template("Хүйс, боловсролоор", layout="pivot", lby="gender", lby2="education_level"),
+        view_template("Гутлын хэмжээ, хүйсээр", layout="pivot", lby="shoe_size", lby2="gender"),
+        view_template("Хувцасны хэмжээ, хүйсээр", layout="pivot", lby="clothing_size", lby2="gender"),
     ),
 )

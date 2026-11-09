@@ -7,7 +7,6 @@ a loan, a change), or several lines per person (leave balance, budget indicators
 
 Opted in (`person` set; the rows are one person each):
 - staff-list: one row per visible employee (the original opt-in).
-- employee-info: the staff list under its old name; `dataclasses.replace` keeps the staff list's `person`.
 - ages: one row per staff member counted on the day (the survey people, one per employee).
 - elders: one row per staff member at the elder age, wrapping that same person.
 - household-income: one income line per staff member.
@@ -58,9 +57,6 @@ pytestmark = pytest.mark.django_db
 
 OPTED_IN: tuple[str, ...] = (
     "staff-list",
-    "employee-info",
-    "ages",
-    "elders",
     "household-income",
     "annual-leave",
     "absence-totals",
@@ -70,8 +66,6 @@ LEFT_OUT: tuple[str, ...] = (
     "children",
     "contacts",
     "engineers",
-    "sizes",
-    "statistics",
     "leave-balance",
     "leave-requests",
     "absences",
@@ -137,15 +131,8 @@ def _cases(staff: dict[str, Employee], sanhuu: int, year: int) -> dict[str, list
     staff_cases = [(Filters(), everyone), (Filters(department=sanhuu), sanhuu_only)]
     return {
         "staff-list": staff_cases,
-        "employee-info": staff_cases,
-        "ages": staff_cases,
         "household-income": staff_cases,
         "annual-leave": staff_cases,
-        "elders": [
-            (Filters(), {"E"}),
-            (Filters(department=sanhuu), {"E"}),
-            (Filters(age_to=64), set()),  # the floor stays at 60; E is 65
-        ],
         "absence-totals": [
             (Filters(), {"A", "B"}),
             (Filters(department=sanhuu), {"A", "B"}),

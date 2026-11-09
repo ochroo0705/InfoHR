@@ -27,6 +27,10 @@
   // Opens the pane at once (so the chart is measured at its real size), then loads the chart fragment into it.
   function openPane(href) {
     if (!pane) return false;
+    // A pane that is sliding out is taken back: its pending done() does nothing (the token is cleared).
+    pane.__closing = null;
+    pane.removeAttribute("data-leaving");
+    pane.inert = false;
     pane.hidden = false;
     pane.innerHTML = '<p role="status" class="p-4 text-sm text-slate-500">График ачаалж байна…</p>';
     if (window.htmx) window.htmx.ajax("GET", href, { target: "#" + pane.id, swap: "innerHTML" });
@@ -34,16 +38,28 @@
     return true;
   }
 
+  // The pane slides out through window.hrLeave (plan 2026-11-08-selection-motion, task 9); it is hidden and emptied when the
+  // exit ends. Its token (pane.__closing) lets openPane take it back in the meantime.
   function closePane() {
-    if (!pane || pane.hidden) return;
-    pane.hidden = true;
-    pane.textContent = "";  // the observer below purges the chart that was in it
+    if (!pane || pane.hidden || pane.hasAttribute("data-leaving")) return;
+    var token = pane.__closing = {};
+    function done() {
+      if (pane.__closing !== token) return;  // reopened by openPane while sliding out
+      pane.__closing = null;
+      pane.removeAttribute("data-leaving");
+      pane.inert = false;
+      pane.hidden = true;
+      pane.textContent = "";  // the observer below purges the chart that was in it
+    }
+    if (window.hrLeave) window.hrLeave(pane, { done: done });
+    else done();
   }
 
   // The open chart's state (filters, kind, grouping), read from the marker in the pane; null when no chart is open.
-  // palette.js sends it with a typed question, so a question can change the chart that is on screen.
+  // palette.js sends it with a typed question, so a question can change the chart that is on screen. A pane that is
+  // sliding out is not open.
   window.openChartState = function () {
-    var mark = pane && !pane.hidden && pane.querySelector("[data-chart-state]");
+    var mark = pane && !pane.hidden && !pane.hasAttribute("data-leaving") && pane.querySelector("[data-chart-state]");
     if (!mark) return null;
     return { query: mark.getAttribute("data-query") || "", kind: mark.getAttribute("data-kind") || "", by: mark.getAttribute("data-by") || "" };
   };
@@ -75,10 +91,11 @@
         closePane();
       }
     });
-    // The pane belongs to the panel: it goes when the panel closes.
+    // The pane belongs to the panel: it goes when the panel closes. It starts its own exit as soon as the panel starts
+    // sliding out (data-leaving), so both leave together; a panel that is reopened in time brings nothing back here.
     if (panel) {
-      new MutationObserver(function () { if (panel.hidden) closePane(); })
-        .observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+      new MutationObserver(function () { if (panel.hidden || panel.hasAttribute("data-leaving")) closePane(); })
+        .observe(panel, { attributes: true, attributeFilter: ["hidden", "data-leaving"] });
     }
   }
 

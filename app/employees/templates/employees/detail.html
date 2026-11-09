@@ -59,7 +59,11 @@ if(wide()&&store('hr.activityOpen')==='1')render(true);
 (function(){var who=document.getElementById('rail-who'),head=document.getElementById('header');
 if(!who||!head||!window.IntersectionObserver)return;
 new IntersectionObserver(function(es){who.classList.toggle('hidden',es[0].isIntersecting)},{rootMargin:'-80px 0px 0px 0px'}).observe(head);})();
-function showTab(name){document.querySelectorAll('[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
+// A panel that comes into view plays swap-in once (input.css); the class goes on animationend, or on animationcancel (a
+// hidden panel cancels the animation). Only the target's own animation counts (a child's animation bubbles up to the panel too).
+function swapIn(el){if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;el.classList.add('swap-in');function end(e){if(e.target!==el)return;el.classList.remove('swap-in');el.removeEventListener('animationend',end);el.removeEventListener('animationcancel',end);}el.addEventListener('animationend',end);el.addEventListener('animationcancel',end);}
+// quiet: the call at page load (and after an htmx redraw of the tab) does not animate.
+function showTab(name,quiet){document.querySelectorAll('[id^=tab-]').forEach(s=>{var show=s.id==='tab-'+name;if(show&&!quiet&&s.classList.contains('hidden'))swapIn(s);s.classList.toggle('hidden',!show);});
 document.querySelectorAll('.tab').forEach(a=>{var on=a.hash==='#'+name;a.classList.toggle('tab-on',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
 document.querySelectorAll('.rtab').forEach(a=>{var on=a.hash==='#'+name;['bg-violet-50','text-violet-700','font-semibold'].forEach(c=>a.classList.toggle(c,on));if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
 var pm=document.getElementById('personal-nav');if(pm)pm.classList.toggle('hidden',name!=='personal');}
@@ -68,7 +72,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#
 if(!a||!document.getElementById('tab-'+a.hash.slice(1)))return;e.preventDefault();showTab(a.hash.slice(1));history.replaceState(null,'',a.hash);});
 // #personal-<group> (a personal-tab group page, sections.js) opens the personal tab.
 var hashTab=location.hash.slice(1).split('-')[0];
-if(hashTab&&document.getElementById('tab-'+hashTab)){showTab(hashTab)}else{showTab('{{ tab|default:"work"|escapejs }}')}
+if(hashTab&&document.getElementById('tab-'+hashTab)){showTab(hashTab,true)}else{showTab('{{ tab|default:"work"|escapejs }}',true)}
 {% if form or si_form %}// Show a chosen photo before it is saved. Big downscales in one step look grainy
 // (browsers sample too few pixels), so halve the image step by step to the circle size.
 // "×" on the photo: marks it for removal on Save (dimmed + note); untick to undo.

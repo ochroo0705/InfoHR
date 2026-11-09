@@ -63,7 +63,7 @@ def test_admin_catalogue_links_all_eleven_and_greys_none(client: Client, login_a
     page = client.get("/reports/").content.decode()
     for key in PHASE5_REPORTS:
         assert f'href="/reports/{key}/"' in page, key  # a greyed card has no link
-    assert page.count("удахгүй") == 33 - len(REPORTS)
+    assert page.count("удахгүй") == 28 - len(REPORTS)
 
 
 def test_hr_catalogue_does_not_offer_loans(client: Client, login_as: Callable[..., User]) -> None:

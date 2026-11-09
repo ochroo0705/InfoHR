@@ -241,14 +241,14 @@ def test_timeline_bar_positions_never_use_a_comma_decimal(
     assert any("." in style for style in styles)  # the positions are fractions, written with a point
 
 
-def test_timeline_bar_has_its_dates_as_a_title(
+def test_timeline_bar_has_its_dates_and_days_as_a_hover_tip(
     client: Client, login_as: Callable[..., User], use_rows: Callable[[list[Any]], None]
 ) -> None:
     use_rows([_row("Ажилтан 01", start=date(2026, 1, 1), end=date(2026, 1, 10))])
     login_as(client, "HR")
     page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
-    assert 'title="2026-01-01' in page
-    assert "2026-01-10" in page
+    assert 'data-tip="2026-01-01 – 2026-01-10 · 10 өдөр"' in page
+    assert 'data-tip-title="Ажилтан 01"' in page
 
 
 # ---- the per-viewer rules ----

@@ -1,5 +1,5 @@
 {# The selection bar (UI_RULES §4b, row selection). Hidden until a row is ticked; report_select.js shows it and fills [data-count]. data-query is the report's address for the POST, data-url the action. #}
-<div id="selection-bar" hidden data-query="{{ query }}" class="mb-3 flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm">
+<div id="selection-bar" hidden data-query="{{ query }}" class="selection-bar mb-3 flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
   <span class="font-medium text-slate-900"><span data-count>0</span> сонгосон</span>
   <span data-select-msg role="status" hidden class="text-sm text-slate-700"></span>
   {% if selection_over_cap %}<span data-over-cap hidden class="px-2 py-1 text-xs text-slate-500">{{ selection_max }}-аас олон мөр сонгох боломжгүй. Шүүлтүүрээр нарийвчилна уу.</span>

@@ -311,6 +311,16 @@ class UserAdmin(BaseUserAdmin[User], ModelAdmin):  # type: ignore[misc]
     add_form = TempPasswordUserCreationForm
     inlines = [AccessScopeInline]
     add_fieldsets = ((None, {"fields": ("username",)}),)
+    # Change page: three Unfold tabs. The scope inline is not a tab (an inline tab nests a second bar).
+    fieldsets = (
+        (None, {"fields": ("username", "password")}),
+        ("Хувийн мэдээлэл", {"fields": ("first_name", "last_name", "email"), "classes": ["tab"]}),
+        (
+            "Эрхүүд",
+            {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions"), "classes": ["tab"]},
+        ),
+        ("Чухал огноо", {"fields": ("last_login", "date_joined"), "classes": ["tab"]}),
+    )
     change_user_password_template = "admin/accounts/user/temp_password.html"  # noqa: S105 (a template path)
     list_display = ("username", "first_name", "last_name", "is_active", "last_login")
 

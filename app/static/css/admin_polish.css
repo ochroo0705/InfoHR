@@ -1,0 +1,200 @@
+/* ==========================================================================
+   admin_polish.css: visual polish for the Unfold admin console.
+   Plain CSS only: Unfold's Tailwind utilities are fixed in its own build,
+   so every rule targets existing markup. Light is the default; dark rules
+   use html.dark (Unfold toggles that class). Behaviour is not changed:
+   only colour, spacing, focus, typography and layout.
+   ========================================================================== */
+
+/* 1. Tokens ------------------------------------------------------------- */
+:root {
+  --ap-primary: #c0392b;
+  --ap-primary-strong: #e74c3c;
+  --ap-tint: rgba(192, 57, 43, 0.06);
+  --ap-tint-checked: rgba(192, 57, 43, 0.1);
+  --ap-border: rgba(0, 0, 0, 0.12);
+  --ap-inset: rgba(0, 0, 0, 0.08);
+  --ap-shadow: rgba(0, 0, 0, 0.12);
+  --ap-ease: 150ms ease-out;
+}
+
+html.dark {
+  --ap-primary: #e74c3c;
+  --ap-primary-strong: #ff6b5b;
+  --ap-tint: rgba(231, 76, 60, 0.08);
+  --ap-tint-checked: rgba(231, 76, 60, 0.16);
+  --ap-border: rgba(255, 255, 255, 0.14);
+  --ap-inset: rgba(255, 255, 255, 0.08);
+  --ap-shadow: rgba(0, 0, 0, 0.45);
+}
+
+/* 2. Long checkbox lists -------------------------------------------------
+   Lists: access scope branches and departments, and the user's groups.
+   Each option is <div><label><input type=checkbox><span>...</span></label></div>.
+   The wrapper div is flattened (display: contents) so each label becomes a grid cell. */
+
+div[id$="-branch_ids"],
+div[id$="-department_ids"],
+[id="id_groups"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.5rem;
+  max-height: 18rem;
+  overflow: auto;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  box-shadow: inset 0 0 0 1px var(--ap-inset);
+}
+
+div[id$="-branch_ids"] > div,
+div[id$="-department_ids"] > div,
+[id="id_groups"] > div {
+  display: contents;
+}
+
+div[id$="-branch_ids"] > div > label,
+div[id$="-department_ids"] > div > label,
+[id="id_groups"] > div > label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--ap-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color var(--ap-ease), border-color var(--ap-ease);
+}
+
+div[id$="-branch_ids"] > div > label:hover,
+div[id$="-department_ids"] > div > label:hover,
+[id="id_groups"] > div > label:hover {
+  background-color: var(--ap-tint);
+}
+
+div[id$="-branch_ids"] > div > label:has(input:checked),
+div[id$="-department_ids"] > div > label:has(input:checked),
+[id="id_groups"] > div > label:has(input:checked) {
+  background-color: var(--ap-tint-checked);
+  border-color: var(--ap-primary);
+}
+
+div[id$="-branch_ids"] input[type="checkbox"],
+div[id$="-department_ids"] input[type="checkbox"],
+[id="id_groups"] input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--ap-primary);
+}
+
+/* Long option names truncate inside their cell instead of wrapping the grid. */
+div[id$="-branch_ids"] label > span,
+div[id$="-department_ids"] label > span,
+[id="id_groups"] label > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Permission cards (accounts/widgets/grouped_checkboxes.html): consistent
+   padding, and tabular counts in the card titles (legend with data-perm-count). */
+/* The widget asks for Tailwind grid classes Unfold's build does not ship, so lay the cards out here:
+   equal columns that wrap, never wider than the page. */
+#id_user_permissions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: 1rem;
+  align-items: start;
+  max-width: none;
+  width: 100%;
+}
+
+#id_user_permissions fieldset {
+  min-width: 0;
+  margin: 0;
+}
+
+#id_user_permissions label {
+  align-items: flex-start;
+}
+
+#id_user_permissions label > span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+#id_user_permissions fieldset {
+  padding: 1rem;
+}
+
+#id_user_permissions fieldset > legend {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 3. Focus ring --------------------------------------------------------- */
+body :is(a, button, input, select, textarea, [role="button"], summary):focus-visible {
+  outline: 2px solid var(--ap-primary-strong);
+  outline-offset: 2px;
+}
+
+/* 4. Typography and tables ---------------------------------------------- */
+.module h2,
+fieldset legend {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+#changelist-form .results th,
+#changelist-form .results td {
+  font-variant-numeric: tabular-nums;
+}
+
+#changelist-form .results thead th {
+  text-transform: none;
+  font-variant-caps: normal;
+  letter-spacing: normal;
+}
+
+#changelist-form .results tbody td {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  vertical-align: middle;
+}
+
+#changelist-form .results tbody tr:hover td {
+  background-color: var(--ap-tint);
+}
+
+/* Sticky submit row: a soft shadow above it so it separates from the form. */
+main .submit-row:not(#login-form *) {
+  box-shadow: 0 -6px 12px -8px var(--ap-shadow);
+}
+
+/* 5. Touch and small screens (under 768px) ------------------------------ */
+@media (max-width: 767.98px) {
+  div[id$="-branch_ids"],
+  div[id$="-department_ids"],
+  [id="id_groups"] {
+    grid-template-columns: 1fr;
+  }
+
+  div[id$="-branch_ids"] > div > label,
+  div[id$="-department_ids"] > div > label,
+  [id="id_groups"] > div > label {
+    min-height: 2.75rem;
+  }
+}
+
+/* 6. Reduced motion: no transitions for users who ask for less motion --- */
+@media (prefers-reduced-motion: reduce) {
+  div[id$="-branch_ids"] > div > label,
+  div[id$="-department_ids"] > div > label,
+  [id="id_groups"] > div > label {
+    transition: none;
+  }
+}

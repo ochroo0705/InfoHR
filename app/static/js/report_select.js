@@ -10,6 +10,8 @@
   const NETWORK_MSG = "Холбогдож чадсангүй. Дахин оролдоно уу.";
   const FAILED_MSG = "Татаж чадсангүй. Дахин оролдоно уу.";
   const NOTE_MS = 4000;
+  // The class of a picked row; its lime look is in static/css/input.css (.is-picked).
+  const PICKED_CLASS = "is-picked";
 
   // ---- Pure helpers (no DOM) ----
 
@@ -134,6 +136,7 @@
   }
 
   const helpers = {
+    PICKED_CLASS,
     isPersonId,
     createState,
     isOn,
@@ -202,7 +205,7 @@
       box.checked = on;
       box.indeterminate = false;
     }
-    row.classList.toggle("bg-violet-50", on);
+    row.classList.toggle(PICKED_CLASS, on);
     row.setAttribute("aria-selected", on ? "true" : "false");
   }
 
@@ -480,6 +483,21 @@
     sync();
   }, true);
 
+  // Selection off: a click anywhere on a report row opens its record (the row's first link), like the name link.
+  // Controls in the row keep their own action; Ctrl/Cmd or middle click opens a new tab; a text selection is not a click.
+  function openRowLink(e) {
+    if (isOn(state) || e.defaultPrevented) return;
+    const row = closestOf(e.target, "#report-page tbody tr");
+    if (!row || closestOf(e.target, "a, button, input, select, textarea, label")) return;
+    if (window.getSelection && String(window.getSelection())) return;
+    const link = row.querySelector("td a[href]");
+    if (!link) return;
+    if (e.button === 1 || e.ctrlKey || e.metaKey) window.open(link.href, "_blank");
+    else if (e.button === 0) location.href = link.href;
+  }
+  document.addEventListener("click", openRowLink);
+  document.addEventListener("auxclick", openRowLink);
+
   document.addEventListener("change", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement) || !inReportPage(target)) return;
@@ -500,7 +518,7 @@
   // Escape clears the selection, unless a pop-up is open or the key was already used (a dropdown, a calendar).
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || e.defaultPrevented || !isOn(state)) return;
-    if (document.querySelector(".fixed.inset-0.z-50")) return;
+    if (document.querySelector(".fixed.inset-0.z-50:not([data-leaving])")) return;
     endMode(state);
     clearNote();
     sync();

@@ -65,7 +65,7 @@ def test_parse_plan_clamps() -> None:
 def test_words_block_is_json_and_has_candidates() -> None:
     words = [WORDS["department"], WORDS["state"]]
     block = json.loads(words_block(words, {"department": ["Санхүү"]}))
-    assert block["group_options"] == ["department", "branch", "position"]
+    assert block["group_options"][:3] == ["department", "branch", "position"]  # then the code-list columns
     by_param = {row["param"]: row for row in block["filters"]}
     assert by_param["department"]["candidates"] == ["Санхүү"]
     assert {v["value"] for v in by_param["state"]["values"]} == {"working", "upcoming", "left", "all"}

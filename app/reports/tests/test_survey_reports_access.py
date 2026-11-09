@@ -16,19 +16,13 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 # The nine staff surveys (phase 4) and the status each role gets on the report page.
 # Derived from each report's `needs` and app/accounts/roles.py:
-#   employee-info    macs.view_employees                        HR yes, Accountant yes
 #   statistics       view_employees + view_personal             HR yes, Accountant no (no view_personal)
 #   ages, elders, children, sizes, contacts   the same as statistics
 #   engineers        macs.view_employees                        HR yes, Accountant yes
 #   household-income view_employees + view_salary               HR no (no view_salary), Accountant yes
 # Employee has no reports.view_reports and no macs permissions, so it is refused everywhere.
 EXPECTED: dict[str, dict[str, int]] = {
-    "employee-info": {"HR": 200, "Accountant": 200, "Employee": 403},
-    "statistics": {"HR": 200, "Accountant": 403, "Employee": 403},
-    "ages": {"HR": 200, "Accountant": 403, "Employee": 403},
-    "elders": {"HR": 200, "Accountant": 403, "Employee": 403},
     "children": {"HR": 200, "Accountant": 403, "Employee": 403},
-    "sizes": {"HR": 200, "Accountant": 403, "Employee": 403},
     "contacts": {"HR": 200, "Accountant": 403, "Employee": 403},
     "engineers": {"HR": 200, "Accountant": 200, "Employee": 403},
     "household-income": {"HR": 403, "Accountant": 200, "Employee": 403},
@@ -65,7 +59,7 @@ def test_catalogue_links_only_the_surveys_hr_may_open_and_greying_count(
             assert link in page, key
         else:
             assert link not in page, key  # a built report the user may not open is not listed at all
-    assert page.count("удахгүй") == 33 - len(REPORTS)
+    assert page.count("удахгүй") == 28 - len(REPORTS)
 
 
 def test_catalogue_for_accountant_links_its_three_surveys(client: Client, login_as: Callable[..., User]) -> None:
@@ -110,6 +104,6 @@ def test_double_sign_numbers_in_the_address_are_ignored_not_a_500(
 ) -> None:
     """A value like --5 once passed the digit check and raised in int(); it must read as no value."""
     login_as(client, "HR")
-    assert client.get("/reports/ages/?age_from=--5&year=--2000").status_code == 200
+    assert client.get("/reports/children/?age_from=--5&year=--2000").status_code == 200
     for key in _keys_for("HR"):
         assert client.get(f"/reports/{key}/?age_to=--1&year=--2000").status_code == 200, key

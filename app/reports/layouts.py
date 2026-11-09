@@ -6,7 +6,7 @@ reports.table at module level (table imports this module).
 
 import re
 from calendar import monthrange
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
@@ -265,6 +265,7 @@ class Item:
     href: str  # the title column's link, "" when it has none
     mark: str  # the CSS classes of the passing mark, "" for none
     extras: tuple[tuple[str, object, bool], ...] = ()  # the remaining shown columns as (label, raw value, is money)
+    photo: Any = None  # the employee whose photo the card shows (Report.photo); None = no photo slot
 
 
 @dataclass(frozen=True)
@@ -296,7 +297,12 @@ def _text(value: object) -> str:
 
 
 def make_items(
-    table: TableLike, rows: Sequence[Any], marks: Sequence[Mark], today: date, extras: int = 0
+    table: TableLike,
+    rows: Sequence[Any],
+    marks: Sequence[Mark],
+    today: date,
+    extras: int = 0,
+    photo_of: Callable[[Any], Any] | None = None,
 ) -> list[Item]:
     """One Item per row, in order. Title: the first shown text column not blank in every filtered row (else the first
     shown column). Subtitle: the next such text column. Colour: the marks in their own order, skipping a mark on a
@@ -308,13 +314,20 @@ def make_items(
     texts = [c for c in shown if kinds[c.key] == "text" and c.key in filled]
     title_col = texts[0] if texts else (shown[0] if shown else None)
     sub_col = texts[1] if len(texts) > 1 else None
+    named = next((c for c in shown if c.key == "name"), None)
+    if photo_of is not None and named is not None:  # a person's card is titled with the name, never the code
+        title_col = named
+        sub_col = next((c for c in texts if c.key not in ("name", "code")), None)
     used = {c.key for c in (title_col, sub_col) if c is not None}
     rest = [c for c in shown if c.key not in used][:extras]
     by_key = {c.key: c for c in shown}
+    # the card opens the row's page: the title column's link, else the first shown column that has one (a board
+    # titled with the employee code still opens the employee through the name column)
+    link_col = next((c for c in (title_col, *shown) if c is not None and c.href is not None), None)
     items: list[Item] = []
     for row in rows:
         title = _text(title_col.value(row)) if title_col is not None else ""
-        href = title_col.href(row) if title_col is not None and title_col.href is not None else ""
+        href = link_col.href(row) if link_col is not None and link_col.href is not None else ""
         subtitle = _text(sub_col.value(row)) if sub_col is not None else ""
         mark = ""
         for rule in marks:
@@ -331,6 +344,7 @@ def make_items(
                 href=href,
                 mark=mark,
                 extras=tuple((c.label, c.value(row), c.money) for c in rest),
+                photo=photo_of(row) if photo_of is not None else None,
             )
         )
     return items
@@ -405,6 +419,13 @@ class Bar:
     end: date
     left_pct: float
     width_pct: float
+
+    @property
+    def tip(self) -> str:
+        """The hover text: the dates and how many days the bar spans (both ends count)."""
+        days = (self.end - self.start).days + 1
+        dates = self.start.isoformat() if days <= 1 else f"{self.start.isoformat()} – {self.end.isoformat()}"
+        return f"{dates} · {max(days, 1)} өдөр"
 
 
 @dataclass(frozen=True)

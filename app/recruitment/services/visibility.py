@@ -1,5 +1,6 @@
 """Who sees which vacancy and candidate. Views must look every vacancy/candidate up through these."""
 
+from accounts import modules
 from accounts.models import User
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -12,7 +13,7 @@ PERMISSION = "recruitment.manage_recruitment"
 
 
 def can_manage(user: User) -> bool:
-    return bool(user.is_active and (user.is_superuser or user.has_perm(PERMISSION)))
+    return bool(modules.enabled("recruitment") and user.is_active and (user.is_superuser or user.has_perm(PERMISSION)))
 
 
 def visible_vacancies(user: User) -> QuerySet[Vacancy]:
@@ -39,4 +40,6 @@ def sees_recruitment(user: User) -> bool:
 
     Costs one query for a user who does not manage, so callers keep the answer for the request (nav) or user (palette).
     """
+    if not modules.enabled("recruitment"):
+        return False
     return can_manage(user) or (user.is_active and _managed_by(user).exists())

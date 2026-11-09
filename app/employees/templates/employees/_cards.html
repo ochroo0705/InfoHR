@@ -1,6 +1,0 @@
-{% load hr %}<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-{% if rows %}{% include "employees/_card_items.html" %}{% else %}
-  <p class="col-span-full py-8 text-center text-slate-500">Ажилтан олдсонгүй</p>
-{% endif %}
-{% if next_query %}{% include "employees/_more_cards.html" %}{% endif %}
-</div>

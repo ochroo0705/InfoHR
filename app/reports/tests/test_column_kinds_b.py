@@ -34,8 +34,6 @@ BATCH_REPORTS: tuple[str, ...] = (
     "performance-summary",
     "accidents",
     "poisoning",
-    "sizes",
-    "statistics",
 )
 
 

@@ -6,7 +6,7 @@
       <tr>
         {% if selectable %}<th class="{{ check_css }}"{% if check_style %} style="{{ check_style }}"{% endif %}><input type="checkbox" data-select-all autocomplete="off" aria-label="Бүгдийг сонгох"></th>{% endif %}
         {% for h in heads %}
-        <th{% if h.css %} class="{{ h.css }}"{% endif %}{% if h.sticky_left %} style="{{ h.sticky_left }}"{% endif %}><a href="{{ h.href }}" data-append="{{ h.append_href }}" title="Shift+товшилт: нэмэлт эрэмбэ" onclick="if(event.shiftKey){event.preventDefault();event.stopPropagation();window.location.href=this.dataset.append}" hx-get="{{ h.href }}" hx-trigger="click[!event.shiftKey]" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="hover:text-violet-700">{{ h.label }}{% if h.arrow %} <span aria-hidden="true">{{ h.arrow }}</span>{% endif %}</a></th>
+        <th{% if h.css %} class="{{ h.css }}"{% endif %}{% if h.sticky_left %} style="{{ h.sticky_left }}"{% endif %}><a href="{{ h.href }}" data-append="{{ h.append_href }}" title="Shift+товшилт: нэмэлт эрэмбэ" onclick="if(event.shiftKey){event.preventDefault();event.stopPropagation();window.location.href=this.dataset.append}" hx-get="{{ h.href }}" hx-trigger="click[!event.shiftKey]" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="hover:text-violet-700">{{ h.label }} <span aria-hidden="true" style="display:inline-block;min-width:2ch{% if not h.arrow %};visibility:hidden{% endif %}">{{ h.arrow|default:"↑" }}</span></a></th>
         {% endfor %}
       </tr>
     </thead>

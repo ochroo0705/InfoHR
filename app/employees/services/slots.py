@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import date
 from typing import Any, NamedTuple, cast
 
+from accounts import modules
 from accounts.audit import Category, record_safe
 from accounts.models import User
 from django.db import transaction
@@ -141,7 +142,7 @@ def gate(
     """Refuse the hire when the setting is on and no slot is free; an override right plus a reason lets it through
     and logs it. Call it inside the hire transaction: the matching budget rows are locked before counting (the lock
     lasts to the end of that transaction), so two simultaneous hires cannot both take the last slot."""
-    if position is None or not CompanySettings.get().enforce_position_slots:
+    if position is None or not modules.enabled("slots") or not CompanySettings.get().enforce_position_slots:
         return
     kind = kind_for(contract_flag)
     with transaction.atomic():

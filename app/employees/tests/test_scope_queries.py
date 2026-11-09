@@ -117,9 +117,10 @@ def _visible_queries(pk: int) -> int:
 def _list_page_queries(pk: int) -> int:
     client = Client()
     client.force_login(User.objects.get(pk=pk))
-    client.get(reverse("employees:list"))  # warm-up: the first request of the day can run the daily sync
+    # warm-up: the first request of the day can run the daily sync
+    client.get(reverse("reports:report", args=["staff-list"]))
     with CaptureQueriesContext(connection) as ctx:
-        response = client.get(reverse("employees:list"))
+        response = client.get(reverse("reports:report", args=["staff-list"]))
     assert response.status_code == 200
     return len(ctx.captured_queries)
 

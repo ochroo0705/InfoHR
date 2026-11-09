@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from django.db import models
+
 from macs import models as macs_models
 
 APP = Path(__file__).resolve().parent.parent

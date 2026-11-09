@@ -6,6 +6,12 @@ from reports.rules import Group, Rule, dump_rules
 from reports.types import Template
 
 
+def view_template(name: str, **setup: object) -> Template:
+    """A template written as any report setup: `columns`, `layout`, `lby`, `lby2`, `lval`, `rules`, `sort`… (the
+    Filters field names), turned into the address query the report page reads back."""
+    return Template(name, to_query(Filters(**setup)))  # type: ignore[arg-type]
+
+
 def rule_template(name: str, *rules: Rule) -> Template:
     """A template whose rules must all hold (AND), written as the address query the report page reads back."""
     return Template(name, to_query(Filters(rules=dump_rules(Group("and", tuple(rules))))))

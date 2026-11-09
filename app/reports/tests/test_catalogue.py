@@ -12,9 +12,9 @@ from reports.types import Report
 pytestmark = pytest.mark.django_db
 
 
-def test_catalogue_has_33_unique_entries_in_known_groups() -> None:
+def test_catalogue_has_28_unique_entries_in_known_groups() -> None:
     keys = [e.key for e in CATALOGUE]
-    assert len(keys) == 33 and len(set(keys)) == 33
+    assert len(keys) == 28 and len(set(keys)) == 28
     assert {e.group for e in CATALOGUE} == {code for code, _ in GROUPS}
 
 
@@ -29,7 +29,7 @@ def test_catalogue_lists_every_report_greyed_until_built(client: Client, login_a
     login_as(client, "HR")
     page = client.get("/reports/").content.decode()
     assert "Ээлжийн амралт: эрх, эдэлсэн, үлдсэн" in page and "frmVacReport" in page
-    assert page.count("удахгүй") == 33 - len(REPORTS)  # stays true as later tasks register reports
+    assert page.count("удахгүй") == 28 - len(REPORTS)  # stays true as later tasks register reports
     assert 'href="/reports/performance/"' in page  # built (phase 5, task 8): a link, not greyed
 
 

@@ -12,16 +12,122 @@
     return (shell.getAttribute("onclick") || "").indexOf("remove()") >= 0;
   }
 
-  function topShell() {
-    var all = document.querySelectorAll(SHELL);
-    for (var i = all.length - 1; i >= 0; i--) if (closable(all[i])) return all[i];
+  // The Escape picker: the topmost closable shell that is not already leaving (a leaving shell is on its way out).
+  function pickTopShell(shells, isClosable) {
+    for (var i = shells.length - 1; i >= 0; i--) {
+      if (shells[i].hasAttribute("data-leaving")) continue;
+      if (isClosable(shells[i])) return shells[i];
+    }
     return null;
   }
 
-  function tryClose(shell) {
-    if (shell.dataset.dirty && !window.confirm(ASK)) return;
-    shell.remove();
+  // Whether remove() on el plays the pop-up exit first. Only a pop-up shell does; a shell already leaving, a no-anim
+  // shell (rebuilt from an open pop-up) and a page without motion.js are removed at once.
+  function shouldAnimateRemoval(el, canLeave) {
+    if (!canLeave || !el || !el.matches || !el.matches(SHELL)) return false;
+    // By design, a second remove() on a leaving shell removes it at once (the exit is cut short, nothing is removed twice).
+    if (el.hasAttribute("data-leaving") || el.classList.contains("no-anim")) return false;
+    return true;
   }
+
+  // Closes a pop-up through the dirty check. confirmFn defaults to window.confirm (the browser path); tests pass their
+  // own. A shell already leaving is not closed again (no second prompt, no second remove).
+  function tryClose(shell, confirmFn) {
+    if (shell.hasAttribute("data-leaving")) return;
+    if (shell.dataset.dirty && !confirmFn && typeof window !== "undefined" && typeof window.hrConfirm === "function") {
+      // the in-app dialog answers later: close then, if the user agrees
+      window.hrConfirm(ASK, function () { if (!shell.hasAttribute("data-leaving")) shell.remove(); }, { ok: "Хаах" });
+      return;
+    }
+    var ask = confirmFn || function (msg) { return window.confirm(msg); };
+    if (shell.dataset.dirty && !ask(ASK)) return;
+    shell.remove();  // the Element.prototype.remove override below plays the exit
+  }
+
+  // Pure helpers are exported for modal.test.mjs; the DOM part below needs a document.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { pickTopShell: pickTopShell, shouldAnimateRemoval: shouldAnimateRemoval, tryClose: tryClose };
+  }
+  if (typeof document === "undefined") return;
+
+  // The in-app confirm (UI_RULES §6): window.hrConfirm(message, onYes, {ok, cancel, danger}) shows a small dialog over
+  // everything (z-[70], above the pop-ups) instead of the browser's own box. Escape or an outside click cancels;
+  // focus starts on the cancel button so a stray Enter keeps the user's work. Never matches SHELL (no ✕, no dirty check).
+  window.hrConfirm = function (message, onYes, opts) {
+    opts = opts || {};
+    var opener = document.activeElement;
+    var shell = document.createElement("div");
+    shell.className = "hr-confirm fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4";
+    shell.setAttribute("role", "alertdialog");
+    shell.setAttribute("aria-modal", "true");
+    shell.setAttribute("aria-label", message);
+    var panel = document.createElement("div");
+    panel.className = "hr-confirm-panel";
+    var text = document.createElement("p");
+    text.className = "hr-confirm-text";
+    text.textContent = message;
+    var row = document.createElement("div");
+    row.className = "hr-confirm-row";
+    var no = document.createElement("button");
+    no.type = "button";
+    no.className = "hr-confirm-no";
+    no.textContent = opts.cancel || "Болих";
+    var yes = document.createElement("button");
+    yes.type = "button";
+    yes.className = "hr-confirm-yes";
+    yes.textContent = opts.ok || "Тийм";
+    row.appendChild(no);
+    row.appendChild(yes);
+    panel.appendChild(text);
+    panel.appendChild(row);
+    shell.appendChild(panel);
+    function done(ok) {
+      document.removeEventListener("keydown", onKey, true);
+      nativeRemove.call(shell);
+      if (opener && opener.focus && document.contains(opener)) opener.focus();
+      if (ok && onYes) onYes();
+      else if (!ok && opts.onNo) opts.onNo();
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); done(false); }
+      else if (e.key === "Tab") {  // keep focus between the two buttons
+        e.preventDefault();
+        (document.activeElement === no ? yes : no).focus();
+      }
+    }
+    no.addEventListener("click", function () { done(false); });
+    yes.addEventListener("click", function () { done(true); });
+    shell.addEventListener("click", function (e) { if (e.target === shell) done(false); });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(shell);
+    no.focus();
+  };
+
+  // <form data-confirm="Question?"> asks first, then submits (the in-app replacement for onsubmit="return confirm()").
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form.getAttribute || !form.getAttribute("data-confirm") || form.dataset.confirmed) return;
+    e.preventDefault();
+    window.hrConfirm(form.getAttribute("data-confirm"), function () {
+      form.dataset.confirmed = "1";
+      if (form.requestSubmit) form.requestSubmit(e.submitter || undefined);
+      else form.submit();
+    }, { ok: form.getAttribute("data-confirm-ok") || "Тийм" });
+  }, true);
+
+  function topShell() {
+    return pickTopShell(Array.prototype.slice.call(document.querySelectorAll(SHELL)), closable);
+  }
+
+  // Every pop-up shell closes through its exit: remove() on it (the inline onclick="...remove()" in the templates,
+  // hx-on::after-request removals, tryClose) runs hrLeave first and removes the element when the exit ends. Anything
+  // else, and a shell already leaving, is removed at once by the original method.
+  var nativeRemove = Element.prototype.remove;
+  Element.prototype.remove = function () {
+    var el = this;
+    if (!shouldAnimateRemoval(el, typeof window.hrLeave === "function")) return nativeRemove.call(el);
+    window.hrLeave(el, { done: function () { nativeRemove.call(el); } });
+  };
 
   function addCross(shell) {
     var panel = shell.firstElementChild;
@@ -38,7 +144,12 @@
       'stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     x.addEventListener("click", function () { tryClose(shell); });
     panel.appendChild(x);
-    if (shell.querySelector(".text-red-600, .bg-red-50")) shell.dataset.dirty = "1";
+    // A server-side error shown in the pop-up means it was rebuilt with typed values. A hidden error slot (an empty
+    // <p class="hidden text-red-600"> waiting for a message) is not an error.
+    var shown = Array.prototype.some.call(shell.querySelectorAll(".text-red-600, .bg-red-50"), function (n) {
+      return !n.hidden && !n.closest(".hidden, button, summary, a") && n.textContent.trim() !== "";  // a red «Устгах» button is not an error
+    });
+    if (shown) shell.dataset.dirty = "1";
   }
 
   function scan(root) {
@@ -62,6 +173,7 @@
     function (e) {
       var shell = e.target;
       if (!shell.matches || !shell.matches(SHELL) || !closable(shell) || !shell.dataset.dirty) return;
+      if (shell.hasAttribute("data-leaving")) return;  // already closing: the click passes to the pop-up below
       e.stopPropagation();
       tryClose(shell);
     },
@@ -70,6 +182,7 @@
 
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape" || e.defaultPrevented) return;  // a dropdown or calendar handled it first
+    if (document.querySelector(SHELL + "[data-leaving]")) return;  // an exit is under way: the next Escape waits for it
     var shell = topShell();
     if (!shell) return;
     e.preventDefault();
@@ -87,7 +200,10 @@
 
   function isOpen(path) {
     var all = document.querySelectorAll("div.fixed[data-modal-src]");
-    for (var i = 0; i < all.length; i++) if (all[i].getAttribute("data-modal-src") === path) return true;
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].hasAttribute("data-leaving")) continue;  // closing: a new open of the same path is allowed
+      if (all[i].getAttribute("data-modal-src") === path) return true;
+    }
     return false;
   }
 

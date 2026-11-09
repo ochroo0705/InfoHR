@@ -59,7 +59,7 @@ def test_log_stores_allowed_keys(role_user: Callable[[str], User]) -> None:
         "order.document,recruit.vacancies,recruit.vacancy_add,recruit.vacancy_edit,recruit.vacancy,"
         "recruit.candidate_add,recruit.candidate,recruit.move,recruit.reject,recruit.reopen,recruit.comment,"
         "recruit.file,recruit.convert,recruit.purge,checklist.mine,checklist.undo,checklist.start,"
-        "report.catalogue,report.export,report.annual-leave,report.absences,report.away-on-date,report.absence-totals,report.saved_view,report.staff-list,report.employee-info,report.ages,report.elders,report.children,report.contacts,report.engineers,report.sizes,report.statistics,report.movements,report.history,report.leavers,report.orders,report.discipline,report.awards,report.training,report.health-checks,report.skill-tasks,report.complaints,report.gifts-given,report.gifts-due,report.performance,report.performance-summary,report.accidents,report.poisoning,"
+        "report.catalogue,report.export,report.annual-leave,report.absences,report.away-on-date,report.absence-totals,report.saved_view,report.staff-list,report.children,report.contacts,report.engineers,report.movements,report.history,report.leavers,report.orders,report.discipline,report.awards,report.training,report.health-checks,report.skill-tasks,report.complaints,report.gifts-given,report.gifts-due,report.performance,report.performance-summary,report.accidents,report.poisoning,"
         "log.employee,list.index,list.entry,list.meaning,settings.slots,settings.slot_edit,me.password"
     )
     assert row.allowed == hr_keys

@@ -48,6 +48,6 @@
 {% if not current_actions and not recent and not people and not orders and not screens and not actions %}
 <p data-palette-empty class="px-3 py-2 text-sm text-slate-500">Юу ч олдсонгүй</p>
 <p class="px-3 pt-2 text-xs text-slate-500">Эсвэл нээх:</p>
-<a href="{% url 'employees:list' %}" data-palette-item role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="page" %}<span class="min-w-0 truncate">Ажилтнууд</span></a>
+{% if perms.reports.view_reports and perms.macs.view_employees %}<a href="{% url 'employees:list' %}" data-palette-item role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="page" %}<span class="min-w-0 truncate">Ажилтнууд</span></a>{% endif %}
 {% if perms.macs.manage_employees %}<a href="{% url 'employees:add' %}" data-palette-item role="option" class="group flex items-center gap-3 rounded-lg border-l-2 border-l-transparent px-3 py-2 text-sm hover:bg-violet-50 aria-selected:border-l-violet-600 aria-selected:bg-violet-50 max-sm:min-h-11">{% include "employees/_palette_icons.html" with kind="action" %}<span class="min-w-0 truncate">Ажилтан нэмэх</span></a>{% endif %}
 {% endif %}

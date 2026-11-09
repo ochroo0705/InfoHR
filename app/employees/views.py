@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlencode
 
 from accounts.audit import record_export
 from accounts.models import User
@@ -33,9 +34,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.vary import vary_on_headers
 from leave import access as leave_access
 from leave.services import ledger as leave_ledger
-from macs.dialect import search_match
 from macs.models import Absence, Command
-from reports.registry import can_open
 from reports.staff_list import REPORT as STAFF_LIST
 
 from employees import access, attention, company_stats, history_range, palette, sections, stale
@@ -61,9 +60,8 @@ from employees.forms import (
     SalaryInsuranceForm,
     SetSalaryForm,
 )
-from employees.images import attach_photo_digests
 from employees.images import photo_bytes as decode_stored_photo
-from employees.listing import STATE_LABELS, Row, current_salary, employee_rows, is_working, row_for
+from employees.listing import Row, current_salary, employee_rows, row_for
 from employees.models import (
     EXT_FIELDS,
     PERSONAL_FIELDS,
@@ -73,7 +71,6 @@ from employees.models import (
     ContractType,
     Department,
     Employee,
-    EmployeeType,
     Event,
     EventType,
     HrOrder,
@@ -133,62 +130,25 @@ LIST_BATCH = batching.LIST_BATCH  # people per batch in the employee list
 
 
 @login_required
-@vary_on_headers("HX-Request")
 def employee_list(request: HttpRequest) -> HttpResponse:
-    qs = access.visible_employees(_user(request)).filter(ext__isnull=False)  # only people HR has touched
-    q = request.GET.get("q", "").strip()
-    if q:
-        match = search_match(q, "family_name", "given_name", "code", "work_phone", icase=True)
-        if _user(request).has_perm("macs.view_personal"):  # the register number is personal data
-            match |= search_match(q, "register_no", icase=True)
-        qs = qs.filter(match)
-    today = timezone.localdate()
-    rows = employee_rows(qs, today)
-    state = request.GET.get("state", "")
-    rows = [r for r in rows if r.state == state] if state else [r for r in rows if is_working(r)]  # not upcoming
-    dept = request.GET.get("department", "")
-    if dept:
-        rows = [r for r in rows if r.job and str(r.job.department_id) == dept]
-    etype = request.GET.get("type", "")
-    if etype:
-        rows = [r for r in rows if r.job and r.job.employee_type == etype]
-    view = "table" if request.GET.get("view") == "table" else "grid"  # pictures by default
-    group = request.GET.get("group") == "1"
-    groups = _group_by_department(rows) if group and rows else None
-    is_partial = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-History-Restore-Request")
-    batch = batching.Batch(rows, 0, "") if group else batching.window(request, rows, LIST_BATCH)
-    shown, next_query, offset = batch.shown, batch.next_query, batch.offset  # grouped lists show everyone
-    if view == "grid":
-        attach_photo_digests(r.employee for r in shown)  # one query for the photos on show, not one per card
-    context: dict[str, Any] = {
-        "rows": shown,
-        "next_query": next_query,
-        "groups": groups,
-        "group": group,
-        "view": view,
-        "q": q,
-        "state": state,
-        "department": dept,
-        "emp_type": etype,
-        "states": STATE_LABELS,
-        "departments": Department.objects.exclude(ext__active=False),
-        "types": EmployeeType.choices,
-        "can_manage": access.can_manage(_user(request)),
-        "can_open_staff_report": can_open(_user(request), STAFF_LIST),
-    }
-    # A hire from outside the user's scope opens this list instead of the detail page: its one-time login is shown
-    # here, once, the same way employee_detail shows it. Only a full page takes it (not an htmx partial).
-    pending = None if is_partial else request.session.pop(ONE_TIME_LOGIN_KEY, None)
+    """The employees screen is the staff-list report: this address sends the viewer there, keeping the old filters
+    the report also has (department, state, grouping by department)."""
+    # A hire from outside the user's scope opens this address instead of the detail page (that would 404): its
+    # one-time login is shown here, once, the same way employee_detail shows it.
+    pending = request.session.pop(ONE_TIME_LOGIN_KEY, None)
     if isinstance(pending, dict):
-        context["one_time_login"] = pending
-    if not is_partial:
-        template = "employees/list.html"
-    else:
-        template = "employees/_batch.html" if offset else "employees/_results.html"
-    response = render(request, template, context)
-    if isinstance(pending, dict):
+        response = render(request, "employees/one_time_login_page.html", {"one_time_login": pending})
         response["Cache-Control"] = "no-store"  # the password must not come back from the Back cache
-    return response
+        return response
+    query: dict[str, str] = {}
+    if request.GET.get("department", "").isdigit():
+        query["department"] = request.GET["department"]
+    if request.GET.get("state") in ("upcoming", "left"):
+        query["state"] = request.GET["state"]
+    if request.GET.get("group") == "1":
+        query["group"] = "department"
+    url = reverse("reports:report", args=[STAFF_LIST.key])
+    return redirect(f"{url}?{urlencode(query)}" if query else url)
 
 
 AWAY_SHADES = ((10, "bg-sky-600 text-white"), (5, "bg-sky-400"))  # (% of headcount at least, class), darkest first

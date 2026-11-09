@@ -103,6 +103,7 @@ EXPECTED: dict[str, Rule] = {
     "login": PUBLIC,  # the login form itself
     "logout": PUBLIC,  # ends the session
     "password_change": LOGIN_ONLY,  # changes the user's own password only
+    "modules": LOGIN_ONLY,  # 403 unless superuser or the Admin role (may_manage_modules in the view); switches modules
     "set_language": PUBLIC,  # Django language switch; no HR data
     # Employee self-form pages (employees/views_apply.py): anonymous by design, reached with an unguessable token.
     # The gate is the token itself, plus the throttle and CSRF checks in the views; they never show HR data.

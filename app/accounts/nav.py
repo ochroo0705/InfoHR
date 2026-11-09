@@ -25,6 +25,8 @@ class NavItem:
     badge: int = 0
     icon: str = "page"  # templates/_nav_icon.html: the icon tile shown in a drop-down menu
     hint: str = ""  # one grey line under the label in a drop-down menu
+    compact: bool = False  # a small one-line row (no icon tile, no hint) for a long list of shortcuts
+    section: str = ""  # a small grey heading drawn above this item (the first of a run of compact rows)
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,17 @@ def _sees_recruitment(request: HttpRequest) -> bool:
     return cached
 
 
+def _may_manage_modules(request: HttpRequest, user: User) -> bool:
+    """Whether the «Модулиуд» link shows: asked once per request (kept on the request), as the other nav checks."""
+    cached: bool | None = getattr(request, "_may_manage_modules", None)
+    if cached is None:
+        from accounts.views_modules import may_manage_modules  # local import: the view imports the models
+
+        cached = isinstance(user, User) and may_manage_modules(user)
+        request._may_manage_modules = cached  # type: ignore[attr-defined]
+    return cached
+
+
 def _selfform_waiting(request: HttpRequest) -> int:
     """How many submitted self-forms the user may see (the «Өөрөө бөглөх анкет» badge): one count per request, kept on
     the request. Asked only for a user who may manage employees."""
@@ -74,6 +87,42 @@ def _selfform_waiting(request: HttpRequest) -> int:
     return cached
 
 
+# The staff types the old program listed separately (reports.filters.EMPTYPES codes), as shortcuts into the staff list.
+STAFF_TYPE_SHORTCUTS: tuple[tuple[int, str], ...] = (
+    (6, "Өндөр настан"),
+    (5, "Гэрээт ажилтан"),
+    (9, "Туршилтын хугацаатай"),
+    (8, "Хөлсөөр ажиллах гэрээтэй"),
+    (2, "Гадаад нөөц"),
+    (4, "Орохоор бүртгүүлсэн"),
+    (3, "Ажиллаж байсан"),
+)
+
+
+def _staff_type_items(request: HttpRequest, user: User) -> list[NavItem]:
+    """One compact shortcut per staff type, each opening the staff list report already filtered to that type. Only for
+    a user who may open that report; the report page checks the right again."""
+    from reports import registry  # local import: reports imports accounts
+
+    report = registry.REPORTS.get("staff-list")
+    if report is None or not registry.can_open(user, report):
+        return []
+    match = request.resolver_match
+    on_report = bool(match and match.app_name == "reports" and match.kwargs.get("key") == "staff-list")
+    current = request.GET.get("emptype", "") if on_report else ""
+    base = reverse("reports:report", args=["staff-list"])
+    return [
+        NavItem(
+            label,
+            f"{base}?emptype={code}",
+            current == str(code),
+            compact=True,
+            section="Ажилтны ангилал" if index == 0 else "",
+        )
+        for index, (code, label) in enumerate(STAFF_TYPE_SHORTCUTS)
+    ]
+
+
 def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, Any]) -> list[NavGroup]:
     """The groups of the top bar for this user, in order; groups with no link the user may open are left out.
 
@@ -86,6 +135,10 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
     name = match.url_name if match else ""
     sees_staff = user.has_perm("macs.view_employees")
     sees_recruitment = _sees_recruitment(request)
+    from reports import registry  # local import: reports imports accounts
+
+    staff_report = registry.REPORTS.get("staff-list")  # the employees screen is this report
+    sees_staff_report = staff_report is not None and registry.can_open(user, staff_report)
 
     def group(key: str, label: str, *items: NavItem | None) -> NavGroup | None:
         shown = tuple(item for item in items if item is not None)
@@ -104,11 +157,14 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             "Ажилтнууд",
             NavItem(
                 "Ажилтнууд",
-                reverse("employees:list"),
-                app == "employees" and name not in ("today", "orders", "orders_print", *SLOT_PAGES, *SELFFORM_PAGES),
+                reverse("reports:report", args=["staff-list"]),
+                (app == "employees" and name not in ("today", "orders", "orders_print", *SLOT_PAGES, *SELFFORM_PAGES))
+                or (app == "reports" and match.kwargs.get("key") == "staff-list" and not request.GET.get("emptype")),
                 icon="people",
                 hint="Жагсаалт, хайлт, хувийн хэрэг",
-            ),
+            )
+            if sees_staff_report
+            else None,
             NavItem(
                 "Тушаалын бүртгэл",
                 reverse("employees:orders"),
@@ -128,6 +184,7 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             )
             if user.has_perm("macs.manage_employees")
             else None,
+            *_staff_type_items(request, user),
         ),
         group(
             "leave",
@@ -201,6 +258,9 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
                 hint="Албан тушаал, салбар тус бүрийн орон тоо",
             )
             if user.has_perm("employees.manage_position_slots")
+            else None,
+            NavItem("Модулиуд", reverse("modules"), name == "modules", icon="gear", hint="Хэрэггүй хэсгийг унтраах")
+            if _may_manage_modules(request, user)
             else None,
             NavItem("Админ хэсэг", reverse("admin:index"), icon="gear", hint="Хэрэглэгч, эрх, тохиргоо")
             if getattr(user, "is_staff", False)

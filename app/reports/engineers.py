@@ -86,6 +86,7 @@ def _note(f: Filters) -> str:
 
 
 REPORT = Report(
+    module="slots",
     key="engineers",
     title="Инженер, техникийн ажилтны судалгаа",
     filters=("year", "branch"),

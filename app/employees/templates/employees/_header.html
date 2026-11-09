@@ -42,8 +42,8 @@
       {% if can_manage and not employee.ext.user_id %}<button type="button" hx-get="{% url 'employees:login_create' employee.pk %}" hx-target="body" hx-swap="beforeend" class="flex h-11 sm:h-9 items-center whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50">Нэвтрэх эрх үүсгэх</button>{% endif %}
       {% if event_menu %}<details class="relative">
         <summary class="flex h-11 sm:h-9 cursor-pointer list-none items-center whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50">Өөрчлөлт бүртгэх ▾</summary>
-        <div class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
-          {% for value, label in event_menu %}<button type="button" hx-get="{% url 'employees:event' employee.pk value %}" hx-target="#modal" onclick="this.closest('details').removeAttribute('open')" class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">{{ label }}</button>{% endfor %}
+        <div data-nav-panel class="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
+          {% for value, label in event_menu %}<button type="button" hx-get="{% url 'employees:event' employee.pk value %}" hx-target="#modal" onclick="window.hrCloseMenu ? hrCloseMenu(this.closest('details')) : this.closest('details').removeAttribute('open')" class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">{{ label }}</button>{% endfor %}
         </div>
       </details>{% endif %}
       <button type="button" onclick="openDrawer()" class="flex h-11 sm:h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50" title="Үйл ажиллагааны түүх">

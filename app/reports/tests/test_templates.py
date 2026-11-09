@@ -47,8 +47,26 @@ def test_rule_template_round_trips_to_the_same_rules() -> None:
     assert parsed == Group("and", rules)
 
 
-def test_staff_list_has_the_three_starter_templates() -> None:
-    assert [t.name for t in STAFF_REPORT.templates] == [CONTRACT, PROBATION, AGE]
+SURVEYS = (
+    "Өндөр настнууд (60+), холбоо барих",
+    "Насны бүлэг, хүйсээр",
+    "Хүйс, боловсролоор",
+    "Гутлын хэмжээ, хүйсээр",
+    "Хувцасны хэмжээ, хүйсээр",
+)
+
+
+def test_staff_list_has_the_starter_templates() -> None:
+    """The three rule templates, then the retired survey reports rebuilt as setups of the staff list."""
+    assert [t.name for t in STAFF_REPORT.templates] == [CONTRACT, PROBATION, AGE, *SURVEYS]
+
+
+def test_every_survey_template_opens_and_is_listed_for_hr(client: Client, login_hr: User) -> None:
+    group = _group_html(client.get(PAGE).content.decode())
+    for name in SURVEYS:
+        assert name in group
+        response = client.get(PAGE + "?" + _template(name).query)
+        assert response.status_code == 200, name
 
 
 def test_hr_sees_all_three_templates_inside_the_group(client: Client, login_hr: User) -> None:

@@ -11,6 +11,24 @@
         ],
         "createdAt": "2026-11-07T18:49:35.582Z",
         "reason": "Claude judged: violet is the project's established accent (base.html, docs/UI_RULES.md); the panel uses flat violet tints, no gradient; not user confirmed"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "app/static/css/input.css"
+        ],
+        "createdAt": "2026-11-08T06:14:49.647Z",
+        "reason": "user approved the left-edge bar for picked rows in the 2026-11-08 design playback (spec decision 3); the other two flagged lines are older rules"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "app/employees/templates/employees/_header.html"
+        ],
+        "createdAt": "2026-11-08T06:40:36.769Z",
+        "reason": "false positive: in this project the violet-* classes are remapped to the red primary (#c0392b family, input.css @theme, 2026-11-06); no purple or gradient exists; the Task 6 edit only added data-nav-panel attributes"
       }
     ]
   }

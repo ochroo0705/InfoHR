@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Модулиуд{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold">Модулиуд</h1>
+<p class="mt-2 max-w-2xl text-sm text-slate-500">Байгууллагадаа хэрэггүй хэсгийг унтрааж болно. Унтраахад цэс, хайлт, туслах, хуудаснаас алга болно. Өгөгдөл устахгүй: дахин асаахад бүгд эргэж гарна.</p>
+
+{% if messages %}
+  {% for message in messages %}
+  <p class="mt-3 rounded bg-emerald-50 p-2 text-sm text-emerald-800">{{ message }}</p>
+  {% endfor %}
+{% endif %}
+
+<form method="post" class="mt-4 max-w-2xl space-y-3">
+  {% csrf_token %}
+  {% for row in rows %}
+  <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-surface p-4 hover:border-violet-300">
+    <input type="checkbox" name="on" value="{{ row.module.key }}"{% if row.on %} checked{% endif %} class="mt-1 h-4 w-4">
+    <span class="min-w-0 flex-1">
+      <span class="block font-medium">{{ row.module.label }}</span>
+      <span class="mt-0.5 block text-sm text-slate-600">{{ row.module.description }}</span>
+      <span class="mt-2 block text-xs font-medium text-slate-500">Унтраахад алга болох:</span>
+      <ul class="mt-1 list-disc pl-5 text-xs text-slate-500">
+        {% for effect in row.module.effects %}<li>{{ effect }}</li>{% endfor %}
+      </ul>
+    </span>
+  </label>
+  {% endfor %}
+  <div class="flex justify-end">
+    <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Хадгалах</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,11 +1,17 @@
 {% load hr %}{# One batch of cards and, when more follow, the «Цааш харуулах» pill (config/batching.py). Sent alone for a batch request. #}
 {% for item in cards_items %}
-<article class="flex flex-col gap-1 rounded-xl border border-slate-200 bg-surface p-4 text-sm {{ item.mark }}">
-  <h2 class="line-clamp-2 font-semibold text-slate-900">{% if item.href %}<a href="{{ item.href }}" class="text-violet-700 hover:underline">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h2>
-  {% if item.subtitle %}<p class="line-clamp-2 text-slate-500">{{ item.subtitle }}</p>{% endif %}
-  {% for label, value, money in item.extras %}
-  <p class="text-slate-700"><span class="text-slate-500">{{ label }}:</span> {% if money %}{{ value|mnt }}{% elif value.isoformat %}{{ value|date:"Y-m-d" }}{% else %}{{ value|default_if_none:"" }}{% endif %}</p>
-  {% endfor %}
+<article class="relative flex gap-3 rounded-xl border border-slate-200 bg-surface p-4 text-sm{% if item.href %} hover:border-violet-300 hover:bg-slate-50{% endif %} {{ item.mark }}">
+  {% if item.photo %}{# a person's card: their photo, or the first letter of the name on a soft tile (as the employee grid) #}
+  {% with url=item.photo|thumb:72 %}{% if url %}<img src="{{ url }}" srcset="{{ item.photo|thumb:144 }} 2x, {{ item.photo|thumb:216 }} 3x" width="72" height="72" loading="lazy" decoding="async" alt="" class="h-18 w-18 shrink-0 rounded-xl object-cover">
+  {% else %}<div class="flex h-18 w-18 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-2xl text-violet-700">{{ item.photo.given_name|first }}</div>{% endif %}{% endwith %}
+  {% endif %}
+  <div class="flex min-w-0 flex-1 flex-col gap-1">
+    <h2 class="line-clamp-2 font-semibold text-slate-900">{% if item.href %}<a href="{{ item.href }}" class="text-violet-700 hover:underline after:absolute after:inset-0 after:content-['']">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h2>
+    {% if item.subtitle %}<p class="line-clamp-2 text-slate-500">{{ item.subtitle }}</p>{% endif %}
+    {% for label, value, money in item.extras %}
+    <p class="text-slate-700"><span class="text-slate-500">{{ label }}:</span> {% if money %}{{ value|mnt }}{% elif value.isoformat %}{{ value|date:"Y-m-d" }}{% else %}{{ value|default_if_none:"" }}{% endif %}</p>
+    {% endfor %}
+  </div>
 </article>
 {% endfor %}
 {% if cards_next_query %}{% include "_more_batch.html" with url=batch_url next_query=cards_next_query kind="div" %}{% endif %}

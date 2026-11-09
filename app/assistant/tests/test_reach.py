@@ -317,7 +317,7 @@ def _saved_view_pages(client: Client, role_user: Callable[[str], User]) -> list[
     query = to_query(build_table(registry.REPORTS["staff-list"], user, parse_filters(QueryDict(""))).filters)
     view = SavedView.objects.create(report="staff-list", name="Тест харагдац", query=query, author=user)
     return [
-        _page(client, reverse("reports:report", args=["staff-list"]), False),
+        _page(client, reverse("reports:report", args=["staff-list"]) + "?" + query, False),  # the saved view selected
         _page(client, reverse("reports:view_edit", args=[view.pk]), True),
     ]
 

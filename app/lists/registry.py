@@ -3,9 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from macs import models as m
-
 from lists.models import DEATH, MONGOLIA
+from macs import models as m
 
 
 @dataclass(frozen=True)

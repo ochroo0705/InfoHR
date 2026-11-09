@@ -84,7 +84,8 @@ def test_every_filter_has_a_label(
     client: Client, login_as: Callable[..., User], fake_all_filters_report: Report
 ) -> None:
     login_as(client, "HR")
-    response = client.get("/reports/fake-all/")
+    # a long bar folds some filters into the «Шүүлтүүр нэмэх» menu: name them with `add` so every control is drawn
+    response = client.get("/reports/fake-all/", {"add": ["branch", "position", "gender", "age_range"]})
     assert response.status_code == 200
     page = response.content.decode()
     for label in ("Төлөв", "Огноо", "Салбар", "Хэлтэс", "Албан тушаал", "Хүйс"):

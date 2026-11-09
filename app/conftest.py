@@ -24,6 +24,16 @@ def fast_password_hasher(settings: SettingsWrapper) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _modules_cache_clear() -> Iterator[None]:
+    """The on/off state of the optional modules is cached for a few seconds; a test must never see another's."""
+    from accounts import modules
+
+    modules.clear_cache()
+    yield
+    modules.clear_cache()
+
+
+@pytest.fixture(autouse=True)
 def _assistant_off(settings: SettingsWrapper) -> None:
     """A developer's real assistant key in .env must not change other tests or call the API."""
     settings.ASSISTANT_PROVIDER = ""

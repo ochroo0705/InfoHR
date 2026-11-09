@@ -4,8 +4,8 @@ from collections.abc import Callable
 import pytest
 from accounts.models import User
 from django.test import Client
-from employees.models import CompanySettings, Employee
 from django.urls import reverse
+from employees.models import CompanySettings, Employee
 from macs.models import Department
 
 pytestmark = pytest.mark.django_db

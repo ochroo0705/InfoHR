@@ -182,8 +182,8 @@ def test_auditor_system_page_has_no_employee_tab(auditor: User) -> None:
 
 
 def test_auditor_employee_list_shows_no_names(auditor: User, own: Employee) -> None:
-    response = _client(auditor).get(reverse("employees:list"))
-    assert response.status_code == 200  # existing behaviour: an empty list, not a 403
+    response = _client(auditor).get(reverse("employees:list"), follow=True)
+    assert response.status_code == 403  # the employees screen is the staff report, which the auditor may not open
     body = response.content.decode()
     assert "Батын" not in body
     assert "Сараа" not in body

@@ -118,14 +118,16 @@
     c.input.insertAdjacentElement("afterend", note);
   }
 
+  // State is cleared at once (a new open is never blocked); only the DOM removal waits for the exit (hrLeave).
   function close() {
     if (!popup) return;
     var c = owner;
-    popup.remove();
+    var p = popup;
     popup = null; owner = null; anchor = null; list = null;
     items = []; addLine = null; active = -1; typed = false;
     document.removeEventListener("mousedown", outside, true);
     if (c && c.input) c.input.setAttribute("aria-expanded", "false");
+    if (window.hrLeave) window.hrLeave(p); else p.remove();
   }
   function outside(e) {
     if (popup && !popup.contains(e.target) && e.target !== anchor) close();
@@ -176,7 +178,9 @@
     items = [];
     Array.prototype.forEach.call(c.select.options, function (opt, i) {
       if (opt.hidden) return;
-      var it = el("button", "sel-item" + (i === c.select.selectedIndex ? " sel-selected" : ""), opt.text || " ");
+      // An option with no text (the "nothing chosen" entry) would be a thin blank row: give it a dash.
+      var blank = !opt.text.trim();
+      var it = el("button", "sel-item" + (i === c.select.selectedIndex ? " sel-selected" : "") + (blank ? " sel-blank" : ""), blank ? "—" : opt.text);
       it.type = "button";
       it.tabIndex = -1;
       it.dataset.index = i;

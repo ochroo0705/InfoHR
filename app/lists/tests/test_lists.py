@@ -123,3 +123,17 @@ def test_death_meaning_settable(admin_client: Client) -> None:
     dead = FiredReason.objects.create(name="Нас барсан")
     admin_client.post("/lists/meaning/", {DEATH: dead.pk})
     assert MeaningfulEntry.get(DEATH) == dead.pk
+
+
+@pytest.mark.django_db
+def test_index_search_finds_a_list_by_its_name_or_an_entry(admin_client: Client) -> None:
+    MaritalStatus.objects.create(name="Гэрлэсэн")
+    everything = admin_client.get("/lists/").content.decode()
+    assert "Утгын холбоо" in everything
+    by_name = admin_client.get("/lists/", {"q": "гэр"}).content.decode()  # matches the list's own label, not just case
+    assert "/lists/marital_status/" in by_name
+    by_entry = admin_client.get("/lists/", {"q": "ГЭРЛЭСЭН"}).content.decode()
+    assert "/lists/marital_status/" in by_entry and "1 таарсан" in by_entry
+    assert "Утгын холбоо" not in by_entry  # the meanings block only shows when it matches
+    nothing = admin_client.get("/lists/", {"q": "zzzqqq"}).content.decode()
+    assert "Олдсонгүй" in nothing and "/lists/marital_status/" not in nothing

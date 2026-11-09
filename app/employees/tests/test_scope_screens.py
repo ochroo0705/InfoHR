@@ -177,42 +177,6 @@ def _snapshot(pk: int) -> list[Any]:
     ]
 
 
-# --- employee list: full page, filters, htmx batches (grid and table) ---
-
-
-def test_list_hides_outside_person(hr_north: Client) -> None:
-    for params in ({}, {"view": "table"}):
-        body = hr_north.get(reverse("employees:list"), params).content.decode()
-        assert IN_FAMILY in body
-        assert OUT_FAMILY not in body
-
-
-@pytest.mark.parametrize("query", [OUT_FAMILY, OUT_REGISTER])
-def test_list_search_finds_no_outside_person(hr_north: Client, people: tuple[Employee, Employee], query: str) -> None:
-    _, outside = people
-    body = hr_north.get(reverse("employees:list"), {"q": query}).content.decode()
-    # The search box echoes the query, so the test looks for the person's own link, not the name.
-    assert f"/employees/{outside.pk}/" not in body
-
-
-@pytest.mark.parametrize("view", ["grid", "table"])
-def test_list_batches_hide_outside_person(
-    hr_north: Client, actor: User, job_values: dict[str, Any], north: Branch, monkeypatch: pytest.MonkeyPatch, view: str
-) -> None:
-    _hire(actor, job_values, north, "УБ00000033", "Баярсайхан", "Соёлмаа")  # a second person in scope
-    monkeypatch.setattr(views, "LIST_BATCH", 1)  # one person per batch: the outside person would be batch three
-    bodies = [
-        hr_north.get(
-            reverse("employees:list"), {"view": view, "offset": str(offset)}, headers={"HX-Request": "true"}
-        ).content.decode()
-        for offset in range(3)
-    ]
-    joined = "".join(bodies)
-    assert IN_FAMILY in joined and "Баярсайхан" in joined
-    assert OUT_FAMILY not in joined
-    assert OUT_REGISTER not in joined
-
-
 # --- employee page and its partials ---
 
 
@@ -503,7 +467,7 @@ def test_out_of_scope_hire_with_login_shows_password_once(job_values: dict[str, 
     assert page.count(password) == 1
     assert "no-store" in shown["Cache-Control"]
     assert views.ONE_TIME_LOGIN_KEY not in hr.session
-    again = hr.get(reverse("employees:list")).content.decode()
+    again = hr.get(reverse("reports:report", args=["staff-list"])).content.decode()
     assert password not in again and 'id="one-time-login"' not in again
     created = User.objects.get(username="gadur.hire")
     assert created.must_change_password and created.check_password(password)
@@ -528,7 +492,7 @@ def test_visible_hire_with_login_still_shows_password_on_detail(job_values: dict
 def test_control_unlimited_hr_sees_everyone(people: tuple[Employee, Employee], due_soon: None) -> None:
     inside, outside = people
     hr = _client(_user_in(roles.HR, "hr_all"))
-    body = hr.get(reverse("employees:list")).content.decode()
+    body = hr.get(reverse("reports:report", args=["staff-list"])).content.decode()
     assert IN_FAMILY in body and OUT_FAMILY in body
     assert hr.get(reverse("employees:detail", args=[outside.pk])).status_code == 200
     assert hr.get(reverse("employees:today")).context["headcount"] == 2
@@ -541,7 +505,7 @@ def test_control_unlimited_hr_sees_everyone(people: tuple[Employee, Employee], d
 def test_control_admin_with_limited_row_sees_everyone(north: Branch, people: tuple[Employee, Employee]) -> None:
     inside, outside = people
     admin = _client(_user_in(roles.ADMIN, "admin_limited", limit=[north.pk]))
-    body = admin.get(reverse("employees:list")).content.decode()
+    body = admin.get(reverse("reports:report", args=["staff-list"])).content.decode()
     assert IN_FAMILY in body and OUT_FAMILY in body
     assert admin.get(reverse("employees:detail", args=[outside.pk])).status_code == 200
 

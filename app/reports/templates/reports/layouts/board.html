@@ -8,8 +8,8 @@
     <h2 class="mb-2 px-1 text-sm font-semibold text-slate-900">{{ lane.label }} · {{ lane.count }}</h2>
     <ul class="space-y-2">
       {% for item in lane.items %}
-      <li class="rounded-lg border border-slate-200 bg-surface p-3 text-sm {{ item.mark }}">
-        <p class="line-clamp-2 font-medium text-slate-900">{% if item.href %}<a href="{{ item.href }}" class="text-violet-700 hover:underline">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</p>
+      <li class="relative rounded-lg border border-slate-200 bg-surface p-3 text-sm{% if item.href %} hover:border-violet-300 hover:bg-slate-50{% endif %} {{ item.mark }}">
+        <p class="line-clamp-2 font-medium text-slate-900">{% if item.href %}<a href="{{ item.href }}" class="text-violet-700 hover:underline after:absolute after:inset-0 after:content-['']">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</p>
         {% if item.subtitle %}<p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ item.subtitle }}</p>{% endif %}
       </li>
       {% empty %}

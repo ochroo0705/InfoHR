@@ -4,11 +4,11 @@ import pytest
 from django import forms
 from django.test import Client
 from employees.models import Employee
-from macs import models as m
 
 from lists.forms import entry_form
 from lists.registry import LISTS
 from lists.usage import usage_count
+from macs import models as m
 
 
 @pytest.mark.django_db

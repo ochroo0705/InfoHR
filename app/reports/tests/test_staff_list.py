@@ -10,6 +10,7 @@ from django.contrib.auth.models import Permission
 from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 from django.utils import timezone
 from employees import access, listing
 from employees import today as today_facts
@@ -128,16 +129,17 @@ def test_empty_money_cell_renders_blank(
     assert '<td class="text-right"></td>' in page
 
 
-def test_employee_list_offers_staff_report_only_when_openable(client: Client, login_as: Callable[..., User]) -> None:
+def test_employee_list_address_opens_the_staff_report(client: Client, login_as: Callable[..., User]) -> None:
     login_as(client, "HR")
-    assert 'href="/reports/staff-list/"' in client.get("/employees/").content.decode()
+    response = client.get("/employees/")
+    assert response.status_code == 302 and response["Location"] == "/reports/staff-list/"
+    kept = client.get("/employees/?state=left&department=7&group=1")
+    assert kept["Location"] == "/reports/staff-list/?department=7&state=left&group=department"
     client.logout()
     reporter = User.objects.create_user("reporter", password="x-long-pass-123")  # noqa: S106
     reporter.user_permissions.add(Permission.objects.get(content_type__app_label="reports", codename="view_reports"))
     client.force_login(reporter)  # may open reports, but may not see the employees
-    response = client.get("/employees/")
-    assert response.status_code == 200  # so the check below sees the page, not an error
-    assert 'href="/reports/staff-list/"' not in response.content.decode()
+    assert client.get("/employees/", follow=True).status_code == 403
 
 
 def _city(name: str) -> City:
@@ -253,10 +255,10 @@ def test_gender_filter_is_ignored_without_view_personal(
 
 def test_gender_select_only_with_view_personal(client: Client, login_as: Callable[..., User]) -> None:
     login_as(client, "Accountant", "accountant-gender")
-    assert 'name="gender"' not in client.get("/reports/staff-list/").content.decode()
+    assert 'name="gender"' not in client.get("/reports/staff-list/?add=gender").content.decode()
     client.logout()
     login_as(client, "HR", "hr-gender")
-    assert 'name="gender"' in client.get("/reports/staff-list/").content.decode()
+    assert 'name="gender"' in client.get("/reports/staff-list/?add=gender").content.decode()
 
 
 # Legacy people (no MACS Human Capital job history) on another day.
@@ -433,10 +435,10 @@ def test_type_select_on_staff_page(login_hr: User, client: Client) -> None:
 
 
 def test_state_disabled_for_type_2(login_hr: User, client: Client) -> None:
-    state = re.search(r'<select name="state"[^>]*>', client.get("/reports/staff-list/?emptype=2").content.decode())
+    state = re.search(r'<select[^>]*name="state"[^>]*>', client.get("/reports/staff-list/?emptype=2").content.decode())
     assert state is not None
     assert " disabled" in state.group(0)
-    working = re.search(r'<select name="state"[^>]*>', client.get("/reports/staff-list/?emptype=1").content.decode())
+    working = re.search(r'<select[^>]*name="state"[^>]*>', client.get("/reports/staff-list/?emptype=1").content.decode())
     assert working is not None
     assert " disabled" not in working.group(0)
 
@@ -501,6 +503,55 @@ def test_unoffered_add_is_ignored(client: Client, login_hr: User) -> None:
 
 
 def test_other_reports_show_no_picker(client: Client, login_hr: User) -> None:
-    response = client.get("/reports/ages/")
+    response = client.get("/reports/children/")
     assert response.status_code == 200  # so the check below sees the page, not an error
     assert "Шүүлтүүр нэмэх" not in response.content.decode()
+
+
+def test_staff_cards_show_a_photo_slot_and_hr_gets_hire_and_import(
+    client: Client, login_hr: User, hired: Employee
+) -> None:
+    """The staff list's cards carry the person's picture (an initial on a tile without one), and the header has the
+    hire and import buttons for who may manage staff."""
+    page = client.get("/reports/staff-list/", {"layout": "cards"}).content.decode()
+    assert hired.given_name[0] in page and "rounded-xl bg-violet-100" in page
+    assert reverse("employees:add") in page and reverse("employees:import") in page
+
+
+def test_other_reports_have_no_hire_buttons(client: Client, login_hr: User) -> None:
+    page = client.get("/reports/children/").content.decode()
+    assert reverse("employees:add") not in page
+
+
+def test_a_long_filter_bar_folds_away_all_but_the_four_most_useful() -> None:
+    from reports.views import _secondary_filters
+
+    staff = ("state", "as_of", "branch", "department", "position", "emptype", "gender", "age_range")
+    assert _secondary_filters(staff) == ("branch", "position", "gender", "age_range")  # kept: state, as_of, department, emptype
+    assert _secondary_filters(("state", "as_of", "branch", "department", "age_range")) == ()  # five: not slimmed
+
+
+def test_folded_filters_are_in_the_add_menu_and_appear_when_picked_or_applied(client: Client, login_hr: User) -> None:
+    page = client.get("/reports/staff-list/").content.decode()
+    for name in ("branch", "position", "gender", "age_range"):
+        assert f'data-filter="{name}"' not in page, name  # folded away: not drawn
+    for name in ("state", "as_of", "department", "emptype"):
+        assert f'data-filter="{name}"' in page, name
+    menu = page[page.index("data-column-picker") :]
+    for label in ("Салбар", "Албан тушаал", "Хүйс", "Нас"):
+        assert label in menu, label
+    assert "add=gender" in menu and "data-filters-more" not in page  # one menu, no second button
+    picked = client.get("/reports/staff-list/", {"add": "gender"}).content.decode()
+    assert 'data-filter="gender"' in picked and 'name="add" value="gender"' in picked
+    assert 'aria-label="Шүүлтүүрийг арилгах"' in picked  # the ✕
+    applied = client.get("/reports/staff-list/", {"gender": "F"}).content.decode()
+    assert 'data-filter="gender"' in applied  # a value shows the control without being picked
+    short = client.get("/reports/children/").content.decode()
+    assert "data-filters-more" not in short
+
+
+def test_add_names_do_not_clash_between_built_in_and_column_filters() -> None:
+    from reports.column_filters import COLUMN_FILTERS
+    from reports.views import FOLDABLE
+
+    assert not set(FOLDABLE) & set(COLUMN_FILTERS)

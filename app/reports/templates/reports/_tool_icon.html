@@ -1,0 +1,13 @@
+{# A 16px line icon for the report ribbon (UI_RULES §4b). kind: save, columns, filter, format, print, excel, import, person_add, select. Decorative: the label beside it names the button. #}
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 shrink-0">
+{% if kind == "save" %}<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>
+{% elif kind == "columns" %}<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>
+{% elif kind == "filter" %}<path d="M3 5h18l-7 8v6l-4 2v-8z"/>
+{% elif kind == "format" %}<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>
+{% elif kind == "print" %}<path d="M7 9V3h10v6M7 17H4v-7h16v7h-3"/><rect x="7" y="14" width="10" height="7"/>
+{% elif kind == "excel" %}<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/>
+{% elif kind == "import" %}<path d="M12 15V3m0 0L8 7m4-4l4 4M4 17v3h16v-3"/>
+{% elif kind == "person_add" %}<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.4 3.4-5.2 6.5-5.2s5.7 1.8 6.5 5.2M19 8v6M16 11h6"/>
+{% elif kind == "select" %}<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/>
+{% endif %}
+</svg>

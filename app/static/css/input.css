@@ -53,6 +53,21 @@
   /* Card and pop-up background: write bg-surface / border-surface, never bg-white (the dark theme swaps it). White
      text on solid fills stays text-white in both themes. */
   --color-surface: #fff;
+  /* Picked (selected) state: lime is only for "picked", never for status. bright = fills and bars, tint = row and
+     option background, edge = outlines, ticks and the text on the tint (olive), ink = text on a bright fill. */
+  --color-pick-bright: #a6d22b;
+  --color-pick-tint: #f1f8dc;
+  --color-pick-edge: #5b7a0a;
+  --color-pick-ink: #1e2b38;
+}
+/* Motion (plan 2026-11-08-selection-motion): every open, close and swap uses these. Never longer than 300 ms; with
+   prefers-reduced-motion all motion is off (see the rule near the end of this file). */
+:root {
+  --dur-hover: 120ms;
+  --dur-in: 180ms;
+  --dur-out: 140ms;
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --ease-in: cubic-bezier(.4,0,1,1);
 }
 @source "../../templates";
 @source "../../employees/templates";
@@ -86,7 +101,8 @@
   .dp-weekend { color: var(--color-slate-500); }
   .dp-other { color: var(--color-slate-300); }
   .dp-today { font-weight: 600; color: var(--color-violet-700); box-shadow: inset 0 0 0 1px var(--color-violet-300); }
-  .dp-selected, .dp-selected:hover { background: var(--color-violet-600); color: var(--color-white); box-shadow: none; font-weight: 600; }
+  /* The chosen day: lime fill, dark ink, and an edge ring (the non-colour cue, 3:1 against the surface). */
+  .dp-selected, .dp-selected:hover { background: var(--color-pick-bright); color: var(--color-pick-ink); box-shadow: none; font-weight: 600; outline: 2px solid var(--color-pick-edge); outline-offset: 1px; }
   .dp-day:disabled { color: var(--color-slate-300); background: none; cursor: not-allowed; text-decoration: line-through; }
   .dp-day:focus-visible, .dp-nav:focus-visible, .dp-link:focus-visible { outline: 2px solid var(--color-violet-500); outline-offset: 1px; }
   .dp-foot { display: flex; justify-content: space-between; margin-top: .5rem; padding-top: .5rem; border-top: 1px solid var(--color-slate-100); }
@@ -108,8 +124,13 @@
   .sel-list { max-height: 16rem; overflow-y: auto; }
   .sel-item { display: flex; align-items: center; width: 100%; padding: .4375rem .625rem .4375rem 1.75rem; border-radius: .5rem; text-align: left; white-space: nowrap; cursor: pointer; position: relative; }
   .sel-item[hidden], .sel-empty[hidden] { display: none; }
-  .sel-active { background: var(--color-violet-50); color: var(--color-violet-700); }
-  .sel-selected { font-weight: 600; color: var(--color-violet-700); }
+  .sel-item.sel-blank { color: var(--color-slate-500); }
+  /* Keyboard and hover highlight: neutral, so it never looks like the lime picked option. */
+  .sel-active { background: var(--color-slate-100); color: var(--color-slate-900); }
+  /* The chosen option: lime tint, olive text; the ✓ below is the non-colour cue. */
+  .sel-selected { font-weight: 600; background: var(--color-pick-tint); color: var(--color-pick-edge); }
+  /* Selected and keyboard/hover-highlighted: a 2px edge ring, so the highlight still shows on the picked option. */
+  .sel-selected.sel-active { box-shadow: inset 0 0 0 2px var(--color-pick-edge); }
   .sel-selected::before { content: "✓"; position: absolute; left: .625rem; }
   .sel-add { color: var(--color-violet-700); font-weight: 500; }
   .sel-note { display: block; margin-top: .25rem; font-size: var(--text-xs); color: var(--color-slate-500); }
@@ -124,6 +145,14 @@
   button:disabled { cursor: not-allowed; }
   /* A quick second click on a button or menu summary would otherwise select its label (browser default). */
   button, [role="button"], summary { -webkit-user-select: none; user-select: none; }
+  /* A row that acts as a whole (opens a record, or toggles its selection checkbox) is a unit, not text: a double click
+     or a drag must not highlight its cells. Boxes inside it (inline row editors) stay selectable. */
+  tr.cursor-pointer, tr[data-inline-row], #result_list tbody tr, body[data-selecting] #report-page tbody tr[data-person] { -webkit-user-select: none; user-select: none; }
+  body[data-selecting] #report-page tbody tr[data-person] { cursor: pointer; }
+  #report-page tbody tr:has(td a[href]) { cursor: pointer; -webkit-user-select: none; user-select: none; }
+  tr.cursor-pointer :is(input, textarea, select), tr[data-inline-row] :is(input, textarea, select) { -webkit-user-select: text; user-select: text; }
+  /* Native checkboxes take the picked lime edge colour; the browser picks a readable tick on it. */
+  input[type="checkbox"] { accent-color: var(--color-pick-edge); }
 }
 
 /* Always reserve the scrollbar's space so pages don't shift sideways when one appears. */
@@ -234,6 +263,30 @@ body:has(#assistant-chart-pane:not([hidden])) [data-assistant-fab] { display: no
 #assistant-panel:has([data-assistant-thread]:not([hidden])) [data-palette-results] { max-height: 8rem; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
+/* Picked rows and the «N сонгосон» bar (plan 2026-11-08-selection-motion, task 2). Lime means "picked" only, never
+   status. The colours are the pick-* tokens, so the dark block turns them; the dark text rules are at the end of the
+   file. The 3px edge is an inset shadow, so the row does not move. */
+@layer components {
+  .is-picked {
+    background-color: var(--color-pick-tint);
+    color: var(--color-pick-edge);
+    transition: background-color var(--dur-hover) var(--ease-out);
+  }
+  /* The 3px bar sits on the first cell: box-shadow on a table row is not drawn reliably under border-collapse. */
+  .is-picked > td:first-child {
+    box-shadow: inset 3px 0 0 var(--color-pick-edge);
+    transition: box-shadow var(--dur-hover) var(--ease-out);
+  }
+  .selection-bar { border-color: var(--color-pick-edge); background-color: var(--color-pick-tint); color: var(--color-pick-ink); }
+  /* Row and header boxes: a checked box fills lime, the browser draws its tick dark on it. */
+  input[data-select-row], input[data-select-all] { accent-color: var(--color-pick-bright); }
+  /* A checked row box gets an edge outline (lime fill alone is too pale on white). Dark: the dark edge value. */
+  input[data-select-row]:checked { outline: 2px solid var(--color-pick-edge); outline-offset: 1px; }
+}
+/* Unlayered, so it beats the opaque bg-surface utility of pinned cells (utilities sit in a layer). Only those cells are
+   overridden; status-coloured cells keep their own colour. The tint variable flips in dark, so one rule covers both. */
+.is-picked > td.bg-surface { background-color: var(--color-pick-tint); }
+
 /* Dark theme. <html data-theme="dark"> is set before first paint by the script at the top of base.html (the user's
    choice in the user menu, else the computer's setting). Templates keep their usual classes: the scales below are
    turned around (light shades become dark fills, dark shades become light text), and the few solid fills that carry
@@ -294,6 +347,11 @@ body:has(#assistant-chart-pane:not([hidden])) [data-assistant-fab] { display: no
     --color-emerald-700: #6ee2b4;
     --color-emerald-800: #a5efcf;
     --color-seal: #e74c3c;
+    /* Picked state, dark: the bright lime is also the text and edge colour on the dark surfaces. */
+    --color-pick-bright: #c2e84a;
+    --color-pick-tint: #2b3a14;
+    --color-pick-edge: #c2e84a;
+    --color-pick-ink: #1e2b38;
   }
   /* Solid fills: hover shades stay deep under white text; amber badges keep dark text; the top bar and the
      pop-up overlay stay dark. */
@@ -305,5 +363,150 @@ body:has(#assistant-chart-pane:not([hidden])) [data-assistant-fab] { display: no
   :root[data-theme="dark"] :is(.card-soft, .nav-panel) { box-shadow: 0 0 0 1px var(--color-slate-200), 0 8px 24px rgb(0 0 0 / .35); }
   :root[data-theme="dark"] a.card-soft:hover { box-shadow: 0 0 0 1px var(--color-slate-300), 0 10px 28px rgb(0 0 0 / .45); }
   :root[data-theme="dark"] .seal { mix-blend-mode: normal; background: rgb(231 76 60 / .08); }
+  /* Picked rows: the bright lime text on the dark olive tint (the light olive would be too dark here). The bar's ink is
+     dark, so its text turns light on the dark tint. */
+  :root[data-theme="dark"] .is-picked { color: var(--color-pick-bright); }
+  :root[data-theme="dark"] .selection-bar { color: var(--color-slate-900); }
   :root[data-theme="dark"] .sel-combo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23bdc6c8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); }
 }
+
+/* Leaving elements (window.hrLeave, static/js/motion.js; plan 2026-11-08-selection-motion, task 3). hrLeave marks an
+   element data-leaving, makes it inert, plays this exit and then removes it. The exit takes --dur-out (never over 300 ms).
+   A pop-up shell and its panel already have entry animations (hr-fade, hr-pop), so their exit rules are more specific.
+   Unlayered, so they beat those entry rules. Reduced motion turns every animation off (rule above), and hrLeave then
+   removes the element at once. */
+[data-leaving] {
+  pointer-events: none;
+  animation: hr-leave var(--dur-out) var(--ease-in) forwards;
+}
+.fixed.inset-0.z-50[data-leaving] { animation: hr-leave var(--dur-out) var(--ease-in) forwards; }
+.fixed.inset-0.z-50[data-leaving] > div { animation: hr-leave-pop var(--dur-out) var(--ease-in) forwards; }
+@keyframes hr-leave { to { opacity: 0; transform: translateY(-4px); } }
+@keyframes hr-leave-pop { to { opacity: 0; transform: scale(.98); } }
+
+/* Dropdown list and date picker enter (plan 2026-11-08-selection-motion, task 5): a short fade and a 4 px slide from the
+   anchor side. Only opacity and transform move (the popups are position: fixed with inline top/left). Layered, so the
+   unlayered [data-leaving] exit above wins while a popup leaves. Reduced motion turns this off (rule above). */
+@layer components {
+  .sel-popup, .dp-popup { transform-origin: top; animation: hr-pop-in var(--dur-in) var(--ease-out); }
+}
+@keyframes hr-pop-in { from { opacity: 0; transform: translateY(-4px); } }
+
+/* Tab and section content swap (plan 2026-11-08-selection-motion, task 7). A panel that comes into view (a page tab, or a
+   personal-tab group) plays hr-swap-in once: it fades in and rises 6 px. Swaps have no exit. detail.html (showTab) and
+   sections.js (openGroup) add the class and remove it on animationend. Reduced motion turns the animation off (rule above). */
+@layer components {
+  @keyframes hr-swap-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .swap-in { animation: hr-swap-in var(--dur-in) var(--ease-out); }
+}
+/* Inline list rows (plan 2026-11-08-selection-motion, task 8; UI_RULES §2f). An open row (a row click, «+ нэмэх») and a row
+   that a save adds (sections.js marks it .row-enter) fade in and rise 4 px. Only the cells move: browsers ignore transform
+   on a table row (tr), so the animation sits on its cells. Scoped to the list block (data-inline-list), so no other table
+   or swap fades. Rows leave through hrCollapse ([data-leaving] above); on a tr the exit's transform is ignored as well, so
+   a leaving row fades by opacity only. Reduced motion turns this off (rule above). */
+@layer components {
+  @keyframes hr-row-in { from { opacity: 0; transform: translateY(-4px); } }
+  [data-inline-list] [data-inline-row] > td { animation: hr-row-in var(--dur-in) var(--ease-out); }
+  [data-inline-list] .row-enter > td { animation: hr-row-in var(--dur-in) var(--ease-out); }
+}
+/* The personal-tab menu's current group (aria-current, set by sections.js) is the picked item: the lime tint and olive text
+   of .is-picked, plus weight 600 and a 3 px inset bar as the non-colour cue (.is-picked itself sets no weight). It is a link, not a table cell, so the bar is an
+   inset shadow on the link itself. Unlayered, so it beats the link's utility classes. Only this menu is changed: the
+   section menu items (data-sec) and the main tabs keep their own look. */
+#personal-nav a[data-pgroup-link] { transition: background-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out); }
+#personal-nav a[data-pgroup-link][aria-current="true"] { background-color: var(--color-pick-tint); color: var(--color-pick-edge); font-weight: 600; box-shadow: inset 3px 0 0 var(--color-pick-edge); }
+
+/* The docked assistant panel and the chart pane slide in from the right and out again (plan 2026-11-08-selection-motion,
+   task 9). hr-slide-in plays when the panel becomes visible (a hidden -> visible change restarts it); hr-slide-out plays while
+   the element is [data-leaving] (window.hrLeave, palette.js closePanel, assistant_chart.js closePane). Both ids have the same
+   specificity as the enter rule, so the exit rule is written after it and wins while the element leaves. Unlayered, so they
+   beat the generic [data-leaving] fade above. No fill-mode on the enter, so no transform stays on the panel afterwards (a
+   fixed pop-up inside it keeps its own position). Reduced motion turns both off (the rule above). */
+@keyframes hr-slide-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes hr-slide-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(24px); } }
+/* A page-load open (palette.js, data-no-enter) does not slide in; a leaving element does not enter either. */
+#assistant-panel:not([hidden]):not([data-no-enter]):not([data-leaving]), #assistant-chart-pane:not([hidden]):not([data-leaving]) { animation: hr-slide-in var(--dur-in) var(--ease-out); }
+#assistant-panel[data-leaving], #assistant-chart-pane[data-leaving] { animation: hr-slide-out var(--dur-out) var(--ease-in) forwards; }
+
+/* Page cross-fade (plan 2026-11-08-selection-motion, task 10). A same-origin page-to-page load (a link or a form that
+   redirects; htmx swaps are not navigations) fades with the View Transitions API. Unlayered, because @view-transition and
+   ::view-transition-* are not layerable. The top bar (header.sticky, named topbar) stays put: its group animates for 0 s,
+   so only the page fades. All of it sits in the no-preference block: reduced-motion users get plain loads, and browsers
+   without the API load plainly too. Printing is not a navigation, so print output is unchanged. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  header.sticky { view-transition-name: topbar; }
+  ::view-transition-old(root) { animation-duration: var(--dur-out); animation-timing-function: var(--ease-out); }
+  ::view-transition-new(root) { animation-duration: var(--dur-in); animation-timing-function: var(--ease-out); }
+  ::view-transition-group(topbar) { animation-duration: 0s; }
+}
+
+/* The report view switcher's current segment (plan 2026-11-08-selection-motion, task 11b): an .is-picked link in the
+   divide-x group. Its colour and tint are set here, unlayered, because the group's hover utility ([&>*:hover]:bg-slate-50)
+   sits in the utilities layer and would otherwise paint the picked segment grey on hover. Non-current segments keep the
+   hover tint. */
+[role="group"] > a.is-picked { background-color: var(--color-pick-tint); color: var(--color-pick-edge); }
+
+/* Print: the picked looks are screen only. Printed pages stay plain: no lime tint, edge, bar, weight or accent, so a
+   printed report or list shows no selection colour (spec: print unchanged). Every lime selector must be listed here;
+   the guard test_picked_css_is_screen_only_or_print_neutralised in tests_guard/test_ui_tokens.py checks it. !important
+   only beats the screen rules above, which stay as they are. */
+@media print {
+  .is-picked, .is-picked > td:first-child, .is-picked input, .is-picked select, .is-picked textarea, [role="group"] > a.is-picked, #personal-nav a[data-pgroup-link][aria-current="true"],
+  .sel-selected, .sel-selected.sel-active, .dp-selected, .dp-selected:hover, input[data-select-row]:checked,
+  input[data-select-row], input[data-select-all], input[type="checkbox"] {
+    background-color: transparent !important;
+    color: inherit !important;
+    font-weight: inherit !important;
+    box-shadow: none !important;
+    outline: none !important;
+    accent-color: auto !important;
+  }
+  .is-picked > td.bg-surface { background-color: var(--color-surface) !important; }
+  .selection-bar { background-color: transparent !important; color: inherit !important; border-color: var(--color-slate-300) !important; }
+}
+
+/* Form boxes inside a picked row (an open inline row, a row with a box) keep the ink text colour. Preflight makes inputs,
+   selects and textareas inherit the text colour, so without this the typed values would turn olive. The dark theme flips
+   slate-800 by itself. Print: listed in the @media print reset above. */
+.is-picked input, .is-picked select, .is-picked textarea { color: var(--color-slate-800); }
+
+/* A report row that opens its record lights up under the pointer. Unlayered so it also wins over the pinned cells' own
+   background utilities. */
+#report-page tbody tr:has(td a[href]):hover > td { background-color: var(--color-violet-50); }
+
+/* Report filter bar: an applied filter (report_filters.js sets data-applied on it) is violet. The typing-box copy of a
+   select is an input placed just before the hidden select, so it is reached through :has. */
+#report-filters select[data-applied],
+#report-filters input.sel-combo:has(+ select[data-applied]),
+#report-filters label[data-applied],
+#report-filters div[data-applied],
+#report-filters > input[data-applied] {
+  border-color: var(--color-violet-500);
+  background-color: var(--color-violet-50);
+  color: var(--color-violet-900);
+  font-weight: 500;
+}
+#report-filters label[data-applied] > span, #report-filters div[data-applied] > span { color: var(--color-violet-700); }
+#report-filters div[data-applied] input, #report-filters label[data-applied] input { color: var(--color-violet-900); }
+
+/* The timeline bar's hover box (static/js/bar_tip.js). */
+.bar-tip {
+  position: fixed; z-index: 60; pointer-events: none; max-width: 20rem;
+  display: flex; flex-direction: column; gap: .125rem;
+  padding: .375rem .625rem; border-radius: .5rem; font-size: var(--text-xs);
+  background: var(--color-slate-900); color: #fff; box-shadow: 0 4px 12px rgb(0 0 0 / .2);
+}
+.bar-tip[hidden] { display: none; }
+.bar-tip strong { font-weight: 600; }
+
+/* The in-app confirm dialog (static/js/modal.js, window.hrConfirm). */
+.hr-confirm-panel { width: 100%; max-width: 24rem; border-radius: .75rem; background: var(--color-surface, #fff); padding: 1.25rem; box-shadow: 0 10px 30px rgb(0 0 0 / .25); }
+.hr-confirm-text { font-size: var(--text-sm); color: var(--color-slate-800); line-height: 1.5; }
+.hr-confirm-row { margin-top: 1.25rem; display: flex; justify-content: flex-end; gap: .5rem; }
+.hr-confirm-no, .hr-confirm-yes { border-radius: .5rem; padding: .5rem 1rem; font-size: var(--text-sm); cursor: pointer; }
+.hr-confirm-no { border: 1px solid var(--color-slate-300); background: transparent; color: var(--color-slate-700); }
+.hr-confirm-no:hover { background: var(--color-slate-50); }
+.hr-confirm-yes { background: var(--color-violet-600); color: #fff; }
+.hr-confirm-yes:hover { background: var(--color-violet-700); }
+.hr-confirm button:focus-visible { outline: 2px solid var(--color-violet-500); outline-offset: 2px; }

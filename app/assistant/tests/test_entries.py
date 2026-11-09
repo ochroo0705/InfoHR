@@ -67,14 +67,9 @@ HR_AREA_KEYS = [
     "report.absence-totals",
     "report.saved_view",
     "report.staff-list",
-    "report.employee-info",
-    "report.ages",
-    "report.elders",
     "report.children",
     "report.contacts",
     "report.engineers",
-    "report.sizes",
-    "report.statistics",
     "report.movements",
     "report.history",
     "report.leavers",
@@ -159,7 +154,6 @@ def test_accountant_with_approval(role_user: Callable[[str], User], approval_on:
         "report.absence-totals",
         "report.saved_view",
         "report.staff-list",
-        "report.employee-info",
         "report.engineers",
         "report.household-income",
         "report.movements",
@@ -200,7 +194,7 @@ def test_no_rights(role_user: Callable[[str], User]) -> None:
 
 
 def test_keys_unique_and_urls_reverse() -> None:
-    assert len(ENTRY_BY_KEY) == len(ENTRIES) == 103
+    assert len(ENTRY_BY_KEY) == len(ENTRIES) == 98
     for entry in ENTRIES:
         assert entry.url()
 

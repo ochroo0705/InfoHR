@@ -6,6 +6,46 @@
 (function () {
   "use strict";
 
+  // The panel's exit state (plan 2026-11-08-selection-motion, task 9). A panel that is sliding out is still visible
+  // (hidden is false) but no longer open: isPanelOpen is false from the moment the exit starts. Each exit has a token
+  // (el.__closing): cancelExit (a reopen during the exit) clears it, so the pending done() does nothing, as nav.js does.
+  // These helpers touch no DOM, so the Node tests load this file before any lookup (palette_panel.test.mjs).
+  function isPanelOpen(el) {
+    return !el.hidden && !el.hasAttribute("data-leaving");
+  }
+
+  // Starts the exit of el through hrLeaveFn (window.hrLeave). done() clears the leaving state and then calls hide(), and
+  // only while its own token is still current. Without hrLeaveFn the element is hidden at once.
+  function startExit(el, hrLeaveFn, hide) {
+    if (typeof hrLeaveFn !== "function") {
+      el.__closing = null;
+      hide();
+      return;
+    }
+    var token = el.__closing = {};
+    hrLeaveFn(el, {
+      done: function () {
+        if (el.__closing !== token) return;  // cancelled by cancelExit, or a newer exit has taken over
+        el.__closing = null;
+        el.removeAttribute("data-leaving");
+        el.inert = false;
+        hide();
+      },
+    });
+  }
+
+  // Cancels an exit in flight: the element is shown and interactive again, and the pending done() does nothing.
+  function cancelExit(el) {
+    el.__closing = null;
+    el.removeAttribute("data-leaving");
+    el.inert = false;
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { isPanelOpen: isPanelOpen, startExit: startExit, cancelExit: cancelExit };
+    return;
+  }
+
   var panel = document.querySelector("[data-assistant-panel]");
   var input = panel && panel.querySelector("[data-palette-input]");
   var results = panel && panel.querySelector("[data-palette-results]");
@@ -17,6 +57,7 @@
   var userId = panel.getAttribute("data-user") || "";
   var askOn = panel.getAttribute("data-ask-on") === "1";  // the assistant is on for this user (the «Асуух» row and button)
   var fab = document.querySelector("[data-assistant-fab]");
+  var chartPane = document.querySelector("[data-chart-pane]");  // the docked chart pane (base.html), may be absent
   var sendBtn = panel.querySelector("[data-assistant-send]");  // the round send button (only when the assistant is on)
   var DEBOUNCE_MS = 200;
   var RECENT_KEY = "palette-recent-" + userId;  // per user: shared PCs do not mix them
@@ -79,7 +120,11 @@
   }
 
   function isOpen() {
-    return !panel.hidden;
+    return isPanelOpen(panel);
+  }
+
+  function hidePanel() {
+    panel.hidden = true;
   }
 
   // The floating button's aria-expanded follows the panel.
@@ -125,6 +170,11 @@
   function openPanel(fromUser) {
     if (isOpen()) return;
     opener = fromUser ? document.activeElement : null;
+    cancelExit(panel);  // a reopen during the exit takes the panel back: its pending hide does nothing
+    // A page-load open (the stored flag) does not slide in: the panel is simply there, as before the motion. Only a user
+    // open plays hr-slide-in (input.css skips data-no-enter).
+    if (fromUser) panel.removeAttribute("data-no-enter");
+    else panel.setAttribute("data-no-enter", "");
     panel.hidden = false;
     setFab(true);
     if (fromUser) saveOpen(true);
@@ -154,13 +204,17 @@
     var useBack = restoreFocus && back && document.contains(back) && back.focus && back.getClientRects().length > 0;
     // Focus is inside the panel and nothing else takes it: move it to the floating button, or to the top-bar button,
     // before the panel is hidden, so focus does not fall to the body.
-    if (panel.contains(document.activeElement) && !useBack) {
+    // Focus in the chart pane counts as inside too: the pane goes inert with the panel, so focus must leave it first.
+    var inside = panel.contains(document.activeElement) || !!(chartPane && chartPane.contains(document.activeElement));
+    if (inside && !useBack) {
       var alt = fab && fab.getClientRects().length > 0 ? fab : document.querySelector("[data-palette-open]");
       if (alt && alt.focus) alt.focus();
     }
-    panel.hidden = true;
+    // The state changes at once (isOpen, the floating button, the open flag). The panel slides out and is hidden when the
+    // exit ends (startExit); the focus moves above run before the exit starts, as before.
     setFab(false);
     saveOpen(false);
+    startExit(panel, window.hrLeave, hidePanel);
     if (useBack) back.focus();
   }
 

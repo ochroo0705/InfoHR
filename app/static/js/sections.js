@@ -15,18 +15,49 @@
   // The open group is in the address as #personal-<group>, so a reload or Back keeps it.
   var group = '';
   function groups() { return document.querySelectorAll('[data-pgroup]'); }
-  function openGroup(key) {
+  // animate: a user's choice (menu, section entry, Back) swaps the group in; the page load and a redraw do not.
+  function openGroup(key, animate) {
     var keys = Array.prototype.map.call(groups(), function (g) { return g.getAttribute('data-pgroup'); });
     if (keys.indexOf(key) === -1) key = keys[0] || '';
     group = key;
     groups().forEach(function (g) {
-      if (g.getAttribute('data-pgroup') === key) g.removeAttribute('data-off'); else g.setAttribute('data-off', '');
+      if (g.getAttribute('data-pgroup') === key) {
+        if (animate && g.hasAttribute('data-off')) swapIn(g);
+        g.removeAttribute('data-off');
+      } else g.setAttribute('data-off', '');
     });
     var m = menu();
     if (m) m.querySelectorAll('a[data-pgroup-link]').forEach(function (a) {
       if (a.getAttribute('data-pgroup-link') === key) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
     });
   }
+  // The group that comes into view plays swap-in once (input.css); the class goes on its own animationend, or on
+  // animationcancel (a hidden panel cancels the animation, and no animationend then comes).
+  function swapIn(el) {
+    if (reduce) return;
+    el.classList.add('swap-in');
+    function end(e) {
+      if (e.target !== el) return;
+      el.classList.remove('swap-in');
+      el.removeEventListener('animationend', end);
+      el.removeEventListener('animationcancel', end);
+    }
+    el.addEventListener('animationend', end);
+    el.addEventListener('animationcancel', end);
+  }
+  // Opens a group the way a menu click does (the tab scrolls back under the top bar, the menu follows), except that the
+  // address is left alone and the group only animates when animate is true. employee_field_focus.js opens a closed
+  // group through window.hrOpenGroup(key, false) when a #tab-field link targets it.
+  function pickGroup(key, animate) {
+    openGroup(key, animate);
+    var tab = document.getElementById('tab-personal');
+    if (tab && tab.getBoundingClientRect().top < 0) window.scrollTo(0, window.scrollY + tab.getBoundingClientRect().top - 80);
+    pinned = '';
+    current();
+  }
+  // The field-link path (employee_field_focus.js) rewrites the address to #personal-<group> like a menu click, so a later
+  // Back or Forward keeps the group instead of falling back to the first one.
+  window.hrOpenGroup = function (key, animate) { pickGroup(key, animate); remember(); };
   function hashGroup() {
     var h = location.hash.slice(1);
     return h.indexOf('personal-') === 0 ? h.slice(9) : '';
@@ -94,12 +125,8 @@
     var g = e.target.closest('a[data-pgroup-link]');
     if (g) {
       e.preventDefault();
-      openGroup(g.getAttribute('data-pgroup-link'));
+      pickGroup(g.getAttribute('data-pgroup-link'), true);
       remember();
-      var tab = document.getElementById('tab-personal');
-      if (tab && tab.getBoundingClientRect().top < 0) window.scrollTo(0, window.scrollY + tab.getBoundingClientRect().top - 80);
-      pinned = '';
-      current();
       return;
     }
     var a = e.target.closest('a[data-sec]');
@@ -108,14 +135,14 @@
     if (!el) return;
     e.preventDefault();
     var home = el.closest('[data-pgroup]');
-    if (home && home.getAttribute('data-pgroup') !== group) { openGroup(home.getAttribute('data-pgroup')); remember(); }
+    if (home && home.getAttribute('data-pgroup') !== group) { openGroup(home.getAttribute('data-pgroup'), true); remember(); }
     pinned = a.getAttribute('data-sec');
     highlight(pinned);
     el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
     flash(el);
   });
   // The «Хувийн» tab link writes #personal: keep the open group in the address.
-  window.addEventListener('hashchange', function () { if (hashGroup()) openGroup(hashGroup()); });
+  window.addEventListener('hashchange', function () { if (hashGroup()) openGroup(hashGroup(), true); });
   document.addEventListener('click', function (e) {
     if (e.target.closest('a[href="#personal"]')) window.setTimeout(function () { remember(); current(); }, 0);
   });
@@ -147,9 +174,14 @@
   // unsaved values go. Ask once before it is sent, then forget them so the reload does not ask again.
   document.addEventListener('htmx:beforeRequest', function (e) {
     if (!e.detail || !e.detail.elt || e.detail.elt.id !== 'emp-form' || !unsaved()) return;
-    if (!window.confirm('Хувийн табын хадгалаагүй өөрчлөлт алдагдана. Үргэлжлүүлэх үү?')) { e.preventDefault(); return; }
-    dirty = {};
-    rowDirty = {};
+    // The in-app dialog answers later: stop this send, and on «yes» forget the unsaved values and send the form again.
+    var form = e.detail.elt;
+    e.preventDefault();
+    window.hrConfirm('Хувийн табын хадгалаагүй өөрчлөлт алдагдана. Үргэлжлүүлэх үү?', function () {
+      dirty = {};
+      rowDirty = {};
+      if (form.requestSubmit) form.requestSubmit(); else form.submit();
+    }, { ok: 'Үргэлжлүүлэх' });
   });
 
   // A swap that leaves a section's field block clean (saved or cancelled) clears its flag. A re-rendered form
@@ -178,7 +210,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape' || e.defaultPrevented) return;
     var row = e.target.closest && e.target.closest('[data-inline-row]');
-    if (!row || document.querySelector('.sel-popup, .dp-popup')) return;
+    if (!row || document.querySelector('.sel-popup:not([data-leaving]), .dp-popup:not([data-leaving])')) return;
     var cancel = row.querySelector('[data-inline-cancel]');
     if (cancel) cancel.click();
   });
@@ -192,6 +224,36 @@
     var target = invalid && (invalid.offsetParent ? invalid : invalid.parentNode.querySelector('.sel-combo'));
     var box = target || Array.prototype.find.call(row.querySelectorAll('input:not([type=hidden]), textarea'), visible);
     if (box) box.focus();
+  });
+
+  // Inline list swaps (UI_RULES §2f; plan task 8). A list is redrawn as a whole (#list-<kind>), so htmx's own added class
+  // would fade the whole block; sections.js instead marks the rows that a swap added (.row-enter, styled in input.css). Before
+  // the swap it notes the row keys the list had; after it, a row with a new key fades in.
+  var listKeys = null, listKeysId = '';
+  function rowKeys(block) {
+    return Array.prototype.map.call(block.querySelectorAll('tr[data-row-key]'), function (r) { return r.getAttribute('data-row-key'); });
+  }
+  // One listener for every list swap. A successful delete (the Тийм button, data-inline-delete) collapses its row first; its
+  // swap waits 140 ms (swap:140ms on the button). A failed delete comes back with the row open and its message, so it stays.
+  document.addEventListener('htmx:beforeSwap', function (e) {
+    var d = e.detail || {};
+    var t = d.target;
+    if (t && t.id && t.id.indexOf('list-') === 0) { listKeys = rowKeys(t); listKeysId = t.id; }
+    // The issuing button is requestConfig.elt (detail.elt is the swap target); the decision is motion.js deleteRow.
+    var row = window.hrDeleteRow && window.hrDeleteRow(d);
+    if (row && window.hrCollapse) window.hrCollapse(row);
+  });
+  // The event's target is the replaced element, so the redrawn list is looked up by its id.
+  document.addEventListener('htmx:afterSwap', function (e) {
+    var id = e.detail && e.detail.target && e.detail.target.id;
+    if (!id || id !== listKeysId || !listKeys) return;
+    var before = listKeys;
+    listKeys = null;
+    var block = document.getElementById(id);
+    if (!block) return;
+    block.querySelectorAll('tr[data-row-key]').forEach(function (tr) {
+      if (before.indexOf(tr.getAttribute('data-row-key')) === -1) tr.classList.add('row-enter');
+    });
   });
 
   observe();

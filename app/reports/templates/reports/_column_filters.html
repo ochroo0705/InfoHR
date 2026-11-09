@@ -24,11 +24,11 @@ Nothing is drawn when the report offers no column filters (column_filter_choices
       <a href="{{ chip.remove_href }}" hx-get="{{ chip.remove_href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" aria-label="Шүүлтүүрийг арилгах" class="shrink-0 rounded-full px-2 py-1 text-violet-700 hover:bg-violet-100">×</a>
     </div>
   {% endfor %}
-{% elif part == "picker" and column_filter_choices %}
+{% elif part == "picker" and filter_picker %}
   <details data-column-picker class="relative shrink-0">
     <summary class="flex cursor-pointer list-none items-center rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm hover:bg-slate-50">Шүүлтүүр нэмэх ▾</summary>
     <div class="absolute left-0 z-20 mt-1 w-56 rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
-      {% for name, label, href in column_filter_choices %}<a href="{{ href }}" hx-get="{{ href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="block cursor-pointer px-3 py-1.5 text-sm hover:bg-slate-50">{{ label }}</a>{% endfor %}
+      {% for label, href, heading in filter_picker %}{% if heading %}<p class="px-3 pb-1 pt-2 text-xs font-medium text-slate-500">{{ heading }}</p>{% endif %}<a href="{{ href }}" hx-get="{{ href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="block cursor-pointer px-3 py-1.5 text-sm hover:bg-slate-50">{{ label }}</a>{% endfor %}
     </div>
   </details>
   {# The «Шүүлтүүр нэмэх» panel closes when the user clicks anywhere outside it. The page is swapped as a whole, so the listener is bound once. #}

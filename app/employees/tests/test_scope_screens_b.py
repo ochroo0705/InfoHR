@@ -484,9 +484,8 @@ def test_activity_log_hides_outside_person(hr_north: Client, hr_all: Client, peo
 
 
 def _screens(client: Client) -> dict[str, str]:
-    """The full page of each screen the scope governs: list, leave, orders, staff report, activity log."""
+    """The full page of each screen the scope governs: leave, orders, staff report (the employees screen), activity log."""
     return {
-        "employee list": _get(client, "employee list", reverse("employees:list")),
         "leave list": _get(client, "leave list", reverse("leave:list")),
         "orders register": _get(client, "orders register", reverse("employees:orders")),
         "staff report": _get(client, "staff report", reverse("reports:report", args=["staff-list"])),

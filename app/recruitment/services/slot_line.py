@@ -8,6 +8,7 @@ company's `enforce_position_slots` switch is on. A vacancy has no contract field
 from dataclasses import dataclass
 from datetime import date
 
+from accounts import modules
 from django.db.models import Count, Q
 from django.utils import timezone
 from employees.models import CompanySettings
@@ -53,7 +54,7 @@ def describe(
     exclude_vacancy: int | None = None,
 ) -> SlotLine | None:
     """The line for this vacancy, or None when it is not to be shown (switch off, no position chosen yet)."""
-    if position is None or not CompanySettings.get().enforce_position_slots:
+    if position is None or not modules.enabled("slots") or not CompanySettings.get().enforce_position_slots:
         return None
     on = _on(start)
     if branch is None:

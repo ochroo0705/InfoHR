@@ -39,12 +39,14 @@
     fire(input);
   }
 
+  // State is cleared at once (a new open is never blocked); only the DOM removal waits for the exit (hrLeave).
   function close() {
-    if (popup) popup.remove();
+    var p = popup;
     popup = current = null;
     document.removeEventListener("mousedown", outside, true);
     window.removeEventListener("resize", close);
     document.removeEventListener("scroll", place, true);
+    if (p) { if (window.hrLeave) window.hrLeave(p); else p.remove(); }
   }
   function outside(e) {
     if (popup && !popup.contains(e.target) && e.target !== current && !(current && current.parentNode.contains(e.target))) close();

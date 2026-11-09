@@ -158,7 +158,6 @@ _CATALOGUE: tuple[tuple[str, str, Need], ...] = (
     ("Өнөөдөр", "employees:today", "macs.view_employees"),  # as the top bar; HR's home page, so first for them
     ("Миний хуудас", "me", _has_own_record),  # first for staff without the employee right: their home page
     ("Миний даалгавар", "checklists:mine", ""),  # works without an employee record too (checklists/views.mine)
-    ("Ажилтнууд", "employees:list", ""),
     ("Тушаалын бүртгэл", "employees:orders", "macs.view_employees"),
     ("Чөлөө, амралт", "leave:list", "leave.view_leave"),
     ("Хүсэлт", "leave:requests", _sees_requests),

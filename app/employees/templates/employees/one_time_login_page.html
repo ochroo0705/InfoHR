@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Ажилтнууд{% endblock %}
+{% block content %}
+{% include "employees/_one_time_login.html" %}
+<a href="{% url 'reports:report' 'staff-list' %}" class="text-sm text-violet-700 hover:underline">Ажилтны хүснэгт рүү очих</a>
+{% endblock %}

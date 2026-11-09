@@ -22,7 +22,12 @@ const {
   pairsToValues,
   filenameFrom,
   copyNote,
+  PICKED_CLASS,
 } = require("./report_select.js");
+
+test("a picked row gets the is-picked class (the lime look is in input.css)", () => {
+  assert.equal(PICKED_CLASS, "is-picked");
+});
 
 test("the header box follows the rows on screen: empty, partly picked, all picked, all matching", () => {
   const s = createState();

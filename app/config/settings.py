@@ -60,6 +60,7 @@ MIDDLEWARE = [
     "accounts.middleware.AuditContextMiddleware",
     "employees.daily_sync.DailySyncMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
+    "accounts.modules.ModuleGateMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -240,10 +241,12 @@ UNFOLD = {
             "950": "#4a1410",
         },
     },
+    "STYLES": [lambda request: static("css/admin_polish.css")],  # tabs, checkbox grids, focus rings
     "SCRIPTS": [
         lambda request: static("js/admin_related_modal.js"),  # "+" opens a modal, not a window
         lambda request: static("js/admin_effective_perms.js"),  # role permissions shown ticked on the user page
         lambda request: static("js/admin_row_click.js"),  # whole list row opens the record
+        lambda request: static("js/admin_tab_errors.js"),  # a form with errors opens the tab that holds the first one
         lambda request: static("js/money.js"),  # money boxes group digits by commas as typed (UI_RULES §2b)
     ],
     "SIDEBAR": {
@@ -251,7 +254,14 @@ UNFOLD = {
         "show_all_applications": False,
         "navigation": [
             {
+                "title": "Нүүр",
+                "items": [
+                    {"title": "Хяналтын самбар", "icon": "dashboard", "link": reverse_lazy("admin:index")},
+                ],
+            },
+            {
                 "title": _("Access"),
+                "collapsible": True,
                 "items": [
                     {"title": _("Users"), "icon": "person", "link": reverse_lazy("admin:accounts_user_changelist")},
                     {"title": _("Roles"), "icon": "shield_person", "link": reverse_lazy("admin:auth_group_changelist")},
@@ -259,6 +269,7 @@ UNFOLD = {
             },
             {
                 "title": "Ажилтан",
+                "collapsible": True,
                 "items": [
                     {
                         "title": "Хэлтсүүд",
@@ -274,6 +285,7 @@ UNFOLD = {
             },
             {
                 "title": "Тохиргоо",
+                "collapsible": True,
                 "items": [
                     {
                         "title": "Байгууллагын тохиргоо",
@@ -294,6 +306,7 @@ UNFOLD = {
             },
             {
                 "title": "Туслах",
+                "collapsible": True,
                 "items": [
                     {
                         "title": "Туслахын асуултууд",

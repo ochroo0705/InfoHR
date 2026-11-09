@@ -11,7 +11,6 @@ DECLARED: dict[tuple[str, str], str] = {
     ("absences", "end"): "date",
     ("away-on-date", "start"): "date",
     ("away-on-date", "end"): "date",
-    ("ages", "birth_date"): "date",
     ("annual-leave", "start"): "date",
     ("annual-leave", "end"): "date",
     ("children", "birth_date"): "date",
@@ -20,15 +19,12 @@ DECLARED: dict[tuple[str, str], str] = {
     ("complaints", "date"): "date",
     ("health-checks", "date"): "date",
     ("health-checks", "end_date"): "date",
-    ("elders", "birth_date"): "date",
     ("gifts-given", "year"): "number",
     ("gifts-given", "date"): "date",
 }
 
 # every report built in the modules of batch A
 BATCH_A_REPORTS = (
-    "ages",
-    "elders",
     "children",
     "contacts",
     "engineers",

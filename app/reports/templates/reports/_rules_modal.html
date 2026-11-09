@@ -328,11 +328,14 @@
           var drop = tag(el("button", REMOVE, "Бүлгийг устгах"), "group-drop", group);
           drop.type = "button";
           drop.addEventListener("click", function () {
-            if (group.items.length >= 2 && !window.confirm("Бүлгийг бүх нөхцөлтэй нь хасах уу?")) return;
-            var parentGroup = findParent(root, group);
-            if (!parentGroup) return;
-            parentGroup.items.splice(parentGroup.items.indexOf(group), 1);
-            render({ role: "add-rule", id: String(parentGroup.uid) });
+            function dropGroup() {
+              var parentGroup = findParent(root, group);
+              if (!parentGroup) return;
+              parentGroup.items.splice(parentGroup.items.indexOf(group), 1);
+              render({ role: "add-rule", id: String(parentGroup.uid) });
+            }
+            if (group.items.length >= 2) window.hrConfirm("Бүлгийг бүх нөхцөлтэй нь хасах уу?", dropGroup, { ok: "Хасах" });
+            else dropGroup();
           });
           head.appendChild(drop);
           box.appendChild(head);
@@ -438,11 +441,12 @@
             advanced = true;
           } else if (isFlat(root)) {
             advanced = false;
-          } else if (window.confirm("Бүх нөхцөл нэгэн зэрэг биелсэн байх болно. Үргэлжлүүлэх үү?")) {
-            advanced = false;
-            root = { kind: "group", uid: root.uid, op: "and", items: flatten(root, []) };
           } else {
-            toggle.checked = true;  // cancelled: advanced mode stays on
+            window.hrConfirm("Бүх нөхцөл нэгэн зэрэг биелсэн байх болно. Үргэлжлүүлэх үү?", function () {
+              advanced = false;
+              root = { kind: "group", uid: root.uid, op: "and", items: flatten(root, []) };
+              render();
+            }, { ok: "Үргэлжлүүлэх", onNo: function () { toggle.checked = true; } });  // cancelled: advanced mode stays on
             return;
           }
           render();

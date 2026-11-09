@@ -28,6 +28,23 @@ class User(AbstractUser):
             ("view_audit", "Үйл ажиллагааны бүртгэл харах"),
         ]
 
+    def has_perm(self, perm: str, obj: object = None) -> bool:
+        """False for a right of a module an admin has switched off (accounts/modules.py), even for a superuser; the
+        menu, palette, help assistant and forms all ask here, so a module vanishes in one place."""
+        from accounts import modules  # local import: modules reads employees, which imports accounts
+
+        if modules.blocked_perm(perm):
+            return False
+        return super().has_perm(perm, obj)
+
+    def has_module_perms(self, app_label: str) -> bool:
+        """The admin's app card: hidden for an app whose module is switched off (even for a superuser)."""
+        from accounts import modules
+
+        if modules.blocked_perm(f"{app_label}."):
+            return False
+        return super().has_module_perms(app_label)
+
     def get_full_name(self) -> str:
         """Mongolian order, like Employee.full_name: family (patronymic) name first."""
         return f"{self.last_name} {self.first_name}".strip()

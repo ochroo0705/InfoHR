@@ -124,7 +124,7 @@ def test_instruction_describes_the_action_tools() -> None:
 def test_words_block_lists_the_hints_as_fields() -> None:
     block = json.loads(words_block([FILTER_WORDS["department"]], PHRASES, (PHONE,)))
     assert block["fields"] == [{"key": "work_phone", "label": "Ажлын утас", "synonyms": ["утас"]}]
-    assert block["group_options"] == ["department", "branch", "position"]
+    assert block["group_options"][:3] == ["department", "branch", "position"]  # then the code-list columns
     assert block["filters"][0]["param"] == "department"
 
 

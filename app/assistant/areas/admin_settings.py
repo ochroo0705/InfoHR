@@ -9,6 +9,7 @@ assistant pages are checked by their own admins (the Admin group or the view rig
 
 from datetime import date
 
+from accounts import modules
 from accounts.models import User
 from accounts.roles import ADMIN
 from employees.models import CompanySettings
@@ -53,7 +54,11 @@ def _departments(user: User, day: date) -> bool:
 
 def _recruitment_settings(user: User, day: date) -> bool:
     """The recruitment settings admin: staff, and superuser or the Admin group (recruitment/admin.py)."""
-    return user.is_staff and (user.is_superuser or user.groups.filter(name=ADMIN).exists())
+    return (
+        modules.enabled("recruitment")
+        and user.is_staff
+        and (user.is_superuser or user.groups.filter(name=ADMIN).exists())
+    )
 
 
 def _assistant(user: User, day: date) -> bool:

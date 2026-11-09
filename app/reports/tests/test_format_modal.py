@@ -166,7 +166,7 @@ def test_pop_up_needs_the_report_permission(
 def test_format_button_is_on_the_staff_list(client: Client, login_as: Callable[..., User]) -> None:
     login_as(client, "HR")
     page = client.get(reverse("reports:report", args=["staff-list"])).content.decode()
-    assert ">Хэлбэр</button>" in page
+    assert "Хэлбэр</button>" in page
     assert 'hx-get="/reports/staff-list/format/?' in page
 
 
@@ -176,7 +176,7 @@ def test_no_format_button_for_a_statistic_report(
     _report(monkeypatch, shows_count=False)
     login_as(client, "HR")
     page = client.get(reverse("reports:report", args=[KEY])).content.decode()
-    assert ">Хэлбэр</button>" not in page
+    assert "Хэлбэр</button>" not in page
     assert "/format/" not in page
 
 

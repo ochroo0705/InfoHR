@@ -50,6 +50,7 @@ ACTIONS: dict[str, str] = {
     "print_page": "Хуудас хэвлэсэн",
     "download_order": "Тушаал татсан",
     "position_slot_overridden": "Орон тоо дүүрсэн ч ажилд авахыг зөвшөөрсөн",
+    "module_switched": "Модуль асаасан, унтраасан",
     "position_slot_added": "Орон тооны мөр нэмсэн",
     "position_slot_changed": "Орон тооны мөр өөрчилсөн",
     "position_slot_deleted": "Орон тооны мөр устгасан",

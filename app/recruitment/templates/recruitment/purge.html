@@ -27,7 +27,7 @@
 </div>
 
 {% if rows %}
-<form method="post" class="mt-4 flex items-center justify-end gap-3" onsubmit="return confirm('{{ rows|length }} ажил хүсэгчийг бүрмөсөн устгах уу?')">{% csrf_token %}
+<form method="post" class="mt-4 flex items-center justify-end gap-3" data-confirm="{{ rows|length }} ажил хүсэгчийг бүрмөсөн устгах уу?" data-confirm-ok="Устгах">{% csrf_token %}
   <span class="text-sm text-slate-600">{{ rows|length }} ажил хүсэгч</span>
   <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">Устгах</button>
 </form>

@@ -10,16 +10,15 @@ def fill_change_text(apps: Apps, schema_editor: object) -> None:
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0011_firebird_reserved_columns'),
+        ("accounts", "0011_firebird_reserved_columns"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='systemlogentry',
-            name='change_text',
-            field=models.TextField(blank=True, default='', editable=False),
+            model_name="systemlogentry",
+            name="change_text",
+            field=models.TextField(blank=True, default="", editable=False),
         ),
         migrations.RunPython(fill_change_text, migrations.RunPython.noop),
     ]

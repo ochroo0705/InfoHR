@@ -47,8 +47,24 @@ def _int(value: str | None) -> int | None:
 @login_required
 @permission_required("lists.manage_lists", raise_exception=True)
 def index(request: HttpRequest) -> HttpResponse:
-    items = [{"spec": spec, "count": spec.model.objects.count()} for spec in LISTS.values()]
-    return render(request, "lists/index.html", {"items": items, "meanings": MEANINGS})
+    q = request.GET.get("q", "").strip()
+    words = q.lower().split()
+    items = []
+    for spec in LISTS.values():
+        item: dict[str, Any] = {"spec": spec, "count": spec.model.objects.count(), "hits": 0}
+        if words:
+            if all(w in spec.label.lower() for w in words):
+                pass  # the list's own name matches
+            else:  # or an entry of it does: every word must be in that entry's name
+                entries = spec.model.objects.all()
+                for w in words:
+                    entries = entries.filter(name__icontains=w)
+                item["hits"] = entries.count()
+                if not item["hits"]:
+                    continue
+        items.append(item)
+    show_meanings = not words or all(w in "утгын холбоо" for w in words)
+    return render(request, "lists/index.html", {"items": items, "meanings": MEANINGS, "q": q, "show_meanings": show_meanings})
 
 
 @login_required

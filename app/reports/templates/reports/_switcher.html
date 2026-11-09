@@ -3,7 +3,7 @@
 <div class="max-w-full overflow-x-auto">
   <div role="group" aria-label="Харагдац" class="inline-flex shrink-0 divide-x divide-slate-300 overflow-hidden rounded-lg border border-slate-300 bg-surface text-sm [&>*]:px-4 [&>*]:py-2 [&>*:hover]:bg-slate-50">
     {% for option in layout_options %}
-    <a href="{{ option.url }}" hx-get="{{ option.url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="whitespace-nowrap{% if option.current %} bg-violet-50 font-semibold text-violet-700{% endif %}"{% if option.current %} aria-current="true"{% endif %}>{{ option.label }}</a>
+    <a href="{{ option.url }}" hx-get="{{ option.url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="whitespace-nowrap{% if option.current %} is-picked font-semibold{% endif %}"{% if option.current %} aria-current="true"{% endif %}>{{ option.label }}</a>
     {% endfor %}
   </div>
 </div>

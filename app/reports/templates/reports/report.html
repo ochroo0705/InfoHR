@@ -3,33 +3,61 @@
 {% block content %}
 {# The whole block is the htmx target: filters, sort and grouping swap #report-page and keep the address in step (UI_RULES §4b). #}
 <div id="report-page">
-  <div class="flex flex-wrap items-center gap-3 mb-4">
+  {# Header: the title with the view tabs beside it, then a ribbon of captioned tool groups (UI_RULES §4b). #}
+  <div class="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
     <h1 class="text-xl font-semibold">{{ report.title }}</h1>
-    <div class="ml-auto flex max-w-full min-w-0 flex-wrap items-center gap-3">
-      {% if report.saved_views %}
-      {# Saved views are shared or private (author only); the select lists the ones this user may see, then the starter templates (UI_RULES §4b). Choosing one opens its address. #}
-      <select aria-label="Хадгалсан харагдац" data-search="off" onchange="window.location.href=this.value" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
-        <option value="{{ plain_url }}"{% if not current_view and not template_current %} selected{% endif %}>—</option>
-        {% for o in saved_options %}<option value="{{ o.url }}"{% if o.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}
-        {% if template_options %}<optgroup label="Загвар">{% for o in template_options %}<option value="{{ o.url }}"{% if o.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}</optgroup>{% endif %}
-      </select>
-      {% if can_edit_view %}<button type="button" hx-get="{% url 'reports:view_edit' current_view.pk %}" hx-target="body" hx-swap="beforeend" class="-ml-1 text-sm text-violet-700 hover:underline">Засах</button>{% endif %}
-      {% endif %}
-      {# One joined group for the report's tools, so five buttons read as one control, not five competing actions (UI_RULES §4b). #}
-      <div class="inline-flex max-w-full overflow-x-auto divide-x divide-slate-300 rounded-lg border border-slate-300 bg-surface text-sm [&>*]:whitespace-nowrap [&>*]:px-4 [&>*]:py-2 [&>*:hover]:bg-slate-50">
-        {% if report.saved_views %}<button type="button" hx-get="{% url 'reports:view_new' report.key %}?{{ query }}" hx-target="body" hx-swap="beforeend">Хадгалах</button>{% endif %}
-        {% if report.picks_columns %}<button type="button" hx-get="{% url 'reports:columns' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">Багана</button>{% endif %}
-        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">Шүүлтүүр</button>{% endif %}
-        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:format' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">Хэлбэр</button>{% endif %}
-        {% if print_url %}<a href="{{ print_url }}" target="_blank" rel="noopener">Хэвлэх</a>{% endif %}
-        {% if excel_url %}<a href="{{ excel_url }}">Excel</a>{% endif %}
-        {% if selectable %}<button type="button" data-select-toggle aria-pressed="false">Сонгох</button>{% endif %}
+    {% include "reports/_switcher.html" %}
+  </div>
+  <div class="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">
+    {% if report.saved_views %}
+    {# Saved views are shared or private (author only); the select lists the ones this user may see, then the starter templates. Choosing one opens its address. #}
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center gap-2">
+        <select aria-label="Хадгалсан харагдац" data-search="off" onchange="window.location.href=this.value" class="w-48 max-w-full shrink-0 truncate rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+          <option value="{{ plain_url }}"{% if not current_view and not template_current %} selected{% endif %}>—</option>
+          {% if saved_options %}<optgroup label="Хадгалсан">{% for o in saved_options %}<option value="{{ o.url }}"{% if o.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}</optgroup>{% endif %}
+          {% if template_options %}<optgroup label="Загвар">{% for o in template_options %}<option value="{{ o.url }}"{% if o.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}</optgroup>{% endif %}
+        </select>
+        <div class="inline-flex divide-x divide-slate-300 rounded-lg border border-slate-300 bg-surface text-sm [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:whitespace-nowrap [&>*]:px-3 [&>*]:py-2 [&>*:hover]:bg-slate-50">
+          <button type="button" hx-get="{% url 'reports:view_new' report.key %}?{{ query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="save" %}Хадгалах</button>
+          {% if can_edit_view %}<button type="button" hx-get="{% url 'reports:view_edit' current_view.pk %}" hx-target="body" hx-swap="beforeend">Засах</button>{% endif %}
+        </div>
       </div>
+      <span class="text-xs text-slate-500">Харагдац</span>
     </div>
+    {% endif %}
+    {% if report.picks_columns or report.shows_count %}
+    <div class="flex flex-col gap-1">
+      <div class="inline-flex max-w-full overflow-x-auto divide-x divide-slate-300 rounded-lg border border-slate-300 bg-surface text-sm [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:whitespace-nowrap [&>*]:px-3 [&>*]:py-2 [&>*:hover]:bg-slate-50">
+        {% if report.picks_columns %}<button type="button" hx-get="{% url 'reports:columns' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="columns" %}Багана</button>{% endif %}
+        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="filter" %}Шүүлтүүр</button>{% endif %}
+        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:format' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="format" %}Хэлбэр</button>{% endif %}
+      </div>
+      <span class="text-xs text-slate-500">Тохируулах</span>
+    </div>
+    {% endif %}
+    {% if print_url or excel_url or selectable %}
+    <div class="flex flex-col gap-1">
+      <div class="inline-flex max-w-full overflow-x-auto divide-x divide-slate-300 rounded-lg border border-slate-300 bg-surface text-sm [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:whitespace-nowrap [&>*]:px-3 [&>*]:py-2 [&>*:hover]:bg-slate-50">
+        {% if print_url %}<a href="{{ print_url }}" target="_blank" rel="noopener">{% include "reports/_tool_icon.html" with kind="print" %}Хэвлэх</a>{% endif %}
+        {% if excel_url %}<a href="{{ excel_url }}">{% include "reports/_tool_icon.html" with kind="excel" %}Excel</a>{% endif %}
+        {% if selectable %}<button type="button" data-select-toggle aria-pressed="false">{% include "reports/_tool_icon.html" with kind="select" %}Сонгох</button>{% endif %}
+      </div>
+      <span class="text-xs text-slate-500">Гаргах, сонгох</span>
+    </div>
+    {% endif %}
+    {% if staff_actions %}
+    {# Hire and import: icon buttons at the right end of the tool row; the label is the tooltip and the screen-reader name (UI_RULES §4b). #}
+    <div class="ml-auto flex flex-col gap-1">
+      <div class="flex items-center gap-2">
+        <a href="{% url 'employees:import' %}" title="Ажилтан импортлох" aria-label="Ажилтан импортлох" class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-surface text-slate-700 hover:bg-slate-50">{% include "reports/_tool_icon.html" with kind="import" %}</a>
+        <a href="{% url 'employees:add' %}" title="Ажилтан нэмэх" aria-label="Ажилтан нэмэх" class="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white hover:bg-violet-700">{% include "reports/_tool_icon.html" with kind="person_add" %}</a>
+      </div>
+      <span class="text-right text-xs text-slate-500">Ажилтан</span>
+    </div>
+    {% endif %}
   </div>
 
-  {# the switcher is its own row under the header, so the title and tool row can wrap at phone width (UI_RULES §4b) #}
-  {% include "reports/_switcher.html" %}
   {% include "reports/_filters.html" %}
   {% if layout != "table" and layout != "cards" %}{% include "reports/_layout_bar.html" %}{% endif %}
 

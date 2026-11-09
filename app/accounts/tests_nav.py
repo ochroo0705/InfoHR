@@ -9,7 +9,7 @@ from django.test import Client, RequestFactory
 from django.urls import resolve, reverse
 
 from accounts.models import User
-from accounts.nav import NavGroup, top_nav
+from accounts.nav import STAFF_TYPE_SHORTCUTS, NavGroup, top_nav
 
 PASSWORD = "nav-test-pass"  # noqa: S105
 NO_REQUESTS: dict[str, Any] = {"show": False, "count": 0}
@@ -24,8 +24,11 @@ def _user(name: str, *roles: str, is_staff: bool = False) -> User:
 def _nav(user: User, path: str = "/employees/", own_record: bool = False, requests: Any = None) -> list[NavGroup]:
     request = RequestFactory().get(path)
     request.user = user
-    request.resolver_match = resolve(path)
+    request.resolver_match = resolve(path.split("?")[0])
     return top_nav(request, own_record, requests or NO_REQUESTS)
+
+
+STAFF_TYPES = [label for _code, label in STAFF_TYPE_SHORTCUTS]  # the compact shortcuts after the three main links
 
 
 def _shape(groups: list[NavGroup]) -> dict[str, list[str]]:
@@ -36,7 +39,7 @@ def _shape(groups: list[NavGroup]) -> dict[str, list[str]]:
 def test_hr_gets_six_groups_with_menus() -> None:
     assert _shape(_nav(_user("nav_hr", "HR"), own_record=True)) == {
         "today": ["Өнөөдөр"],
-        "employees": ["Ажилтнууд", "Тушаалын бүртгэл", "Өөрөө бөглөх анкет"],
+        "employees": ["Ажилтнууд", "Тушаалын бүртгэл", "Өөрөө бөглөх анкет", *STAFF_TYPES],
         "leave": ["Чөлөө, амралт"],
         "recruitment": ["Ажилд авах"],
         "reports": ["Тайлан", "Бүртгэл"],
@@ -47,7 +50,7 @@ def test_hr_gets_six_groups_with_menus() -> None:
 @pytest.mark.django_db
 def test_staff_start_with_my_page_and_see_no_hr_screens() -> None:
     groups = _nav(_user("nav_staff", "Employee"), own_record=True)
-    assert _shape(groups) == {"me": ["Миний хуудас"], "employees": ["Ажилтнууд"]}
+    assert _shape(groups) == {"me": ["Миний хуудас"]}
     assert all(g.single for g in groups)  # one link each: plain links, no drop-down menus
 
 
@@ -82,7 +85,7 @@ def test_manager_without_leave_right_gets_requests_as_a_plain_link() -> None:
 def test_open_screen_marks_its_link_and_group() -> None:
     groups = {g.key: g for g in _nav(_user("nav_hr4", "HR"), path=reverse("employees:orders"))}
     assert groups["employees"].active
-    assert [item.active for item in groups["employees"].items] == [False, True, False]
+    assert [item.active for item in groups["employees"].items] == [False, True, False, *[False] * len(STAFF_TYPES)]
     assert not groups["today"].active
 
 
@@ -163,3 +166,15 @@ def test_base_page_loads_modal_and_mongolian_validation_scripts() -> None:
     body = client.get(reverse("employees:today")).content.decode()
     assert 'src="/static/js/modal.js' in body  # pop-up closing and one-modal-per-trigger rule (UI_RULES §6)
     assert 'src="/static/js/validation_mn.js' in body  # Mongolian browser validation text (UI_RULES §2)
+
+
+@pytest.mark.django_db
+def test_staff_type_shortcuts_open_the_staff_list_filtered_and_mark_the_current_one() -> None:
+    items = {g.key: g for g in _nav(_user("nav_hr7", "HR"))}["employees"].items
+    elder = next(i for i in items if i.label == "Өндөр настан")
+    assert elder.url == reverse("reports:report", args=["staff-list"]) + "?emptype=6"
+    assert elder.compact and elder.section  # the first shortcut carries the small heading
+    assert [i.section for i in items if i.compact][1:] == [""] * (len(STAFF_TYPES) - 1)
+    path = reverse("reports:report", args=["staff-list"]) + "?emptype=5"
+    marked = {g.key: g for g in _nav(_user("nav_hr8", "HR"), path=path)}["employees"].items
+    assert [i.label for i in marked if i.active] == ["Гэрээт ажилтан"]
