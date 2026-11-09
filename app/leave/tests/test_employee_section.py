@@ -48,31 +48,6 @@ def test_employee_page_shows_balance_with_breakdown(employee: Employee, annual: 
     assert "Ээлжийн амралт" in body and "2026-03-01" in body and "15 (2 жил 0 сар ажилласан)" in body
 
 
-def test_adjust_and_carry(employee: Employee, annual: LeaveTypeRow, grants_on: None) -> None:
-    c = _hr()
-    writes.add_grant(employee, annual, date(2025, 3, 1), date(2026, 2, 28), 15, "", GrantKind.AUTO, None)
-    ledger.ensure_grants(employee, date(2026, 10, 14))
-    r = c.post(
-        reverse("leave:adjust", args=[employee.pk, "2026-03-01", "2027-02-28"]), {"days": "-2", "reason": "Өмнө авсан"}
-    )
-    assert r.status_code == 204
-    r = c.post(
-        reverse("leave:carry", args=[employee.pk, "2025-03-01", "2026-02-28"]),
-        {"days": "3", "reason": "Ажлын шаардлага"},
-    )
-    assert r.status_code == 204
-    body = c.get(reverse("employees:detail", args=[employee.pk])).content.decode()
-    assert "Өмнө авсан" in body and "Шилжүүлсэн" in body
-
-
-def test_carry_more_than_balance_shows_error(employee: Employee, annual: LeaveTypeRow, grants_on: None) -> None:
-    c = _hr()
-    writes.add_grant(employee, annual, date(2025, 3, 1), date(2026, 2, 28), 15, "", GrantKind.AUTO, None)
-    ledger.ensure_grants(employee, date(2026, 10, 14))
-    r = c.post(reverse("leave:carry", args=[employee.pk, "2025-03-01", "2026-02-28"]), {"days": "99", "reason": "x"})
-    assert r.status_code == 200 and "Үлдэгдлээс их" in r.content.decode()
-
-
 def test_section_groups_by_period(employee: Employee, annual: LeaveTypeRow) -> None:
     start, end = _current_year(employee)
     writes.add_grant(employee, annual, start, end, 15, "", GrantKind.AUTO, None)

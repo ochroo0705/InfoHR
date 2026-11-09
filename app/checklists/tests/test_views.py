@@ -66,7 +66,7 @@ def test_panel_shows_progress_owners_and_buttons_to_hr(client: Client, hired: Em
     assert reverse("checklists:tick", args=[_task(checklist, ASSETS).pk]) in body  # HR owns the assets task
     assert reverse("checklists:untick", args=[_task(checklist, HAND_OVER).pk]) in body  # HR manages employees
     assert reverse("checklists:tick", args=[_task(checklist, FINAL_PAY).pk]) not in body  # Accountant's task
-    assert "Жагсаалт эхлүүлэх" not in body  # already started
+    assert "Ажлаас гарах жагсаалт эхлүүлэх" not in body  # already started
 
 
 def test_panel_marks_admin_fallback_when_no_owner_is_found(client: Client, hired: Employee, actor: User) -> None:
@@ -78,7 +78,7 @@ def test_panel_marks_admin_fallback_when_no_owner_is_found(client: Client, hired
 def test_start_button_when_none_started(client: Client, hired: Employee) -> None:
     _login(client, roles.HR, "hr1")
     body = _body(client, hired)
-    assert "Жагсаалт эхлүүлэх" in body
+    assert "Ажлаас гарах жагсаалт эхлүүлэх" in body
     assert 'name="anchor_day"' in body
     assert reverse("checklists:start", args=[hired.pk]) in body
 
@@ -92,7 +92,7 @@ def test_no_panel_without_template_or_checklist(client: Client, hired: Employee)
 def test_no_start_button_without_manage_right(client: Client, hired: Employee) -> None:
     _login(client, roles.ACCOUNTANT, "acc1")
     body = _body(client, hired)
-    assert "Жагсаалт эхлүүлэх" not in body
+    assert "Ажлаас гарах жагсаалт эхлүүлэх" not in body
     assert "Ажлаас гарах жагсаалт" not in body  # nothing started and nothing to start
 
 
@@ -265,7 +265,7 @@ def test_cancel_button_and_view_for_managers_only(client: Client, hired: Employe
     assert checklist.state == ChecklistState.CANCELLED
     # The panel is gone, the start form is back, and a new checklist can start.
     body = _body(client, hired)
-    assert "Жагсаалт эхлүүлэх" in body and url not in body
+    assert "Ажлаас гарах жагсаалт эхлүүлэх" in body and url not in body
     assert _start(hired, actor).pk != checklist.pk
 
 

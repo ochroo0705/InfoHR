@@ -1,8 +1,0 @@
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-  <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
-    <h2 class="mb-3 text-lg font-semibold">Эрх нэмэх дууслаа</h2>
-    <p class="text-sm text-slate-700"><strong>{{ done }}</strong> хүнд нэмлээ.{% if skipped %} <strong>{{ skipped|length }}</strong> хүнийг алгаслаа:{% endif %}</p>
-    {% if skipped %}<ul class="mt-2 space-y-1 text-sm text-slate-600">{% for e, why in skipped %}<li><span class="font-medium text-slate-800">{{ e.full_name }}</span> — {{ why }}</li>{% endfor %}</ul>{% endif %}
-    <div class="mt-4 flex justify-end"><button type="button" onclick="location.reload()" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Хаах</button></div>
-  </div>
-</div>

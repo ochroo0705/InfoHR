@@ -184,10 +184,6 @@ EXPECTED: dict[str, Rule] = {
     "leave:check": ("leave.record_leave", "leave.view_leave"),
     "leave:edit": ("leave.record_leave", "leave.view_leave"),
     "leave:cancel": ("leave.record_leave", "leave.view_leave"),
-    "leave:grant": ("leave.record_leave", "leave.view_leave"),
-    "leave:grant_bulk": ("leave.record_leave", "leave.view_leave"),
-    "leave:adjust": ("leave.record_leave", "leave.view_leave"),
-    "leave:carry": ("leave.record_leave", "leave.view_leave"),
     "leave:calendar": ("leave.view_leave",),
     "leave:balances": ("leave.view_leave",),
     "leave:holidays": ("leave.manage_leave_settings",),
@@ -314,7 +310,6 @@ ARG_OVERRIDES: dict[str, dict[str, Any]] = {
     # its pop-up opens.
     "lists:quick_add": {"slug": "country"},
 }
-LEAVE_EMPLOYEE_ROUTES = frozenset({"leave:grant", "leave:adjust", "leave:carry"})  # pk is an employee there too
 VIEW_ROUTES = frozenset({"reports:view_edit", "reports:view_delete"})  # pk is a saved report view there
 # pk is an invitation there
 SELFFORM_ROUTES = frozenset(
@@ -407,8 +402,6 @@ def _url(name: str, route: str, ids: dict[str, int]) -> str:
 
 def _ids(name: str, s: Scenario, view_pk: int = 0) -> dict[str, int]:
     """The real object ids for one route (empty for routes that take no object)."""
-    if name in LEAVE_EMPLOYEE_ROUTES:
-        return {"pk": s.pending.employee.pk}
     if name in VIEW_ROUTES:
         return {"pk": view_pk}
     if name in SELFFORM_ROUTES:

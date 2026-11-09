@@ -229,7 +229,7 @@ def _offboarding_on() -> None:
 
 
 def _start_pages(client: Client, role_user: Callable[[str], User]) -> list[str]:
-    """A working employee with no offboarding list yet: the Ажил tab's start panel with its «Жагсаалт эхлүүлэх» form."""
+    """A working employee with no offboarding list yet: the Ажил tab's start panel with its «Ажлаас гарах жагсаалт эхлүүлэх» form."""
     _offboarding_on()
     person = hire_one(role_user("hr"))
     return [_page(client, reverse("employees:detail", args=[person.pk]), False)]

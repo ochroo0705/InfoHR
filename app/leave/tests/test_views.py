@@ -6,9 +6,9 @@ from django.contrib.auth.models import Group
 from django.test import Client
 from django.urls import reverse
 from employees.models import Employee
-from macs.models import Entitlement, LeaveAssign, LeaveTypeRow
+from macs.models import LeaveAssign, LeaveTypeRow
 
-from leave.models import GrantKind, LeaveGrantExt, LeaveSettings, LeaveTypeExt
+from leave.models import LeaveSettings, LeaveTypeExt
 from leave.services import records, writes
 from leave.services.records import Draft
 from leave.services.writes import DUPLICATE, STALE
@@ -259,34 +259,6 @@ def test_settings_type_delete_refused_when_used(employee: Employee, annual: Leav
     assert LeaveTypeRow.objects.filter(pk=annual.pk).exists()
 
 
-def test_manual_grant_view_creates_entitlement(employee: Employee, annual: LeaveTypeRow) -> None:
-    hr = _client(_in_group("HR"))
-    url = reverse("leave:grant", args=[employee.pk])
-    r = hr.post(url, {"start": "2026-03-01", "end": "2027-02-28", "days": "3", "reason": "Захирал"})
-    assert r.status_code == 204
-    grant = Entitlement.objects.get(employee=employee)
-    assert grant.ent_days == 3 and grant.date1 == date(2026, 3, 1)
-    assert LeaveGrantExt.objects.get(grant=grant).kind == GrantKind.MANUAL
-
-
-def test_manual_grant_shows_law_suggestion(employee: Employee, annual: LeaveTypeRow) -> None:
-    body = (
-        _client(_in_group("HR"))
-        .post(reverse("leave:grant", args=[employee.pk]), {"start": "2026-03-01", "end": "", "days": "", "reason": ""})
-        .content.decode()
-    )
-    assert "Хуулийн дагуу" in body
-
-
-def test_adjust_view_uses_period_dates(employee: Employee, annual: LeaveTypeRow) -> None:
-    r = _client(_in_group("HR")).post(
-        reverse("leave:adjust", args=[employee.pk, "2026-03-01", "2027-02-28"]),
-        {"days": "-2", "reason": "Өмнө авсан"},
-    )
-    assert r.status_code == 204
-    assert Entitlement.objects.filter(employee=employee, ent_days=-2).exists()
-
-
 def _two_people_with_leave(actor: User, annual: LeaveTypeRow) -> tuple[Employee, Employee]:
     from leave.tests.conftest import make_employee
 
@@ -382,13 +354,12 @@ def test_type_delete_when_unused(sick: LeaveTypeRow) -> None:
     assert not LeaveTypeRow.objects.filter(pk=sick.pk).exists()
 
 
-def test_edit_and_grant_forms_render(employee: Employee, annual: LeaveTypeRow) -> None:
+def test_edit_form_renders(employee: Employee, annual: LeaveTypeRow) -> None:
     hr = _client(_in_group("HR"))
     hr.post(reverse("leave:add"), _post(employee, annual))
     a = LeaveAssign.objects.get()
     edit = hr.get(reverse("leave:edit", args=[a.pk])).content.decode()
     assert 'name="loaded_date1" value="2026-11-02"' in edit and 'name="loaded_comment"' in edit
-    assert hr.get(reverse("leave:grant", args=[employee.pk])).status_code == 200
 
 
 def test_holidays_page_lists_one_line_per_date(actor: User) -> None:
@@ -397,21 +368,6 @@ def test_holidays_page_lists_one_line_per_date(actor: User) -> None:
     )
     body = _client(_in_group("Admin")).get(reverse("leave:holidays"), {"year": "2026"}).content.decode()
     assert "2026-11-26" in body and "2026-11-27" in body
-
-
-def test_huge_days_refused_not_500(employee: Employee, annual: LeaveTypeRow) -> None:
-    hr = _client(_in_group("HR"))
-    grant = hr.post(
-        reverse("leave:grant", args=[employee.pk]),
-        {"start": "2026-03-01", "end": "2027-02-28", "days": "3000000000", "reason": "Захирал"},
-    )
-    adjust = hr.post(
-        reverse("leave:adjust", args=[employee.pk, "2026-03-01", "2027-02-28"]),
-        {"days": "3000000000", "reason": "Өмнө авсан"},
-    )
-    assert grant.status_code == 200
-    assert adjust.status_code == 200
-    assert not Entitlement.objects.filter(employee=employee).exists()
 
 
 def test_leave_list_links_to_the_annual_leave_report() -> None:
