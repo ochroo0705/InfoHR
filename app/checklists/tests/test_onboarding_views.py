@@ -82,7 +82,7 @@ def test_onboarding_panel_has_heading_progress_caption_and_no_start_button(
     assert ON_HEADING in section and OFF_HEADING not in body
     assert f"1 / {total}" in section
     assert "эхлэх огноо 2026-12-01" in section and "сүүлийн ажлын өдөр" not in section
-    assert "Жагсаалт эхлүүлэх" not in body and 'name="anchor_day"' not in body
+    assert "Ажлаас гарах жагсаалт эхлүүлэх" not in body and 'name="anchor_day"' not in body
 
 
 def test_both_panels_show_with_their_own_wording(client: Client, hired: Employee, actor: User) -> None:
@@ -108,7 +108,7 @@ def test_finished_onboarding_stays_while_a_new_offboarding_can_start(
     _login(client, roles.HR, "hr_done")
     body = _body(client, hired)
     assert ON_HEADING in body and "Дууссан" in _section(body, "onboarding")
-    assert "Жагсаалт эхлүүлэх" in _section(body, "offboarding")  # the start button is offboarding only
+    assert "Ажлаас гарах жагсаалт эхлүүлэх" in _section(body, "offboarding")  # the start button is offboarding only
 
 
 def test_manager_owner_sees_onboarding_task_with_kind_on_my_page_and_mine_and_ticks_it(

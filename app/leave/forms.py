@@ -145,27 +145,6 @@ class RejectForm(StyledForm):
     )
 
 
-class AdjustForm(StyledForm):
-    days = forms.IntegerField(label="Хоног (+/−)", min_value=-1000, max_value=1000)
-    reason = forms.CharField(label="Шалтгаан", max_length=200)
-
-
-class CarryOverForm(StyledForm):
-    days = forms.IntegerField(label="Шилжүүлэх хоног", min_value=1, max_value=1000)
-    reason = forms.CharField(label="Шалтгаан", max_length=200)
-
-
-class GrantForm(StyledForm):
-    start = forms.DateField(label="Эхлэх", widget=DATE)
-    end = forms.DateField(label="Дуусах", widget=DATE)
-    days = forms.IntegerField(label="Хоног", min_value=-1000, max_value=1000)
-    reason = forms.CharField(label="Шалтгаан", max_length=200)
-
-
-class BulkGrantForm(GrantForm):
-    """Same days for many people: the single grant form, applied to each chosen employee."""
-
-
 class LeaveTypeForm(StyledForm):
     name = forms.CharField(label="Нэр", max_length=200)
     is_paid = forms.BooleanField(

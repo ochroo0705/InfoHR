@@ -23,12 +23,8 @@ from macs.models import LeaveAssign, LeaveTypeRow
 
 from leave import access
 from leave.forms import (
-    AdjustForm,
     ApprovalSettingsForm,
-    BulkGrantForm,
     CancelForm,
-    CarryOverForm,
-    GrantForm,
     LeaveForm,
     LeaveTypeForm,
     active_types,
@@ -338,112 +334,6 @@ def leave_cancel(request: HttpRequest, pk: int) -> HttpResponse:
     return render(request, "leave/_cancel.html", context)
 
 
-def _suggestion(employee: Employee, start: date | None) -> str:
-    """The law's annual days for a grant starting on `start`, as a hint for the manual grant form."""
-    if start is None or entitlement.employment_start(employee) is None:
-        return ""
-    try:
-        ent = entitlement.entitled(employee, start)
-    except LookupError:  # no law rule row exists
-        return ""
-    return f"Хуулийн дагуу: {ent.days} хоног ({ent.breakdown})"
-
-
-@login_required
-def grant_add(request: HttpRequest, pk: int) -> HttpResponse:
-    user = _user(request)
-    _require(access.can_record(user))
-    employee = get_object_or_404(employee_access.visible_employees(user), pk=pk)
-    form = GrantForm(request.POST or None)
-    error = ""
-    if request.method == "POST" and form.is_valid():
-        d = form.cleaned_data
-        try:
-            ledger.manual_grant(employee, d["start"], d["end"], d["days"], d["reason"], user)
-            return _done()
-        except ledger.LedgerError as e:
-            error = str(e)
-    start = form.cleaned_data.get("start") if form.is_bound else None
-    context = {
-        "form": form,
-        "title": "Эрх нэмэх",
-        "action": request.path,
-        "error": error,
-        "hint": _suggestion(employee, start),
-    }
-    return render(request, "leave/_grant_form.html", context)
-
-
-@login_required
-def grant_bulk(request: HttpRequest) -> HttpResponse:
-    """Give the same leave days to many people at once: the chosen rows of the balances screen (`ids`) or everyone
-    still working in the user's scope (`everyone=1`). Each person is granted on their own, so one refusal
-    (a person without a start date, say) skips that person and the rest still get their days."""
-    user = _user(request)
-    _require(access.can_record(user))
-    data = request.POST if request.method == "POST" else request.GET
-    everyone = data.get("everyone") == "1"
-    people = listing.still_working(employee_access.visible_employees(user), today())
-    ids = sorted({n for n in map(_int, data.getlist("ids")) if n is not None})
-    chosen = (
-        list(people.order_by("family_name", "given_name", "pk"))
-        if everyone
-        else list(people.filter(pk__in=ids).order_by("family_name", "given_name", "pk"))
-    )
-    form = BulkGrantForm(request.POST if request.method == "POST" else None)
-    context: dict[str, Any] = {"form": form, "people": chosen, "everyone": everyone, "action": request.path}
-    if request.method == "POST" and chosen and form.is_valid():
-        d = form.cleaned_data
-        done, skipped = 0, []
-        for employee in chosen:
-            try:
-                ledger.manual_grant(employee, d["start"], d["end"], d["days"], d["reason"], user)
-                done += 1
-            except ledger.LedgerError as e:
-                skipped.append((employee, str(e)))
-        return render(request, "leave/_grant_bulk_result.html", {"done": done, "skipped": skipped})
-    return render(request, "leave/_grant_bulk_form.html", context)
-
-
-def _grant_view(request: HttpRequest, pk: int, start: str, end: str, carry: bool) -> HttpResponse:
-    user = _user(request)
-    _require(access.can_record(user))
-    employee = get_object_or_404(employee_access.visible_employees(user), pk=pk)
-    period_start, period_end = _iso(start), _iso(end)
-    if period_start is None or period_end is None:
-        raise Http404
-    form = (CarryOverForm if carry else AdjustForm)(request.POST or None)
-    error = ""
-    if request.method == "POST" and form.is_valid():
-        d = form.cleaned_data
-        try:
-            if carry:
-                ledger.carry_over(employee, period_start, period_end, d["days"], d["reason"], user)
-            else:
-                ledger.adjust(employee, period_start, period_end, d["days"], d["reason"], user)
-            return _done()
-        except ledger.LedgerError as e:
-            error = str(e)
-    title = "Дараа жил рүү шилжүүлэх" if carry else "Амралтын эрх засах"
-    context = {
-        "form": form,
-        "title": f"{title} ({period_start} – {period_end})",
-        "action": request.path,
-        "error": error,
-    }
-    return render(request, "leave/_grant_form.html", context)
-
-
-@login_required
-def grant_adjust(request: HttpRequest, pk: int, start: str, end: str) -> HttpResponse:
-    return _grant_view(request, pk, start, end, carry=False)
-
-
-@login_required
-def grant_carry(request: HttpRequest, pk: int, start: str, end: str) -> HttpResponse:
-    return _grant_view(request, pk, start, end, carry=True)
-
-
 @login_required
 def balances(request: HttpRequest) -> HttpResponse:
     """Every employee's leave days for the work year that contains today, with the dates the days are valid."""
@@ -475,7 +365,6 @@ def balances(request: HttpRequest) -> HttpResponse:
         "next_query": batch.next_query,
         "today": t,
         "not_configured": _not_configured(),
-        "can_record": access.can_record(user),
     }
     template = "leave/_balance_rows.html" if batch.offset else "leave/balances.html"
     return render(request, template, context)

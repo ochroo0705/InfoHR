@@ -4,34 +4,15 @@
 <div class="flex items-center gap-3">{% include "leave/_nav.html" with current="balances" %}</div>
 <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
   <h1 class="text-xl font-semibold">Амралтын үлдэгдэл</h1>
-  {% if can_record %}<div class="ml-auto flex flex-wrap items-center justify-end gap-2">
-    <button type="button" id="bulk-selected" disabled class="rounded-lg border border-slate-300 px-4 py-2 text-sm enabled:hover:bg-slate-50 disabled:text-slate-400" hx-get="{% url 'leave:grant_bulk' %}" hx-include=".bulk-pick:checked" hx-target="body" hx-swap="beforeend">Сонгосонд эрх нэмэх</button>
-    <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50" hx-get="{% url 'leave:grant_bulk' %}?everyone=1" hx-target="body" hx-swap="beforeend">Бүгдэд эрх нэмэх</button>
-  </div>{% endif %}
 </div>
 {% include "leave/_not_configured.html" %}
-<p class="mt-2 text-sm text-slate-500">Ээлжийн амралтын хоног: одоогийн ажлын жилээр ({{ today|date:"Y-m-d" }} байдлаар).</p>
+<p class="mt-2 text-sm text-slate-500">Ээлжийн амралтын хоног: одоогийн ажлын жилээр ({{ today|date:"Y-m-d" }} байдлаар). Үлдэгдлийг өөр систем бүртгэнэ, энд зөвхөн харна.</p>
 <div class="ptable card-soft mt-3"><table>
   <thead><tr>
-    {% if can_record %}<th class="w-8"><input type="checkbox" id="bulk-all" aria-label="Бүгдийг сонгох" class="rounded border-slate-300"></th>{% endif %}<th>Ажилтан</th><th>Хүчинтэй хугацаа</th><th class="text-right">Эрх</th><th class="text-right">Авсан</th><th class="text-right">Үлдэгдэл</th>
+    <th>Ажилтан</th><th>Хүчинтэй хугацаа</th><th class="text-right">Эрх</th><th class="text-right">Авсан</th><th class="text-right">Үлдэгдэл</th>
   </tr></thead>
   <tbody>
   {% include "leave/_balance_rows.html" %}
   </tbody>
 </table></div>
-{% if can_record %}<script>
-(function () {
-  var all = document.getElementById("bulk-all"), btn = document.getElementById("bulk-selected");
-  function picks() { return document.querySelectorAll(".bulk-pick"); }
-  function sync() {
-    var n = document.querySelectorAll(".bulk-pick:checked").length;
-    btn.disabled = n === 0;
-    btn.textContent = n ? "Сонгосонд эрх нэмэх (" + n + ")" : "Сонгосонд эрх нэмэх";
-    all.checked = n > 0 && n === picks().length;
-  }
-  all.addEventListener("change", function () { picks().forEach(function (c) { c.checked = all.checked; }); sync(); });
-  document.addEventListener("change", function (e) { if (e.target.classList && e.target.classList.contains("bulk-pick")) { sync(); } });
-  document.addEventListener("htmx:afterSwap", sync);
-})();
-</script>{% endif %}
 {% endblock %}

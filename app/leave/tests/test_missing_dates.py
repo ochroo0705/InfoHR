@@ -75,16 +75,6 @@ def test_leave_record_is_refused_without_start(actor: User, annual: LeaveTypeRow
     assert not LeaveAssign.objects.filter(employee=emp).exists()
 
 
-def test_carry_over_is_refused_without_start(actor: User, annual: LeaveTypeRow) -> None:
-    emp = _legacy(actor, first_hire_date=None, contract_start=None)
-    r = _hr().post(
-        reverse("leave:carry", args=[emp.pk, "2026-01-05", "2026-12-31"]),
-        {"days": "2", "reason": "x"},
-    )
-    assert r.status_code == 200
-    assert MISSING in r.content.decode()
-
-
 def test_entitlement_helpers_return_empty_without_start(actor: User, annual: LeaveTypeRow) -> None:
     emp = _legacy(actor, first_hire_date=None, contract_start=None)
     assert entitlement.employment_start(emp) is None

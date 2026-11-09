@@ -297,15 +297,7 @@ def test_leave_pages_by_outside_pk_are_404_and_write_nothing(
     inside, outside = people
     outside_leave = LeaveAssign.objects.get(employee_id=outside.pk)
     inside_leave = LeaveAssign.objects.get(employee_id=inside.pk)
-    start, end = "2026-01-01", "2026-12-31"
-    form = {"days": "3", "start": start, "end": end, "reason": "Буруу", "period_start": start}
     routes: list[tuple[str, str, dict[str, Any]]] = [
-        ("GET", reverse("leave:grant", args=[outside.pk]), {}),
-        ("POST", reverse("leave:grant", args=[outside.pk]), form),
-        ("GET", reverse("leave:adjust", args=[outside.pk, start, end]), {}),
-        ("POST", reverse("leave:adjust", args=[outside.pk, start, end]), form),
-        ("GET", reverse("leave:carry", args=[outside.pk, start, end]), {}),
-        ("POST", reverse("leave:carry", args=[outside.pk, start, end]), form),
         ("GET", reverse("leave:edit", args=[outside_leave.pk]), {}),
         ("POST", reverse("leave:edit", args=[outside_leave.pk]), {"note": "Буруу"}),
         ("GET", reverse("leave:cancel", args=[outside_leave.pk]), {}),
@@ -316,9 +308,8 @@ def test_leave_pages_by_outside_pk_are_404_and_write_nothing(
         response = getattr(hr_north, method.lower())(url, data)
         assert response.status_code == 404, f"{method} {url} answered {response.status_code}"
     assert _writes_count() == before
-    # control: the same pages open for the in-scope person's leave and grant
+    # control: the same page opens for the in-scope person's leave
     assert hr_north.get(reverse("leave:edit", args=[inside_leave.pk])).status_code == 200
-    assert hr_north.get(reverse("leave:grant", args=[inside.pk])).status_code == 200
 
 
 # --- orders register, its search and print ---
