@@ -281,17 +281,25 @@ def register(order: HrOrder, *, number: str, date: datetime.date, summary: str, 
 
 
 @transaction.atomic
-def attach_signed_file(order: HrOrder, upload: UploadedFile, *, by: User) -> HrOrder:
+def attach_signed_file(
+    order: HrOrder, upload: UploadedFile, *, by: User, message: str = "гарын үсэгтэй файл хавсаргасан, түгжсэн"
+) -> HrOrder:
     """Attach the signed scan to a registered order, which locks it, and apply the change it waits for (at its own
     date). If that is refused, the scan and the state change roll back and the order stays registered."""
-    # Local import: events imports this module, so a top-level import would be circular.
-    from employees.services import events
-
     # Lock order (one global order, see history_range.lock_employee): the history lock, then the employee row,
     # then the order (events.cancel and apply_waiting follow the same order).
     history_range.lock_employee(order.employee_id)
     Employee.objects.select_for_update().get(pk=order.employee_id)
     order = HrOrder.objects.select_for_update().get(pk=order.pk)
+    return _attach_signed_file_locked(order, upload, by=by, message=message)
+
+
+def _attach_signed_file_locked(order: HrOrder, upload: UploadedFile, *, by: User, message: str) -> HrOrder:
+    """`attach_signed_file` for a caller that already holds the three locks, in that order, and read `order` under
+    them (order_signing.sign_order). It takes no lock itself, so it must run inside the caller's transaction."""
+    # Local import: events imports this module, so a top-level import would be circular.
+    from employees.services import events
+
     if order.state != OrderState.REGISTERED:
         raise OrderError({"__all__": "Зөвхөн бүртгэсэн тушаалд гарын үсэгтэй файл хавсаргана."})
     # Apply first, so a refused change writes no scan to storage (apply_waiting reads neither the state nor the file).
@@ -309,7 +317,7 @@ def attach_signed_file(order: HrOrder, upload: UploadedFile, *, by: User) -> HrO
         # The change was applied just now, so its production row exists only from here: link it to this order
         # (idempotent; also re-points the employee to this order).
         macs_writes.write_order(order)
-    _log(order, by, "гарын үсэгтэй файл хавсаргасан, түгжсэн")
+    _log(order, by, message)
     return order
 
 

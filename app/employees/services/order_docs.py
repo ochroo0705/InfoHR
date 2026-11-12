@@ -8,19 +8,27 @@ Conventions the templates rely on (see COWORK.md): `effective_date` and `probati
 
 import datetime
 import io
+import zipfile
+from collections.abc import Callable
+from contextvars import ContextVar
+from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from accounts.models import User
 from django.conf import settings
+from django.utils import timezone
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.opc.exceptions import PackageNotFoundError
 from docxtpl import DocxTemplate
 from fpdf import FPDF
+from fpdf.enums import MethodReturnValue
 from jinja2 import TemplateError
 from jinja2.sandbox import SandboxedEnvironment
 from macs.models import Department, Position
+from PIL import Image
 
 from employees import access, history_range
 from employees.models import CompanySettings, EmployeeExt, HrOrder, JobRecord, OrderTemplate, OrderType
@@ -59,14 +67,28 @@ MONTHS = (
 )
 BLANK_NUMBER = "______"
 BLANK_DATE = "____ оны __ сарын __"
+BLANK_SIGNATURE = "______________"  # the empty signature line of a paper order
+SIGNATURE_TOKEN = "[[signature]]"  # noqa: S105  # a marker, not a secret; the signing step swaps it for the picture
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 PDF_TYPE = "application/pdf"
 PDF_ALIGN = {WD_ALIGN_PARAGRAPH.CENTER: "C", WD_ALIGN_PARAGRAPH.RIGHT: "R", WD_ALIGN_PARAGRAPH.JUSTIFY: "J"}
 PT_MM = 25.4 / 72
+SIGNATURE_WIDTH_MM = 40  # the drawn signature on the PDF, right-aligned like the director's line under it
+SIGNATURE_MAX_HEIGHT_MM = 25  # the picture never gets taller than this (a thin, tall PNG would run off the page)
+SIGNATURE_LINE_MM = 4  # one line of the name and time under the picture
 
 
 class OrderDocError(Exception):
     """The Word template of this order type is missing or unreadable."""
+
+
+@dataclass(frozen=True)
+class SignatureStamp:
+    """What the on-screen signing step puts on the PDF: the drawn signature, the signer's name and the time."""
+
+    image: bytes  # PNG with transparency, trimmed, at most 600 px wide
+    name: str
+    signed_at: datetime.datetime  # aware values are shown in local time
 
 
 # Every name a template may use: the keys of `build_context` (a test keeps the two in step).
@@ -94,6 +116,7 @@ PLACEHOLDERS = (
     "probation_end",
     "salary",
     "termination_reason",
+    "signature",
 )
 
 # What each placeholder holds, for the «Талбарууд» pop-up on the template admin page: (group, name, meaning).
@@ -126,6 +149,12 @@ PLACEHOLDER_HELP: tuple[tuple[str, str, str], ...] = (
     ("Бусад", "probation_end", "Туршилтын хугацаа дуусах огноо. Зөвхөн ажилд авах тушаалд, туршилттай ажилтанд гарна."),
     ("Бусад", "salary", "Үндсэн цалин. Зөвхөн ажилд авах тушаалд, цалин харах эрхтэй хэрэглэгчид гарна."),
     ("Бусад", "termination_reason", "Ажлаас гарсан шалтгаан (жижиг үсгээр эхэлнэ)."),
+    (
+        "Тушаал",
+        "signature",
+        "Гарын үсгийн байрлал. Дэлгэц дээр гарын үсэг зурахад зураг, нэр, огноо энд орно; "
+        "зурахаас өмнө хоосон зураас гарна.",
+    ),
 )
 
 
@@ -143,6 +172,7 @@ COMMON_PLACEHOLDERS = (
     "employee_number",
     "register_number",
     "effective_date",
+    "signature",
 )
 EXTRA_PLACEHOLDERS: dict[OrderType, tuple[str, ...]] = {
     OrderType.HIRED: ("department", "position", "employee_type", "probation_end", "salary"),
@@ -171,16 +201,35 @@ def starter_path(order_type: OrderType | int) -> Path:
     return Path(settings.ORDER_TEMPLATES_DIR) / TEMPLATE_FILES[OrderType(order_type)]
 
 
-def template_source(order_type: OrderType | int) -> Path | io.BytesIO:
-    """The install's own uploaded template of this type, else the bundled starter."""
-    row = OrderTemplate.objects.filter(order_type=int(order_type)).exclude(file="").first()
+# While a batch of orders is rendered (render_pdf_many) the same template file, company settings and
+# department/position names are read once, not once per order. Outside a batch nothing is remembered.
+_batch: ContextVar[dict[Any, Any] | None] = ContextVar("order_docs_batch", default=None)
+
+
+def _remembered(key: Any, make: Callable[[], Any]) -> Any:
+    cache = _batch.get()
+    if cache is None:
+        return make()
+    if key not in cache:
+        cache[key] = make()
+    return cache[key]
+
+
+def _template_data(order_type: int) -> Path | bytes:
+    row = OrderTemplate.objects.filter(order_type=order_type).exclude(file="").first()
     if row is None:
         return starter_path(order_type)
     try:
         with row.file.open("rb") as handle:
-            return io.BytesIO(handle.read())
+            return handle.read()
     except OSError as error:  # an uploaded file that is gone is an error, not a silent fall back to the starter
         raise OrderDocError(f"{row.file.name}") from error
+
+
+def template_source(order_type: OrderType | int) -> Path | io.BytesIO:
+    """The install's own uploaded template of this type, else the bundled starter."""
+    data = _remembered(("template", int(order_type)), lambda: _template_data(int(order_type)))
+    return data if isinstance(data, Path) else io.BytesIO(data)
 
 
 def _render(source: Path | io.BytesIO, context: dict[str, Any]) -> bytes:
@@ -232,7 +281,10 @@ def _lower_first(text: str) -> str:
 def _name(model: type[Department] | type[Position], pk: int | None) -> str:
     if pk is None:
         return ""
-    return str(model.objects.filter(pk=pk).values_list("name", flat=True).first() or "")
+    return str(
+        _remembered(("name", model, pk), lambda: model.objects.filter(pk=pk).values_list("name", flat=True).first())
+        or ""
+    )
 
 
 def _emptype_label(code: int | None) -> str:
@@ -245,10 +297,10 @@ def _hire_day(order: HrOrder) -> datetime.date | None:
     return day
 
 
-def build_context(order: HrOrder, user: User) -> dict[str, Any]:
-    """Every placeholder of the order templates, as text."""
+def build_context(order: HrOrder, user: User, *, signature: str = BLANK_SIGNATURE) -> dict[str, Any]:
+    """Every placeholder of the order templates, as text. `signature` fills the signature line (see SIGNATURE_TOKEN)."""
     employee, event = order.employee, order.event
-    company = CompanySettings.get()
+    company = _remembered("company", CompanySettings.get)
     day = event.effective if event is not None else _hire_day(order)
     new = macs_writes._state_on(employee, day) if day else None
     old = macs_writes._state_on(employee, day - datetime.timedelta(days=1)) if day else None
@@ -297,12 +349,74 @@ def build_context(order: HrOrder, user: User) -> dict[str, Any]:
         "probation_end": probation_end,
         "salary": salary,
         "termination_reason": reason,
+        "signature": signature,
     }
 
 
-def render_order(order: HrOrder, user: User) -> bytes:
+def _shown(record: JobRecord, field: str) -> str:
+    """One job field as the pop-up shows it: the choice label, the row's name, an ISO date or text."""
+    value = getattr(record, field)
+    if value in (None, ""):
+        return "—"
+    if hasattr(record, f"get_{field}_display"):
+        return str(getattr(record, f"get_{field}_display")())
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    return str(getattr(value, "full_name", value))
+
+
+def change_rows(order: HrOrder, user: User) -> list[tuple[str, str, str]]:
+    """What a change actually changes: (label, before, after) for each job field that differs, then the base salary
+    when `user` may see it. Empty for a hire and for a change that ends the job (nothing to compare)."""
+    event = order.event
+    if event is None:
+        return []
+    employee, day = order.employee, event.effective
+    old = history.job_on(employee, day - datetime.timedelta(days=1))
+    if event.applied_at is None:
+        # Waiting for the signed order: the job on the day is still the old one, the proposal is the new one.
+        before = history.job_on(employee, day)
+        proposed = (event.proposed or {}).get("job") or {}
+        after = (
+            orders.candidate_job(employee, before, events._load_changes(proposed), event.type, event.pension)
+            if before is not None
+            else None
+        )
+        old = before
+    else:
+        after = history.job_on(employee, day)
+    rows: list[tuple[str, str, str]] = []
+    if old is not None and after is not None and event.type != "termination":
+        for name in JobRecord.JOB_FIELDS:
+            if name == "emptype" and old.employee_type != after.employee_type:
+                continue  # the code behind employee_type: shown through it unless it moved alone (e.g. probation)
+            field: Any = JobRecord._meta.get_field(name)
+            if getattr(old, field.attname) != getattr(after, field.attname):
+                label = "Ажилтны ангилал" if name == "emptype" else str(field.verbose_name)
+                rows.append((label, _shown(old, name), _shown(after, name)))
+    if access.can_view_salary(user):
+        before_salary = history.salary_on(employee, day - datetime.timedelta(days=1))
+        if event.applied_at is None:
+            raw = (event.proposed or {}).get("salary")
+            new_amount = Decimal(str(raw)) if raw not in (None, "") else None
+        else:
+            record = history.salary_on(employee, day)
+            new_amount = record.base_salary if record is not None else None
+        old_amount = before_salary.base_salary if before_salary is not None else None
+        if new_amount is not None and new_amount != old_amount:
+            rows.append(
+                (
+                    "Үндсэн цалин",
+                    f"{group(old_amount)}₮" if old_amount is not None else "—",
+                    f"{group(new_amount)}₮",
+                )
+            )
+    return rows
+
+
+def render_order(order: HrOrder, user: User, *, signature: str = BLANK_SIGNATURE) -> bytes:
     """The filled Word file of an order."""
-    return _render(template_source(order.order_type), build_context(order, user))
+    return _render(template_source(order.order_type), build_context(order, user, signature=signature))
 
 
 def _pdf_fonts() -> tuple[str, str, str, str]:
@@ -327,31 +441,125 @@ def _new_pdf(word: Any) -> FPDF:
     return pdf
 
 
-def _draw_order(pdf: FPDF, word: Any) -> None:
-    """One order on its own new page, paragraph by paragraph."""
+def _signature_size(stamp: SignatureStamp) -> tuple[float, float]:
+    """The picture's size on the PDF in mm: 40 mm wide, or 25 mm tall for a very tall picture (its width shrinks with
+    the height, so the aspect is kept)."""
+    with Image.open(io.BytesIO(stamp.image)) as picture:
+        width_px, height_px = picture.size
+    width, height = SIGNATURE_WIDTH_MM, SIGNATURE_WIDTH_MM * height_px / width_px
+    if height > SIGNATURE_MAX_HEIGHT_MM:  # a very tall, thin picture: keep its aspect, stop at the height limit
+        height = SIGNATURE_MAX_HEIGHT_MM
+        width = SIGNATURE_MAX_HEIGHT_MM * width_px / height_px
+    return width, height
+
+
+def _signed_at_text(stamp: SignatureStamp) -> str:
+    """The signing time in local time, as YYYY-MM-DD HH:MM."""
+    when = timezone.localtime(stamp.signed_at) if timezone.is_aware(stamp.signed_at) else stamp.signed_at
+    return when.strftime("%Y-%m-%d %H:%M")
+
+
+def _draw_picture(pdf: FPDF, stamp: SignatureStamp, top: float, width: float, height: float) -> None:
+    """The picture right-aligned like the director's line, its top at `top`; the cursor goes under it."""
+    pdf.image(io.BytesIO(stamp.image), x=pdf.w - pdf.r_margin - width, y=top, w=width, h=height)
+    pdf.set_y(top + height)
+
+
+def _draw_signature(pdf: FPDF, stamp: SignatureStamp) -> None:
+    """A marker paragraph that holds only the marker (custom templates, and the no-marker fallback): the picture,
+    then the signer's name and the time under it."""
+    width, height = _signature_size(stamp)
+    lines = (stamp.name, _signed_at_text(stamp))
+    if pdf.will_page_break(height + SIGNATURE_LINE_MM * len(lines)):
+        pdf.add_page()
+    top = pdf.get_y()
+    _draw_picture(pdf, stamp, top, width, height)
+    pdf.set_font("Order", "", 8)
+    for line in lines:
+        pdf.cell(0, SIGNATURE_LINE_MM, line, align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(1.5)
+
+
+def _run_font(paragraph: Any, base_pt: float) -> tuple[str, float]:
+    """The font style ("", "B", "I" or "BI") and size of a paragraph, from its first text run."""
+    run = next((r for r in paragraph.runs if r.text.strip()), None)
+    points = run.font.size.pt if run is not None and run.font.size else base_pt
+    style = ("B" if run is not None and run.bold else "") + ("I" if run is not None and run.italic else "")
+    return style, points
+
+
+def _draw_signature_on_line(pdf: FPDF, stamp: SignatureStamp, paragraph: Any, base_pt: float, text: str) -> None:
+    """A marker paragraph that also holds text (the starter templates: «<marker> /<director>/»): the picture first,
+    on the line, then the paragraph's own text directly under it, then the signing time. The signer's name is not
+    drawn here: the paragraph already shows the director, and the name is kept on the signing record."""
+    width, height = _signature_size(stamp)
+    style, points = _run_font(paragraph, base_pt)
+    pdf.set_font("Order", style, points)
+    line_height = points * PT_MM * 1.25
+    # the lines the director line really takes (word wrap), measured without drawing anything
+    text_lines = len(pdf.multi_cell(0, line_height, text, dry_run=True, output=MethodReturnValue.LINES))
+    gap = 1.5  # the space _draw_paragraph leaves after the text
+    needed = height + text_lines * line_height + gap + SIGNATURE_LINE_MM + gap  # all three on one page, or none
+    if pdf.will_page_break(needed):
+        pdf.add_page()
+    top = pdf.get_y()
+    _draw_picture(pdf, stamp, top, width, height)
+    _draw_paragraph(pdf, paragraph, base_pt, text)
+    pdf.set_font("Order", "", 8)
+    pdf.cell(0, SIGNATURE_LINE_MM, _signed_at_text(stamp), align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(1.5)
+
+
+def _draw_paragraph(pdf: FPDF, paragraph: Any, base_pt: float, text: str) -> None:
+    """One paragraph of the Word file, drawn with its own font, size and alignment. `text` is what to draw (the
+    paragraph's text, or the part of it that is left after the signature marker is taken out)."""
+    style, points = _run_font(paragraph, base_pt)
+    pdf.set_font("Order", style, points)
+    height = points * PT_MM * 1.25
+    if not text.strip():
+        pdf.ln(height)
+        return
+    pdf.multi_cell(
+        0,
+        height,
+        text,
+        align=PDF_ALIGN.get(paragraph.alignment, "L") if paragraph.alignment is not None else "L",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
+    pdf.ln(1.5)
+
+
+def _draw_order(pdf: FPDF, word: Any, stamp: SignatureStamp | None = None) -> None:
+    """One order on its own new page, paragraph by paragraph.
+
+    A paragraph holding the signature marker (SIGNATURE_TOKEN) is handled in two ways, for the first marker only when
+    a stamp is given:
+    - the marker is the only text (custom templates): the paragraph is dropped and the picture, the signer's name and
+      the time are drawn in its place (_draw_signature);
+    - the paragraph has other text (the starter templates, «<marker> /<director>/»): the picture is drawn first, then
+      the paragraph's text under it, then the time (_draw_signature_on_line). The name is not drawn.
+    Later marker paragraphs keep their remaining text and get no picture. Without any marker the stamp goes after the
+    last paragraph (_draw_signature). Without a stamp the marker paragraphs are drawn as plain text."""
     base_pt = word.styles["Normal"].font.size.pt if word.styles["Normal"].font.size else 11.0
     pdf.add_page()
+    token_seen = False
     for paragraph in word.paragraphs:
-        run = next((r for r in paragraph.runs if r.text.strip()), None)
-        points = run.font.size.pt if run is not None and run.font.size else base_pt
-        pdf.set_font(
-            "Order",
-            ("B" if run is not None and run.bold else "") + ("I" if run is not None and run.italic else ""),
-            points,
-        )
-        height = points * PT_MM * 1.25
-        if not paragraph.text.strip():
-            pdf.ln(height)
+        if SIGNATURE_TOKEN in paragraph.text:
+            rest = paragraph.text.replace(SIGNATURE_TOKEN, "").strip()
+            first = stamp is not None and not token_seen
+            if first and rest:
+                _draw_signature_on_line(pdf, stamp, paragraph, base_pt, rest)
+            else:
+                if rest:
+                    _draw_paragraph(pdf, paragraph, base_pt, rest)
+                if first:
+                    _draw_signature(pdf, stamp)
+            token_seen = True
             continue
-        pdf.multi_cell(
-            0,
-            height,
-            paragraph.text,
-            align=PDF_ALIGN.get(paragraph.alignment, "L") if paragraph.alignment is not None else "L",
-            new_x="LMARGIN",
-            new_y="NEXT",
-        )
-        pdf.ln(1.5)
+        _draw_paragraph(pdf, paragraph, base_pt, paragraph.text)
+    if stamp is not None and not token_seen:
+        _draw_signature(pdf, stamp)
 
 
 def render_pdf(order: HrOrder, user: User) -> bytes:
@@ -366,15 +574,31 @@ def render_pdf_many(orders: list[HrOrder], user: User) -> tuple[bytes, list[HrOr
     from the first order's Word file. Raises OrderDocError when none can be printed."""
     used: list[HrOrder] = []
     words = []
-    for order in orders:
-        try:
-            words.append(Document(io.BytesIO(render_order(order, user))))
-        except OrderDocError:
-            continue
-        used.append(order)
+    token = _batch.set({})
+    try:
+        for order in orders:
+            try:
+                words.append(Document(io.BytesIO(render_order(order, user))))
+            except OrderDocError:
+                continue
+            used.append(order)
+    finally:
+        _batch.reset(token)
     if not words:
         raise OrderDocError("no orders to print")
     pdf = _new_pdf(words[0])
     for word in words:
         _draw_order(pdf, word)
     return bytes(pdf.output()), used
+
+
+def render_signed_pdf(order: HrOrder, user: User, stamp: SignatureStamp) -> bytes:
+    """The order as a PDF with the signer's picture, name and time in the signature place."""
+    try:  # signing only: a template that cannot be opened (corrupt zip, missing file) is a refusal, not a crash
+        filled = render_order(order, user, signature=SIGNATURE_TOKEN)
+    except (OSError, zipfile.BadZipFile) as error:
+        raise OrderDocError(str(error)) from error
+    word = Document(io.BytesIO(filled))
+    pdf = _new_pdf(word)
+    _draw_order(pdf, word, stamp)
+    return bytes(pdf.output())

@@ -72,12 +72,35 @@
   // Long category names or many categories lie the bars flat: rotated labels were unreadable.
   function isHorizontal(data) {
     var longest = data.labels.reduce(function (m, l) { return Math.max(m, String(l).length); }, 0);
-    return data.kind === "bar" && (data.labels.length > 6 || longest > 14);
+    return (data.kind === "bar" || data.kind === "stacked") && (data.labels.length > 6 || longest > 14);
+  }
+
+  // A percent chart (lshow pct) shows a % after each number; the payload says so.
+  function percentSuffix(data) {
+    return data.percent ? "%" : "";
+  }
+
+  // A stacked bar: one trace per stack (a value of the second category), colours from the palette in order.
+  function stackedTraces(data, t, labels) {
+    var horizontal = isHorizontal(data);
+    return data.series.map(function (s, i) {
+      var name = escapeText(s.label);
+      var tip = "%{" + (horizontal ? "y" : "x") + "}: %{" + (horizontal ? "x" : "y") + ":" + (data.money ? ",.0f}₮" : ",}" + percentSuffix(data));
+      return {
+        type: "bar",
+        name: name,
+        orientation: horizontal ? "h" : "v",
+        x: horizontal ? s.values : labels,
+        y: horizontal ? labels : s.values,
+        marker: { color: t.series[i % t.series.length] },
+        hovertemplate: name + " — " + tip + "<extra></extra>",
+      };
+    });
   }
 
   function traces(data, t) {
     var labels = data.labels.map(escapeText);
-    var fmt = data.money ? "%{y:,.0f}₮" : "%{y:,}";
+    var fmt = data.money ? "%{y:,.0f}₮" : "%{y:,}" + percentSuffix(data);
     if (data.kind === "donut") {
       return [{
         type: "pie",
@@ -87,7 +110,7 @@
         hole: 0.55,
         textinfo: "percent",
         textfont: { color: "#ffffff" },
-        hovertemplate: "%{label}: " + (data.money ? "%{value:,.0f}₮" : "%{value:,}") + " (%{percent})<extra></extra>",
+        hovertemplate: "%{label}: " + (data.money ? "%{value:,.0f}₮" : "%{value:,}" + percentSuffix(data)) + " (%{percent})<extra></extra>",
         marker: { colors: t.series, line: { color: t.surface, width: 2 } },
       }];
     }
@@ -102,6 +125,7 @@
         hovertemplate: "%{x}: " + fmt + "<extra></extra>",
       }];
     }
+    if (data.kind === "stacked" && Array.isArray(data.series) && data.series.length) return stackedTraces(data, t, labels);
     var horizontal = isHorizontal(data);
     return [{
       type: "bar",
@@ -111,7 +135,7 @@
       marker: { color: t.accent },
       textposition: "outside",
       cliponaxis: false,
-      hovertemplate: (horizontal ? "%{y}: %{x:,}" : "%{x}: " + fmt) + "<extra></extra>",
+      hovertemplate: (horizontal ? "%{y}: %{x:,}" + percentSuffix(data) : "%{x}: " + fmt) + "<extra></extra>",
     }];
   }
 
@@ -130,29 +154,31 @@
       });
     }
     var axis = { color: t.text, gridcolor: t.grid, zeroline: false, rangemode: "tozero",
-      tickformat: data.money ? ",.0f" : "d" };
+      tickformat: data.percent ? ",.1~f" : data.money ? ",.0f" : "d" };
     if (data.kind === "line") {
       return Object.assign(base, {
         showlegend: false,
         margin: { l: 48, r: 16, t: 16, b: 64 },
-        xaxis: { color: t.text, tickangle: -30, automargin: true },
+        xaxis: { type: "category", color: t.text, tickangle: -30, automargin: true },
         yaxis: axis,
       });
     }
+    var stacked = data.kind === "stacked" && Array.isArray(data.series) && data.series.length > 0;
+    var extra = stacked
+      ? { barmode: "stack", showlegend: true, legend: { font: { color: t.text }, orientation: "h", y: -0.2 } }
+      : { showlegend: false };
     if (isHorizontal(data)) {
-      return Object.assign(base, {
-        showlegend: false,
+      return Object.assign(base, extra, {
         bargap: 0.35,
-        margin: { l: 8, r: 40, t: 8, b: 40 },
+        margin: { l: 8, r: 40, t: 8, b: stacked ? 80 : 40 },
         xaxis: axis,
-        yaxis: { color: t.text, automargin: true, autorange: "reversed", showgrid: false, ticklen: 0 },
+        yaxis: { type: "category", color: t.text, automargin: true, autorange: "reversed", showgrid: false, ticklen: 0 },
       });
     }
-    return Object.assign(base, {
-      showlegend: false,
+    return Object.assign(base, extra, {
       bargap: 0.35,
-      margin: { l: 48, r: 16, t: 16, b: 64 },
-      xaxis: { color: t.text, tickangle: -30, automargin: true },
+      margin: { l: 48, r: 16, t: 16, b: stacked ? 96 : 64 },
+      xaxis: { type: "category", color: t.text, tickangle: -30, automargin: true },
       yaxis: axis,
     });
   }
@@ -161,6 +187,28 @@
     el.hidden = true;
     var note = el.parentNode && el.parentNode.querySelector("[data-report-chart-failed]");
     if (note) note.hidden = false;
+  }
+
+  // The table address of the category at this index (data.hrefs, one per point), "" when there is none.
+  function clickTarget(data, pointNumber) {
+    var hrefs = data && data.hrefs;
+    if (!Array.isArray(hrefs) || typeof pointNumber !== "number" || pointNumber % 1 !== 0) return "";
+    if (pointNumber < 0 || pointNumber >= hrefs.length) return "";
+    return typeof hrefs[pointNumber] === "string" ? hrefs[pointNumber] : "";
+  }
+
+  // A category with a table link: the pointer cursor, and a click opens that table.
+  function linkPoints(el, data) {
+    if (!Array.isArray(data.hrefs) || !data.hrefs.some(function (h) { return typeof h === "string" && h !== ""; })) return;
+    el.classList.add("cursor-pointer");
+    if (typeof el.on !== "function") return;
+    // a theme redraw calls this again on the same element: one handler, not one per draw
+    if (typeof el.removeAllListeners === "function") el.removeAllListeners("plotly_click");
+    el.on("plotly_click", function (event) {
+      var point = event && event.points && event.points[0];
+      var href = point ? clickTarget(data, point.pointNumber) : "";
+      if (href) window.location.href = href;
+    });
   }
 
   function draw(el) {
@@ -178,6 +226,9 @@
         var drawing = window.Plotly.newPlot(el, traces(data, t), layout(data, t), CONFIG);
         if (drawing && typeof drawing.catch === "function") {
           drawing.catch(function () { showFailed(el); });
+        }
+        if (drawing && typeof drawing.then === "function") {
+          drawing.then(function () { linkPoints(el, data); });
         }
         if (el.isConnected && drawn.indexOf(el) < 0) drawn.push(el);
       } catch (err) {
@@ -199,6 +250,12 @@
     } catch (err) { /* already gone */ }
     drawn = drawn.filter(function (d) { return d !== el; });
     el.removeAttribute("data-drawn");
+  }
+
+  // Under Node (report_chart.test.mjs) only the pure helper is exported: the listeners below need a browser.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { clickTarget: clickTarget, layout: layout };
+    return;
   }
 
   // The report is about to be replaced by htmx: its charts go before the swap, the new ones are drawn after it.

@@ -1,7 +1,7 @@
 """Tests for the table cases of the accuracy set and how assistant_eval scores them. The fakes give perfect entry
 answers (test_eval.PerfectProvider) and a table plan per draft case (helpers.table_plan_for)."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date
 from io import StringIO
@@ -10,15 +10,17 @@ import pytest
 from accounts.models import User
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from employees.models import CompanySettings
 from macs.models import Department
 from pytest import MonkeyPatch
 
+from assistant.columns import RuleColumn
 from assistant.entries import ENTRIES, HelpEntry
 from assistant.evalcheck import check_table, expected_query, same_filters
 from assistant.evalset import CASES, TABLE_CASES, TableCase
 from assistant.management.commands import assistant_eval
 from assistant.models import HelpExample, HelpQuestion, Kind
-from assistant.plan import Part, Plan
+from assistant.plan import Condition, Part, Plan
 from assistant.services import PLAN_ENTRIES
 from assistant.tests.helpers import drop_narrowing, seed_eval_rows, table_plan_for, too_close_pairs
 from assistant.tests.test_eval import PerfectProvider
@@ -132,7 +134,7 @@ def test_eval_scores_table_cases_with_a_fake_provider(monkeypatch: MonkeyPatch, 
     call_command("assistant_eval", role="hr", stdout=out)
     text = out.getvalue()
     assert "hr: " in text
-    assert "tables 10/10 gated, 3/3 ungated" in text  # type 9 and the two chart cases are ungated
+    assert "tables 17/17 gated, 3/3 ungated" in text  # type 9 and the two chart cases are ungated
     assert "FAIL" not in text
 
 
@@ -164,7 +166,7 @@ def test_accountant_runs_only_the_cases_its_rights_allow(monkeypatch: MonkeyPatc
     monkeypatch.setattr(assistant_eval, "get_provider", lambda: TableFake())
     out = StringIO()
     call_command("assistant_eval", role="accountant", stdout=out)
-    assert "tables 8/8 gated, 3/3 ungated" in out.getvalue()
+    assert "tables 14/14 gated, 3/3 ungated" in out.getvalue()
 
 
 @pytest.mark.django_db
@@ -194,7 +196,7 @@ def test_wrong_department_fails_that_case_only(monkeypatch: MonkeyPatch, rows: N
     wrong = {question: _plan_of((Part("department", "IT"), Part("emptype", "5")))}
     monkeypatch.setattr(assistant_eval, "get_provider", lambda: TableFake(wrong))
     out = StringIO()
-    call_command("assistant_eval", role="hr", stdout=out)  # 9 of 10 gated tables is still at the mark
+    call_command("assistant_eval", role="hr", stdout=out)  # 16 of 17 gated tables is still at the mark
     lines = [line for line in out.getvalue().splitlines() if line.startswith("FAIL table hr")]
     assert len(lines) == 1
     assert question in lines[0]
@@ -230,7 +232,7 @@ def test_ungated_cases_are_reported_but_do_not_gate(monkeypatch: MonkeyPatch, ro
     out = StringIO()
     call_command("assistant_eval", role="hr", stdout=out)
     text = out.getvalue()
-    assert "tables 10/10 gated, 0/3 ungated" in text
+    assert "tables 17/17 gated, 0/3 ungated" in text
     assert all(f"FAIL table hr | {q}" in text for q in ungated)
 
 
@@ -388,3 +390,104 @@ def test_table_examples_reach_the_plan_in_a_run(monkeypatch: MonkeyPatch, rows: 
     monkeypatch.setattr(assistant_eval, "get_provider", lambda: ExampleRecorder(seen))
     call_command("assistant_eval", role="hr", stdout=StringIO())
     assert ("жишээ филтер", "emptype=5") in seen[0]
+
+
+class RuleColumnsRecorder(TableFake):
+    """A TableFake that takes rules, as the real adapters do (takes_rules), and keeps the rule column keys of each
+    plan call. It has no **kwargs: a rule_columns keyword the eval did not pass would be seen as the absence of one."""
+
+    takes_rules = True
+
+    def __init__(self, seen: list[list[str]]) -> None:
+        super().__init__()
+        self.seen = seen
+
+    def plan(
+        self,
+        question: str,
+        entries: Sequence[HelpEntry],
+        words: Sequence[FilterWords],
+        phrases: Mapping[str, list[str]],
+        today: date,
+        previous: str = "",
+        refusals: Sequence[str] = (),
+        table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
+        rule_columns: Sequence[RuleColumn] = (),
+    ) -> Plan:
+        self.seen.append([column.key for column in rule_columns])
+        return super().plan(question, entries, words, phrases, today, previous, refusals, table_examples)
+
+
+@pytest.mark.django_db
+def test_eval_passes_the_rule_columns_to_a_provider_that_takes_rules(monkeypatch: MonkeyPatch, rows: None) -> None:
+    """The eval passes plan_extras as the service does: every plan call of the hr run gets the columns hr may use
+    (years_worked yes, salary no). If the keyword were dropped, a real provider would get no columns."""
+    seen: list[list[str]] = []
+    monkeypatch.setattr(assistant_eval, "get_provider", lambda: RuleColumnsRecorder(seen))
+    call_command("assistant_eval", role="hr", stdout=StringIO())
+    assert seen
+    assert all("years_worked" in keys and "salary" not in keys for keys in seen)
+
+
+@pytest.mark.django_db
+def test_fake_without_takes_rules_gets_no_rule_columns(monkeypatch: MonkeyPatch, rows: None) -> None:
+    """The plain fake's plan() has no rule_columns keyword: a call that passed one would raise TypeError, which the
+    eval counts as a failed case, so the run would fail. It does not."""
+    monkeypatch.setattr(assistant_eval, "get_provider", lambda: TableFake())
+    out = StringIO()
+    call_command("assistant_eval", role="hr", stdout=out)
+    assert "FAIL" not in out.getvalue()
+
+
+def test_condition_cases_are_wired() -> None:
+    """The seven condition questions are in the accuracy set, so the run scores them."""
+    questions = {c.question for c in TABLE_CASES}
+    assert {
+        "5-аас дээш жил ажилласан хүмүүс",
+        "гэрээ дуусах дөхсөн ажилтнууд",
+        "60 хоногийн дотор гэрээ дуусах хүмүүс",
+        "утасгүй ажилтнууд",
+        "Санхүүгийн хэлтсийн 3-аас дээш жил ажилласан хүмүүс",
+        "цалин 3 саяас дээш хүмүүс",
+        "тэдгээрээс утасгүй нь",
+    } <= questions
+
+
+def test_check_table_passes_a_matching_condition_plan(role_user: Callable[[str], User], rows: None) -> None:
+    case = TableCase("5-аас дээш жил ажилласан хүмүүс", "", conditions=(("years_worked", "gte", "5"),))
+    plan = replace(_plan_of(()), conditions=(Condition("years_worked", "gte", "5", "5-аас дээш жил"),))
+    assert check_table(role_user("hr"), case, plan, date(2026, 11, 5)).passed
+
+
+def test_check_table_fails_a_wrong_op(role_user: Callable[[str], User], rows: None) -> None:
+    case = TableCase("5-аас дээш жил ажилласан хүмүүс", "", conditions=(("years_worked", "gte", "5"),))
+    plan = replace(_plan_of(()), conditions=(Condition("years_worked", "gt", "5", "5-аас дээш жил"),))
+    assert not check_table(role_user("hr"), case, plan, date(2026, 11, 5)).passed
+
+
+def test_hidden_column_case_for_hr(role_user: Callable[[str], User], rows: None) -> None:
+    """The salary condition is dropped for hr (no salary right): the table has no rules and says so."""
+    case = _case("цалин 3 саяас дээш хүмүүс")
+    plan = replace(_plan_of(()), conditions=(Condition("salary", "gte", "3000000", "цалин 3 саяас дээш"),))
+    result = check_table(role_user("hr"), case, plan, date(2026, 11, 5))
+    assert result.passed
+    assert result.got == "-"
+
+
+def test_soon_days_placeholder_follows_the_setting(role_user: Callable[[str], User], rows: None) -> None:
+    user = role_user("hr")
+    case = _case("гэрээ дуусах дөхсөн ажилтнууд")
+    plan = replace(_plan_of(()), conditions=(Condition("contract_end", "next_days", "45", "гэрээ дуусах дөхсөн"),))
+    today = date(2026, 11, 5)
+    CompanySettings.objects.update_or_create(pk=1, defaults={"soon_days": 45})
+    assert check_table(user, case, plan, today).passed
+    CompanySettings.objects.update_or_create(pk=1, defaults={"soon_days": 30})
+    assert not check_table(user, case, plan, today).passed
+
+
+def test_follow_up_condition_case(role_user: Callable[[str], User], rows: None) -> None:
+    """The follow-up keeps the earlier years_worked rule and adds the missing work phone."""
+    case = _case("тэдгээрээс утасгүй нь")
+    plan = replace(_plan_of(()), conditions=(Condition("work_phone", "empty", "", "утасгүй"),))
+    assert check_table(role_user("hr"), case, plan, date(2026, 11, 5)).passed

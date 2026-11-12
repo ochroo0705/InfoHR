@@ -134,6 +134,8 @@ def test_work_tab_tables_are_framed(hr: Client, hired: Employee, actor: User) ->
     orders.register(hire_order(hired), number="20", date=date(2026, 3, 1), summary="", issued_by="", by=actor)
     make_cancelled(hired, "15", "20")
     body = hr.get(f"/employees/{hired.pk}/").content.decode()
-    work = body[body.index('id="tab-work"') : body.index('id="tab-personal"')]
+    # The work section ends where the next stacked section starts (salary, if the user may see it, else personal).
+    next_section = 'id="tab-salary"' if 'id="tab-salary"' in body else 'id="tab-personal"'
+    work = body[body.index('id="tab-work"') : body.index(next_section)]
     assert '<div class="ptable"><table>' in work and '<div class="ptable overflow-visible"><table>' in work
     assert "uppercase" not in work

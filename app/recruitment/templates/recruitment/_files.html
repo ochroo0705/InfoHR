@@ -3,8 +3,8 @@
   {% if cand_files %}
   <ul class="divide-y divide-slate-100 text-sm">
     {% for f in cand_files %}
-    <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-      <a href="{% url 'recruitment:candidate_file' f.pk %}" class="font-medium text-violet-700 hover:underline">{{ f.name }}</a>
+    <li class="relative -mx-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 transition-colors hover:bg-violet-50 focus-within:bg-violet-50">
+      <a href="{% url 'recruitment:candidate_file' f.pk %}" class="font-medium text-violet-700 after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">{{ f.name }}</a>
       <span class="text-xs text-slate-500">{{ f.uploaded_at|date:"Y-m-d" }}{% if f.uploaded_by %} · {{ f.uploaded_by.get_full_name|default:f.uploaded_by.username }}{% endif %}</span>
     </li>
     {% endfor %}

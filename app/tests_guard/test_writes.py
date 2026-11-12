@@ -70,6 +70,10 @@ def test_no_queryset_chain_writes_on_macs_models_outside_macs_writes() -> None:
 
 CUSTOMER_WRITER = APP / "employees" / "services" / "macs_writes.py"  # hire row + address copy (D-024)
 TRIGGER_LIST = APP / "macs" / "triggers.py"  # names the MACS triggers HR relies on (reads the catalog, writes nothing)
+FB_COMMANDS = APP / "infohr_firebird" / "management" / "commands"
+# Name CUSTOMER without writing it: fb_guard prints the GRANT script for the runtime user (applies nothing);
+# fb_cutover only says "customer data" in a warning about the scratch copy.
+NAMES_CUSTOMER_ONLY = (FB_COMMANDS / "fb_guard.py", FB_COMMANDS / "fb_cutover.py")
 
 
 def test_only_macs_writes_touches_customer_and_nothing_deletes_employees() -> None:
@@ -80,6 +84,8 @@ def test_only_macs_writes_touches_customer_and_nothing_deletes_employees() -> No
         if "migrations" in p.parts or "tests" in p.parts or p.parent.name == "tests_guard":
             continue
         text = p.read_text(encoding="utf-8")
-        if never.search(text) or (p not in (CUSTOMER_WRITER, TRIGGER_LIST) and customer.search(text)):
+        if never.search(text) or (
+            p not in (CUSTOMER_WRITER, TRIGGER_LIST, *NAMES_CUSTOMER_ONLY) and customer.search(text)
+        ):
             offenders.append(str(p))
     assert offenders == []

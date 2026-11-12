@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from accounts.models import User
+from accounts.models import AccessScope, User
 from django.contrib.auth.models import Group, Permission
 from django.test import Client
 from django.urls import reverse
@@ -15,7 +15,7 @@ from leave.services import entitlement as leave_entitlement
 from leave.services import ledger as leave_ledger
 from leave.services import writes as leave_writes
 from leave.services.fmt import fmt_days
-from macs.models import ContactRow, ContactType, Entitlement, FiredReason, LeaveTypeRow
+from macs.models import Branch, ContactRow, ContactType, Entitlement, FiredReason, LeaveTypeRow
 
 from employees import attention
 from employees.listing import Row, employee_rows
@@ -267,9 +267,12 @@ def test_most_urgent_first_and_rest_folded(
     assert not emergency.dated and len(emergency.items) >= 12
     assert "Гэрээ дууссан" in html and f"Яаралтай үед холбогдох хүн дутуу · {len(emergency.items)}" in html
     assert f"Бүгдийг харах ({len(emergency.items) - attention.GROUP_LIMIT}) →" in html  # past three wait behind it
-    assert html.count("group/chip inline-flex") == attention.GROUP_LIMIT * sum(
-        1 for g in groups if not g.dated and len(g.items) >= attention.GROUP_LIMIT
-    ) + sum(len(g.items) for g in groups if not g.dated and len(g.items) < attention.GROUP_LIMIT)
+    # Chips are for the overdue and due-soon groups; missing-data groups are one-line rows in the closed gap section.
+    queued = [g for g in groups if not g.dated and g.urgency != attention.MISSING]
+    assert html.count("data-chip") == attention.GROUP_LIMIT * sum(
+        1 for g in queued if len(g.items) >= attention.GROUP_LIMIT
+    ) + sum(len(g.items) for g in queued if len(g.items) < attention.GROUP_LIMIT)
+    assert 'data-attention-gap data-kind="emergency"' in html
 
 
 def _many_without_contact(actor: User, job_values: dict[str, Any], count: int) -> None:
@@ -358,7 +361,8 @@ def test_summary_shows_nearest_date_for_dated_groups_only(
     nearest = _fmt(today + timedelta(days=4))
     assert nearest in by_kind["contract"] and _fmt(today + timedelta(days=9)) not in by_kind["contract"]
     assert "text-slate-500" in by_kind["contract"]
-    assert "emergency" in by_kind and not re.search(r"\d{4}-\d{2}-\d{2}", by_kind["emergency"])
+    gap_row = re.search(r'<li data-attention-gap data-kind="emergency"[^>]*>(.*?)</li>', html, re.S)
+    assert gap_row is not None and not re.search(r"\d{4}-\d{2}-\d{2}", gap_row.group(1))
 
 
 def test_count_in_the_summary_ignores_items_hidden_with_Мэдлээ(  # noqa: N802
@@ -712,14 +716,16 @@ def test_dated_events_applied_waiting_cancelled_and_salary(emp: Employee, actor:
     assert pks(True, start=today + timedelta(days=30), waiting=True) == {waiting.pk}  # waiting ignores start
 
 
-def test_missing_data_chips_open_the_tab_that_fixes_them(emp: Employee, client: Client) -> None:
+def test_missing_data_rows_sit_in_the_closed_gap_section(emp: Employee, client: Client) -> None:
+    """Missing data is one closed «Өгөгдөл дутуу» section with a count row per problem (no person links on the page)."""
     set_account(emp, "")
     set_contact(emp, present=False)
     emp.save()
     login_as(client, "Admin")
     html = client.get(reverse("employees:today")).content.decode()
-    detail = reverse("employees:detail", args=[emp.pk])
-    assert f'href="{detail}#salary"' in html and f'href="{detail}#personal-basic"' in html
+    section = html[html.index("data-attention-gaps") :]
+    assert " open" not in section.split(">", 1)[0]
+    assert "Банкны мэдээлэл дутуу · 1" in section and "Яаралтай үед холбогдох хүн дутуу · 1" in section
 
 
 def _approval_on_with_waiting_request(
@@ -760,3 +766,176 @@ def test_non_approver_has_no_requests_item(
     _approval_on_with_waiting_request(emp, boss_user, actor, annual_type, job_values)
     stranger = user_in("Employee", "stranger_login")
     assert not any(a.kind == "leave_requests" for a in attention.items(stranger, [], TODAY))
+
+
+# --- Task 1: attention tiers (urgent / soon / gaps) ---
+
+
+def _grp(kind: str, urgency: int, count: int) -> attention.Group:
+    items = [attention.Attention(None, f"{kind} {i}", kind, urgency) for i in range(count)]
+    return attention.Group(kind, urgency, kind, items)
+
+
+def test_tiers_split_by_urgency() -> None:
+    overdue = [_grp("contract", attention.OVERDUE, 2)]
+    due = [_grp("probation", attention.DUE, 3)]
+    missing = [_grp("bank", attention.MISSING, 5)]
+    t = attention.tiers(overdue + due + missing)
+    assert t.urgent == overdue and t.soon == due and t.gaps == missing
+    assert (t.urgent_count, t.soon_count, t.gap_count) == (2, 3, 5)
+
+
+def test_tiers_empty() -> None:
+    t = attention.tiers([])
+    assert t.urgent == [] and t.soon == [] and t.gaps == []
+    assert (t.urgent_count, t.soon_count, t.gap_count) == (0, 0, 0)
+
+
+# --- Task 2: group destinations («Бүгдийг нээх →») ---
+
+
+def test_group_url_orders() -> None:
+    # The orders register takes ?state=, so the link opens the pending orders only (brief Task 2, Step 3).
+    g = attention.Group("order_number", attention.DUE, "x", [])
+    assert g.url == reverse("employees:orders") + "?state=pending"
+
+
+def test_group_url_unknown_is_empty() -> None:
+    g = attention.Group("bank", attention.MISSING, "x", [])
+    assert g.url == ""
+
+
+def test_order_group_markup_links_to_pending_orders(client: Client, emp: Employee) -> None:
+    from employees.models import HrOrder, OrderState, OrderType
+
+    emp.hr_orders.all().delete()
+    HrOrder.objects.create(employee=emp, is_hire=True, order_type=OrderType.HIRED, state=OrderState.PENDING)
+    login_as(client, "HR")
+    html = client.get(reverse("employees:today")).content.decode()
+    want_href = f'href="{reverse("employees:orders")}?state=pending"'
+    assert want_href in html
+    assert "Бүгдийг нээх →" in html
+
+
+def test_group_without_url_renders_no_open_all_link(client: Client, emp: Employee) -> None:
+    set_account(emp, "")
+    login_as(client, "Accountant")
+    html = client.get(reverse("employees:today")).content.decode()
+    assert "Банкны мэдээлэл дутуу" in html  # the bank group is on the page
+    assert "Бүгдийг нээх →" not in html
+
+
+def _bank_gap_people(actor: User, job_values: dict[str, Any], count: int) -> list[Employee]:
+    """New hires have no bank account: each one is a «Банкны мэдээлэл дутуу» item (distinct short names)."""
+    return [
+        history.hire(
+            hire_values(f"УБ7733{i:04d}") | {"given_name": f"Ажилтан{i}"},
+            {},
+            start=date(2026, 1, 5),
+            job=job_values,
+            salary=None,
+            by=actor,
+        )  # fmt: skip
+        for i in range(count)
+    ]
+
+
+def _gap_url(offset: int | None = None) -> str:
+    url = f"{reverse('employees:attention_more')}?kind=bank&urgency={attention.MISSING}&all=1"
+    return url if offset is None else f"{url}&offset={offset}"
+
+
+def test_gap_page_is_capped(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    _bank_gap_people(actor, job_values, 20)
+    login_as(client, "Accountant")
+    body = client.get(_gap_url()).content.decode()
+    assert body.count("data-chip") == attention.GAP_PAGE
+    assert body.count("data-gap-more") == 1 and "+ 12 бусад →" in body
+
+
+def test_gap_page_offset_continues(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    _bank_gap_people(actor, job_values, 20)
+    login_as(client, "Accountant")
+    second = client.get(_gap_url(8)).content.decode()
+    assert second.count("data-chip") == 8 and "+ 4 бусад →" in second
+    last = client.get(_gap_url(16)).content.decode()
+    assert last.count("data-chip") == 4 and "data-gap-more" not in last
+    past = client.get(_gap_url(99))
+    assert past.status_code == 200 and past.content.strip() == b""
+
+
+def test_gap_bad_offset_is_zero(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    _bank_gap_people(actor, job_values, 20)
+    login_as(client, "Accountant")
+    first = client.get(_gap_url(0)).content
+    assert client.get(_gap_url("abc")).content == first  # type: ignore[arg-type]
+    assert client.get(_gap_url(-5)).content == first
+
+
+def test_label_clashes_marks_same_short_names() -> None:
+    a = Employee(pk=1, family_name="Батын", given_name="Азжаргал")
+    b = Employee(pk=2, family_name="Бямбын", given_name="Азжаргал")  # also «Б. Азжаргал»
+    c = Employee(pk=3, family_name="Батын", given_name="Сараа")
+    items = [attention.Attention(e, "text", "bank") for e in (a, b, c)]
+    assert attention.label_clashes(items) == {1, 2}
+    assert attention.label_clashes(items + [attention.Attention(None, "system", "lists_death")]) == {1, 2}
+
+
+def test_clashing_chips_show_code(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    people = _bank_gap_people(actor, job_values, 3)
+    for employee, family, code in zip(
+        people, ("Батын", "Бямбын", "Гантулга"), ("UB001", "UB002", "UB003"), strict=True
+    ):
+        Employee.objects.filter(pk=employee.pk).update(family_name=family, given_name="Азжаргал", code=code)
+    login_as(client, "Accountant")
+    body = client.get(_gap_url()).content.decode()
+    assert "Б. Азжаргал · UB001" in body and "Б. Азжаргал · UB002" in body
+    assert "UB003" not in body  # its short name is unique in the group: no code
+
+
+def _page_pks(body: str) -> list[int]:
+    return [int(pk) for pk in re.findall(r'href="/employees/(\d+)/#salary"', body)]
+
+
+def test_gap_pages_are_disjoint_and_cover_the_group(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    people = _bank_gap_people(actor, job_values, 20)
+    login_as(client, "Accountant")
+    pages = [_page_pks(client.get(_gap_url(offset)).content.decode()) for offset in (0, 8, 16)]
+    shown = [pk for page in pages for pk in page]
+    assert len(shown) == len(set(shown)) == 20  # no person twice across the pages
+    assert set(shown) == {person.pk for person in people}
+
+
+def test_gap_all_is_ignored_for_a_dated_group(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    today = timezone.localdate()
+    _contract_people(actor, job_values, [today + timedelta(days=d) for d in range(3, 8)])  # 5 due contracts
+    login_as(client, "HR")
+    url = f"{reverse('employees:attention_more')}?kind=contract&urgency={attention.DUE}&all=1"
+    body = client.get(url).content.decode()
+    assert body.count("group/item") == 5 - attention.GROUP_LIMIT  # the normal rest past three, not all five
+    assert "data-gap-more" not in body
+
+
+def test_gap_all_shows_only_the_scope_users_people(client: Client, actor: User, job_values: dict[str, Any]) -> None:
+    north, south = Branch.objects.create(name="Хойд"), Branch.objects.create(name="Өмнөд")
+    inside, other = _bank_gap_people(actor, job_values, 2)
+    Employee.objects.filter(pk=inside.pk).update(branch_id=north.pk)
+    Employee.objects.filter(pk=other.pk).update(branch_id=south.pk)
+    accountant = login_as(client, "Accountant")
+    AccessScope.objects.update_or_create(user=accountant, defaults={"limited": True, "branch_ids": [north.pk]})
+    body = client.get(_gap_url()).content.decode()
+    assert f"/employees/{inside.pk}/" in body
+    assert f"/employees/{other.pk}/" not in body
+
+
+def test_dismiss_refreshes_the_tile_out_of_band(client: Client, emp: Employee, actor: User) -> None:
+    emp.job_records.update(contract_end=timezone.localdate() - timedelta(days=10))  # one overdue item
+    hr = login_as(client, "HR")
+    today = timezone.localdate()
+    urgent = next(
+        a for a in attention.items(hr, employee_rows(Employee.objects.all(), today), today)
+        if a.urgency == attention.OVERDUE
+    )  # fmt: skip
+    body = client.post(reverse("employees:attention"), {"key": urgent.key, "action": "dismiss"}).content.decode()
+    assert 'id="attention-tile"' in body and 'hx-swap-oob="true"' in body
+    assert re.search(r'data-tile="attention">0<', body)

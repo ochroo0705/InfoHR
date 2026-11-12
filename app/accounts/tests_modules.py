@@ -1,4 +1,4 @@
-"""The optional modules (accounts/modules.py): the page, the permission switch-off, the 404 gate and the data kept."""
+"""The optional modules (accounts/modules.py): admin switches, permission switch-off, the 404 gate, data kept."""
 
 import json
 
@@ -80,7 +80,6 @@ def test_menu_drops_the_links_of_an_off_module() -> None:
     modules.set_state({"slots": False, "recruitment": False})
     page = client.get(reverse("employees:today")).content.decode()
     assert "Орон тооны төлөвлөгөө" not in page and reverse("recruitment:vacancies") not in page
-    assert reverse("modules") in page  # the page that turns them on again stays reachable
 
 
 def test_engineers_report_follows_the_slots_module() -> None:
@@ -90,12 +89,30 @@ def test_engineers_report_follows_the_slots_module() -> None:
     assert client.get("/reports/engineers/").status_code == 403
 
 
-def test_only_admins_open_the_modules_page_and_saving_it_switches_modules() -> None:
-    hr_client, _ = _login(HR, "mod_hr2")
-    assert hr_client.get(reverse("modules")).status_code == 403
-    admin_client, _ = _login(ADMIN, "mod_admin2")
-    page = admin_client.get(reverse("modules")).content.decode()
-    assert "Орон тооны төлөвлөгөө" in page and "Ажилд авах" in page
-    response = admin_client.post(reverse("modules"), {"on": ["recruitment"]})  # slots left unticked = off
+def test_old_modules_address_is_gone() -> None:
+    client, _ = _login(ADMIN, "mod_old")
+    assert client.get("/modules/").status_code == 404
+
+
+def _settings_form(row: CompanySettings, **extra: str) -> dict[str, object]:
+    return {
+        "name": row.name,
+        "director_name": row.director_name,
+        "selfform_base_url": row.selfform_base_url,
+        "selfform_notice": row.selfform_notice,
+        "selfform_retention_days": row.selfform_retention_days,
+        "selfform_default_hours": row.selfform_default_hours,
+        **extra,
+    }
+
+
+def test_admin_switches_modules_on_the_company_settings_page() -> None:
+    row = CompanySettings.get()
+    client = Client()
+    client.force_login(User.objects.create_superuser("mod_super", password="x"))  # noqa: S106 (test user)
+    url = reverse("admin:employees_companysettings_change", args=[row.pk])
+    page = client.get(url).content.decode()
+    assert "module_slots" in page and "module_recruitment" in page
+    response = client.post(url, _settings_form(row, module_recruitment="on"))  # slots left unticked = off
     assert response.status_code == 302
     assert modules.state() == {"slots": False, "recruitment": True}

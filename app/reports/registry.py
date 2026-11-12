@@ -1,5 +1,7 @@
 """The reports that are built. A catalogue entry with no registered report is shown greyed as «удахгүй»."""
 
+from dataclasses import replace
+
 from accounts import modules
 from accounts.models import User
 from django.contrib.auth.models import AnonymousUser
@@ -8,7 +10,9 @@ from reports import (
     absences,
     annual_leave,
     children,
+    compare,
     contacts,
+    data_gaps,
     development_lists,
     engineers,
     gifts,
@@ -22,11 +26,22 @@ from reports import (
     personal_lists,
     safety,
     staff_list,
+    trends,
 )
 from reports.types import Report
 
+ALL_LAYOUTS = ("board", "calendar", "timeline", "cards", "chart", "pivot")
+
+
+def _with_tools(report: Report) -> Report:
+    """Every report keeps saved views; a row report that declares no layouts of its own offers them all
+    (offered_layouts still hides a layout with no suitable column). Statistic reports (no count line) stay tables."""
+    layouts = report.layouts or (ALL_LAYOUTS if report.shows_count else ())
+    return replace(report, saved_views=True, layouts=layouts)
+
+
 REPORTS: dict[str, Report] = {
-    report.key: report
+    report.key: _with_tools(report)
     for report in (
         staff_list.REPORT,
         children.REPORT,
@@ -56,6 +71,9 @@ REPORTS: dict[str, Report] = {
         performance.SUMMARY,
         safety.ACCIDENTS,
         safety.POISONING,
+        trends.REPORT,
+        compare.REPORT,
+        data_gaps.REPORT,
     )
 }
 

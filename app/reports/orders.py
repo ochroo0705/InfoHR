@@ -9,6 +9,7 @@ from datetime import date
 from accounts.models import User
 from django.urls import reverse
 from django.utils import timezone
+from employees.models import OrderState
 from employees.services.order_register import RegisterRow, register_rows
 
 from reports.filters import ORDER_TYPES, Filters, period_of
@@ -76,4 +77,16 @@ REPORT = Report(
     group_options=("type", "department", "state"),
     note=_note,
     layouts=("board", "calendar", "cards", "chart", "pivot"),
+    # the state texts in flow order (Decision 7). Source: state_label = OrderState.get_state_display()
+    # (employees/models.py OrderState: pending «Дугаар оруулаагүй», registered «Бүртгэсэн», signed «Гарын үсэгтэй»,
+    # cancelled «Цуцалсан»), and the old program's rows read «MACS» (employees/services/order_register.py _legacy)
+    lane_orders={
+        "state": (
+            OrderState.PENDING.label,
+            OrderState.REGISTERED.label,
+            OrderState.SIGNED.label,
+            "MACS",
+            OrderState.CANCELLED.label,
+        )
+    },
 )

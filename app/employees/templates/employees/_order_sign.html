@@ -1,0 +1,54 @@
+{# Pop-up to sign a registered order on screen (order-signing board). Needs employee, order, action, errors, has_saved.
+   The script (static/js/signature_pad.js) relies on these hooks: data-signature-form, the hidden mode and signature
+   inputs, data-sign-section, data-sign-show, data-signature-pad, data-signature-clear, data-signature-submit. #}
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
+  <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
+    <h2 class="mb-4 text-lg font-semibold">Гарын үсэг зурах · № {{ order.number }}</h2>
+    <form hx-post="{{ action }}" hx-target="closest div.fixed" hx-swap="outerHTML" data-signature-form class="space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="mode" value="{% if has_saved %}saved{% else %}drawn{% endif %}">
+      <input type="hidden" name="signature" value="">
+      {% if errors %}<ul class="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-700">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% if has_saved %}
+      <section data-sign-section="saved" class="space-y-4">
+        <div class="flex justify-center rounded-lg border border-slate-300 bg-white p-4">
+          <img src="{% url 'employees:my_signature_image' %}" alt="Хадгалсан гарын үсэг" width="300" height="100" class="h-24 w-auto object-contain">
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-slate-100 pt-4">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <button type="button" data-sign-show="draw" class="text-violet-700 hover:underline">Өөр гарын үсэг зурах</button>
+            <span><button type="button" onclick="this.parentNode.hidden=true;this.parentNode.nextElementSibling.hidden=false" class="rounded px-2 py-1 text-red-600 hover:bg-red-50">Устгах</button></span>
+            <span hidden class="text-xs text-slate-700">Хадгалсан гарын үсгийг устгах уу?
+              <button type="button" hx-post="{% url 'employees:my_signature_delete' %}" hx-vals='{"next": "{{ action }}"}' class="rounded px-1.5 py-1 font-medium text-red-600 hover:bg-red-50">Тийм</button>
+              <button type="button" onclick="this.parentNode.hidden=true;this.parentNode.previousElementSibling.hidden=false" class="rounded px-1.5 py-1 hover:bg-slate-100">Үгүй</button>
+            </span>
+          </div>
+          <div class="ml-auto flex gap-2">
+            <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+            <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Баталгаажуулж гарын үсэг зурах</button>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+      <section data-sign-section="draw" class="space-y-4"{% if has_saved %} hidden{% endif %}>
+        <p class="text-xs text-slate-500">Гарын үсгээ доорх хайрцагт хулгана, хуруу эсвэл үзгээр зурна уу.</p>
+        <div class="rounded-lg border border-slate-300 bg-white">
+          <canvas data-signature-pad width="600" height="200" style="aspect-ratio: 3 / 1; height: auto" class="block w-full touch-none"></canvas>
+        </div>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="remember" value="1" class="rounded border-slate-300"> Хадгалах
+        </label>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-slate-100 pt-4">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <button type="button" data-signature-clear class="text-violet-700 hover:underline">Цэвэрлэх</button>
+            {% if has_saved %}<button type="button" data-sign-show="saved" class="text-violet-700 hover:underline">Буцах</button>{% endif %}
+          </div>
+          <div class="ml-auto flex gap-2">
+            <button type="button" onclick="this.closest('div.fixed').remove()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Болих</button>
+            <button type="submit" data-signature-submit disabled class="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">Гарын үсэг зурах</button>
+          </div>
+        </div>
+      </section>
+    </form>
+  </div>
+</div>

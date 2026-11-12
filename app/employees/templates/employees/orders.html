@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Тушаалын бүртгэл{% endblock %}
 {% block content %}
 <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4">
@@ -7,7 +8,13 @@
     {% if perms.reports.view_reports and perms.macs.view_employees %}<a href="{% url 'reports:report' 'orders' %}" class="text-sm text-violet-700 hover:underline">Тайлан гаргах</a>{% endif %}
     {% if can_manage %}<form id="order-print-form" method="post" action="{% url 'employees:orders_print_selected' %}" target="_blank" class="contents">{% csrf_token %}
       <button type="submit" id="order-print-selected" disabled class="rounded-lg border border-slate-300 px-4 py-2 text-sm enabled:hover:bg-slate-50 disabled:text-slate-400">Сонгосныг хэвлэх</button>
-    </form>{% endif %}
+    </form>
+    <div id="print-job" hidden data-state="running" data-background-from="{{ background_from }}" data-start-url="{% url 'employees:orders_print_start' %}" role="status" aria-live="polite" class="print-job inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700">
+      <span data-pj="running" class="inline-flex items-center gap-2"><span class="pj-dots inline-flex items-center gap-1" aria-hidden="true"><span></span><span></span><span></span></span>Бэлтгэж байна…</span>
+      <span data-pj="ready" hidden class="inline-flex items-center gap-2">Бэлэн болсон <a data-pj-open href="#" target="_blank" rel="noopener" class="rounded-lg bg-violet-600 px-3 py-1 text-white hover:bg-violet-700">Нээх</a></span>
+      <span data-pj="failed" hidden class="inline-flex items-center gap-2 text-red-700"><span data-pj-message></span><button type="button" data-pj-retry class="underline">Дахин оролдох</button></span>
+      <button type="button" data-pj-close aria-label="Хаах" class="text-slate-400 hover:text-slate-700">✕</button>
+    </div>{% endif %}
     <a id="print-link" href="{% url 'employees:orders_print' %}{% if querystring %}?{{ querystring }}{% endif %}" target="_blank" rel="noopener" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Хэвлэх</a>
   </div>
 </div>
@@ -54,5 +61,6 @@
     });
   });
 })();
-</script>{% endif %}
+</script>
+<script src="{% static 'js/print_job.js' %}" defer></script>{% endif %}
 {% endblock %}

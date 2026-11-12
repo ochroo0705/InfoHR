@@ -11,7 +11,7 @@
       {% if c.day.off or c.count is None %}
       <div class="rounded-md px-1 py-1.5 text-center text-xs leading-tight {{ c.shade }}{% if c.day.is_today %} ring-2 ring-violet-600{% endif %}"{% if c.day.holiday %} title="{{ c.day.holiday }}"{% endif %}{% if c.day.is_today %} data-today{% endif %}>
         <span class="block font-semibold">{{ c.day.day.day }}</span>
-        <span class="block">{{ c.day.day|date:"D" }}</span>
+        <span class="block text-slate-600">{{ c.day.day|date:"D" }}</span>
       </div>
       {% else %}
       <button type="button" hx-get="{% url 'employees:today_away' %}?day={{ c.day.day|date:'Y-m-d' }}" hx-target="#away-names" aria-label="{{ c.day.day|date:'Y-m-d' }}: {{ c.count }} хүн чөлөөтэй" title="{{ c.day.day|date:'Y-m-d' }}: {{ c.count }} хүн чөлөөтэй" class="rounded-md px-1 py-1.5 text-center text-xs leading-tight hover:ring-2 hover:ring-violet-300 {{ c.shade }}{% if c.day.is_today %} ring-2 ring-violet-600{% endif %}"{% if c.day.is_today %} data-today{% endif %}>
@@ -29,6 +29,20 @@
   <section class="card-soft p-4{% if not away_strip.show_leave %} lg:col-span-2{% endif %}" data-upcoming aria-labelledby="upcoming-title">
     <h2 id="upcoming-title" class="sec-title mb-2">Ойрын 30 хоног</h2>
     <div class="divide-y divide-slate-100 text-sm">
+      {% comment %} Holidays line (Task 5): text only, no button; absent when no holiday is coming. {% endcomment %}
+      {% if holidays %}
+      <div data-holidays class="py-1.5 text-slate-700">Баяр ёслол: {% for day, name in holidays|slice:":3" %}{{ day|date:"Y-m-d" }} {{ name }}{% if not forloop.last %} · {% endif %}{% endfor %}{% if holidays|length > 3 %} +{{ holidays|length|add:"-3" }}{% endif %}</div>
+      {% endif %}
+      {% comment %} Open vacancies line (Task 7): a link to recruitment; absent without the recruitment right. {% endcomment %}
+      {% if open_vacancies is not None %}
+      <div data-vacancies>
+        <a href="{% url 'recruitment:vacancies' %}" class="flex w-full items-center rounded py-1.5 text-violet-700 hover:bg-slate-50">Нээлттэй ажлын байр {{ open_vacancies }} →</a>
+      </div>
+      {% endif %}
+      {% comment %} Checklist summary line (Task 8): open lists and overdue tasks; absent without the checklist right. {% endcomment %}
+      {% if checklist_summary is not None %}
+      <div data-checklist-summary class="py-1.5 text-slate-700">Бүрдүүлэлт: {{ checklist_summary.0 }} нээлттэй · <span{% if checklist_summary.1 > 0 %} class="text-red-700"{% endif %}>{{ checklist_summary.1 }} хоцорсон</span></div>
+      {% endif %}
       {% if show_birthdays %}<div>
         <button type="button" hx-get="{% url 'employees:today_upcoming' %}?kind=birthday" hx-target="#upcoming-birthday" aria-controls="upcoming-birthday" aria-expanded="false" hx-on::before-request="if(this.getAttribute('aria-expanded')==='true'){event.preventDefault();document.getElementById('upcoming-birthday').replaceChildren();this.setAttribute('aria-expanded','false');this.querySelector('[data-arrow]').textContent='▸'}" hx-on::after-request="if(event.detail.successful){this.setAttribute('aria-expanded','true');this.querySelector('[data-arrow]').textContent='▾'}" class="flex w-full items-center rounded py-1.5 text-left text-slate-700 hover:bg-slate-50">Төрсөн өдөр {{ upcoming_counts.birthday }} <span data-arrow>▸</span></button>
         <div id="upcoming-birthday" aria-live="polite"></div>
@@ -36,6 +50,10 @@
       <div>
         <button type="button" hx-get="{% url 'employees:today_upcoming' %}?kind=anniversary" hx-target="#upcoming-anniversary" aria-controls="upcoming-anniversary" aria-expanded="false" hx-on::before-request="if(this.getAttribute('aria-expanded')==='true'){event.preventDefault();document.getElementById('upcoming-anniversary').replaceChildren();this.setAttribute('aria-expanded','false');this.querySelector('[data-arrow]').textContent='▸'}" hx-on::after-request="if(event.detail.successful){this.setAttribute('aria-expanded','true');this.querySelector('[data-arrow]').textContent='▾'}" class="flex w-full items-center rounded py-1.5 text-left text-slate-700 hover:bg-slate-50">Ажилласан жилийн ой {{ upcoming_counts.anniversary }} <span data-arrow>▸</span></button>
         <div id="upcoming-anniversary" aria-live="polite"></div>
+      </div>
+      <div>
+        <button type="button" hx-get="{% url 'employees:today_hires' %}" hx-target="#upcoming-hires" aria-controls="upcoming-hires" aria-expanded="false" hx-on::before-request="if(this.getAttribute('aria-expanded')==='true'){event.preventDefault();document.getElementById('upcoming-hires').replaceChildren();this.setAttribute('aria-expanded','false');this.querySelector('[data-arrow]').textContent='▸'}" hx-on::after-request="if(event.detail.successful){this.setAttribute('aria-expanded','true');this.querySelector('[data-arrow]').textContent='▾'}" class="flex w-full items-center rounded py-1.5 text-left text-slate-700 hover:bg-slate-50">Сүүлийн 30 хоногт шинээр орсон {{ new_hires_count }} <span data-arrow>▸</span></button>
+        <div id="upcoming-hires" aria-live="polite"></div>
       </div>
     </div>
   </section>

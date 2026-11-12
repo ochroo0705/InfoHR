@@ -385,6 +385,21 @@ _CHECKERS: dict[str, Callable[[Rule, Any, date], bool | None]] = {
 }
 
 
+def ops_for(kind: str) -> tuple[str, ...]:
+    """The operators a kind accepts. An empty tuple for an unknown kind."""
+    return OPS.get(kind, ())
+
+
+def check_value(op: str, value: str, kind: str) -> bool:
+    """True when the operator belongs to the kind and the typed value reads for that operator and kind.
+
+    «empty» and «filled» take no value, so any value passes for them.
+    """
+    if op not in ops_for(kind):
+        return False
+    return _value_readable(Rule(column="", op=op, value=value), kind)
+
+
 # ---- evaluating the tree over rows ----
 
 

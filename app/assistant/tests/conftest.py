@@ -1,15 +1,17 @@
 import itertools
 from collections.abc import Callable
+from datetime import date
 
 import pytest
 from accounts import roles
 from accounts.models import User
-from django.contrib.auth.models import Group
-from employees.models import JobRecord
+from django.db import transaction
 from employees.tests.conftest import _no_offboarding_templates, link_login  # noqa: F401 (autouse)
 from leave.models import LeaveSettings
 
-from assistant.tests.helpers import hire_one
+from assistant.entries import allowed_entries
+from assistant.evalset import fill_role_entries
+from assistant.role_users import make_role_user as build_role_user
 
 PASSWORD = "x-long-pass-123"  # noqa: S105
 _NAMES = itertools.count(1)
@@ -32,27 +34,48 @@ def _no_request_time_daily_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(daily_sync, "_needs_sync", lambda request: False)
 
 
+TODAY = date(2026, 11, 4)
+# role -> (user kind, leave approval on?). The eval roles ending in «_off» are the same users with approval off.
+ROLE_SETUP: dict[str, tuple[str, bool]] = {
+    "hr": ("hr", True),
+    "hr_off": ("hr", False),
+    "accountant": ("accountant", True),
+    "staff": ("staff", True),
+    "staff_off": ("staff", False),
+    "approver": ("approver", True),
+    "admin": ("admin", True),
+    "auditor": ("auditor", True),
+    "none": ("none", True),
+}
+
+
+def make_role_user(actor: User, kind: str) -> User:
+    """A fresh login of the kind (see assistant.role_users.make_role_user)."""
+    return build_role_user(actor, kind, f"help_{kind}_{next(_NAMES)}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _role_entry_lists(django_db_setup: None, django_db_blocker: object) -> None:
+    """Build evalset.ROLE_ENTRIES from the real rules: for each role, a real user's `allowed_entries`. Nothing is
+    kept in the database (the transaction is rolled back), and nothing is written by hand."""
+    by_role: dict[str, tuple[str, ...]] = {}
+    with django_db_blocker.unblock(), transaction.atomic():  # type: ignore[attr-defined]
+        actor = User.objects.create_superuser("help_actor_lists", password=PASSWORD)
+        for role, (kind, approval) in ROLE_SETUP.items():
+            LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": approval})
+            user = make_role_user(actor, kind)
+            by_role[role] = tuple(e.key for e in allowed_entries(user, TODAY))
+        transaction.set_rollback(True)
+    fill_role_entries(by_role)
+
+
 @pytest.fixture
 def role_user(db: None) -> Callable[[str], User]:
-    """A fresh login per call. Kinds: hr, accountant, admin (staff), auditor, staff (Employee + own record), approver
-    (staff who is the line manager of another hired employee), none (no group, no record)."""
+    """A fresh login per call (see make_role_user)."""
     actor = User.objects.create_superuser("help_actor", password=PASSWORD)
 
     def make(kind: str) -> User:
-        user = User.objects.create_user(f"help_{kind}_{next(_NAMES)}", password=PASSWORD)
-        group = _GROUP_OF[kind]
-        if group is not None:
-            user.groups.add(Group.objects.get(name=group))
-        if kind == "admin":
-            user.is_staff = True
-            user.save(update_fields=["is_staff"])
-        if kind in ("staff", "approver"):
-            own = hire_one(actor)
-            link_login(own, user)
-            if kind == "approver":
-                report = hire_one(actor)
-                JobRecord.objects.filter(employee=report).update(manager=own)
-        return user
+        return make_role_user(actor, kind)
 
     return make
 

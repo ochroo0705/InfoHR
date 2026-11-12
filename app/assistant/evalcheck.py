@@ -9,7 +9,9 @@ from urllib.parse import parse_qsl, urlencode
 
 from accounts.models import User
 from django.http import QueryDict
+from employees.models import CompanySettings
 from reports.filters import parse_filters, to_query
+from reports.rules import Group, Rule, dump_rules
 
 from assistant.evalset import ActionCase, TableCase
 from assistant.plan import Plan
@@ -50,9 +52,20 @@ def expected_pairs(expected: str, today: date) -> list[tuple[str, str, bool]]:
     return pairs
 
 
-def expected_query(expected: str, today: date) -> str:
+def condition_rules(conditions: tuple[tuple[str, str, str], ...]) -> tuple[Rule, ...]:
+    """The expected conditions as rules. «{soon_days}» becomes the company's «дөхсөн» days."""
+    rules: list[Rule] = []
+    for column, op, value in conditions:
+        if "{soon_days}" in value:
+            value = value.replace("{soon_days}", str(CompanySettings.get().soon_days))
+        rules.append(Rule(column, op, value))
+    return tuple(rules)
+
+
+def expected_query(expected: str, today: date, conditions: tuple[tuple[str, str, str], ...] = ()) -> str:
     """The expected query as the staff table makes it: each `param~Name` becomes the id of the one row named exactly
-    `Name`. Raises ValueError when no single row has that name, or the parameter is not a lookup."""
+    `Name`, and the conditions become the `rules` pair. Raises ValueError when no single row has that name, or the
+    parameter is not a lookup."""
     pairs: list[tuple[str, str]] = []
     for param, value, by_name in expected_pairs(expected, today):
         if by_name:
@@ -64,6 +77,8 @@ def expected_query(expected: str, today: date) -> str:
                 raise ValueError(f"no single {param} row named «{value}»")
             value = str(ids[0])
         pairs.append((param, value))
+    if conditions:
+        pairs.append(("rules", dump_rules(Group("and", condition_rules(conditions)))))
     query = to_query(parse_filters(QueryDict(urlencode(pairs))))
     kept = set(parse_qsl(query, keep_blank_values=True))
     for param, value in pairs:
@@ -91,9 +106,10 @@ def check_table(user: User, case: TableCase, plan: Plan, today: date) -> TableRe
         return TableResult(passed=False, got="no table (none)")
     parts = plan.parts if plan.tool == "staff_table" else ()
     unmapped = plan.unmapped if plan.tool == "staff_table" else ()
+    conditions = plan.conditions if plan.tool == "staff_table" else ()
     # The earlier answer's filters, as the service passes them: the table keeps only what this user may use.
     base = QueryDict(case.previous).dict() if case.previous else None
-    settled = settle(user, parts, base=base, unmapped=unmapped)
+    settled = settle(user, parts, base=base, unmapped=unmapped, conditions=conditions)
     if settled.ask is not None:
         return TableResult(passed=case.ask == settled.ask.param, got=f"asks {settled.ask.param}")
     query = to_query(parse_filters(QueryDict(urlencode(settled.params))))
@@ -101,7 +117,7 @@ def check_table(user: User, case: TableCase, plan: Plan, today: date) -> TableRe
     if case.ask:
         return TableResult(passed=False, got=got)
     try:
-        want = expected_query(case.expected, today)
+        want = expected_query(case.expected, today, case.conditions)
     except ValueError as exc:
         return TableResult(passed=False, got=f"expected: {exc}")
     passed = same_filters(query, want)

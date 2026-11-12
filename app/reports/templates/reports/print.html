@@ -25,6 +25,8 @@
   td.group { font-weight: bold; background: #f6f6f6; }
   tfoot td { font-weight: bold; border-top: 2px solid #000; }
   .total { margin-top: 8px; }
+  .summary-title { font-size: 13px; margin: 8px 0 4px; }
+  table.summary { margin-bottom: 12px; }
   .noprint { margin-bottom: 8px; }
   @media print { .noprint { display: none; } body { margin: 0; } tr { page-break-inside: avoid; } thead { display: table-header-group; } }
 </style>
@@ -35,6 +37,25 @@
 <h1>{{ report.title }}</h1>
 <div class="filters">{% for line in lines %}<div>{{ line }}</div>{% endfor %}</div>
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
+{% if summary %}
+<h2 class="summary-title">{{ summary.title }}</h2>
+<table class="summary">
+  <thead>
+    <tr>{% for label in summary.head %}<th{% if not forloop.first %} class="text-right"{% endif %}>{{ label }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% for line in summary.lines %}
+    <tr>{% for value in line %}<td{% if not forloop.first %} class="text-right"{% endif %}>{% if forloop.first %}{{ value }}{% else %}{% include "reports/layouts/_figure.html" with value=value money=summary.money %}{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+  </tbody>
+  {% if summary.foot %}
+  <tfoot>
+    <tr>{% for value in summary.foot %}<td{% if not forloop.first %} class="text-right"{% endif %}>{% if forloop.first %}{{ value }}{% else %}{% include "reports/layouts/_figure.html" with value=value money=summary.money %}{% endif %}</td>{% endfor %}</tr>
+  </tfoot>
+  {% endif %}
+</table>
+{% if summary.masked %}<p class="note">{{ min_group }}-ээс цөөн мөртэй бүлгийн мөнгөн дүнг нуусан («—»).</p>{% endif %}
+{% endif %}
 <table>
   <thead>
     <tr>{% for label, cls in heads %}<th{% if cls %} class="{{ cls }}"{% endif %}>{{ label }}</th>{% endfor %}</tr>

@@ -29,7 +29,23 @@ def not_allowed(count: int) -> str:
     return f"Сонгосон {count} хүн энэ тайланд харагдахгүй байна. Дахин сонгоно уу."
 
 
-LAYOUT_KEYS = ("lby", "lby2", "lval", "lchart", "lmonth")  # the layout's own address parameters, dropped with "layout*"
+# the layout's own address parameters (the old five, then the nine added since), dropped with "layout*"
+LAYOUT_KEYS = (
+    "lby",
+    "lby2",
+    "lval",
+    "lchart",
+    "lmonth",
+    "lgrain",
+    "lshow",
+    "lsort",
+    "lorder",
+    "lrep",
+    "lweek",
+    "lyear",
+    "lgroup",
+    "lval2",
+)
 
 
 class SelectionError(Exception):

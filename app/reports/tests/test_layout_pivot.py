@@ -65,7 +65,8 @@ def test_grand_equals_table_count() -> None:
     assert pivot.grand == table.count
 
 
-def test_sum_of_pay_has_money_and_exact_totals() -> None:
+def test_sum_of_pay_has_money_and_exact_totals(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     rows = [_row("Бат", "X", "A", Decimal("100.10")), _row("Дорж", "X", "B", Decimal("0.90"))]
     pivot = _build(rows, _spec(value=(PAY, "sum")))
     assert pivot.money is True
@@ -73,7 +74,8 @@ def test_sum_of_pay_has_money_and_exact_totals() -> None:
     assert pivot.grand == Decimal("101.00")
 
 
-def test_avg_is_none_for_an_empty_bucket() -> None:
+def test_avg_is_none_for_an_empty_bucket(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     rows = [_row("Бат", "X", "A", 10), _row("Дорж", "X", "A", 20), _row("Оюу", "Y", "B", 7)]
     pivot = _build(rows, _spec(value=(PAY, "avg")))
     assert pivot.row_labels == ["X", "Y"]
@@ -141,7 +143,8 @@ def _pay_rows() -> list[Any]:
     ]
 
 
-def test_avg_row_and_column_totals_are_over_the_rows_not_the_cells() -> None:
+def test_avg_row_and_column_totals_are_over_the_rows_not_the_cells(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     pivot = _build(_pay_rows(), _spec(value=(PAY, "avg")))
     assert pivot.row_labels == ["X", "Y"]
     assert pivot.col_labels == ["A", "B"]
@@ -152,14 +155,16 @@ def test_avg_row_and_column_totals_are_over_the_rows_not_the_cells() -> None:
     assert pivot.grand == Decimal("47.50")
 
 
-def test_min_row_and_column_totals_are_over_the_rows() -> None:
+def test_min_row_and_column_totals_are_over_the_rows(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     pivot = _build(_pay_rows(), _spec(value=(PAY, "min")))
     assert pivot.row_totals == [10, 100]
     assert pivot.col_totals == [10, 30]
     assert pivot.grand == 10
 
 
-def test_max_row_and_column_totals_are_over_the_rows() -> None:
+def test_max_row_and_column_totals_are_over_the_rows(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     pivot = _build(_pay_rows(), _spec(value=(PAY, "max")))
     assert pivot.row_totals == [50, 100]
     assert pivot.col_totals == [100, 50]
@@ -191,7 +196,8 @@ def test_decimal_overflow_average_is_none_in_a_cell_and_total() -> None:
     assert pivot.grand is None
 
 
-def test_mixed_text_and_number_values_sum_only_the_numbers() -> None:
+def test_mixed_text_and_number_values_sum_only_the_numbers(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     rows = [_row("Бат", "X", "A", "n/a"), _row("Дорж", "X", "A", 5), _row("Оюу", "X", "B", Decimal("2.5"))]
     pivot = _build(rows, _spec(value=(PAY, "sum")))
     assert pivot.cells == [[5, Decimal("2.5")]]

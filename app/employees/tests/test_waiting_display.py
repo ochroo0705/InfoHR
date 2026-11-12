@@ -117,6 +117,57 @@ def test_order_pop_up_shows_chip_and_note_for_a_waiting_change(
     assert CHIP in body and NOTE in body
 
 
+def test_order_pop_up_shows_old_and_new_job_for_a_position_change(
+    hr: Client, hired: Employee, actor: User, today: date
+) -> None:
+    ev = _waiting(hired, actor, today + timedelta(days=20))
+    order = HrOrder.objects.get(event=ev)
+    body = hr.get(reverse("employees:order_detail", args=[hired.pk, order.pk])).content.decode()
+    assert "Албан тушаал" in body and "Нягтлан" in body and "→" in body
+    assert body.index("Нягтлан") < body.index(f"Ахлах {(today + timedelta(days=20)).isoformat()}")
+    assert "Хэлтэс, албан тушаал" not in body  # the unchanged department is not repeated
+
+
+def test_order_pop_up_shows_what_a_contract_change_changes(
+    hr: Client, hired: Employee, actor: User, today: date
+) -> None:
+    day = today + timedelta(days=20)
+    ev = events.record(
+        hired,
+        type="contract",
+        effective=day,
+        changes={
+            "employee_type": "contract",
+            "emptype": 5,
+            "contract_type": "fixed_term",
+            "contract_start": day,
+            "contract_end": day + timedelta(days=365),
+        },
+        salary=None,
+        reason="",
+        note="",
+        by=actor,
+    )
+    order = HrOrder.objects.get(event=ev)
+    body = hr.get(reverse("employees:order_detail", args=[hired.pk, order.pk])).content.decode()
+    assert "Гэрээний төрөл" in body and "Хугацаагүй" in body and "Хугацаатай" in body
+    assert (day + timedelta(days=365)).isoformat() in body
+
+
+def test_order_pop_up_shows_old_and_new_salary_only_with_the_salary_right(
+    client: Client, hired: Employee, actor: User, today: date
+) -> None:
+    day = today + timedelta(days=20)
+    ev = _waiting(hired, actor, day, Decimal("3000000"))
+    order = HrOrder.objects.get(event=ev)
+    url = reverse("employees:order_detail", args=[hired.pk, order.pk])
+    login_as(client, "Accountant", "acc_salary")
+    body = client.get(url).content.decode()
+    assert "Үндсэн цалин" in body and "2,500,000₮" in body and "3,000,000₮" in body
+    login_as(client, "HR", "hr_salary")
+    assert "3,000,000" not in client.get(url).content.decode()
+
+
 def test_order_pop_up_has_no_waiting_chip_for_an_applied_change(
     hr: Client, hired: Employee, actor: User, today: date
 ) -> None:

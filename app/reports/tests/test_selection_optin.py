@@ -13,6 +13,8 @@ Opted in (`person` set; the rows are one person each):
 - annual-leave: one row per staff member not left on the as-of date (the annual balance row).
 - absence-totals: one row per person with counted leave or old-log absence days in the period.
 - performance-summary: one row per working person (zeros when there are no budget rows).
+- staff-compare: one row per person who differs between the two days.
+- data-gaps: one row per employee with a missing field.
 
 Left out (`person` stays None):
 - children: one row per child, a parent can have several.
@@ -35,6 +37,7 @@ Left out (`person` stays None):
 - loans: one row per loan.
 - performance: one row per budget indicator of each person.
 - accidents, poisoning: statistic lines (shows_count off), not people.
+- headcount-trend: one row per month, not people.
 """
 
 from datetime import date
@@ -61,6 +64,8 @@ OPTED_IN: tuple[str, ...] = (
     "annual-leave",
     "absence-totals",
     "performance-summary",
+    "staff-compare",
+    "data-gaps",
 )
 LEFT_OUT: tuple[str, ...] = (
     "children",
@@ -86,6 +91,7 @@ LEFT_OUT: tuple[str, ...] = (
     "performance",
     "accidents",
     "poisoning",
+    "headcount-trend",
 )
 
 
@@ -131,6 +137,7 @@ def _cases(staff: dict[str, Employee], sanhuu: int, year: int) -> dict[str, list
     staff_cases = [(Filters(), everyone), (Filters(department=sanhuu), sanhuu_only)]
     return {
         "staff-list": staff_cases,
+        "data-gaps": staff_cases,  # every fixture person has blank fields (no email, no contract number…)
         "household-income": staff_cases,
         "annual-leave": staff_cases,
         "absence-totals": [
@@ -142,6 +149,12 @@ def _cases(staff: dict[str, Employee], sanhuu: int, year: int) -> dict[str, list
             (Filters(), everyone),
             (Filters(department=sanhuu), sanhuu_only),
             (Filters(year=year - 1), everyone),  # no budget rows that year: everyone still listed, with zeros
+        ],
+        # the fixture hires are all on 5 January 2026 (conftest hire_values): 1 January has none of them on staff,
+        # 31 January has all of them, so every fixture person is «Орсон» and the rows are real
+        "staff-compare": [
+            (Filters(date_from=date(2026, 1, 1), date_to=date(2026, 1, 31)), everyone),
+            (Filters(date_from=date(2026, 1, 1), date_to=date(2026, 1, 31), department=sanhuu), sanhuu_only),
         ],
     }
 

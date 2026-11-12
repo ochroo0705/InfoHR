@@ -5,6 +5,8 @@
   <title>{% block title %}MACS Human Capital{% endblock %} · MACS Human Capital</title>
   {# Theme before first paint: the user-menu choice (localStorage "theme": light | dark), else the computer's setting. nav.js owns the switch. #}
   <script>(function(){var t;try{t=localStorage.getItem('theme')}catch(e){}if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;})();</script>
+  {% comment %}The page fade (@view-transition in input.css) is skipped by the browser on a redirect or a quick second navigation; its promises then reject with «Transition was aborted… Page already revealed» and nobody handles them. Handle them here: inline, since pagereveal fires before any deferred script.{% endcomment %}
+  <script>(function(){function q(e){var v=e.viewTransition;if(v){[v.ready,v.finished,v.updateCallbackDone].forEach(function(p){if(p)p.catch(function(){});});}}addEventListener('pagereveal',q);addEventListener('pageswap',q);})();</script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'js/motion.js' %}" defer></script>
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
@@ -16,9 +18,9 @@
   <script src="{% static 'js/order_suggest.js' %}" defer></script>
   <script src="{% static 'js/modal.js' %}" defer></script>
   <script src="{% static 'js/validation_mn.js' %}" defer></script>
-  {% if user.is_authenticated %}<script src="{% static 'js/report_chart.js' %}" defer></script><script src="{% static 'js/assistant_chart.js' %}" defer></script><script src="{% static 'js/thread_store.js' %}" defer></script><script src="{% static 'js/palette.js' %}" defer></script><script src="{% static 'js/nav.js' %}" defer></script><script src="{% static 'js/report_select.js' %}" defer></script><script src="{% static 'js/report_filters.js' %}" defer></script><script src="{% static 'js/report_sort_width.js' %}" defer></script><script src="{% static 'js/report_memory.js' %}" defer></script><script src="{% static 'js/bar_tip.js' %}" defer></script>{% endif %}
+  {% if user.is_authenticated %}<script src="{% static 'js/report_chart.js' %}" defer></script><script src="{% static 'js/thread_store.js' %}" defer></script><script src="{% static 'js/palette.js' %}" defer></script><script src="{% static 'js/nav.js' %}" defer></script><script src="{% static 'js/report_select.js' %}" defer></script><script src="{% static 'js/signature_pad.js' %}" defer></script><script src="{% static 'js/report_filters.js' %}" defer></script><script src="{% static 'js/report_sticky.js' %}" defer></script><script src="{% static 'js/report_sort_width.js' %}" defer></script><script src="{% static 'js/report_memory.js' %}" defer></script><script src="{% static 'js/bar_tip.js' %}" defer></script>{% endif %}
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-800"{% if perms.lists.manage_lists %} data-can-add-lists{% endif %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body class="min-h-screen bg-slate-50 text-slate-800"{% if perms.lists.manage_lists %} data-can-add-lists{% endif %}{% if user.is_authenticated %} data-user-id="{{ user.pk }}"{% endif %} hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}
   <header class="sticky top-0 z-40 bg-slate-800 text-white shadow-sm">
     <nav class="flex h-14 items-stretch gap-1 px-4 text-sm sm:px-6">
@@ -77,8 +79,6 @@
       <div data-palette-hint class="mt-1.5 hidden items-center justify-center text-xs text-slate-500 sm:flex"><span><kbd class="rounded border border-slate-300 bg-surface px-1.5 text-xs">↑↓</kbd> сонгох · <kbd class="rounded border border-slate-300 bg-surface px-1.5 text-xs">Enter</kbd> нээх · <kbd class="rounded border border-slate-300 bg-surface px-1.5 text-xs">Shift+Enter</kbd> мөр · <kbd class="rounded border border-slate-300 bg-surface px-1.5 text-xs">Esc</kbd> хаах</span></div>
     </div>
   </aside>
-  {# The chart pane: docks to the left of the assistant panel (non-modal, page stays usable). Filled by assistant_chart.js with the chart fragment; closes with the panel. #}
-  <aside id="assistant-chart-pane" data-chart-pane hidden aria-label="График" class="fixed bottom-0 right-[26rem] top-14 z-40 flex w-[32rem] max-w-[calc(100vw-26rem)] flex-col border-l border-slate-200 bg-surface shadow-2xl ring-1 ring-slate-900/5 max-sm:inset-0 max-sm:z-[41] max-sm:w-full max-sm:max-w-none print:hidden"></aside>
   {% block assistant_fab %}{% if ask_available %}<button type="button" data-assistant-fab aria-label="Асуух" aria-expanded="false" aria-controls="assistant-panel" class="fixed bottom-4 right-4 z-40 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-violet-700 max-sm:min-h-11 print:hidden">Асуух</button>{% endif %}{% endblock %}
   {% endblock %}
   {% endif %}

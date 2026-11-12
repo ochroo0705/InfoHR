@@ -128,6 +128,16 @@ def test_bar_clear_link_says_view_plain_with_a_default_view(
     assert f'href="{STAFF}?view=plain"' in page  # the filter bar's «Цэвэрлэх»
 
 
+def test_reset_all_button_opens_the_plain_address_and_drops_everything(
+    client: Client, login_hr: User, default_view: SavedView
+) -> None:
+    page = client.get(STAFF, {"rules": NAME_RULE, "sort": "-name", "totals": "count"}).content.decode()
+    assert re.search(rf'href="{re.escape(STAFF)}\?view=plain"[^>]*data-reset-all[^>]*aria-label="Бүгдийг арилгах"', page)
+    reset = client.get(f"{STAFF}?view=plain")
+    assert reset.status_code == 200 and not reset.has_header("Location")  # the default view does not reopen
+    assert "Нөхцөл:" not in reset.content.decode()  # no rule line
+
+
 def test_clear_links_open_without_redirect(client: Client, login_hr: User, default_view: SavedView) -> None:
     page = client.get(STAFF, {"rules": NAME_RULE}).content.decode()
     # the rules line's «Цэвэрлэх» (clear_rules_url) is the address without the rules: it must not be the bare path

@@ -1,151 +1,67 @@
-// Personal tab: topic groups open as pages, the section menu follows the section in view; sections edited on the spot show their save
-// strip once changed, and unsaved changes ask before the page is left. Sections are plain elements with id sec-<name>.
+// Personal tab: each topic group is a collapsible <details data-pgroup> (UI_RULES §8). A group that holds an error or unsaved
+// input opens itself, and the address (#personal-<group>) opens its group and scrolls to it. Sections edited on the spot
+// show their save strip once changed, and unsaved changes ask before the page is left. Sections are plain elements with id sec-<name>.
 (function () {
-  if (!document.getElementById('personal-nav')) return;
+  if (!document.querySelector('[data-pgroup]')) return;
   var dirty = {};  // section name -> true while its form has unsaved input
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // The menu and the groups are looked up on each use: a Work-tab save redraws <main>, menu included.
-  function menu() { return document.getElementById('personal-nav'); }
 
   function nameOf(id) { return id && id.indexOf('sec-') === 0 ? id.slice(4) : ''; }
-  function shown(el) { return el.getClientRects().length > 0; }
 
-  // Topic groups are pages (UI_RULES §8): on wide screens only the open group is shown (CSS hides
-  // [data-pgroup][data-off] from lg up); narrow screens have no menu and keep the whole tab as one page.
-  // The open group is in the address as #personal-<group>, so a reload or Back keeps it.
-  var group = '';
+  // The groups are looked up on each use: a Work-tab save redraws <main>, groups included.
   function groups() { return document.querySelectorAll('[data-pgroup]'); }
-  // animate: a user's choice (menu, section entry, Back) swaps the group in; the page load and a redraw do not.
-  function openGroup(key, animate) {
-    var keys = Array.prototype.map.call(groups(), function (g) { return g.getAttribute('data-pgroup'); });
-    if (keys.indexOf(key) === -1) key = keys[0] || '';
-    group = key;
+  function groupEl(key) {
+    var found = null;
+    groups().forEach(function (g) { if (g.getAttribute('data-pgroup') === key) found = g; });
+    return found;
+  }
+  // The open state each group was left in by the reader (a Work-tab save redraws the groups; see restoreGroups).
+  // Only the reader's own clicks on a group's summary record it: a <details open> that the parser makes after a redraw
+  // fires toggle too, and recording that would reopen a group the reader had closed.
+  var openState = {};
+  function recordOpen(g) { openState[g.getAttribute('data-pgroup')] = g.open; }
+  document.addEventListener('click', function (e) {
+    var s = e.target.closest && e.target.closest('details[data-pgroup] > summary');
+    if (!s) return;
+    var g = s.parentNode;
+    // The browser flips g.open as the click's default action, after this listener: read it once that has happened.
+    setTimeout(function () { recordOpen(g); }, 0);
+  });
+
+  // A group with an error or unsaved input opens itself (UI_RULES §2d, §2f). It only ever opens, never closes.
+  function openMarked() {
     groups().forEach(function (g) {
-      if (g.getAttribute('data-pgroup') === key) {
-        if (animate && g.hasAttribute('data-off')) swapIn(g);
-        g.removeAttribute('data-off');
-      } else g.setAttribute('data-off', '');
-    });
-    var m = menu();
-    if (m) m.querySelectorAll('a[data-pgroup-link]').forEach(function (a) {
-      if (a.getAttribute('data-pgroup-link') === key) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
+      if (g.querySelector('[aria-invalid="true"], [data-dirty]')) g.open = true;
     });
   }
-  // The group that comes into view plays swap-in once (input.css); the class goes on its own animationend, or on
-  // animationcancel (a hidden panel cancels the animation, and no animationend then comes).
-  function swapIn(el) {
-    if (reduce) return;
-    el.classList.add('swap-in');
-    function end(e) {
-      if (e.target !== el) return;
-      el.classList.remove('swap-in');
-      el.removeEventListener('animationend', end);
-      el.removeEventListener('animationcancel', end);
-    }
-    el.addEventListener('animationend', end);
-    el.addEventListener('animationcancel', end);
+  // A redraw puts every group back to its server state: the groups keep the state the reader left them in, and a
+  // group with an error or unsaved input opens.
+  function restoreGroups() {
+    groups().forEach(function (g) {
+      var key = g.getAttribute('data-pgroup');
+      if (Object.prototype.hasOwnProperty.call(openState, key)) g.open = openState[key];
+    });
+    openMarked();
   }
-  // Opens a group the way a menu click does (the tab scrolls back under the top bar, the menu follows), except that the
-  // address is left alone and the group only animates when animate is true. employee_field_focus.js opens a closed
-  // group through window.hrOpenGroup(key, false) when a #tab-field link targets it.
-  function pickGroup(key, animate) {
-    openGroup(key, animate);
-    var tab = document.getElementById('tab-personal');
-    if (tab && tab.getBoundingClientRect().top < 0) window.scrollTo(0, window.scrollY + tab.getBoundingClientRect().top - 80);
-    pinned = '';
-    current();
-  }
-  // The field-link path (employee_field_focus.js) rewrites the address to #personal-<group> like a menu click, so a later
-  // Back or Forward keeps the group instead of falling back to the first one.
-  window.hrOpenGroup = function (key, animate) { pickGroup(key, animate); remember(); };
+  // employee_field_focus.js opens the closed group of a field through this (UI_RULES §2e). It does not scroll: the field does.
+  // The animate argument is kept for its callers; a group opens at once, it no longer swaps in.
+  window.hrOpenGroup = function (key, animate) {
+    var g = groupEl(key);
+    if (g) { g.open = true; recordOpen(g); }  // a link the reader followed counts as their choice
+  };
+  // The address names a group as #personal-<group>: that group opens and scrolls into view, so a reload or Back keeps it.
   function hashGroup() {
     var h = location.hash.slice(1);
     return h.indexOf('personal-') === 0 ? h.slice(9) : '';
   }
-  function remember() {
-    if (location.hash.indexOf('#personal') === 0) history.replaceState(null, '', '#personal-' + group);
+  function showHashGroup() {
+    var g = groupEl(hashGroup());
+    if (!g) return;
+    g.open = true;
+    recordOpen(g);
+    g.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }
-  openGroup(hashGroup());
-
-  // The link of the section in view gets aria-current (styled in _personal_menu_item.html).
-  function highlight(name) {
-    var m = menu();
-    if (m) m.querySelectorAll('a[data-sec]').forEach(function (a) {
-      if (a.getAttribute('data-sec') === name) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
-    });
-  }
-
-  // The last shown section whose top has scrolled above the top bar's edge is the current one; above the
-  // first one, the first shown section is. After a menu click the clicked section stays current until the
-  // reader scrolls by hand: near a group page's end a section can't reach the top, and another would win.
-  var ticking = false, pinned = '';
-  ['wheel', 'touchmove', 'keydown'].forEach(function (type) {
-    window.addEventListener(type, function () { pinned = ''; }, { passive: true });
-  });
-  function current() {
-    ticking = false;
-    if (pinned) { highlight(pinned); return; }
-    var name = '', first = '';
-    document.querySelectorAll('section[id^="sec-"]').forEach(function (s) {
-      if (!shown(s)) return;
-      if (!first) first = nameOf(s.id);
-      if (s.getBoundingClientRect().top <= 120) name = nameOf(s.id);
-    });
-    highlight(name || first);
-  }
-  function observe() { if (group) openGroup(group); current(); }
-  window.addEventListener('scroll', function () {
-    if (!ticking) { ticking = true; window.requestAnimationFrame(current); }
-  }, { passive: true });
-
-  // A short highlight on the section the menu link scrolled to, started once the scroll has arrived
-  // (scrollend, or a timer where the browser has no such event / nothing needed to scroll).
-  function flash(el) {
-    var done = false;
-    function go() {
-      if (done) return;
-      done = true;
-      window.removeEventListener('scrollend', go);
-      el.classList.remove('sec-flash');
-      void el.offsetWidth;  // restart the animation on a repeated click
-      el.classList.add('sec-flash');
-      el.addEventListener('animationend', function end() {
-        el.classList.remove('sec-flash');
-        el.removeEventListener('animationend', end);
-      });
-    }
-    window.addEventListener('scrollend', go);
-    window.setTimeout(go, reduce ? 0 : 700);
-  }
-
-  // A group link opens that group at its top; an entry opens its group and scrolls to the section.
-  document.addEventListener('click', function (e) {
-    var m = menu();
-    if (!m || !m.contains(e.target)) return;
-    var g = e.target.closest('a[data-pgroup-link]');
-    if (g) {
-      e.preventDefault();
-      pickGroup(g.getAttribute('data-pgroup-link'), true);
-      remember();
-      return;
-    }
-    var a = e.target.closest('a[data-sec]');
-    if (!a) return;
-    var el = document.getElementById('sec-' + a.getAttribute('data-sec'));
-    if (!el) return;
-    e.preventDefault();
-    var home = el.closest('[data-pgroup]');
-    if (home && home.getAttribute('data-pgroup') !== group) { openGroup(home.getAttribute('data-pgroup'), true); remember(); }
-    pinned = a.getAttribute('data-sec');
-    highlight(pinned);
-    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-    flash(el);
-  });
-  // The «Хувийн» tab link writes #personal: keep the open group in the address.
-  window.addEventListener('hashchange', function () { if (hashGroup()) openGroup(hashGroup(), true); });
-  document.addEventListener('click', function (e) {
-    if (e.target.closest('a[href="#personal"]')) window.setTimeout(function () { remember(); current(); }, 0);
-  });
+  window.addEventListener('hashchange', showHashGroup);
 
   // Typing in a section form marks that section dirty; a save or cancel swaps the section and clears it.
   document.addEventListener('input', function (e) { markDirty(e); });
@@ -202,7 +118,7 @@
     var form = document.getElementById('sec-' + name + '-form');  // not an inline list's form in the same section
     if (!form || (form.hasAttribute('data-on-spot') && !form.hasAttribute('data-dirty'))) delete dirty[name];
   });
-  document.addEventListener('htmx:afterSettle', observe);
+  document.addEventListener('htmx:afterSettle', restoreGroups);
 
   // Inline list rows (UI_RULES §2f): Esc closes the open row unless it only closed a dropdown or a calendar,
   // and a row that a list redraw just opened gets the cursor (in its first box with an error, else its first box).
@@ -256,5 +172,17 @@
     });
   });
 
-  observe();
+  // Printing shows every group: a closed one opens for the print and closes again after it (a closed <details> hides its content).
+  var printOpened = [];
+  window.addEventListener('beforeprint', function () {
+    printOpened = [];
+    groups().forEach(function (g) { if (!g.open) { g.open = true; printOpened.push(g); } });
+  });
+  window.addEventListener('afterprint', function () {
+    printOpened.forEach(function (g) { g.open = false; });
+    printOpened = [];
+  });
+
+  openMarked();
+  showHashGroup();
 })();

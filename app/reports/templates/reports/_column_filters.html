@@ -27,19 +27,73 @@ Nothing is drawn when the report offers no column filters (column_filter_choices
 {% elif part == "picker" and filter_picker %}
   <details data-column-picker class="relative shrink-0">
     <summary class="flex cursor-pointer list-none items-center rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm hover:bg-slate-50">Шүүлтүүр нэмэх ▾</summary>
-    <div class="absolute left-0 z-20 mt-1 w-56 rounded-lg border border-slate-200 bg-surface py-1 shadow-lg">
-      {% for label, href, heading in filter_picker %}{% if heading %}<p class="px-3 pb-1 pt-2 text-xs font-medium text-slate-500">{{ heading }}</p>{% endif %}<a href="{{ href }}" hx-get="{{ href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="block cursor-pointer px-3 py-1.5 text-sm hover:bg-slate-50">{{ label }}</a>{% endfor %}
+    <div class="absolute left-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-surface shadow-lg">
+      <div class="border-b border-slate-100 p-2">
+        <input type="search" data-picker-search placeholder="Хайх…" aria-label="Шүүлтүүр хайх" autocomplete="off" class="sel-search w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none">
+      </div>
+      <div data-picker-list class="max-h-80 overflow-y-auto py-1">
+        {% for label, href, heading in filter_picker %}{% if heading %}<p data-picker-heading class="px-3 pb-1 pt-2 text-xs font-medium text-slate-500">{{ heading }}</p>{% endif %}<a href="{{ href }}" data-picker-item hx-get="{{ href }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="block cursor-pointer px-3 py-1.5 text-sm hover:bg-slate-50 focus:bg-violet-50 focus:outline-none">{{ label }}</a>{% endfor %}
+        <p data-picker-empty hidden class="px-3 py-2 text-sm text-slate-500">Олдсонгүй</p>
+      </div>
     </div>
   </details>
-  {# The «Шүүлтүүр нэмэх» panel closes when the user clicks anywhere outside it. The page is swapped as a whole, so the listener is bound once. #}
+  {# The «Шүүлтүүр нэмэх» panel closes when the user clicks anywhere outside it, and has a search box (UI_RULES §4b). The page is swapped as a whole, so the listeners are bound once on the document. #}
   <script>
   (function () {
     if (window.columnPickerBound) return;
     window.columnPickerBound = true;
+    function visibleItems(d) {
+      return Array.prototype.filter.call(d.querySelectorAll("[data-picker-item]"), function (a) { return !a.hidden; });
+    }
+    function applyFilter(d) {
+      var q = d.querySelector("[data-picker-search]").value.trim().toLowerCase();
+      var words = q ? q.split(/\s+/) : [];
+      var heading = null, headingHasMatch = false;
+      function closeGroup() { if (heading) heading.hidden = !headingHasMatch; }
+      Array.prototype.forEach.call(d.querySelector("[data-picker-list]").children, function (el) {
+        if (el.hasAttribute("data-picker-heading")) { closeGroup(); heading = el; headingHasMatch = false; }
+        else if (el.hasAttribute("data-picker-item")) {
+          var text = el.textContent.toLowerCase();
+          var ok = words.every(function (w) { return text.indexOf(w) !== -1; });
+          el.hidden = !ok;
+          if (ok) headingHasMatch = true;
+        }
+      });
+      closeGroup();
+      d.querySelector("[data-picker-empty]").hidden = visibleItems(d).length > 0;
+    }
     document.addEventListener("click", function (e) {
       document.querySelectorAll("details[data-column-picker][open]").forEach(function (d) {
         if (!d.contains(e.target)) d.removeAttribute("open");
       });
+    });
+    document.addEventListener("toggle", function (e) {
+      var d = e.target;
+      if (!d.matches || !d.matches("details[data-column-picker]")) return;
+      var box = d.querySelector("[data-picker-search]");
+      if (d.open) { box.value = ""; applyFilter(d); box.focus(); }
+    }, true);
+    document.addEventListener("input", function (e) {
+      if (!e.target.matches || !e.target.matches("[data-picker-search]")) return;
+      applyFilter(e.target.closest("details[data-column-picker]"));
+    });
+    document.addEventListener("keydown", function (e) {
+      var d = e.target.closest && e.target.closest("details[data-column-picker]");
+      if (!d) return;
+      var box = d.querySelector("[data-picker-search]");
+      if (e.key === "Escape") { d.removeAttribute("open"); d.querySelector("summary").focus(); return; }
+      var items = visibleItems(d);
+      if (e.key === "Enter" && e.target === box) {
+        e.preventDefault();
+        if (items.length) items[0].click();
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (e.target === d.querySelector("summary")) return;
+        e.preventDefault();
+        var i = items.indexOf(document.activeElement);
+        if (e.key === "ArrowDown") { if (i + 1 < items.length) items[i + 1].focus(); }
+        else if (i <= 0) box.focus();
+        else items[i - 1].focus();
+      }
     });
   })();
   </script>

@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from assistant.columns import RuleColumn
 from assistant.entries import ENTRIES, HelpEntry
 from assistant.plan import Part, Plan
 from assistant.prompt import (
@@ -21,6 +22,7 @@ from assistant.prompt import (
     PLAN_REPLY,
     PLAN_SCHEMA,
     SYSTEM_INSTRUCTION,
+    columns_block,
     entries_block,
     plan_input,
     question_block,
@@ -29,6 +31,7 @@ from assistant.prompt import (
 )
 from assistant.providers import (
     CLAUDE_URL,
+    DEEPSEEK_URL,
     GROQ_URL,
     Choice,
     ClaudeProvider,
@@ -36,6 +39,7 @@ from assistant.providers import (
     GeminiProvider,
     GroqProvider,
     ProviderError,
+    _plan_system,
     get_provider,
     is_enabled,
 )
@@ -507,3 +511,259 @@ def test_is_enabled_deepseek(settings: Any) -> None:
     settings.ASSISTANT_MODEL = "deepseek-chat"
     assert is_enabled() is True
     assert isinstance(get_provider(), DeepSeekProvider)
+
+
+def test_groq_counts_usage_across_calls() -> None:
+    reply = json.dumps(
+        {
+            "choices": [{"message": {"content": '{"entry":"","also":"","lead":""}'}}],
+            "usage": {"prompt_tokens": 120, "completion_tokens": 15},
+        }
+    ).encode("utf-8")
+    provider = GroqProvider(api_key="k", model="m", timeout=5, post=_Post(reply))
+    provider.choose(QUESTION, ENTRIES)
+    provider.choose(QUESTION, ENTRIES)
+    assert (provider.tokens_in, provider.tokens_out) == (240, 30)
+
+
+def test_claude_counts_usage_with_cached_input() -> None:
+    reply = json.dumps(
+        {
+            "content": [{"type": "text", "text": '{"entry":"","also":"","lead":""}'}],
+            "usage": {
+                "input_tokens": 50,
+                "cache_creation_input_tokens": 100,
+                "cache_read_input_tokens": 25,
+                "output_tokens": 12,
+            },
+        }
+    ).encode("utf-8")
+    provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=_Post(reply))
+    provider.choose(QUESTION, ENTRIES)
+    assert (provider.tokens_in, provider.tokens_out) == (175, 12)
+
+
+@pytest.mark.parametrize("usage", [None, "x", {"prompt_tokens": "many", "completion_tokens": -3}])
+def test_missing_or_odd_usage_counts_zero_and_still_answers(usage: Any) -> None:
+    body: dict[str, Any] = {"choices": [{"message": {"content": '{"entry":"","also":"","lead":""}'}}]}
+    if usage is not None:
+        body["usage"] = usage
+    provider = GroqProvider(api_key="k", model="m", timeout=5, post=_Post(json.dumps(body).encode("utf-8")))
+    assert provider.choose(QUESTION, ENTRIES) == Choice("", "", "")
+    assert (provider.tokens_in, provider.tokens_out) == (0, 0)
+
+
+def test_claude_error_reply_counts_nothing() -> None:
+    err = urllib.error.HTTPError("u", 400, "bad", Message(), io.BytesIO(b'{"error":{"message":"low credit"}}'))
+    provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=_Post(exc=err))
+    with pytest.raises(ProviderError):
+        provider.choose(QUESTION, ENTRIES)
+    assert (provider.tokens_in, provider.tokens_out) == (0, 0)
+
+
+# --- rule columns ----------------------------------------------------------------------------------------------------
+
+COLUMN_YEARS = RuleColumn(
+    key="years_worked", label="Ажилласан жил", kind="number", ops=("gte", "lte"), synonyms=("стаж",)
+)
+COLUMN_END = RuleColumn(
+    key="contract_end", label="Гэрээ дуусах", kind="date", ops=("before", "after"), synonyms=("гэрээ дуусах",)
+)
+COLUMNS_HEADING = "Columns a rule may filter on (JSON):"
+
+
+def test_plan_system_has_columns_block() -> None:
+    text = _plan_system(ENTRIES, WORDS, PHRASES, (), rule_columns=[COLUMN_YEARS, COLUMN_END])
+    assert "years_worked" in text
+    assert "contract_end" in text
+    assert COLUMNS_HEADING not in _plan_system(ENTRIES, WORDS, PHRASES, ())
+
+
+def test_real_adapters_take_rules() -> None:
+    assert GroqProvider.takes_rules is True
+    assert DeepSeekProvider.takes_rules is True
+    assert ClaudeProvider.takes_rules is True
+    assert GeminiProvider.takes_rules is True
+
+
+def test_claude_plan_sends_columns() -> None:
+    post = _Post(_claude_reply(PLAN_JSON))
+    ClaudeProvider(api_key="k", model="m", timeout=5, post=post).plan(
+        PLAN_QUESTION, ENTRIES, WORDS, PHRASES, TODAY, rule_columns=[COLUMN_YEARS]
+    )
+    body = json.loads(post.calls[0][1])
+    assert columns_block([COLUMN_YEARS]) in body["system"]
+    assert body["system"].endswith(PLAN_REPLY)
+
+
+# --- complete_json() -------------------------------------------------------------------------------------------------
+
+JSON_SYSTEM = "Return a JSON object about the columns."
+JSON_USER = "Column headings: Нэр, Регистр"
+
+
+def test_groq_complete_json_returns_parsed_reply() -> None:
+    post = _Post(_groq_reply('{"matches": []}'))
+    result = GroqProvider(api_key="k", model="m", timeout=5, post=post).complete_json(JSON_SYSTEM, JSON_USER)
+    assert result == {"matches": []}
+    system, user = json.loads(post.calls[0][1])["messages"]
+    assert system["content"] == JSON_SYSTEM
+    assert user["content"] == JSON_USER
+
+
+def test_claude_complete_json_returns_parsed_reply() -> None:
+    post = _Post(_claude_reply('{"matches": []}'))
+    result = ClaudeProvider(api_key="k", model="m", timeout=5, post=post).complete_json(JSON_SYSTEM, JSON_USER)
+    assert result == {"matches": []}
+    body = json.loads(post.calls[0][1])
+    assert body["system"] == JSON_SYSTEM
+    assert body["messages"][0]["content"] == JSON_USER
+    assert body["max_tokens"] == 800
+
+
+@pytest.mark.parametrize("kind", ["groq", "claude"])
+def test_complete_json_bad_reply_is_provider_error(kind: str) -> None:
+    provider: Any
+    if kind == "groq":
+        provider = GroqProvider(api_key="k", model="m", timeout=5, post=_Post(_groq_reply("not json")))
+    else:
+        provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=_Post(_claude_reply("not json")))
+    with pytest.raises(ProviderError):
+        provider.complete_json(JSON_SYSTEM, JSON_USER)
+
+
+def test_gemini_complete_json_returns_parsed_reply() -> None:
+    client = FakeClient('{"matches": []}')
+    assert _provider(client).complete_json(JSON_SYSTEM, JSON_USER) == {"matches": []}
+    kw = client.models.calls[0]
+    assert kw["config"]["system_instruction"] == JSON_SYSTEM
+    assert kw["contents"] == JSON_USER
+
+
+def test_gemini_complete_json_uses_matches_schema() -> None:
+    from assistant.providers import MATCHES_SCHEMA
+
+    client = FakeClient('{"matches": []}')
+    _provider(client).complete_json(JSON_SYSTEM, JSON_USER)
+    kw = client.models.calls[0]
+    assert kw["config"]["response_schema"] is MATCHES_SCHEMA
+    assert kw["config"]["response_mime_type"] == "application/json"
+    assert MATCHES_SCHEMA["required"] == ["matches"]
+    item = MATCHES_SCHEMA["properties"]["matches"]["items"]
+    assert item["properties"] == {"column": {"type": "integer"}, "field": {"type": "string"}}
+    assert item["required"] == ["column", "field"]
+
+
+def test_gemini_complete_json_bad_reply_is_provider_error() -> None:
+    with pytest.raises(ProviderError):
+        _provider(FakeClient("not json")).complete_json(JSON_SYSTEM, JSON_USER)
+
+
+# --- complete_json(schema=...) ---------------------------------------------------------------------------------------
+
+SCHEMA_X: dict[str, Any] = {
+    "type": "object",
+    "properties": {"sql": {"type": "string"}},
+    "required": ["sql"],
+}
+
+
+def _json_body(post: _Post) -> bytes:
+    return post.calls[0][1]
+
+
+def test_groq_complete_json_default_request_is_byte_for_byte_unchanged() -> None:
+    post = _Post(_groq_reply('{"matches": []}'))
+    GroqProvider(api_key="k", model="m", timeout=5, post=post).complete_json(JSON_SYSTEM, JSON_USER)
+    expected = {
+        "model": "m",
+        "messages": [{"role": "system", "content": JSON_SYSTEM}, {"role": "user", "content": JSON_USER}],
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+    }
+    assert _json_body(post) == json.dumps(expected, ensure_ascii=False).encode("utf-8")
+
+
+def test_deepseek_complete_json_default_request_is_byte_for_byte_unchanged() -> None:
+    post = _Post(_groq_reply('{"matches": []}'))
+    DeepSeekProvider(api_key="k", model="m", timeout=5, post=post).complete_json(JSON_SYSTEM, JSON_USER)
+    assert post.calls[0][0] == DEEPSEEK_URL
+    expected = {
+        "model": "m",
+        "messages": [{"role": "system", "content": JSON_SYSTEM}, {"role": "user", "content": JSON_USER}],
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+    }
+    assert _json_body(post) == json.dumps(expected, ensure_ascii=False).encode("utf-8")
+
+
+def test_claude_complete_json_default_request_is_byte_for_byte_unchanged() -> None:
+    post = _Post(_claude_reply('{"matches": []}'))
+    ClaudeProvider(api_key="k", model="m", timeout=5, post=post).complete_json(JSON_SYSTEM, JSON_USER)
+    expected = {
+        "model": "m",
+        "max_tokens": 800,
+        "thinking": {"type": "disabled"},  # a thinking model otherwise spends the whole 800 on thinking
+        "system": JSON_SYSTEM,
+        "messages": [{"role": "user", "content": JSON_USER}],
+    }
+    assert _json_body(post) == json.dumps(expected, ensure_ascii=False).encode("utf-8")
+
+
+def test_gemini_complete_json_default_config_is_unchanged() -> None:
+    from assistant.providers import MATCHES_SCHEMA
+
+    client = FakeClient('{"matches": []}')
+    _provider(client).complete_json(JSON_SYSTEM, JSON_USER)
+    assert client.models.calls[0]["config"] == {
+        "system_instruction": JSON_SYSTEM,
+        "response_mime_type": "application/json",
+        "response_schema": MATCHES_SCHEMA,
+        "temperature": 0,
+    }
+
+
+def test_groq_complete_json_schema_is_sent_as_text_in_system() -> None:
+    post = _Post(_groq_reply('{"sql": "SELECT 1"}'))
+    result = GroqProvider(api_key="k", model="m", timeout=5, post=post).complete_json(
+        JSON_SYSTEM, JSON_USER, schema=SCHEMA_X
+    )
+    assert result == {"sql": "SELECT 1"}
+    data = json.loads(_json_body(post))
+    system, user = data["messages"]
+    assert system["content"].startswith(JSON_SYSTEM)
+    assert json.dumps(SCHEMA_X, ensure_ascii=False) in system["content"]
+    assert data["response_format"] == {"type": "json_object"}
+    assert user["content"] == JSON_USER
+
+
+def test_deepseek_complete_json_schema_is_sent_as_text_in_system() -> None:
+    post = _Post(_groq_reply('{"sql": "SELECT 1"}'))
+    DeepSeekProvider(api_key="k", model="m", timeout=5, post=post).complete_json(
+        JSON_SYSTEM, JSON_USER, schema=SCHEMA_X
+    )
+    data = json.loads(_json_body(post))
+    assert json.dumps(SCHEMA_X, ensure_ascii=False) in data["messages"][0]["content"]
+    assert data["response_format"] == {"type": "json_object"}
+
+
+def test_claude_complete_json_schema_is_sent_as_text_in_system() -> None:
+    post = _Post(_claude_reply('{"sql": "SELECT 1"}'))
+    result = ClaudeProvider(api_key="k", model="m", timeout=5, post=post).complete_json(
+        JSON_SYSTEM, JSON_USER, schema=SCHEMA_X
+    )
+    assert result == {"sql": "SELECT 1"}
+    body = json.loads(_json_body(post))
+    assert body["system"].startswith(JSON_SYSTEM)
+    assert json.dumps(SCHEMA_X, ensure_ascii=False) in body["system"]
+    assert body["messages"][0]["content"] == JSON_USER
+    assert body["max_tokens"] == 800
+
+
+def test_gemini_complete_json_schema_argument_is_the_response_schema() -> None:
+    client = FakeClient('{"sql": "SELECT 1"}')
+    result = _provider(client).complete_json(JSON_SYSTEM, JSON_USER, schema=SCHEMA_X)
+    assert result == {"sql": "SELECT 1"}
+    kw = client.models.calls[0]
+    assert kw["config"]["response_schema"] is SCHEMA_X
+    assert kw["config"]["system_instruction"] == JSON_SYSTEM

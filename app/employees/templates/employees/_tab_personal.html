@@ -1,20 +1,24 @@
 {% comment %}
-Personal tab: the sections grouped by topic, each group a [data-pgroup] block started by a violet divider (_group_divider.html, the same groups and keys as the menu).
-From lg up only the open group shows (a page of its own, sections.js); narrower screens show them all. Their menu lives in the page rail (_rail.html, _personal_menu.html).
+Personal tab: the sections grouped by topic. Each group is a collapsible <details data-pgroup="<key>"> (UI_RULES §8): its summary
+shows the group title and a count chip per section with rows (_personal_group_summary.html). «Үндсэн мэдээлэл» is open;
+the others open by hand, or by sections.js when they hold an error or unsaved input, or when the address names them.
 Each section saves on its own (views.personal_section); nothing here is bound to the page form emp-form.
 {% endcomment %}
 {% load hr %}
 <div>
   <div class="min-w-0">
-    <div data-pgroup="basic">
-      {% include "employees/_group_divider.html" with title="Үндсэн мэдээлэл" %}
+    <details data-pgroup="basic" id="personal-basic" class="group mt-3 scroll-mt-28 lg:scroll-mt-20 first:mt-0" open>
+      {% include "employees/_personal_group_summary.html" with title="Үндсэн мэдээлэл" group="basic" %}
+      <div class="pt-2">
       {% with s=personal_sections.identity %}{% include "employees/_section_identity.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
       {% with s=personal_sections.contact %}{% include "employees/_section_contact.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
       {% include "employees/_section_family.html" %}
       {% include "employees/_section_relative.html" %}
-    </div>
-    <div data-pgroup="edu" data-off>
-      {% include "employees/_group_divider.html" with title="Боловсрол, туршлага" %}
+      </div>
+    </details>
+    <details data-pgroup="edu" id="personal-edu" class="group mt-3 scroll-mt-28 lg:scroll-mt-20">
+      {% include "employees/_personal_group_summary.html" with title="Боловсрол, туршлага" group="edu" %}
+      <div class="pt-2">
       {% with s=personal_sections.education %}{% include "employees/_section_education.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
       {% include "employees/_section_before_work.html" %}
       {% include "employees/_section_certificate.html" %}
@@ -22,25 +26,32 @@ Each section saves on its own (views.personal_section); nothing here is bound to
       {% include "employees/_section_language.html" %}
       {% include "employees/_section_talent.html" %}
       {% include "employees/_section_skill.html" %}
-    </div>
-    <div data-pgroup="award" data-off>
-      {% include "employees/_group_divider.html" with title="Шагнал, сахилга" %}
+      </div>
+    </details>
+    <details data-pgroup="award" id="personal-award" class="group mt-3 scroll-mt-28 lg:scroll-mt-20">
+      {% include "employees/_personal_group_summary.html" with title="Шагнал, сахилга" group="award" %}
+      <div class="pt-2">
       {% include "employees/_section_award.html" %}
       {% include "employees/_section_discipline.html" %}
       {% include "employees/_section_complaint.html" %}
       {% include "employees/_section_gift.html" %}
       {% include "employees/_section_material_help.html" %}
-    </div>
-    <div data-pgroup="health" data-off>
-      {% include "employees/_group_divider.html" with title="Эрүүл мэнд, цэрэг" %}
+      </div>
+    </details>
+    <details data-pgroup="health" id="personal-health" class="group mt-3 scroll-mt-28 lg:scroll-mt-20">
+      {% include "employees/_personal_group_summary.html" with title="Эрүүл мэнд, цэрэг" group="health" %}
+      <div class="pt-2">
       {% include "employees/_section_body.html" %}
       {% include "employees/_section_driver.html" %}
       {% include "employees/_section_military.html" %}
       {% include "employees/_section_army_rank.html" %}
-    </div>
-    <div data-pgroup="other" data-off>
-      {% include "employees/_group_divider.html" with title="Бусад" %}
+      </div>
+    </details>
+    <details data-pgroup="other" id="personal-other" class="group mt-3 scroll-mt-28 lg:scroll-mt-20">
+      {% include "employees/_personal_group_summary.html" with title="Бусад" group="other" %}
+      <div class="pt-2">
       {% with s=personal_sections.other %}{% include "employees/_section_other.html" with rows=s.rows title=s.title form=s.form fields=s.fields %}{% endwith %}
-    </div>
+      </div>
+    </details>
   </div>
 </div>

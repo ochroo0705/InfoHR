@@ -1,0 +1,38 @@
+{% comment %}
+Summary row of a personal topic group (_tab_personal.html): the group title, a chevron that turns when the group is open,
+and one count chip per section of the group that has rows (UI_RULES §8). Counts stay visible while the group is closed.
+Context: title, group (basic, edu, award, health, other), section_counts (detail_context).
+Chips are only for sections with a non-zero count; «Бусад мэдээлэл» counts filled fields, so it shows only when some are filled.
+{% endcomment %}
+<summary class="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
+  <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 text-slate-500 transition-transform group-open:rotate-90"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
+  <span class="font-semibold text-slate-900">{{ title }}</span>
+  <span class="ml-auto flex flex-wrap justify-end gap-1.5">
+    {% if group == "basic" %}
+      {% include "employees/_personal_group_chip.html" with key="contact" label="Холбоо барих, хаяг" count=section_counts.address %}
+      {% include "employees/_personal_group_chip.html" with key="family" label="Гэр бүл" count=section_counts.family %}
+      {% include "employees/_personal_group_chip.html" with key="relative" label="Хамаатан садан" count=section_counts.relative %}
+    {% elif group == "edu" %}
+      {% include "employees/_personal_group_chip.html" with key="education" label="Боловсрол" count=section_counts.education %}
+      {% include "employees/_personal_group_chip.html" with key="before_work" label="Ажлын туршлага" count=section_counts.before_work %}
+      {% include "employees/_personal_group_chip.html" with key="certificate" label="Мэргэшил, сертификат" count=section_counts.certificate %}
+      {% include "employees/_personal_group_chip.html" with key="training" label="Сургалт" count=section_counts.training %}
+      {% include "employees/_personal_group_chip.html" with key="language" label="Гадаад хэл" count=section_counts.language %}
+      {% include "employees/_personal_group_chip.html" with key="talent" label="Авьяас" count=section_counts.talent %}
+      {% include "employees/_personal_group_chip.html" with key="skill" label="Ур чадварын даалгавар" count=section_counts.skill %}
+    {% elif group == "award" %}
+      {% include "employees/_personal_group_chip.html" with key="award" label="Шагнал урамшил" count=section_counts.award %}
+      {% include "employees/_personal_group_chip.html" with key="discipline" label="Сахилгын шийтгэл" count=section_counts.discipline %}
+      {% include "employees/_personal_group_chip.html" with key="complaint" label="Үйлчлүүлэгчийн гомдол" count=section_counts.complaint %}
+      {% include "employees/_personal_group_chip.html" with key="gift" label="Олгосон бэлэг" count=section_counts.gift %}
+      {% include "employees/_personal_group_chip.html" with key="material_help" label="Буцалтгүй тусламж" count=section_counts.material_help %}
+    {% elif group == "health" %}
+      {% include "employees/_personal_group_chip.html" with key="body" label="Эрүүл мэндийн үзлэг" count=section_counts.body %}
+      {% include "employees/_personal_group_chip.html" with key="driver" label="Жолоо" count=section_counts.driver %}
+      {% include "employees/_personal_group_chip.html" with key="military" label="Цэргийн алба" count=section_counts.military %}
+      {% include "employees/_personal_group_chip.html" with key="army_rank" label="Цэргийн цол" count=section_counts.army_rank %}
+    {% elif group == "other" %}
+      {% include "employees/_personal_group_chip.html" with key="other" label="Бусад мэдээлэл" count=section_counts.other filled_only=True %}
+    {% endif %}
+  </span>
+</summary>

@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from assistant.plan import MAX_PARTS, Part, Plan, parse_plan
+from assistant.plan import MAX_CONDITIONS, MAX_PARTS, MAX_PHRASE, MAX_VALUE, Condition, Part, Plan, parse_plan
 from assistant.prompt import PLAN_INSTRUCTION, PLAN_REPLY, PLAN_SCHEMA, TOOLS, WANTS, plan_input, words_block
 from assistant.providers import ProviderError
 from assistant.words import WORDS
@@ -183,3 +183,45 @@ def test_group_by_is_read_and_optional() -> None:
     assert parse_plan(_reply(group_by="department")).group_by == "department"
     assert parse_plan(_reply()).group_by == ""
     assert parse_plan(_reply(group_by="g" * 100)).group_by == "g" * 60
+
+
+def test_parse_plan_reads_conditions() -> None:
+    item = {"column": "years_worked", "op": "gte", "value": "5", "phrase": "5-аас дээш жил ажилласан"}
+    plan = parse_plan(_reply(conditions=[item]))
+    assert plan.conditions == (
+        Condition(column="years_worked", op="gte", value="5", phrase="5-аас дээш жил ажилласан"),
+    )
+
+
+def test_parse_plan_without_conditions_is_empty() -> None:
+    plan = parse_plan(_reply())
+    assert plan.conditions == ()
+    assert all(part.phrase == "" for part in plan.parts)
+
+
+def test_parse_plan_part_phrase() -> None:
+    plan = parse_plan(_reply(parts=[{"param": "department", "value": "Санхүү", "phrase": "санхүүгийн"}]))
+    assert plan.parts == (Part(param="department", value="Санхүү", phrase="санхүүгийн"),)
+
+
+def test_conditions_clamped() -> None:
+    many = [{"column": "c", "op": "eq", "value": "v", "phrase": "p"}] * 15
+    assert len(parse_plan(_reply(conditions=many)).conditions) == MAX_CONDITIONS == 12
+    long_value = [{"column": "c", "op": "eq", "value": "v" * 500, "phrase": "p"}]
+    assert parse_plan(_reply(conditions=long_value)).conditions[0].value == "v" * MAX_VALUE
+    long_phrase = [{"column": "c", "op": "eq", "value": "v", "phrase": "p" * 500}]
+    assert parse_plan(_reply(conditions=long_phrase)).conditions[0].phrase == "p" * MAX_PHRASE
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        "x",
+        {"column": 1, "op": "eq", "value": "v", "phrase": "p"},
+        {"column": "c", "op": None, "value": "v", "phrase": "p"},
+        {"column": "c", "op": "eq", "value": 5, "phrase": "p"},
+    ],
+)
+def test_bad_condition_is_schema_error(item: Any) -> None:
+    with pytest.raises(ProviderError):
+        parse_plan(_reply(conditions=[item]))

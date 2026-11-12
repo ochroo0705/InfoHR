@@ -1,12 +1,13 @@
 from typing import Any
 
 from django.contrib.auth.forms import SetPasswordForm
-from django.contrib.auth.views import PasswordChangeView
+from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from employees.models import EmployeeExt
 
+from accounts import login_throttle
 from accounts.audit import Category, record_safe
 from accounts.forms import ChangePasswordForm, NewPasswordForm
 from accounts.models import User
@@ -29,6 +30,21 @@ class ForcedPasswordChangeView(PasswordChangeView):
         # No password text here: the entry only says that the user changed their own password.
         record_safe(Category.ACCESS, "password_changed", actor=user, target_type="user", target_label=user.username)
         return response
+
+
+class ThrottledLoginView(LoginView):
+    """The normal login page; when the IP or username is locked it says so instead of "wrong password"."""
+
+    locked = False
+
+    def form_invalid(self, form: Any) -> HttpResponse:
+        self.locked = login_throttle.is_locked(self.request, str(form.data.get("username") or ""))
+        return super().form_invalid(form)
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update(locked=self.locked, lock_message=login_throttle.LOCK_MESSAGE)
+        return context
 
 
 def home(request: HttpRequest) -> HttpResponseRedirect:

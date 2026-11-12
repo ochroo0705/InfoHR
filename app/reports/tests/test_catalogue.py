@@ -12,9 +12,9 @@ from reports.types import Report
 pytestmark = pytest.mark.django_db
 
 
-def test_catalogue_has_28_unique_entries_in_known_groups() -> None:
+def test_catalogue_has_29_unique_entries_in_known_groups() -> None:
     keys = [e.key for e in CATALOGUE]
-    assert len(keys) == 28 and len(set(keys)) == 28
+    assert len(keys) == 31 and len(set(keys)) == 31
     assert {e.group for e in CATALOGUE} == {code for code, _ in GROUPS}
 
 
@@ -29,13 +29,13 @@ def test_catalogue_lists_every_report_greyed_until_built(client: Client, login_a
     login_as(client, "HR")
     page = client.get("/reports/").content.decode()
     assert "Ээлжийн амралт: эрх, эдэлсэн, үлдсэн" in page and "frmVacReport" in page
-    assert page.count("удахгүй") == 28 - len(REPORTS)  # stays true as later tasks register reports
+    assert page.count("удахгүй") == 31 - len(REPORTS)  # stays true as later tasks register reports
     assert 'href="/reports/performance/"' in page  # built (phase 5, task 8): a link, not greyed
 
 
 def test_menu_link_only_with_view_reports(client: Client, login_as: Callable[..., User]) -> None:
     login_as(client, "HR")
-    assert 'href="/reports/"' in client.get("/employees/").content.decode()
+    assert 'href="/reports/"' in client.get("/reports/staff-list/").content.decode()
     client.logout()
     login_as(client, "Employee", name="emp")
     assert client.get("/reports/").status_code == 403

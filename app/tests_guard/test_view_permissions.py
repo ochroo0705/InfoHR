@@ -97,13 +97,35 @@ EXPECTED: dict[str, Rule] = {
     "assistant:ask": LOGIN_ONLY,
     # POST; 400 without a valid choice; uses the same gate as the staff table inside tables.table_answer; no model call
     "assistant:pick": LOGIN_ONLY,
+    # Assistant workspace and saved tables: the workspace gate (ws_views.can_use_workspace, else 404), then only the
+    # viewer's own tabs or saved_tables.visible_to (shared or own; delete also needs can_delete). Every SQL run is
+    # re-checked as the viewer. sql_verify: POST, only the asker's own SQL answer, re-checked; adds a proposed example.
+    "assistant:sql_verify": LOGIN_ONLY,
+    "assistant:workspace": LOGIN_ONLY,
+    "assistant:workspace_tab": LOGIN_ONLY,
+    "assistant:ws_new": LOGIN_ONLY,
+    "assistant:ws_open": LOGIN_ONLY,
+    "assistant:ws_rename": LOGIN_ONLY,
+    "assistant:ws_close": LOGIN_ONLY,
+    "assistant:ws_table": LOGIN_ONLY,
+    "assistant:ws_chat": LOGIN_ONLY,
+    "assistant:ws_ask": LOGIN_ONLY,
+    "assistant:ws_undo": LOGIN_ONLY,
+    "assistant:ws_excel": LOGIN_ONLY,
+    "assistant:ws_print": LOGIN_ONLY,
+    "assistant:ws_copy": LOGIN_ONLY,
+    "assistant:ws_save_table": LOGIN_ONLY,
+    "assistant:saved_list": LOGIN_ONLY,
+    "assistant:saved_page": LOGIN_ONLY,
+    "assistant:saved_table": LOGIN_ONLY,
+    "assistant:saved_excel": LOGIN_ONLY,
+    "assistant:saved_print": LOGIN_ONLY,
+    "assistant:saved_copy": LOGIN_ONLY,
+    "assistant:saved_delete": LOGIN_ONLY,
     # GET; 400 on a bad kind, column or unreadable query; 403 when the user may not see the column or the table
-    "assistant:chart": LOGIN_ONLY,
-    "assistant:chart_xlsx": LOGIN_ONLY,
     "login": PUBLIC,  # the login form itself
     "logout": PUBLIC,  # ends the session
     "password_change": LOGIN_ONLY,  # changes the user's own password only
-    "modules": LOGIN_ONLY,  # 403 unless superuser or the Admin role (may_manage_modules in the view); switches modules
     "set_language": PUBLIC,  # Django language switch; no HR data
     # Employee self-form pages (employees/views_apply.py): anonymous by design, reached with an unguessable token.
     # The gate is the token itself, plus the throttle and CSRF checks in the views; they never show HR data.
@@ -114,6 +136,9 @@ EXPECTED: dict[str, Rule] = {
     "employees:today": LOGIN_ONLY,  # Today page: rows come from visible_employees (own record only for Employee)
     "employees:today_away": LOGIN_ONLY,  # fragment: rows from visible_employees; names need the leave right
     "employees:today_upcoming": LOGIN_ONLY,  # fragment: rows from visible_employees; birthdays need the personal right
+    "employees:today_views": LOGIN_ONLY,  # fragment: tiles only from reports the viewer may open; empty without them
+    "employees:today_hires": LOGIN_ONLY,  # fragment: rows from visible_employees; names of recent hires
+    "employees:company": VIEW_ONLY,  # company figures page: refused without view_employees (the block is None then)
     "employees:list": LOGIN_ONLY,  # rows from visible_employees; register no. only with view_personal
     "employees:orders": LOGIN_ONLY,  # order register rows come from visible_employees (order_register.py:85)
     "employees:orders_print": LOGIN_ONLY,  # same rows as the register
@@ -145,6 +170,13 @@ EXPECTED: dict[str, Rule] = {
     "employees:event_cancel": AnyOf(("macs.manage_employees", "macs.manage_salary")),  # can_cancel decides
     "employees:order_edit": ("macs.manage_employees",),
     "employees:order_upload": ("macs.manage_employees",),
+    # On-screen signing (order-signing board): the switch is checked in the view (access.can_sign_orders) after the
+    # visible-employee lookup; the service checks the state and the salary rule. The guard's order is a hire order,
+    # which shows a salary, so signing it also needs view_salary (access.signing_needs_salary_right).
+    "employees:order_sign": ("accounts.sign_orders", "macs.view_salary"),
+    "employees:order_signing_image": LOGIN_ONLY,  # _order_for = visible employee (404 otherwise)
+    "employees:my_signature_image": LOGIN_ONLY,  # the requester's own saved picture only (404 when none)
+    "employees:my_signature_delete": LOGIN_ONLY,  # deletes only the requester's own saved signature
     "employees:order_detail": LOGIN_ONLY,  # _order_for = visible employee; edit and cancel buttons gated
     "employees:order_cancel": ("macs.manage_employees",),
     "employees:order_history": LOGIN_ONLY,  # _order_for = visible employee (audit note N2)
@@ -154,6 +186,9 @@ EXPECTED: dict[str, Rule] = {
     "employees:order_document": ("macs.manage_employees",),
     "employees:order_document_pdf": ("macs.manage_employees",),
     "employees:orders_print_selected": ("macs.manage_employees",),
+    "employees:orders_print_start": ("macs.manage_employees",),  # POST; a job belongs to the user who started it
+    "employees:orders_print_status": ("macs.manage_employees",),  # only the starter's own job (token + user)
+    "employees:orders_print_file": ("macs.manage_employees",),  # only the starter's own finished PDF
     "employees:personal_list": ("macs.manage_employees", "macs.view_personal"),
     "employees:personal_add": ("macs.manage_employees", "macs.view_personal"),
     "employees:personal_edit": ("macs.manage_employees", "macs.view_personal"),
@@ -224,6 +259,13 @@ EXPECTED: dict[str, Rule] = {
     "reports:view_new": ("reports.view_reports",),
     "reports:view_edit": ("reports.view_reports",),  # plus author or reports.manage_saved_views (object check)
     "reports:view_delete": ("reports.view_reports",),  # same object check as view_edit
+    "reports:rules": ("reports.view_reports",),  # GET; the filter pop-up
+    "reports:format": ("reports.view_reports",),  # GET; the format pop-up
+    "reports:sel_print": ("reports.view_reports",),  # POST; the print page of the picked rows
+    "reports:sel_copy": ("reports.view_reports",),  # POST; the picked names as text, no file
+    "reports:sel_excel": ("reports.view_reports", "accounts.export_lists"),  # POST; a file of the picked rows
+    "reports:sel_csv": ("reports.view_reports", "accounts.export_lists"),  # POST; a file of the picked rows
+    "reports:sel_checklist": ("reports.view_reports", "macs.manage_employees"),  # POST; checklists.access.can_start
     # --- lists (lists/urls.py): every view has @permission_required ---
     "lists:index": ("lists.manage_lists",),
     "lists:meaning": ("lists.manage_lists",),
@@ -264,6 +306,8 @@ NOT_PROVEN: dict[str, str] = {
     "leave:cancel": "needs a leave request of the probe user (_own_leave); not built here",
     "leave:type_edit": "needs a leave type row (LeaveTypeRow); not built here",
     "leave:type_delete": "needs a leave type row (LeaveTypeRow); not built here",
+    "employees:orders_print_status": "needs a print job folder of the probe user (a token); not built here",
+    "employees:orders_print_file": "needs a finished print job folder of the probe user (a token); not built here",
     "employees:slot_edit": "needs a position-slot row (nazg, by pk); not built here",
     "employees:slot_delete": "needs a position-slot row (nazg, by pk); not built here",
     "lists:edit": "needs a list entry of a lookup list (pk); not built here",
@@ -411,6 +455,7 @@ def _ids(name: str, s: Scenario, view_pk: int = 0) -> dict[str, int]:
     subject = {
         "employees:order_file": s.signed,
         "employees:order_cancel": s.registered,
+        "employees:order_sign": s.registered,
         "employees:set_salary": s.no_salary,
     }.get(name, s.pending)
     ids = {"pk": subject.employee.pk, "order_id": subject.order, "event_id": s.event}
@@ -597,6 +642,8 @@ def test_not_proven_set_is_exact() -> None:
             "employees:import_rejected",
             "employees:import_run",
             "employees:personal_delete",
+            "employees:orders_print_file",
+            "employees:orders_print_status",
             "employees:personal_edit",
             "employees:slot_delete",
             "employees:slot_edit",

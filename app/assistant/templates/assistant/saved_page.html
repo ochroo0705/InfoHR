@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}One saved workspace table (saved_page in saved_views.py): its name, who may see it, and the table pane with the
+same tools as the workspace. There is no chat pane and no save pop-up. The pane is _ws_table.html, drawn in full here; its
+addresses (sort, filter, paging, Excel, print, copy) are the saved table's own, so they keep this page's rules.{% endcomment %}
+{% block title %}{{ saved.name }}{% endblock %}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
+{% block assistant_fab %}{% endblock %}
+{% block content %}
+<script src="{% static 'js/workspace.js' %}" defer></script>
+<div class="flex flex-col gap-4">
+  <p class="text-sm"><a href="{% url 'assistant:saved_list' %}" class="text-violet-700 hover:underline">‹ Хадгалсан хүснэгт</a></p>
+
+  {% for message in messages %}<p class="rounded p-2 text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-emerald-50 text-emerald-800{% endif %}">{{ message }}</p>{% endfor %}
+  <p id="ws-live" role="status" aria-live="polite" class="sr-only"></p>
+
+  <div>
+    <h1 class="min-w-0 break-words text-xl font-semibold">{{ saved.name }}</h1>
+    <p class="text-sm text-slate-500">Хадгалсан хүснэгт · {{ saved.get_visibility_display }}</p>
+  </div>
+
+  <section id="ws-table-pane" aria-label="Хүснэгт" class="min-w-0 rounded-lg border border-slate-200 bg-surface p-4">
+    {% include "assistant/_ws_table.html" %}
+  </section>
+</div>
+{% endblock %}

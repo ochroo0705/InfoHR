@@ -201,11 +201,11 @@ def test_base_query_is_capped_and_never_raises(role_user: Callable[[str], User])
     assert table_answer(user, [], base_query="%%%=%ZZ&&==&&").query == ""
 
 
-def test_base_cap_drops_a_param_after_2000_characters(role_user: Callable[[str], User]) -> None:
-    # 2000 characters of padding first: the department after them is cut, so the link has no department.
+def test_base_cap_drops_a_param_after_4000_characters(role_user: Callable[[str], User]) -> None:
+    # 4000 characters of padding first: the department after them is cut, so the link has no department.
     user: User = role_user("hr")
     dept = Department.objects.create(name="Санхүү")
-    padding = "x=" + "a" * 1998  # exactly 2000 characters
+    padding = "x=" + "a" * 3998  # exactly 4000 characters
 
     cut = table_answer(user, [], base_query=f"{padding}&department={dept.pk}")
     kept = table_answer(user, [], base_query=f"department={dept.pk}")

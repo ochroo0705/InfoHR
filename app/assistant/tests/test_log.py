@@ -39,3 +39,35 @@ def test_settings_types() -> None:
     assert isinstance(settings.ASSISTANT_TIMEOUT, int)
     for name in ("ASSISTANT_PROVIDER", "ASSISTANT_API_KEY", "ASSISTANT_MODEL"):
         assert isinstance(getattr(settings, name), str)
+
+
+def test_question_row_keeps_token_counts() -> None:
+    row = HelpQuestion.objects.create(question="q", outcome=Outcome.NONE, tokens_in=310, tokens_out=42)
+    row.refresh_from_db()
+    assert (row.tokens_in, row.tokens_out) == (310, 42)
+    assert HelpQuestion.objects.create(question="q2", outcome=Outcome.NONE).tokens_in == 0
+
+
+def test_answer_logs_only_its_own_tokens() -> None:
+    from datetime import date
+
+    from assistant import services
+    from assistant.providers import Choice
+    from assistant.tests.helpers import plan_from_choice
+
+    user = User.objects.create_user("tok_user", password=PASSWORD)
+
+    class Counting:
+        name = "counting"
+        model = "m"
+        tokens_in = 1000  # earlier questions on the same provider object
+        tokens_out = 100
+
+        def plan(self, *args: object, **kwargs: object) -> object:
+            self.tokens_in += 80
+            self.tokens_out += 9
+            return plan_from_choice(Choice("", "", ""))
+
+    services.answer(user, "яаж чөлөө бүртгэх вэ", date(2026, 11, 9), Counting())  # type: ignore[arg-type]
+    row = HelpQuestion.objects.get(user=user)
+    assert (row.tokens_in, row.tokens_out) == (80, 9)

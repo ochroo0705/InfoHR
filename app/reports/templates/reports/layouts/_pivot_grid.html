@@ -1,0 +1,39 @@
+{% if pivot.row_labels %}
+<div class="ptable mt-4 overflow-x-auto">
+  <table>
+    <caption class="caption-top pb-2 text-left text-sm text-slate-600">{{ pivot.value_label }}</caption>
+    <thead>
+      <tr>
+        <th scope="col">{% if spec.by %}{{ spec.by.label }}{% endif %}{% if spec.by2 %} / {{ spec.by2.label }}{% endif %}</th>
+        {% for label, href in pivot_col_heads %}
+        <th scope="col" class="text-right">{% if href %}<a href="{{ href }}" class="text-violet-700 hover:underline" title="Эдгээр мөрийг хүснэгтээр харах">{{ label }}</a>{% else %}{{ label }}{% endif %}</th>
+        {% endfor %}
+        <th scope="col" class="text-right">Дүн</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for label, row_href, cells, total in pivot_lines %}
+      <tr>
+        <th scope="row">{% if row_href %}<a href="{{ row_href }}" class="text-violet-700 hover:underline" title="Эдгээр мөрийг хүснэгтээр харах">{{ label }}</a>{% else %}{{ label }}{% endif %}</th>
+        {% for cell, href in cells %}
+        <td class="text-right">{% if href %}<a href="{{ href }}" class="text-violet-700 hover:underline" title="Эдгээр мөрийг хүснэгтээр харах">{% include "reports/layouts/_figure.html" with value=cell money=pivot.money percent=pivot.percent %}</a>{% else %}{% include "reports/layouts/_figure.html" with value=cell money=pivot.money percent=pivot.percent %}{% endif %}</td>
+        {% endfor %}
+        <td class="text-right font-semibold">{% include "reports/layouts/_figure.html" with value=total money=pivot.money percent=pivot.percent %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="border-t border-slate-300 font-semibold">
+        <th scope="row">Дүн</th>
+        {% for total in pivot.col_totals %}
+        <td class="text-right">{% include "reports/layouts/_figure.html" with value=total money=pivot.money percent=pivot.percent %}</td>
+        {% endfor %}
+        <td class="text-right">{% include "reports/layouts/_figure.html" with value=pivot.grand money=pivot.money percent=pivot.percent %}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% if pivot.masked %}<p class="mt-2 text-sm text-slate-500">{{ min_group }}-ээс цөөн мөртэй бүлгийн мөнгөн дүнг нуусан («—»).</p>{% endif %}
+{% else %}
+<p class="mt-4 py-6 text-center text-sm text-slate-400">Өгөгдөл олдсонгүй</p>
+{% endif %}

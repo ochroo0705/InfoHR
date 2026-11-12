@@ -13,7 +13,8 @@ from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
-from macs.models import Branch, LeaveTypeRow
+from lists.models import DEATH, MeaningfulEntry
+from macs.models import Branch, ContactRow, ContactType, FiredReason, LeaveTypeRow
 
 from employees import access, attention, views
 from employees import today as today_facts
@@ -21,7 +22,7 @@ from employees.listing import employee_rows
 from employees.models import Employee
 from employees.services import history, macs_writes
 
-from .conftest import hire_values, link_login
+from .conftest import hire_values, link_login, named, set_account, set_ext
 from .helpers import record_signed
 from .test_today import (  # noqa: F401
     TODAY,
@@ -34,7 +35,7 @@ from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
 
-MARKERS = ("data-tile", "data-attention-group", "data-away-strip", "data-upcoming", "data-company")
+MARKERS = ("data-tile", "data-attention-group", "data-away-strip", "data-upcoming", "data-today-company")
 
 
 def _page(client: Client) -> str:
@@ -59,7 +60,7 @@ def _viewer_without_leave_right() -> User:
     return User.objects.get(pk=user.pk)
 
 
-def test_page_order_tiles_attention_away_upcoming_company(
+def test_page_order_tiles_attention_away_upcoming_summary(
     client: Client, hired: Employee, actor: User, frozen_today: date
 ) -> None:
     _scheduled_transfer(hired, actor)
@@ -95,7 +96,7 @@ def test_company_block_shows_headings_hint_and_month_numbers(
     client: Client, hired: Employee, frozen_today: date
 ) -> None:
     login_as(client, "HR")
-    body = _page(client)
+    body = client.get(reverse("employees:company")).content.decode()
     section = body[body.index("data-company") :]
     assert "Компанийн байдал" in section
     assert "Сарын эргэлт = гарсан ÷ сарын дундаж ажилтны тоо" in section
@@ -116,7 +117,7 @@ def test_company_block_is_labelled_for_a_limited_scope_user(
     Employee.objects.filter(pk=second.pk).update(branch_id=south.pk)
     hr = login_as(client, "HR", "hr_scoped_page")
     AccessScope.objects.update_or_create(user=hr, defaults={"limited": True, "branch_ids": [north.pk]})
-    response = client.get(reverse("employees:today"))
+    response = client.get(reverse("employees:company"))
     body = response.content.decode()
     company = response.context["company"]
     assert company is not None and company.partial_scope
@@ -133,7 +134,7 @@ def test_away_block_omitted_without_the_leave_right(
     body = _page(client)
     assert "data-away-strip" not in body
     assert reverse("employees:today_away") not in body
-    assert "data-company" in body  # the employee-list right still gets the company block
+    assert "data-today-company" in body  # the employee-list right still gets the Today summary line
     client.logout()
     login_as(client, "HR", "hr_leave_page")
     assert "data-away-strip" in _page(client)
@@ -333,3 +334,192 @@ def test_fragment_query_counts_are_flat_in_staff_count_without_the_personal_righ
     _hire_many(25, 5, actor, job_values)
     thirty = [_query_count(client, url) for url in urls]
     assert thirty == five, f"queries (attention_more, today_upcoming): 5 people {five}, 30 people {thirty}"
+
+
+def _person(given: str, register_no: str, actor: User, job_values: dict[str, object]) -> Employee:
+    return history.hire(
+        hire_values(register_no) | {"given_name": given},
+        {}, start=date(2024, 3, 1), job=job_values, salary=Decimal("2500000"), by=actor,
+    )  # fmt: skip
+
+
+def _tidy(employee: Employee) -> None:
+    """Nothing to fix on this person, so the page shows only what a test sets on purpose."""
+    MeaningfulEntry.objects.get_or_create(key=DEATH, defaults={"value": named(FiredReason, "Нас барсан").pk})
+    set_ext(employee, setup_required=False)
+    ContactRow.objects.create(
+        employee=employee, contact_type=named(ContactType, "Утас"), name="А", relative="Ах", value="99"
+    )
+    set_account(employee, "123")
+    employee.hr_orders.update(state="registered")
+
+
+def test_page_splits_queue(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, object], frozen_today: date
+) -> None:
+    _tidy(hired)
+    hired.job_records.update(contract_end=TODAY - timedelta(days=10))  # overdue: urgent
+    probation = _person("Наран", "УБ99112234", actor, job_values)
+    _tidy(probation)
+    set_ext(probation, probation_end=TODAY + timedelta(days=3))  # due soon
+    gap = _person("Болд", "УБ99112235", actor, job_values)
+    _tidy(gap)
+    set_account(gap, "")  # missing bank record: a gap
+    login_as(client, "Accountant")
+    response = client.get(reverse("employees:today"))
+    assert response.status_code == 200
+    assert response.context["urgent_count"] == 1
+    assert response.context["soon_count"] == 1
+    assert response.context["gap_count"] == 1  # only the person without a bank account
+    assert response.content.decode().count("Өгөгдөл дутуу") == 1
+
+
+def test_gap_groups_hidden_rows_by_default(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, object], frozen_today: date
+) -> None:
+    _tidy(hired)
+    hired.job_records.update(contract_end=TODAY - timedelta(days=10))
+    gap = _person("Болд", "УБ99112235", actor, job_values)
+    _tidy(gap)
+    set_account(gap, "")
+    login_as(client, "Accountant")
+    body = _page(client)
+    assert gap.full_name not in body  # the gap group is closed and shows counts, not names
+    gaps = body[body.index("data-attention-gaps") :]
+    assert " open" not in gaps.split(">", 1)[0]
+
+
+def test_gap_group_names_load_on_request(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, object], frozen_today: date
+) -> None:
+    """Opening a missing-data row loads its people with their fix links (the first page has none of them)."""
+    _tidy(hired)
+    gap = _person("Болд", "УБ99112235", actor, job_values)
+    _tidy(gap)
+    set_account(gap, "")
+    login_as(client, "Accountant")
+    assert gap.full_name not in _page(client)
+    url = f"{reverse('employees:attention_more')}?kind=bank&urgency={attention.MISSING}&all=1"
+    response = client.get(url)
+    assert response.status_code == 200
+    body = response.content.decode()
+    assert gap.full_name in body
+    assert f'href="{reverse("employees:detail", args=[gap.pk])}#salary"' in body
+
+
+def test_gap_row_is_a_lazy_loader_for_its_group(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, object], frozen_today: date
+) -> None:
+    _tidy(hired)
+    gap = _person("Болд", "УБ99112235", actor, job_values)
+    _tidy(gap)
+    set_account(gap, "")
+    login_as(client, "Accountant")
+    body = _page(client)
+    assert f'kind=bank&urgency={attention.MISSING}&all=1" hx-trigger="toggle once"' in body
+    assert 'hx-target="find [data-gap-people]"' in body
+    details = body[body.index('hx-trigger="toggle once"') :]
+    details = details[: details.index("</details>")]
+    assert "data-gap-people" in details  # the names load inside the open details, not beside them
+
+
+def test_gap_row_offers_dismiss_all_only_for_several_items(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, object], frozen_today: date
+) -> None:
+    _tidy(hired)
+    gap = _person("Болд", "УБ99112235", actor, job_values)
+    _tidy(gap)
+    set_account(gap, "")
+    login_as(client, "Accountant")
+    body = _page(client)
+    section = body[body.index("data-attention-gaps") :]
+    section = section[: section.index("</ul>")]
+    assert "Бүгдийг мэдлээ" not in section  # one person: no group dismiss
+    other = _person("Наран", "УБ99112236", actor, job_values)
+    _tidy(other)
+    set_account(other, "")
+    body = _page(client)
+    section = body[body.index("data-attention-gaps") :]
+    assert "Бүгдийг мэдлээ" in section[: section.index("</ul>")]
+
+
+def test_shortcuts_follow_rights(client: Client, hired: Employee, frozen_today: date) -> None:
+    """HR (manage + record leave) sees the three links; an Accountant (no manage, no record leave) sees none of them."""
+    login_as(client, "HR", "hr_shortcuts")
+    body = _page(client)
+    shortcuts = body[body.index("data-shortcuts") :]
+    shortcuts = shortcuts[: shortcuts.index("</div>")]
+    assert f'href="{reverse("employees:add")}"' in shortcuts
+    assert "Ажилтан нэмэх" in shortcuts
+    assert f'href="{reverse("employees:orders")}"' in shortcuts
+    assert "Тушаал" in shortcuts
+    assert f'hx-get="{reverse("leave:add")}"' in shortcuts  # a modal fragment: never a plain link (it renders unstyled)
+    assert "Чөлөө бүртгэх" in shortcuts
+    assert "Хайх" in shortcuts and "Ctrl K" in shortcuts and "data-palette-open" in shortcuts
+    client.logout()
+    login_as(client, "Accountant", "acc_shortcuts")
+    body = _page(client)
+    shortcuts = body[body.index("data-shortcuts") :]
+    shortcuts = shortcuts[: shortcuts.index("</div>")]
+    assert "Ажилтан нэмэх" not in shortcuts
+    assert "Тушаал" not in shortcuts
+    assert "Чөлөө бүртгэх" not in shortcuts
+    assert "data-palette-open" in shortcuts  # the search needs no right
+
+
+def test_attention_tile_counts_urgent_only(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, object], frozen_today: date
+) -> None:
+    _tidy(hired)
+    hired.job_records.update(contract_end=TODAY - timedelta(days=10))  # 1 overdue: urgent
+    for i in range(5):
+        gap = _person(f"Дутуу{i}", f"УБ9911224{i}", actor, job_values)
+        _tidy(gap)
+        set_account(gap, "")  # 5 missing bank records: gaps, not urgent
+    login_as(client, "Accountant")
+    body = _page(client)
+    assert 'data-tile="attention">1<' in body
+    assert "+ 0 удахгүй · 5 дутуу" in body
+
+
+def _box_summary(body: str) -> str:
+    start = body.index('<details id="attention-box"')
+    return body[start : body.index("</summary>", start)]
+
+
+def test_box_header_matches_tile(
+    client: Client, hired: Employee, actor: User, job_values: dict[str, object], frozen_today: date
+) -> None:
+    _tidy(hired)
+    hired.job_records.update(contract_end=TODAY - timedelta(days=10))  # 1 overdue
+    for given, register_no in (("Наран", "УБ99112234"), ("Төмөр", "УБ99112237")):  # 2 due soon
+        person = _person(given, register_no, actor, job_values)
+        _tidy(person)
+        set_ext(person, probation_end=TODAY + timedelta(days=3))
+    for i in range(5):  # 5 missing bank accounts
+        person = _person(f"Гэрэл{i}", f"УБ9911224{i}", actor, job_values)
+        _tidy(person)
+        set_account(person, "")
+    login_as(client, "Accountant")
+    body = _page(client)
+    summary = _box_summary(body)
+    assert re.search(r'rounded-full[^"]*">1</span>', summary)  # the header chip is the urgent count
+    assert "+ 2 удахгүй · 5 дутуу" in summary
+    assert ">8</span>" not in summary  # not the total of all items
+    assert re.search(r'data-tile="attention">1<', body)
+
+
+@pytest.mark.parametrize(("scenario", "tone"), [("urgent", "urgent"), ("soon", "soon"), ("gaps", "calm")])
+def test_box_tone_follows_urgency(
+    client: Client, hired: Employee, job_values: dict[str, object], frozen_today: date, scenario: str, tone: str
+) -> None:
+    _tidy(hired)
+    if scenario == "urgent":
+        hired.job_records.update(contract_end=TODAY - timedelta(days=10))
+    elif scenario == "soon":
+        set_ext(hired, probation_end=TODAY + timedelta(days=3))
+    else:
+        set_account(hired, "")
+    login_as(client, "Accountant")
+    tag = re.search(r'<details id="attention-box"[^>]*>', _page(client))
+    assert tag is not None and f'data-tone="{tone}"' in tag.group(0)

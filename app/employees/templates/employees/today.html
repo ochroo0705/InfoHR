@@ -3,10 +3,20 @@
 {% block content %}
 <div class="mb-4 flex items-baseline gap-3">
   <h1 class="text-xl font-semibold">Өнөөдөр</h1>
-  <span class="ml-auto text-sm text-slate-500">{{ today|date:"Y-m-d" }}</span>
+  <span class="ml-auto flex items-baseline gap-3">
+    {% if has_own_page %}<a href="{% url 'me' %}" class="text-xs text-violet-700 hover:underline">Миний хуудас →</a>{% endif %}
+    <span class="text-sm text-slate-500">{{ today|date:"Y-m-d" }}</span>
+  </span>
 </div>
 
-<div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+<div data-shortcuts class="mb-4 flex flex-wrap items-center gap-2">
+  {% if can_manage %}<a href="{% url 'employees:add' %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Ажилтан нэмэх</a>{% endif %}
+  {% if perms.leave.record_leave %}<button type="button" hx-get="{% url 'leave:add' %}" hx-target="body" hx-swap="beforeend" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Чөлөө бүртгэх</button>{% endif %}
+  {% if can_manage %}<a href="{% url 'employees:orders' %}" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm">Тушаал{% if pending_orders %} <span class="rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-800" data-tile="orders">{{ pending_orders }}</span>{% endif %}</a>{% endif %}
+  <button type="button" data-palette-open class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Хайх <kbd class="rounded border border-slate-300 px-1.5 text-xs text-slate-500">Ctrl K</kbd></button>
+</div>
+
+<div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
   <a href="{% url 'employees:list' %}" class="card-soft flex items-center gap-3 p-4">
     <span class="tile-icon bg-violet-100 text-violet-700"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm6 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1 16a6 6 0 0 1 12 0v1H1v-1Zm13 1v-1a7.9 7.9 0 0 0-1.3-4.4A5 5 0 0 1 19 16v1h-5Z"/></svg></span>
     <span><span class="block text-xs text-slate-500">Ажилтан</span><span class="block text-2xl font-semibold leading-tight" data-tile="headcount">{{ headcount }}</span></span>
@@ -15,21 +25,16 @@
     <span class="tile-icon bg-sky-100 text-sky-700"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6 2a1 1 0 0 1 1 1v1h6V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1Zm-2 6v8h12V8H4Z"/></svg></span>
     <span><span class="block text-xs text-slate-500">Өнөөдөр чөлөөтэй</span><span class="block text-2xl font-semibold leading-tight" data-tile="away">{{ away|length }}</span></span>
   </div>
-  {% if pending_orders is not None %}
-  <a href="{% url 'employees:orders' %}" class="card-soft flex items-center gap-3 p-4">
-    <span class="tile-icon bg-amber-100 text-amber-700"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M4 3a2 2 0 0 1 2-2h5.6a2 2 0 0 1 1.4.6L16.4 5A2 2 0 0 1 17 6.4V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V3Zm3 7a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H7Zm0 3a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2H7Z"/></svg></span>
-    <span><span class="block text-xs text-slate-500">Дугаар хүлээж буй тушаал</span><span class="block text-2xl font-semibold leading-tight" data-tile="orders">{{ pending_orders }}</span></span>
-  </a>
-  {% endif %}
-  <a href="#attention" class="card-soft flex items-center gap-3 p-4">
-    <span class="tile-icon {% if attention_count %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm1-11a1 1 0 1 0-2 0v4a1 1 0 1 0 2 0V7Zm-1 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg></span>
-    <span><span class="block text-xs text-slate-500">Анхаарах зүйл</span><span class="block text-2xl font-semibold leading-tight {% if attention_count %}text-red-700{% endif %}" data-tile="attention">{{ attention_count }}</span></span>
-  </a>
+  {% include "employees/_attention_tile.html" %}
 </div>
 
 {% include "employees/_attention.html" %}
 
+{% if perms.reports.view_reports %}<div hx-get="{% url 'employees:today_views' %}" hx-trigger="load" hx-swap="outerHTML"></div>{% endif %}
+
 {% include "employees/_today_strip.html" %}
 
-{% if company %}{% include "employees/_company.html" %}{% endif %}
+{% if company %}
+<p class="mb-5 text-sm text-slate-700" data-today-company>Энэ сард орсон {{ company.hires_month }} · Гарсан {{ company.leavers_month }} · <a href="{% url 'employees:company' %}" class="font-medium text-violet-700 hover:underline">Компанийн байдал →</a></p>
+{% endif %}
 {% endblock %}

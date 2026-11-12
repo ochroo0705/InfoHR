@@ -59,13 +59,15 @@ def test_hidden_topic_group_has_the_hooks_the_script_opens_it_with(client: Clien
     body = _page(client, hired)
     personal = _tab(body, "personal")
     edu = personal.split('data-pgroup="edu"', 1)[1].split('data-pgroup="award"', 1)[0]
-    assert "data-off" in personal.split('data-pgroup="edu"', 1)[1][:40]
+    start = personal.index('<details data-pgroup="edu"')
+    tag = personal[start : personal.index(">", start)]  # the closed group's <details> tag: no open attribute
+    assert "open" not in tag
     assert 'name="education_level"' in edu
-    assert 'data-pgroup-link="edu"' in body
+    assert 'id="personal-edu"' in tag  # the group is addressable as #personal-edu
 
 
 def test_save_posts_only_the_tab_part_of_the_hash(client: Client, hired: Employee) -> None:
-    # The address can be #work-position (tab, then field key); the save sends the tab name only.
+    # The save sends the section in view (currentSection, kept by the scroll-spy), not the address.
     body = _page(client, hired)
-    assert "getElementById('emp-tab').value=location.hash.slice(1).split('-')[0];" in body
+    assert "getElementById('emp-tab').value=currentSection;" in body
     assert "getElementById('emp-tab').value=location.hash.slice(1);" not in body

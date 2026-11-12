@@ -138,6 +138,7 @@ def test_cases_cover_every_area() -> None:
         "report.catalogue",
         "report.export",
         "report.saved_view",
+        "report.selection",
     }
     missing = [e.key for e in ENTRIES if e.key not in generated and intents[e.key] == 0]
     assert missing == [], f"entries without a case: {missing}"

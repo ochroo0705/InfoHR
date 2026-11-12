@@ -1,0 +1,6 @@
+{% for r in hires %}
+<div class="relative -mx-2 flex items-baseline justify-between gap-3 rounded-lg border-b border-slate-100 px-2 py-1.5 text-sm transition-colors hover:bg-violet-50 focus-within:bg-violet-50 last:border-0">
+  <span><a href="{% url 'employees:detail' r.employee.pk %}" class="text-violet-700 after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">{{ r.employee.full_name }}</a></span>
+  <span class="text-slate-500">{{ r.employee.first_hire_date|date:"Y-m-d" }}</span>
+</div>
+{% empty %}<p class="text-sm text-slate-500">Сүүлийн 30 хоногт шинээр орсон ажилтан алга.</p>{% endfor %}

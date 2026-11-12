@@ -1,0 +1,49 @@
+# needs native read
+# Draft. English from the catalogue text that was inline in hr_sql/catalogue.py; Mongolian drafted from the model
+# labels (macs/models.py FamilyRow, FamilyRelation). Signed only by the domain owner.
+
+description = "One row per child (son or daughter) listed in an employee's family record. Other relatives are not here."
+description_mn = "Ажилтны гэр бүлийн бүртгэлд байгаа хүү, охин бүрийн нэг мөр. Бусад хамаатан садан энд байхгүй."
+
+rules = [
+    # Only the relation types son and daughter are listed.
+    # app/hr_sql/views.py (GOV_CHILDREN statement); app/macs/models.py (FamilyRelation.fm_type choices)
+    "Only family records whose relation is son or daughter are listed. Parents, spouses and others are not.",
+    # The view has one row per family record, so a parent with two children has two rows.
+    # app/hr_sql/views.py (GOV_CHILDREN statement)
+    "One row per child, so a parent with two children has two rows. To count parents, count distinct EMP_ID.",
+    # Only parents whose id is in the asker's scope appear.
+    # app/hr_sql/views.py (GOV_CHILDREN statement, GOV_SCOPE filter)
+    "Only children of employees you may see appear.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = "Ochroo"
+reviewed_on = "2026-11-12"
+
+[[columns]]
+name = "CHILD_ID"
+description = "Row number of the child record (internal id)"
+description_mn = "Гэр бүлийн гишүүний бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number of the parent (links to GOV_EMPLOYEES)"
+description_mn = "Эцэг/эх ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["parent", "employee"]
+
+[[columns]]
+name = "BIRTH_DATE"
+description = "Child's date of birth"
+description_mn = "Хүүхдийн төрсөн огноо"
+label_mn = "Хүүхдийн төрсөн огноо"
+synonyms = ["birthday", "age"]
+
+[[columns]]
+name = "GENDER"
+description = "Child's gender: M for son, F for daughter"
+description_mn = "Хүүхдийн хүйс: M = хүү, F = охин"
+label_mn = "Хүүхдийн хүйс"
+synonyms = ["sex"]

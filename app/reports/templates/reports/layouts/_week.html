@@ -1,0 +1,60 @@
+{# The week view of the calendar (UI_RULES §4b): seven days from the Monday of lweek; from 640 px up a grid with the entries of each day, below that the same entries as a day list. The arrows move a week (htmx, like the month arrows); at the year bounds an arrow is a grey span. A day's «+N» is plain text here. #}
+<div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+  <h2 class="text-base font-semibold text-slate-900">{{ week.start|date:"Y-m-d" }} – {{ week.end|date:"Y-m-d" }}</h2>
+  <div data-calendar-tools class="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+  <div class="flex max-w-full flex-wrap items-center gap-1 text-sm" role="group" aria-label="Харагдац">
+    <a href="{{ week_month_url }}" hx-get="{{ week_month_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">Сар</a>
+    <span aria-current="true" class="rounded-lg border border-violet-600 px-3 py-1.5 font-semibold text-violet-700">7 хоног</span>
+  </div>
+  <div class="flex max-w-full flex-wrap items-center gap-1 text-sm">
+    {% if week.prev == week.start|date:"Y-m-d" %}
+    <span aria-disabled="true" class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-300"><span class="sr-only">Өмнөх долоо хоног</span><span aria-hidden="true">‹</span></span>
+    {% else %}
+    <a href="{{ week_prev_url }}" aria-label="Өмнөх долоо хоног" hx-get="{{ week_prev_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">‹</a>
+    {% endif %}
+    {% if week.next == week.start|date:"Y-m-d" %}
+    <span aria-disabled="true" class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-300"><span class="sr-only">Дараах долоо хоног</span><span aria-hidden="true">›</span></span>
+    {% else %}
+    <a href="{{ week_next_url }}" aria-label="Дараах долоо хоног" hx-get="{{ week_next_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">›</a>
+    {% endif %}
+    <a href="{{ week_today_url }}" hx-get="{{ week_today_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">Өнөөдөр</a>
+  </div>
+  </div>
+</div>
+
+<div class="hidden sm:grid grid-cols-7 gap-1 mt-4">
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Да</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Мя</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Лх</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Пү</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Ба</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Бя</div>
+  <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Ня</div>
+  {% for day in week.days %}
+  <div data-day="{{ day.day|date:'Y-m-d' }}" class="min-h-32 rounded-lg border border-slate-200 bg-surface p-1.5{% if day.is_today %} ring-2 ring-violet-600{% endif %}"{% if day.is_today %} data-today{% endif %}>
+    <p class="text-xs font-medium text-slate-700">{{ day.day|date:"j" }}</p>
+    <ul class="mt-1 space-y-1">
+      {% for item in day.items %}{% include "reports/layouts/_entry.html" %}{% endfor %}
+    </ul>
+    {% if day.more %}<p class="mt-1 text-xs text-slate-500">+{{ day.more }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="sm:hidden mt-4 space-y-3">
+  {% for day in week.busy_days %}
+  <section data-list-day="{{ day.day|date:'Y-m-d' }}" class="rounded-xl border border-slate-200 bg-surface p-3{% if day.is_today %} ring-2 ring-violet-600{% endif %}"{% if day.is_today %} data-today{% endif %}>
+    <h3 class="text-sm font-semibold text-slate-900">{{ day.day|date:"Y-m-d" }}</h3>
+    <ul class="mt-2 space-y-1">
+      {% for item in day.items %}{% include "reports/layouts/_entry.html" %}{% endfor %}
+    </ul>
+    {% if day.more %}<p class="mt-1 text-xs text-slate-500">+{{ day.more }}</p>{% endif %}
+  </section>
+  {% empty %}
+  <p class="py-6 text-center text-sm text-slate-400">Энэ долоо хоногт оруулга алга</p>
+  {% endfor %}
+</div>
+
+{% if week.undated %}
+<p class="mt-3 text-sm text-slate-500">Огноогүй: {{ week.undated }}</p>
+{% endif %}

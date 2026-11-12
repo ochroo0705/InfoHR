@@ -19,11 +19,12 @@ from employees.tests.conftest import hire_values
 from macs.models import FiredReason
 from recruitment.models import Candidate, Vacancy
 from recruitment.services import pipeline
+from reports.rules import Rule, parse_rules
 
 from assistant.entries import HelpEntry
-from assistant.evalcheck import expected_pairs
+from assistant.evalcheck import condition_rules, expected_pairs
 from assistant.evalset import ActionCase, TableCase
-from assistant.plan import Part, Plan
+from assistant.plan import Condition, Part, Plan
 from assistant.providers import Choice
 
 _REGISTERS = itertools.count(1)
@@ -182,16 +183,28 @@ _EXTRA_PARTS: dict[str, tuple[Part, ...]] = {
     "хөгжлийн бэрхшээлтэй эмэгтэйчүүд": (Part(param="disability", value="yes"),),
 }
 
+# Extra conditions a fake gives for a draft case: a salary condition the hr role may not use (it is dropped).
+_EXTRA_CONDITIONS: dict[str, tuple[Condition, ...]] = {
+    "цалин 3 саяас дээш хүмүүс": (Condition("salary", "gte", "3000000", "цалин 3 саяас дээш"),),
+}
+
 
 def table_plan_for(case: TableCase, today: date) -> Plan:
-    """A perfect staff-table plan for a draft case: its expected query as parts, plus the case's extra parts. A
-    follow-up case leaves out the filters its earlier query already holds (the code keeps those). A chart case asks
-    for its chart."""
+    """A perfect staff-table plan for a draft case: its expected query as parts and its expected conditions, plus the
+    case's extra parts and conditions. A follow-up case leaves out the filters and rules its earlier query already
+    holds (the code keeps those). A chart case asks for its chart."""
     before = dict(parse_qsl(case.previous))
     parts = tuple(
         Part(param=param, value=value)
         for param, value, _ in expected_pairs(case.expected, today)
         if before.get(param) != value
+    )
+    prior = parse_rules(before.get("rules", ""))
+    carried = {(r.column, r.op, r.value) for r in (prior.items if prior else ()) if isinstance(r, Rule)}
+    expected_conditions = tuple(
+        Condition(rule.column, rule.op, rule.value, "")
+        for rule in condition_rules(case.conditions)
+        if (rule.column, rule.op, rule.value) not in carried
     )
     kind, _, by = case.chart.partition(":")
     return Plan(
@@ -204,6 +217,7 @@ def table_plan_for(case: TableCase, today: date) -> Plan:
         want="chart" if case.chart else "list",
         chart_kind=kind,
         chart_by=by,
+        conditions=(*expected_conditions, *_EXTRA_CONDITIONS.get(case.question, ())),
     )
 
 

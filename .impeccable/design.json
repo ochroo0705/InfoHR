@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T00:00:00Z",
+  "title": "Design System: MACS Human Capital",
+  "extensions": {
+    "colorMeta": {
+      "seal-red": { "role": "primary", "displayName": "Seal Red", "canonical": "#c0392b", "tonalRamp": ["#4a1410", "#7b241c", "#922b21", "#a93226", "#c0392b", "#e74c3c", "#f1948a", "#fdf0ee"], "note": "Tailwind class scale is named violet-*; it is remapped to this red in input.css." },
+      "ink-navy": { "role": "neutral", "displayName": "Ink Navy", "canonical": "#2c3e50", "tonalRamp": ["#17222d", "#1e2b38", "#2c3e50", "#34495e", "#475669", "#5f6b6d", "#95a5a6", "#f4f6f7"] },
+      "page-mist": { "role": "neutral", "displayName": "Mist Page", "canonical": "#f4f6f7", "tonalRamp": ["#5f6b6d", "#95a5a6", "#bdc6c8", "#d5dcdf", "#ecf0f1", "#f4f6f7", "#f9fafb", "#ffffff"] },
+      "pick-bright": { "role": "accent", "displayName": "Pick Navy", "canonical": "#34495e", "tonalRamp": ["#1e2b38", "#2c3e50", "#34495e", "#475669", "#6b7e90", "#9db4c8", "#e6ecf1", "#f4f7fa"], "note": "Selection only. Dark theme uses #9db4c8 for bright and edge." },
+      "warn-brass": { "role": "secondary", "displayName": "Brass Warn", "canonical": "#f7c948", "tonalRamp": ["#7a5a0a", "#a97f12", "#d9a82b", "#f7c948", "#f7d774", "#fbe7a3", "#fdf3d1", "#fffbeb"] },
+      "danger-red": { "role": "status", "displayName": "Danger Red", "canonical": "#dc2626", "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#fca5a5", "#fee2e2", "#fef2f2"], "note": "Tailwind default red scale; hex values approximate its oklch definitions." }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "Page title", "purpose": "h1 on the left of every page's title row." },
+      "section-title": { "displayName": "Section title", "purpose": ".sec-title: heading of a field group or list; no rule under it." },
+      "modal-title": { "displayName": "Pop-up title", "purpose": "Title of a pop-up panel." },
+      "body": { "displayName": "Body", "purpose": "Forms, tables, menus (text-sm)." },
+      "label": { "displayName": "Label / hint", "purpose": "Table headers, hints, chips, captions (text-xs)." }
+    },
+    "shadows": [
+      { "name": "card-lift", "value": "0 1px 2px rgb(44 62 80 / .06), 0 6px 16px rgb(44 62 80 / .08)", "purpose": "Soft-lift cards on overview pages." },
+      { "name": "menu-panel", "value": "0 0 0 1px rgb(44 62 80 / .06), 0 4px 8px rgb(44 62 80 / .06), 0 16px 32px rgb(44 62 80 / .14)", "purpose": "Top-bar and row menu panels." },
+      { "name": "popover", "value": "0 12px 32px rgb(15 23 42 / .16), 0 2px 6px rgb(15 23 42 / .06)", "purpose": "Date picker and select list." },
+      { "name": "confirm-dialog", "value": "0 10px 30px rgb(0 0 0 / .25)", "purpose": "hrConfirm dialog, above pop-ups." }
+    ],
+    "motion": [
+      { "name": "dur-hover", "value": "120ms", "purpose": "Hover and press feedback." },
+      { "name": "dur-in", "value": "180ms", "purpose": "Open, enter, swap." },
+      { "name": "dur-out", "value": "140ms", "purpose": "Close and leave; never blocks the next click." },
+      { "name": "ease-out", "value": "cubic-bezier(.2,.7,.2,1)", "purpose": "Things arriving." },
+      { "name": "ease-in", "value": "cubic-bezier(.4,0,1,1)", "purpose": "Things leaving." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one red action per screen area (Хадгалах, Чөлөө бүртгэх).",
+      "html": "<button class=\"ds-btn-primary\">Хадгалах</button>",
+      "css": ".ds-btn-primary{background:#c0392b;color:#fff;border:0;border-radius:8px;padding:8px 16px;font:400 14px/1.43 'Golos Text',system-ui,sans-serif;cursor:pointer;transition:background 120ms,transform 120ms}.ds-btn-primary:hover{background:#a93226}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:2px solid #e74c3c;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Болих and other non-main actions; sits left of the primary.",
+      "html": "<button class=\"ds-btn-secondary\">Болих</button>",
+      "css": ".ds-btn-secondary{background:#fff;color:#2c3e50;border:1px solid #bdc6c8;border-radius:8px;padding:8px 16px;font:400 14px/1.43 'Golos Text',system-ui,sans-serif;cursor:pointer;transition:background 120ms}.ds-btn-secondary:hover{background:#f4f6f7}.ds-btn-secondary:focus-visible{outline:2px solid #e74c3c;outline-offset:2px}"
+    },
+    {
+      "name": "Destructive Confirm",
+      "kind": "button",
+      "refersTo": "button-destructive-confirm",
+      "description": "Red solid button, only after an «устгах уу?» question.",
+      "html": "<button class=\"ds-btn-danger\">Устгах</button>",
+      "css": ".ds-btn-danger{background:#dc2626;color:#fff;border:0;border-radius:8px;padding:8px 16px;font:400 14px/1.43 'Golos Text',system-ui,sans-serif;cursor:pointer}.ds-btn-danger:hover{background:#b91c1c}.ds-btn-danger:focus-visible{outline:2px solid #e74c3c;outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Standard bordered field used by every StyledForm.",
+      "html": "<label class=\"ds-label\">Овог *</label><input class=\"ds-input\" value=\"Бат\"><div class=\"ds-hint\">Регистрийн дугаартай адил бичнэ.</div>",
+      "css": ".ds-label{display:block;margin-bottom:4px;font:500 12px/1.33 'Golos Text',system-ui,sans-serif;color:#475669}.ds-input{width:100%;box-sizing:border-box;background:#fff;color:#2c3e50;border:1px solid #bdc6c8;border-radius:8px;padding:8px 12px;font:400 14px/1.43 'Golos Text',system-ui,sans-serif}.ds-input:focus-visible{outline:2px solid #e74c3c;outline-offset:-1px;border-color:transparent}.ds-hint{margin-top:4px;font-size:12px;color:#5f6b6d}"
+    },
+    {
+      "name": "Data Table",
+      "kind": "custom",
+      "refersTo": "data-table-frame",
+      "description": "Framed .ptable: tinted header, hairline rows, whole-row hover, a picked row with a 3px bar.",
+      "html": "<div class=\"ds-ptable\"><table><thead><tr><th>Нэр</th><th>Хэлтэс</th><th class=\"r\">Хоног</th></tr></thead><tbody><tr><td>Бат-Эрдэнэ</td><td>Санхүү</td><td class=\"r\">12</td></tr><tr class=\"picked\"><td>Сарнай</td><td>Борлуулалт</td><td class=\"r\">8</td></tr></tbody></table></div>",
+      "css": ".ds-ptable{border:1px solid #d5dcdf;border-radius:8px;overflow:hidden;font:400 14px/1.43 'Golos Text',system-ui,sans-serif;color:#2c3e50}.ds-ptable table{width:100%;border-collapse:collapse}.ds-ptable th{padding:8px 12px;text-align:left;white-space:nowrap;font-size:12px;font-weight:500;color:#475669;background:#f4f6f7;border-bottom:1px solid #d5dcdf}.ds-ptable td{padding:8px 12px;border-top:1px solid #ecf0f1}.ds-ptable tbody tr:first-child td{border-top:0}.ds-ptable .r{text-align:right}.ds-ptable tbody tr{transition:background 120ms;cursor:pointer}.ds-ptable tbody tr:hover{background:#fdf0ee}.ds-ptable tr.picked td{background:#e6ecf1;color:#2c3e50}.ds-ptable tr.picked td:first-child{box-shadow:inset 3px 0 0 #2c3e50}"
+    },
+    {
+      "name": "State Chip",
+      "kind": "chip",
+      "refersTo": "chip-state",
+      "description": "Pill status chips: working, upcoming, long leave, left.",
+      "html": "<span class=\"ds-chip ok\">Ажиллаж байгаа</span> <span class=\"ds-chip up\">Ажилд орох</span> <span class=\"ds-chip leave\">Урт чөлөөтэй</span> <span class=\"ds-chip off\">Гарсан</span>",
+      "css": ".ds-chip{display:inline-block;border-radius:9999px;padding:2px 8px;font:500 12px/1.33 'Golos Text',system-ui,sans-serif}.ds-chip.ok{background:#d1fae5;color:#065f46}.ds-chip.up{background:#fef3c7;color:#78350f;box-shadow:inset 0 0 0 1px #fcd34d}.ds-chip.leave{background:#e0f2fe;color:#0c4a6e;box-shadow:inset 0 0 0 1px #7dd3fc}.ds-chip.off{background:#d5dcdf;color:#34495e;font-weight:400}"
+    },
+    {
+      "name": "Soft Card",
+      "kind": "card",
+      "refersTo": "card-soft",
+      "description": "Overview tile on the mist page: no border, two-layer cool shadow, tinted icon square.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-tile\">12</div><div><div class=\"ds-card-n\">Амралттай</div><div class=\"ds-hint\">Өнөөдөр чөлөөтэй</div></div></div>",
+      "css": ".ds-card{display:flex;gap:12px;align-items:center;background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(44,62,80,.06),0 6px 16px rgba(44,62,80,.08);transition:box-shadow 150ms,transform 150ms;font-family:'Golos Text',system-ui,sans-serif;color:#2c3e50}.ds-card:hover{transform:translateY(-1px)}.ds-tile{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:#e0f2fe;color:#0c4a6e;font-weight:600}.ds-card-n{font-size:14px;font-weight:500}.ds-hint{font-size:12px;color:#5f6b6d}"
+    },
+    {
+      "name": "Seal Stamp",
+      "kind": "custom",
+      "refersTo": "seal-red",
+      "description": "Double-ruled stamp marking official order state.",
+      "html": "<span class=\"ds-seal\">Баталсан</span>",
+      "css": ".ds-seal{display:inline-block;padding:2px 11px;border:2px solid #c0392b;border-radius:7px;background:rgba(192,57,43,.05);box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 3px #c0392b;color:#c0392b;font:600 12px/1.33 'Golos Text',system-ui,sans-serif}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Official Register",
+    "overview": "MACS Human Capital is a working tool for people who check records against paper forms all day, so the interface behaves like a well-kept register: a calm navy-grey page, white frames with exact edges, dense tables that stay readable, and one red seal that tells you where you are. Nothing decorates; everything that moves, fills or glows says something about state.",
+    "keyCharacteristics": [
+      "Navy-grey ledger page with white surface frames; red is rare and meaningful.",
+      "Soft-lift cards for overview pages, thin borders where data is dense.",
+      "Forms are quiet soft boxes that edit on the spot; saves are per section.",
+      "Selection (navy-slate) and location (red) never share a colour; every state has a non-colour cue.",
+      "Motion is short and switches off for reduced motion."
+    ],
+    "rules": [
+      { "name": "The One Seal Rule", "body": "Red marks where you are and the main action, nothing else.", "section": "colors" },
+      { "name": "The Picked-Is-Navy Rule", "body": "Navy-slate means what you picked, only on selected rows, checked boxes, chosen option and the selection bar.", "section": "colors" },
+      { "name": "The Pairing Rule", "body": "A tint always pairs with its own shade; both turn around in the dark theme.", "section": "colors" },
+      { "name": "The Two-Cue Rule", "body": "Every state carries a non-colour cue too.", "section": "colors" },
+      { "name": "The Tabular Truth Rule", "body": "Dates are YYYY-MM-DD, money is grouped with ₮, numbers right-align.", "section": "typography" },
+      { "name": "The Mongolian-First Rule", "body": "All visible text is Mongolian Cyrillic; labels are verbs; no browser dialogs.", "section": "typography" },
+      { "name": "The Border-Where-Dense Rule", "body": "Soft cards on overview pages, bordered frames on dense pages; never both on one surface.", "section": "elevation" },
+      { "name": "The Fast-Exit Rule", "body": "120 to 180 ms in, 140 ms out, never over 300 ms, never delay the action.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use violet-* classes for the brand and red-* only for danger and errors.",
+      "Do use bg-surface / border-surface for any card or panel, never bg-white or #fff.",
+      "Do keep one Seal Red primary button per screen area, with Болих on its left.",
+      "Do show every state with a second cue (tick, bar, outline, underline), not colour alone.",
+      "Do keep empty states in a full-width row with text-slate-500 (not slate-400).",
+      "Do make a row that highlights on hover clickable across its whole width.",
+      "Do use the motion variables instead of literal durations, and honour reduced motion.",
+      "Do check any new screen at 375 px and in the dark theme, and add its rule to docs/UI_RULES.md."
+    ],
+    "donts": [
+      "Don't use teal-, stone-, gray- or zinc- classes; they will not match the palette.",
+      "Don't use red for selected, navy-slate for status, or a new colour for a status that already has a badge.",
+      "Don't use circles for portraits, put a card inside a card, or mix soft cards and bordered frames on one surface.",
+      "Don't show confirm(), alert() or prompt(); use hrConfirm.",
+      "Don't show a native file input or a ---------- dropdown entry.",
+      "Don't put more than three buttons in a pop-up footer.",
+      "Don't underline a link inside a clickable row, and don't use slate-400 for text.",
+      "Don't hard-code a second font, a second accent, or motion over 300 ms."
+    ]
+  }
+}

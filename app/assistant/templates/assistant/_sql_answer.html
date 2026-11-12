@@ -1,0 +1,73 @@
+{% comment %}The SQL answer card: tables only (no chart). The data comes from services.Answer.sql_card (assistant/sqltext.py).
+Lines say where the answer came from; the table draws at most 100 rows; the SQL is folded away; the caution is last.
+Cell values and the SQL are escaped by Django: nothing here is marked safe.{% endcomment %}
+{% if workspace_ok and result.question_id %}
+{% comment %}Hand-off mode: the panel is too narrow for a table, so it shows a short summary and one button that opens the
+table on its own page (palette.js closes the panel first; the workspace's chat takes over there). The SQL fold and
+«Зөв гэж тэмдэглэх» live on that page. Without a workspace or a saved question the table is drawn below as before.{% endcomment %}
+<div class="space-y-2">
+  <p class="font-semibold">Хүснэгт бэлэн боллоо</p>
+  {% if card.salary %}<p><span class="rounded-full border border-violet-200 bg-surface px-2 py-0.5 text-xs text-slate-700">Цалингийн мэдээлэл</span></p>{% endif %}
+  {% if card.lines %}
+  <ul class="list-disc pl-5">
+  {% for line in card.lines %}
+    <li class="break-words">{{ line }}</li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+  <p class="text-slate-600">Хүснэгт энд багтахгүй тул тусдаа хуудсанд нээж харна уу. Тэнд эрэмбэлэх, шүүх, Excel-ээр татах боломжтой.{# needs native read #}</p>
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" data-ws-open-url="{% url 'assistant:ws_open' result.question_id %}" class="max-w-full break-words rounded-lg bg-violet-600 px-3 py-1.5 text-left text-white hover:bg-violet-700 max-sm:min-h-11">Хүснэгт болгон нээх →</button>
+  </div>
+  <p class="text-xs text-slate-500">{{ card.caution }}</p>
+</div>
+{% else %}
+<div class="space-y-2">
+  <p class="font-semibold">Өгөгдлөөс гарсан хариулт</p>
+  {% if card.salary %}<p><span class="rounded-full border border-violet-200 bg-surface px-2 py-0.5 text-xs text-slate-700">Цалингийн мэдээлэл</span></p>{% endif %}
+  {% if card.lines %}
+  <ul class="list-disc pl-5">
+  {% for line in card.lines %}
+    <li class="break-words">{{ line }}</li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+  <div class="overflow-x-auto max-h-80 overflow-y-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr>
+        {% for column in card.columns %}
+          <th class="py-1 font-normal text-slate-500 {% if column.numeric %}pl-6 text-right{% else %}text-left{% endif %}{% if not forloop.first %} pl-6{% endif %}">{{ column.name }}</th>
+        {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in card.rows %}
+        <tr class="border-t border-slate-200">
+        {% for cell in row %}
+          <td class="py-1{% if not forloop.first %} pl-6{% endif %}{% if cell.numeric %} text-right{% endif %}">{{ cell.text }}</td>
+        {% endfor %}
+        </tr>
+      {% empty %}
+        <tr><td colspan="{{ card.columns|length }}" class="py-6 text-center text-slate-500">Олдсонгүй</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if card.total > card.shown %}<p class="text-xs text-slate-500">Эхний {{ card.shown }} мөрийг харуулав.{# needs native read #}</p>{% endif %}
+  <details>
+    <summary class="cursor-pointer select-none text-violet-800">SQL харах</summary>
+    <pre class="mt-1 whitespace-pre-line break-words bg-slate-50 p-2 font-mono text-xs">{{ card.sql }}</pre>
+  </details>
+  <p class="text-xs text-slate-500">{{ card.caution }}</p>
+  {% if result.question_id %}
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" data-verify-url="{% url 'assistant:sql_verify' %}" data-verify-id="{{ result.question_id }}" class="max-w-full break-words rounded-lg border border-violet-200 bg-surface px-3 py-1.5 text-left text-violet-800 hover:bg-violet-100 max-sm:min-h-11">Зөв гэж тэмдэглэх</button>{# needs native read #}
+    <span data-verify-done hidden class="text-xs text-slate-500">Шалгагчид илгээлээ</span>{# needs native read #}
+    {% if workspace_ok %}
+    <button type="button" data-ws-open-url="{% url 'assistant:ws_open' result.question_id %}" class="max-w-full break-words rounded-lg border border-violet-200 bg-surface px-3 py-1.5 text-left text-violet-800 hover:bg-violet-100 max-sm:min-h-11">Хүснэгт болгон нээх</button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}

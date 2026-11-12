@@ -10,6 +10,7 @@ The data of a module is never deleted: switching it on again brings everything b
 The state is one JSON text on `CompanySettings.modules`, {key: true|false}. A module not named there is on, so an
 install that never opens the page keeps every module. The state is cached for CACHE_SECONDS (a few seconds late on
 another worker is fine); `set_state` and `clear_cache` drop it at once.
+Whoever may change the company settings switches modules on that admin page (employees/admin.py).
 """
 
 import json

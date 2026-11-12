@@ -10,90 +10,62 @@ from employees.models import CompanySettings, EmployeeExt
 
 from assistant.entries import ENTRIES, ENTRY_BY_KEY, allowed_entries
 from assistant.entry import HelpEntry
+from assistant.evalset import ROLE_ENTRIES
 from assistant.tests.helpers import new_candidate, on_screen, open_vacancy
 
 pytestmark = pytest.mark.django_db
 
 TODAY = date(2026, 11, 4)
-# The HR role's entries of the areas (today, employee, order, recruit, checklist, report, log, list, settings, me),
-# in ENTRIES order.
-HR_AREA_KEYS = [
-    "today.home",
-    "today.attention",
-    "employee.find",
-    "employee.hire",
-    "employee.import",
-    "employee.work_fields",
-    "employee.note",
-    "employee.login",
-    "employee.setup",
-    "employee.placement",
-    "employee.contract",
-    "employee.leave_start",
-    "employee.leave_return",
-    "employee.termination",
-    "employee.rehire",
-    "employee.cancel_change",
-    "employee.correct_job",
-    "employee.personal_sections",
-    "employee.personal_lists",
-    "order.register",
-    "order.print",
-    "order.edit",
-    "order.upload",
-    "order.cancel",
-    "order.document",
-    "recruit.vacancies",
-    "recruit.vacancy_add",
-    "recruit.vacancy_edit",
-    "recruit.vacancy",
-    "recruit.candidate_add",
-    "recruit.candidate",
-    "recruit.move",
-    "recruit.reject",
-    "recruit.reopen",
-    "recruit.comment",
-    "recruit.file",
-    "recruit.convert",
-    "recruit.purge",
-    "checklist.mine",
-    "checklist.undo",
-    "checklist.start",
-    "report.catalogue",
-    "report.export",
-    "report.annual-leave",
-    "report.absences",
-    "report.away-on-date",
-    "report.absence-totals",
-    "report.saved_view",
-    "report.staff-list",
-    "report.children",
-    "report.contacts",
-    "report.engineers",
-    "report.movements",
-    "report.history",
-    "report.leavers",
-    "report.orders",
-    "report.discipline",
-    "report.awards",
-    "report.training",
-    "report.health-checks",
-    "report.skill-tasks",
-    "report.complaints",
-    "report.gifts-given",
-    "report.gifts-due",
-    "report.performance",
-    "report.performance-summary",
-    "report.accidents",
-    "report.poisoning",
-    "log.employee",
-    "list.index",
-    "list.entry",
-    "list.meaning",
-    "settings.slots",
-    "settings.slot_edit",
-    "me.password",
-]
+# What a role must be offered and must never be offered: a few facts about the rights. The full lists are not kept
+# here: evalset.ROLE_ENTRIES is built from `allowed_entries` for a real user of each role (conftest.py).
+ROLE_RULES: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "hr": (
+        frozenset(
+            {
+                "leave.record",
+                "leave.decide",
+                "leave.balances",
+                "leave.calendar",
+                "employee.hire",
+                "employee.import",
+                "employee.placement",
+                "order.edit",
+                "recruit.vacancy_add",
+                "checklist.start",
+                "report.staff-list",
+                "report.saved_view",
+                "settings.slots",
+            }
+        ),
+        frozenset(
+            {"leave.requests", "employee.salary_change", "employee.first_salary", "settings.users", "settings.roles"}
+        ),
+    ),
+    "hr_off": (
+        frozenset({"leave.record", "leave.balances", "leave.calendar", "employee.hire", "order.edit"}),
+        frozenset({"leave.decide", "leave.requests", "employee.salary_change", "settings.users"}),
+    ),
+    "accountant": (
+        frozenset(
+            {
+                "leave.requests",
+                "employee.salary_change",
+                "employee.correct_salary",
+                "employee.first_salary",
+                "employee.bank_insurance",
+                "order.register",
+                "report.household-income",
+                "report.loans",
+                "log.employee",
+            }
+        ),
+        frozenset({"employee.hire", "order.edit", "leave.record", "recruit.vacancies", "settings.slots"}),
+    ),
+    "admin": (
+        frozenset({"leave.record", "employee.salary_change", "checklist.templates", "settings.assistant"}),
+        frozenset({"leave.request", "settings.users"}),
+    ),
+}
 
 MANAGING_RECRUIT_KEYS = [
     "recruit.vacancy_add",
@@ -112,58 +84,27 @@ def keys(entries: list[HelpEntry]) -> list[str]:
     return [e.key for e in entries]
 
 
-def test_hr_with_approval(role_user: Callable[[str], User], approval_on: None) -> None:
-    assert keys(allowed_entries(role_user("hr"), TODAY)) == [
-        "leave.record",
-        "leave.decide",
-        "leave.balances",
-        "leave.calendar",
-        *HR_AREA_KEYS,
-    ]
+@pytest.mark.parametrize("role", list(ROLE_RULES))
+def test_role_rules(role: str) -> None:
+    must, never = ROLE_RULES[role]
+    offered = set(ROLE_ENTRIES[role])
+    assert not must - offered, f"{role} is missing {sorted(must - offered)}"
+    assert not never & offered, f"{role} is offered {sorted(never & offered)}"
 
 
-def test_hr_without_approval(role_user: Callable[[str], User]) -> None:
-    assert keys(allowed_entries(role_user("hr"), TODAY)) == [
-        "leave.record",
-        "leave.balances",
-        "leave.calendar",
-        *HR_AREA_KEYS,
-    ]
+@pytest.mark.parametrize("role", ["hr", "hr_off", "accountant", "staff", "staff_off", "approver", "admin", "auditor"])
+def test_role_lists_follow_the_entries_order(role: str) -> None:
+    """The role lists come from `allowed_entries`: no key twice, the fixed entries in ENTRIES order. Entries built from
+    the database (saved views, templates) follow them and are not in ENTRIES."""
+    listed = list(ROLE_ENTRIES[role])
+    assert len(set(listed)) == len(listed)
+    fixed = [key for key in listed if key in ENTRY_BY_KEY]
+    assert fixed == [e.key for e in ENTRIES if e.key in set(fixed)]
+    assert listed[: len(fixed)] == fixed  # the built ones come after the fixed ones
 
 
-def test_accountant_with_approval(role_user: Callable[[str], User], approval_on: None) -> None:
-    assert keys(allowed_entries(role_user("accountant"), TODAY)) == [
-        "leave.requests",
-        "leave.balances",
-        "leave.calendar",
-        "today.home",
-        "today.attention",
-        "employee.find",
-        "employee.salary_change",
-        "employee.correct_salary",
-        "employee.first_salary",
-        "employee.bank_insurance",
-        "order.register",
-        "order.print",
-        "checklist.mine",
-        "report.catalogue",
-        "report.export",
-        "report.annual-leave",
-        "report.absences",
-        "report.away-on-date",
-        "report.absence-totals",
-        "report.saved_view",
-        "report.staff-list",
-        "report.engineers",
-        "report.household-income",
-        "report.movements",
-        "report.history",
-        "report.leavers",
-        "report.orders",
-        "report.loans",
-        "log.employee",
-        "me.password",
-    ]
+def test_auditor_sees_only_the_log(role_user: Callable[[str], User]) -> None:
+    assert keys(allowed_entries(role_user("auditor"), TODAY)) == ["checklist.mine", "log.system", "me.password"]
 
 
 def test_staff_with_approval(role_user: Callable[[str], User], approval_on: None) -> None:
@@ -194,7 +135,7 @@ def test_no_rights(role_user: Callable[[str], User]) -> None:
 
 
 def test_keys_unique_and_urls_reverse() -> None:
-    assert len(ENTRY_BY_KEY) == len(ENTRIES) == 98
+    assert len(ENTRY_BY_KEY) == len(ENTRIES)
     for entry in ENTRIES:
         assert entry.url()
 

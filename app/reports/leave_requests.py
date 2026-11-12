@@ -79,4 +79,14 @@ REPORT = Report(
     source=LeaveAssign,
     group_options=("department", "type", "state"),
     layouts=("board", "calendar", "timeline", "cards", "chart", "pivot"),
+    # the state texts in flow order (Decision 7): the recorded leave (the live state) first, then rejected, cancelled
+    # and mistake. Source: the State enum (leave/services/rows.py), whose values are the lane keys
+    lane_orders={
+        "state": (
+            State.RECORDED.value,
+            State.REJECTED.value,
+            State.CANCELLED.value,
+            State.MISTAKE.value,
+        )
+    },
 )

@@ -1,7 +1,9 @@
 from typing import Any, cast
 from urllib.parse import urlsplit
 
-from accounts.audit import record_export
+from accounts import modules
+from accounts.audit import Category, record_export, record_safe
+from accounts.models import User
 from django import forms
 from django.contrib import admin, messages
 from django.core.files.uploadedfile import UploadedFile
@@ -138,13 +140,32 @@ class ActivityAdmin(ReadOnlyAdmin):
     list_display = ("employee", "at", "kind", "message", "personal", "sensitive")
 
 
+
+def _module_field(module: modules.Module) -> forms.BooleanField:
+    help_text = module.description + " Унтраахад алга болох: " + "; ".join(module.effects) + "."
+    return forms.BooleanField(label=module.label, required=False, help_text=help_text)
+
+
+MODULE_FIELDS = {f"module_{m.key}": _module_field(m) for m in modules.MODULES}
+
+
 class CompanySettingsForm(forms.ModelForm):  # type: ignore[type-arg]
     """The limits and help of the self-form settings. They live in the form, not on the model fields, so the
-    migrations do not change."""
+    migrations do not change. The module switches are form-only checkboxes (module_<key>); the admin saves them
+    through accounts.modules.set_state."""
+
+    vars().update(MODULE_FIELDS)  # declared fields: one checkbox per module in accounts.modules.MODULES
 
     class Meta:
         model = CompanySettings
-        fields = ["selfform_base_url", "selfform_notice", "selfform_retention_days", "selfform_default_hours"]
+        fields = [
+            "soon_days",
+            "governed_sql_enabled",
+            "selfform_base_url",
+            "selfform_notice",
+            "selfform_retention_days",
+            "selfform_default_hours",
+        ]
         help_texts = {
             "selfform_base_url": (
                 "Ажилтанд илгээх холбоосын эхлэл хэсэг, жишээ нь https://hr.example.mn. "
@@ -160,6 +181,9 @@ class CompanySettingsForm(forms.ModelForm):  # type: ignore[type-arg]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        current = modules.state()
+        for module in modules.MODULES:
+            self.fields[f"module_{module.key}"].initial = current[module.key]
         notice = self.fields["selfform_notice"]
         notice.help_text = (
             "Ажилтан маягт илгээхдээ хүлээн зөвшөөрөх мэдэгдэл. {company} гэж бичвэл байгууллагын нэр, "
@@ -170,6 +194,12 @@ class CompanySettingsForm(forms.ModelForm):  # type: ignore[type-arg]
                 " Одоо хоосон тул загвар текст ашиглагдана. Энэ загварын үгийг байгууллага хэрэглэхээс өмнө "
                 "өөрөө уншиж, хууль зүйн хувьд баталгаажуулсан байх ёстой."
             )
+
+    def clean_soon_days(self) -> int:
+        days: int = self.cleaned_data["soon_days"]
+        if not 1 <= days <= 365:
+            raise forms.ValidationError("«Дөхсөн» гэж тооцох хоног 1-365 хоногийн хооронд байх ёстой.")
+        return days
 
     def clean_selfform_default_hours(self) -> int:
         hours: int = self.cleaned_data["selfform_default_hours"]
@@ -213,6 +243,18 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
             },
         ),
         ("Орон тоо", {"fields": ("enforce_position_slots",)}),
+        ("Гэрээ, туршилтын хугацаа", {"fields": ("soon_days",)}),
+        ("Туслах: SQL хариулт", {"fields": ("governed_sql_enabled",)}),  # needs native read
+        (
+            "Модулиуд",
+            {
+                "description": (
+                    "Байгууллагадаа хэрэггүй хэсгийг унтрааж болно. Унтраахад цэс, хайлт, туслах, хуудаснаас алга "
+                    "болно. Өгөгдөл устахгүй: дахин асаахад бүгд эргэж гарна."
+                ),
+                "fields": tuple(MODULE_FIELDS),
+            },
+        ),
         (
             "Өөрөө бөглөх анкет",
             {
@@ -229,6 +271,23 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
             },
         ),
     )
+
+    def save_model(self, request: HttpRequest, obj: CompanySettings, form: Any, change: bool) -> None:
+        super().save_model(request, obj, form, change)  # only reached with the change permission
+        before = modules.state()
+        after = {m.key: bool(form.cleaned_data.get(f"module_{m.key}")) for m in modules.MODULES}
+        modules.set_state(after)
+        for key, now in after.items():
+            if before[key] != now:
+                label = modules.BY_KEY[key].label
+                record_safe(
+                    Category.ACCESS,
+                    "module_switched",
+                    actor=request.user if isinstance(request.user, User) else None,
+                    message=f"{label}: {'асаасан' if now else 'унтраасан'}",
+                    target_type="module",
+                    target_label=label,
+                )
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
         """There is one row, so the list is skipped: the menu opens the row, or the add form while there is none."""

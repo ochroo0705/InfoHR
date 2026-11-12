@@ -17,6 +17,7 @@
   <div data-field="employee_type"><dt class="text-slate-500">Ажилтны төрөл</dt><dd>{{ row.job.get_employee_type_display|default:"—" }}</dd></div>
   <div><dt class="text-slate-500">Гэрээ</dt><dd><span data-field="contract_type">{{ row.job.get_contract_type_display|default:"—" }}</span> <span data-field="contract_no">{{ row.job.contract_no }}</span>{% if 'contract' in event_allowed %}{% include "employees/_change_chip.html" with kind='contract' %}{% endif %}</dd></div>
   <div data-field="contract_start"><dt class="text-slate-500">Гэрээний хугацаа</dt><dd>{{ row.job.contract_start|date:"Y-m-d"|default:"—" }} – <span data-field="contract_end">{{ row.job.contract_end|date:"Y-m-d"|default:"" }}</span></dd></div>
+  <div><dt class="text-slate-500">Гэрээ дуусах</dt><dd>{% if row.job.contract_end %}{{ row.job.contract_end|date:"Y-m-d" }}{% elif row.job.contract_type == "open_ended" %}Хугацаагүй{% else %}—{% endif %}</dd></div>
   <div><dt class="text-slate-500">Туршилт дуусах</dt><dd>{% if form %}{% field form.probation_end soft=True %}{% else %}{{ employee.ext.probation_end|date:"Y-m-d"|default:"—" }}{% endif %}</dd></div>
   {% if form %}<div><dt class="text-slate-500">Анх ажилд орсон огноо</dt><dd>{% field form.first_hire_date soft=True %}</dd></div>{% endif %}
 </dl>

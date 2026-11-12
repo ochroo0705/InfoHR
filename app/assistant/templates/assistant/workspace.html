@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}The workspace page: tab strip on top, the table pane and the chat pane. From xl up they sit side by side (table on the
+left, chat on the right); below xl they stack with the chat FIRST, so the question box is not at the bottom of a long table.
+The two panes are empty placeholders with stable ids (ws-table-pane, ws-chat-pane) that the table and chat parts fill.
+workspace.js (row ticks, copy, select all, the waiting and focus handling) is loaded here only; it reads the table pane from
+the DOM after every swap. #ws-live is a live region outside both panes: a swapped pane is not announced, this one is.{% endcomment %}
+{% block title %}Асуулт, хүснэгт{% endblock %}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
+{% block assistant_fab %}{% endblock %}
+{% block content %}
+<script src="{% static 'js/workspace.js' %}" defer></script>
+<div class="flex flex-col gap-4">
+  {% include "assistant/_ws_tabs.html" %}
+
+  {% for message in messages %}<p class="rounded p-2 text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-emerald-50 text-emerald-800{% endif %}">{{ message }}</p>{% endfor %}
+  <p id="ws-live" role="status" aria-live="polite" class="sr-only"></p>
+
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <h1 class="min-w-0 truncate text-xl font-semibold"{% if current %} title="{{ current.title }}"{% endif %}>{% if current %}{{ current.title }}{% else %}Асуулт, хүснэгт{% endif %}</h1>
+    {% if current %}
+    <details class="relative ml-auto" data-ws-menu>
+      <summary class="inline-flex h-9 cursor-pointer list-none items-center rounded-lg border border-slate-300 bg-surface px-3 text-sm hover:bg-slate-50 max-sm:h-11 [&::-webkit-details-marker]:hidden">Үйлдэл ▾</summary>
+      <div data-nav-panel class="absolute right-0 z-20 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 bg-surface p-3 text-left shadow-lg">
+        <form method="post" action="{% url 'assistant:ws_rename' current.pk %}" class="flex flex-col gap-2">{% csrf_token %}
+          <label for="ws-rename-title" class="text-xs text-slate-500">Нэр өөрчлөх</label>
+          <input id="ws-rename-title" type="text" name="title" value="{{ current.title }}" maxlength="80" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <button type="submit" class="rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm hover:bg-slate-50">Хадгалах</button>
+        </form>
+        <form method="post" action="{% url 'assistant:ws_close' current.pk %}" data-confirm="Энэ хүснэгтийг хаах уу? Хадгалсан хувилбарууд устана." data-confirm-ok="Хаах" class="mt-3 border-t border-slate-200 pt-2">{% csrf_token %}
+          <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">Хүснэгтийг хаах</button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
+  </div>
+
+  <div class="flex flex-col gap-4 xl:flex-row xl:items-start">
+    <section id="ws-table-pane" aria-label="Хүснэгт" class="order-2 min-w-0 flex-1 rounded-lg border border-slate-200 bg-surface p-4 xl:order-none"{% if current %} hx-get="{% url 'assistant:ws_table' current.pk %}" hx-trigger="{% if not table %}load, {% endif %}ws-table-changed from:body"{% endif %}>
+      {% if table %}
+      {% include "assistant/_ws_table.html" %}
+      {% elif current %}
+      <p class="py-6 text-center text-slate-500">Хүснэгт ачаалж байна…</p>
+      {% else %}
+      <p class="py-6 text-center text-slate-500">Хүснэгт алга. «Шинэ» дээр дарж эхлээрэй.</p>
+      {% endif %}
+    </section>
+
+    <aside id="ws-chat-pane" aria-label="Чат" class="order-1 w-full shrink-0 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-surface p-4 xl:sticky xl:top-20 xl:order-none xl:w-96" hx-on::before-swap="if (event.detail.xhr.getResponseHeader('X-Chat-Error')) { event.detail.shouldSwap = true; event.detail.isError = false; }"{% if current %} hx-get="{% url 'assistant:ws_chat' current.pk %}" hx-trigger="load"{% endif %}>
+      {% if current %}<p class="text-slate-500">Чат ачаалж байна…</p>{% else %}<p class="text-slate-500">Чат энд харагдана.</p>{% endif %}
+    </aside>
+  </div>
+</div>
+{% endblock %}

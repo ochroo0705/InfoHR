@@ -96,6 +96,15 @@ def test_delete_used_type_refused(employee: Employee, annual: LeaveTypeRow, acto
     assert LeaveTypeRow.objects.filter(pk=annual.pk).exists()
 
 
+def test_delete_type_used_only_by_leave_assign_refused(employee: Employee, annual: LeaveTypeRow, actor: User) -> None:
+    """leave_assign has no foreign key to leave_type in MACS, so this guard is the only thing that protects it."""
+    _record(employee, annual, actor)
+    with pytest.raises(ListEntryInUse):
+        writes.delete_leave_type(annual)
+    assert LeaveTypeRow.objects.filter(pk=annual.pk).exists()
+    assert LeaveTypeExt.objects.filter(pk=annual.pk).exists()
+
+
 def test_add_grant_writes_entitlement_and_ext(employee: Employee, annual: LeaveTypeRow, actor: User) -> None:
     grant = writes.add_grant(
         employee,

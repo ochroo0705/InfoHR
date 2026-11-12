@@ -681,6 +681,8 @@ def cancel(event: Event, *, reason: str, by: User, cancel_order_no: str = "") ->
             history.undo([*job_records, *salary_records])
         except HistoryError as exc:
             raise EventError({"__all__": str(exc)}) from exc
+        # Snapshots written for later changes copied this change's values; make them match the records that are left.
+        macs_writes.refresh_history_rows(event.employee, event.effective)
     event.cancelled_at, event.cancelled_by, event.cancel_reason = timezone.now(), by, reason
     event.save(update_fields=["cancelled_at", "cancelled_by", "cancel_reason"])
     try:

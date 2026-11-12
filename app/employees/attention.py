@@ -1,8 +1,11 @@
 """The "needs attention" strip above the employee list."""
 
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
+from functools import cached_property
+from urllib.parse import urlencode
 
 from accounts.models import User
 from django.db.models import Q
@@ -379,6 +382,9 @@ def _sorted(out: list[Attention]) -> list[Attention]:
 # (a box with every item was 770 KB at 300 staff).
 GROUP_LIMIT = 3
 
+# A whole missing-data group (a gap row) loads this many people per request; the rest sit behind «+ N бусад →».
+GAP_PAGE = 8
+
 # Group headings per (kind, urgency); a kind not listed falls back to its first item's text.
 GROUP_LABELS: dict[tuple[str, int], str] = {
     ("termination", DUE): "Ажлаас гарах",
@@ -404,12 +410,41 @@ GROUP_LABELS: dict[tuple[str, int], str] = {
 }
 
 
+# Where a group's «Бүгдийг нээх →» link leads: kind -> (url name, query). A kind not listed has no page.
+GROUP_URLS: dict[str, tuple[str, dict[str, str]]] = {
+    "order_number": ("employees:orders", {"state": "pending"}),
+    "leave_requests": ("leave:requests", {}),
+    "checklist_tasks": ("checklists:mine", {}),
+}  # "awaiting" has no entry: OrderState has no value for "waiting for a signed order"
+
+
+def label_clashes(items: list[Attention]) -> set[int]:
+    """Employee pks whose short name («Б. Азжаргал») another person in `items` shares: their chips show the code too."""
+    names = {a.employee.pk: a.employee.short_name for a in items if a.employee is not None}
+    counts = Counter(names.values())
+    return {pk for pk, name in names.items() if counts[name] > 1}
+
+
 @dataclass
 class Group:
     kind: str
     urgency: int
     label: str
     items: list[Attention]
+
+    @cached_property
+    def clashes(self) -> set[int]:
+        """Employee pks in this group whose chips need the code (see `label_clashes`)."""
+        return label_clashes(self.items)
+
+    @property
+    def url(self) -> str:
+        """The page that lists this group in full; "" when the kind has no natural page."""
+        if self.kind not in GROUP_URLS:
+            return ""
+        name, query = GROUP_URLS[self.kind]
+        base = reverse(name)
+        return f"{base}?{urlencode(query)}" if query else base
 
     @property
     def dated(self) -> bool:
@@ -440,6 +475,36 @@ def group(found: list[Attention]) -> list[Group]:
             groups[key] = Group(a.kind, a.urgency, GROUP_LABELS.get(key, a.text), [])
         groups[key].items.append(a)
     return sorted(groups.values(), key=lambda g: g.urgency)
+
+
+@dataclass
+class Tiers:
+    """The groups sorted into three tiers: overdue, due soon, and missing data."""
+
+    urgent: list[Group]
+    soon: list[Group]
+    gaps: list[Group]
+
+    @property
+    def urgent_count(self) -> int:
+        return sum(len(g.items) for g in self.urgent)
+
+    @property
+    def soon_count(self) -> int:
+        return sum(len(g.items) for g in self.soon)
+
+    @property
+    def gap_count(self) -> int:
+        return sum(len(g.items) for g in self.gaps)
+
+
+def tiers(groups: list[Group]) -> Tiers:
+    """Split groups by urgency; order inside each tier is kept."""
+    return Tiers(
+        urgent=[g for g in groups if g.urgency == OVERDUE],
+        soon=[g for g in groups if g.urgency == DUE],
+        gaps=[g for g in groups if g.urgency == MISSING],
+    )
 
 
 def split(user: User, found: list[Attention]) -> tuple[list[Attention], list[Attention]]:

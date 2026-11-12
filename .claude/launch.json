@@ -20,6 +20,12 @@
       "port": 8031
     },
     {
+      "name": "perf-demo-8041",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set DEMO_DB=info_hr_perf&& set PORT=8041&& .venv\\Scripts\\python scripts\\demo.py run"],
+      "port": 8041
+    },
+    {
       "name": "assistant-8004",
       "runtimeExecutable": "E:/WorkProjects/Info HR/.venv/Scripts/python.exe",
       "runtimeArgs": ["app/manage.py", "runserver", "8004"],
@@ -30,6 +36,18 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "scripts\\fb_smoke_server.cmd"],
       "port": 8010
+    },
+    {
+      "name": "governed-fb-8011",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& python app\\manage.py runserver 8011 --noreload"],
+      "port": 8011
+    },
+    {
+      "name": "governed-fb-8012",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& python app\\manage.py runserver 8012 --noreload"],
+      "port": 8012
     }
   ]
 }

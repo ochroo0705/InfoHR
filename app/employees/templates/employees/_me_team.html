@@ -1,0 +1,13 @@
+<section class="mt-6" data-team-away>
+  <h2 class="sec-title mb-2">Багийн чөлөө</h2>
+  {% if team_away %}
+  <ul class="divide-y divide-slate-100 overflow-hidden rounded-xl bg-surface shadow-sm">
+    {% for a in team_away|slice:":8" %}
+    <li class="px-4 py-3 text-sm">{{ a.employee.full_name }} · {{ a.start|date:"Y-m-d" }} – {{ a.end|date:"Y-m-d" }}</li>
+    {% endfor %}
+  </ul>
+  {% if team_away|length > 8 %}<p class="mt-2 text-sm text-slate-500">+{{ team_away|length|add:"-8" }}</p>{% endif %}
+  {% else %}
+  <p class="rounded-xl bg-surface px-4 py-3 text-sm text-slate-500 shadow-sm">Ойрын 14 хоногт чөлөөтэй хүн алга.</p>
+  {% endif %}
+</section>

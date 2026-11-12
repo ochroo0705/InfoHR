@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% comment %}The saved workspace tables the viewer may see (saved_list in saved_views.py). A row opens the table's page; the row
+is clickable as a whole (UI_RULES 4), and the delete control sits in its own cell, which stops the click. Delete is a
+single row control, so it uses the «confirm without a pop-up» pattern (UI_RULES 3): a summary that asks «Устгах уу?» and
+holds the red confirm button. The table turns into cards below md (UI_RULES 4, phone rows).{% endcomment %}
+{% block title %}Хадгалсан хүснэгт{% endblock %}
+{% block assistant_fab %}{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-4">
+  <div>
+    <h1 class="text-xl font-semibold">Хадгалсан хүснэгт</h1>
+    <p class="text-sm text-slate-500">«Асуулт, хүснэгт» хэсгээс хадгалсан хүснэгтүүд. Хамтын хүснэгтийг бүх хэрэглэгч харна; хувийнхийг зөвхөн зохиогч нь харна.</p>
+  </div>
+
+  {% for message in messages %}<p class="rounded p-2 text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-emerald-50 text-emerald-800{% endif %}">{{ message }}</p>{% endfor %}
+
+  <div class="ptable overflow-visible">
+    <table class="w-full text-sm">
+      <thead class="hidden md:table-header-group">
+        <tr class="text-left text-slate-500">
+          <th scope="col" class="font-medium">Нэр</th>
+          <th scope="col" class="font-medium">Харагдах байдал</th>
+          <th scope="col" class="font-medium">Зохиогч</th>
+          <th scope="col" class="font-medium">Өөрчилсөн</th>
+          <th scope="col" class="sr-only md:not-sr-only">Үйлдэл</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        {% with table=row.table %}
+        <tr class="block my-2 rounded-lg border border-slate-200 hover:bg-violet-50 cursor-pointer md:table-row md:my-0 md:rounded-none md:border-0 md:border-t md:border-slate-200" onclick="location.href='{% url 'assistant:saved_page' table.pk %}'">
+          <td class="block md:table-cell"><a href="{% url 'assistant:saved_page' table.pk %}" onclick="event.stopPropagation()" class="font-medium text-violet-700 hover:underline">{{ table.name }}</a></td>
+          <td class="block md:table-cell"><span class="text-xs text-slate-500 md:hidden">Харагдах байдал: </span>{{ table.get_visibility_display }}</td>
+          <td class="block md:table-cell"><span class="text-xs text-slate-500 md:hidden">Зохиогч: </span>{% if table.author %}{{ table.author.get_full_name|default:table.author.get_username }}{% else %}—{% endif %}</td>
+          <td class="block tabular-nums md:table-cell"><span class="text-xs text-slate-500 md:hidden">Өөрчилсөн: </span>{{ table.updated_at|date:"Y-m-d" }}</td>
+          <td class="block text-left md:table-cell md:text-right" onclick="event.stopPropagation()">
+            {% if row.can_delete %}
+            <details class="relative inline-block">
+              <summary class="cursor-pointer list-none rounded px-2 py-1 text-red-600 hover:bg-red-50 [&::-webkit-details-marker]:hidden">Устгах</summary>
+              <div class="absolute right-0 z-20 mt-1 grid w-56 gap-2 rounded-lg border border-slate-200 bg-surface p-3 text-left shadow-lg">
+                <p class="text-sm text-slate-800">«{{ table.name }}» устгах уу?</p>
+                <form method="post" action="{% url 'assistant:saved_delete' table.pk %}">{% csrf_token %}
+                  <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">Устгах</button>
+                </form>
+              </div>
+            </details>
+            {% endif %}
+          </td>
+        </tr>
+        {% endwith %}
+      {% empty %}
+        <tr><td colspan="5" class="py-6 text-center text-slate-500">Хадгалсан хүснэгт бүртгэгдээгүй</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

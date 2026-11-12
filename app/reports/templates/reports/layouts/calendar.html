@@ -1,10 +1,17 @@
 {# The calendar (UI_RULES §4b): a Monday-first month grid from 640 px up; below that the same entries as a day list. The arrows change the month (htmx, like the switcher); at the year bounds the arrow is a grey span. #}
 {% if table.count == 0 %}
 <p class="mt-4 py-6 text-center text-sm text-slate-400">Өгөгдөл олдсонгүй</p>
+{% elif week %}
+{% include "reports/layouts/_week.html" %}
 {% else %}
-<div class="mt-4 flex items-center justify-between gap-2">
+<div class="mt-4 flex flex-wrap items-center justify-between gap-2">
   <h2 class="text-base font-semibold text-slate-900">{{ calendar.month|date:"Y" }} оны {{ calendar.month|date:"n" }}-р сар</h2>
-  <div class="flex shrink-0 items-center gap-1 text-sm">
+  <div data-calendar-tools class="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+  <div class="flex max-w-full flex-wrap items-center gap-1 text-sm" role="group" aria-label="Харагдац">
+    <span aria-current="true" class="rounded-lg border border-violet-600 px-3 py-1.5 font-semibold text-violet-700">Сар</span>
+    <a href="{{ calendar_week_url }}" hx-get="{{ calendar_week_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">7 хоног</a>
+  </div>
+  <div class="flex max-w-full flex-wrap items-center gap-1 text-sm">
     {% if calendar.month.year == 1900 and calendar.month.month == 1 %}
     <span aria-disabled="true" class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-300"><span class="sr-only">Өмнөх сар</span><span aria-hidden="true">‹</span></span>
     {% else %}
@@ -15,6 +22,14 @@
     {% else %}
     <a href="{{ calendar_next_url }}" aria-label="Дараах сар" hx-get="{{ calendar_next_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">›</a>
     {% endif %}
+    <a href="{{ calendar_today_url }}" hx-get="{{ calendar_today_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">Өнөөдөр</a>
+  </div>
+  <form method="get" action="{{ request.path }}" data-month-form class="flex max-w-full flex-wrap items-center gap-1 text-sm"
+        hx-get="{{ request.path }}" hx-trigger="change" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true">
+    {% for name, value in calendar_keep %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <input type="month" name="lmonth" value="{{ calendar.month|date:'Y-m' }}" min="1900-01" max="2100-12" aria-label="Сар сонгох" class="max-w-full rounded-lg border border-slate-300 bg-surface px-2 py-1.5 text-sm">
+    <noscript><button type="submit" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">Харах</button></noscript>
+  </form>
   </div>
 </div>
 
@@ -26,20 +41,20 @@
   <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Ба</div>
   <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Бя</div>
   <div class="px-1 py-1 text-center text-xs font-medium text-slate-500">Ня</div>
-  {% for week in calendar.weeks %}{% for day in week %}
-  <div data-day="{{ day.day|date:'Y-m-d' }}" class="min-h-20 rounded-lg border border-slate-200 p-1.5 {% if day.in_month %}bg-surface{% else %}bg-slate-50{% endif %}">
+  {% for week in calendar_cells %}{% for day, more_url in week %}
+  <div data-day="{{ day.day|date:'Y-m-d' }}" class="min-h-20 rounded-lg border border-slate-200 p-1.5 {% if day.in_month %}bg-surface{% else %}bg-slate-50{% endif %}{% if day.is_today %} ring-2 ring-violet-600{% endif %}"{% if day.is_today %} data-today{% endif %}>
     <p class="text-xs font-medium {% if day.in_month %}text-slate-700{% else %}text-slate-400{% endif %}">{{ day.day|date:"j" }}</p>
     <ul class="mt-1 space-y-1">
       {% for item in day.items %}{% include "reports/layouts/_entry.html" %}{% endfor %}
     </ul>
-    {% if day.more %}<p class="mt-1 text-xs text-slate-500">+{{ day.more }}</p>{% endif %}
+    {% if day.more %}<p class="mt-1 text-xs text-slate-500"><a href="{{ more_url }}" hx-get="{{ more_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="hover:underline">+{{ day.more }}</a></p>{% endif %}
   </div>
   {% endfor %}{% endfor %}
 </div>
 
 <div class="sm:hidden mt-4 space-y-3">
   {% for day in calendar.busy_days %}
-  <section data-list-day="{{ day.day|date:'Y-m-d' }}" class="rounded-xl border border-slate-200 bg-surface p-3">
+  <section data-list-day="{{ day.day|date:'Y-m-d' }}" class="rounded-xl border border-slate-200 bg-surface p-3{% if day.is_today %} ring-2 ring-violet-600{% endif %}"{% if day.is_today %} data-today{% endif %}>
     <h3 class="text-sm font-semibold text-slate-900">{{ day.day|date:"Y-m-d" }}</h3>
     <ul class="mt-2 space-y-1">
       {% for item in day.items %}{% include "reports/layouts/_entry.html" %}{% endfor %}

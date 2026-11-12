@@ -1,12 +1,17 @@
 # ruff: noqa: F811  (the reused fixtures are imported, then named as test arguments)
+from dataclasses import replace
 from datetime import date, timedelta
 
 import pytest
+from accounts import modules
 from accounts.models import AccessScope, User
+from checklists.models import Checklist, ChecklistKind, ChecklistState, ChecklistTask
 from django.contrib.auth.models import Permission
 from django.test import Client
 from django.urls import reverse
-from macs.models import Branch, LeaveTypeRow
+from django.utils import timezone
+from macs.models import Branch, LeaveTypeRow, LegalHoliday
+from recruitment.models import Vacancy, VacancyStatus
 
 from employees import access, today
 from employees.listing import Row, employee_rows
@@ -216,3 +221,179 @@ def test_fragments_are_not_cached(client: Client, hired: Employee, frozen_today:
     upcoming = client.get(f"{reverse('employees:today_upcoming')}?kind=birthday")
     assert away["Cache-Control"] == "no-store"
     assert upcoming["Cache-Control"] == "no-store"
+
+
+def test_new_hires_window(hired: Employee, actor: User, job_values: dict[str, object]) -> None:
+    old = _second_employee(actor, job_values)
+    Employee.objects.filter(pk=hired.pk).update(first_hire_date=TODAY - timedelta(days=10))
+    Employee.objects.filter(pk=old.pk).update(first_hire_date=TODAY - timedelta(days=40))
+    found = today.new_hires(_rows(), TODAY)
+    assert [r.employee.pk for r in found] == [hired.pk]
+    assert today.new_hires([replace(r, state="left") for r in _rows()], TODAY) == []
+
+
+def test_hires_fragment_names_only_visible(
+    client: Client,
+    hired: Employee,
+    actor: User,
+    job_values: dict[str, object],
+    frozen_today: date,
+) -> None:
+    second = _second_employee(actor, job_values)
+    north, south = Branch.objects.create(name="Хойд"), Branch.objects.create(name="Өмнөд")
+    Employee.objects.filter(pk=hired.pk).update(branch_id=north.pk, first_hire_date=date(2026, 10, 4))
+    Employee.objects.filter(pk=second.pk).update(branch_id=south.pk, first_hire_date=date(2026, 10, 4))
+    hr = login_as(client, "HR", "hr_hires")
+    AccessScope.objects.update_or_create(user=hr, defaults={"limited": True, "branch_ids": [north.pk]})
+    url = reverse("employees:today_hires")
+    response = client.get(url)
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert response["Cache-Control"] == "no-store"
+    assert hired.full_name in body
+    assert second.full_name not in body
+    assert "Сүүлийн 30 хоногт шинээр орсон 1 " in client.get(reverse("employees:today")).content.decode()
+
+
+def test_holidays_ahead_window(frozen_today: date) -> None:
+    LegalHoliday.objects.create(
+        name="Тестийн баяр", start_date=date(2026, 10, 20), end_date=date(2026, 10, 20), hdays=1
+    )
+    LegalHoliday.objects.create(
+        name="Хоцрогдсон баяр", start_date=date(2026, 12, 25), end_date=date(2026, 12, 25), hdays=1
+    )
+    assert today.holidays_ahead(TODAY) == [(date(2026, 10, 20), "Тестийн баяр")]
+
+
+def test_holidays_ahead_year_boundary(frozen_today: date) -> None:
+    LegalHoliday.objects.create(name="Шинэ жил", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1), hdays=1)
+    assert today.holidays_ahead(date(2026, 12, 20)) == [(date(2027, 1, 1), "Шинэ жил")]
+
+
+def test_holidays_none_configured(frozen_today: date) -> None:
+    assert today.holidays_ahead(TODAY) == []
+
+
+def test_holiday_line_shows_on_the_page(client: Client, hired: Employee, frozen_today: date) -> None:
+    LegalHoliday.objects.create(
+        name="Тестийн баяр", start_date=date(2026, 10, 20), end_date=date(2026, 10, 20), hdays=1
+    )
+    login_as(client, "HR")
+    body = client.get(reverse("employees:today")).content.decode()
+    assert "Баяр ёслол: 2026-10-20 Тестийн баяр" in body
+
+
+def test_no_holiday_line_when_none_configured(client: Client, hired: Employee, frozen_today: date) -> None:
+    login_as(client, "HR")
+    assert "Баяр ёслол" not in client.get(reverse("employees:today")).content.decode()
+
+
+def _vacancy(job_values: dict[str, object], status: str) -> None:
+    Vacancy.objects.create(
+        title="Нягтлан",
+        position=job_values["position"],
+        department=job_values["department"],
+        headcount=1,
+        status=status,
+    )
+
+
+def test_open_vacancies_none_without_right() -> None:
+    assert today.open_vacancies(_user("Accountant", "vac_none")) is None
+
+
+def test_open_vacancies_counts_open_only(job_values: dict[str, object]) -> None:
+    _vacancy(job_values, VacancyStatus.OPEN)
+    _vacancy(job_values, VacancyStatus.OPEN)
+    _vacancy(job_values, VacancyStatus.CLOSED)
+    assert today.open_vacancies(_user("HR", "vac1")) == 2
+
+
+def test_open_vacancy_line_links_to_vacancies(
+    client: Client, job_values: dict[str, object], frozen_today: date
+) -> None:
+    _vacancy(job_values, VacancyStatus.OPEN)
+    login_as(client, "HR")
+    body = client.get(reverse("employees:today")).content.decode()
+    assert "Нээлттэй ажлын байр 1 →" in body
+    assert f'href="{reverse("recruitment:vacancies")}"' in body
+
+
+def test_checklist_summary_none_without_right() -> None:
+    assert today.checklist_summary(_user("HR", "ck_none"), _rows(), TODAY) is None
+
+
+def test_checklist_summary_counts_open_lists_and_overdue_tasks(
+    hired: Employee, actor: User, job_values: dict[str, object]
+) -> None:
+    second = _second_employee(actor, job_values)
+    open_one = Checklist.objects.create(
+        employee=hired, kind=ChecklistKind.OFFBOARDING, template_name="Загвар", anchor_day=TODAY
+    )
+    Checklist.objects.create(employee=second, kind=ChecklistKind.OFFBOARDING, template_name="Загвар", anchor_day=TODAY)
+    cancelled = Checklist.objects.create(
+        employee=hired,
+        kind=ChecklistKind.ONBOARDING,
+        template_name="Загвар",
+        anchor_day=TODAY,
+        state=ChecklistState.CANCELLED,
+    )
+    ChecklistTask.objects.create(checklist=open_one, title="Хоцорсон", due_on=TODAY - timedelta(days=2))
+    ChecklistTask.objects.create(checklist=open_one, title="Цаашдаа", due_on=TODAY + timedelta(days=2))
+    ChecklistTask.objects.create(
+        checklist=open_one, title="Хийгдсэн", due_on=TODAY - timedelta(days=3), done_at=timezone.now()
+    )
+    ChecklistTask.objects.create(checklist=cancelled, title="Цуцлагдсан", due_on=TODAY - timedelta(days=2))
+    assert today.checklist_summary(_user("Admin", "ck1"), _rows(), TODAY) == (2, 1)
+
+
+def test_checklist_summary_counts_only_people_the_viewer_sees(
+    hired: Employee, actor: User, job_values: dict[str, object]
+) -> None:
+    second = _second_employee(actor, job_values)
+    north, south = Branch.objects.create(name="Хойд"), Branch.objects.create(name="Өмнөд")
+    Employee.objects.filter(pk=hired.pk).update(branch_id=north.pk)
+    Employee.objects.filter(pk=second.pk).update(branch_id=south.pk)
+    for person in (hired, second):
+        checklist = Checklist.objects.create(
+            employee=person, kind=ChecklistKind.OFFBOARDING, template_name="Загвар", anchor_day=TODAY
+        )
+        ChecklistTask.objects.create(checklist=checklist, title="Хоцорсон", due_on=TODAY - timedelta(days=1))
+    scoped = _user("HR", "ck_scoped")  # the Admin group is never limited by scope, so use HR plus the right
+    right = Permission.objects.get(content_type__app_label="checklists", codename="manage_checklists")
+    scoped.user_permissions.add(right)
+    AccessScope.objects.update_or_create(user=scoped, defaults={"limited": True, "branch_ids": [north.pk]})
+    visible = employee_rows(access.visible_employees(scoped).filter(ext__isnull=False), TODAY)
+    assert today.checklist_summary(scoped, visible, TODAY) == (1, 1)
+    assert today.checklist_summary(_user("Admin", "ck_all"), _rows(), TODAY) == (2, 2)
+
+
+def test_checklist_summary_none_when_the_module_is_off(
+    monkeypatch: pytest.MonkeyPatch, hired: Employee, job_values: dict[str, object]
+) -> None:
+    Checklist.objects.create(employee=hired, kind=ChecklistKind.OFFBOARDING, template_name="Загвар", anchor_day=TODAY)
+    monkeypatch.setattr(modules, "enabled", lambda key: key != "checklists")
+    assert today.checklist_summary(_user("Admin", "ck_off"), _rows(), TODAY) is None
+
+
+def test_checklist_line_shows_on_the_page(client: Client, hired: Employee, frozen_today: date) -> None:
+    checklist = Checklist.objects.create(
+        employee=hired, kind=ChecklistKind.OFFBOARDING, template_name="Загвар", anchor_day=TODAY
+    )
+    ChecklistTask.objects.create(checklist=checklist, title="Хоцорсон", due_on=TODAY - timedelta(days=1))
+    login_as(client, "Admin")
+    body = client.get(reverse("employees:today")).content.decode()
+    assert "Бүрдүүлэлт: 1 нээлттэй · " in body
+    assert '<span class="text-red-700">1 хоцорсон</span>' in body
+    line = body.split("data-checklist-summary", 1)[1].split("</div>", 1)[
+        0
+    ]  # the line itself, not the page's other links
+    assert "<a " not in line  # no overview page exists: plain text, no link
+
+
+def test_hires_line_says_it_looks_back(client: Client, hired: Employee, frozen_today: date) -> None:
+    Employee.objects.filter(pk=hired.pk).update(first_hire_date=date(2026, 10, 4))
+    login_as(client, "HR", "hr_looks_back")
+    body = client.get(reverse("employees:today")).content.decode()
+    assert "Сүүлийн 30 хоногт шинээр орсон 1 " in body
+    assert "Шинээр орсон" not in body

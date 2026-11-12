@@ -3,17 +3,43 @@
 {% if timeline.total == 0 %}
 <p class="mt-4 py-6 text-center text-sm text-slate-400">Өгөгдөл олдсонгүй</p>
 {% else %}
+<div data-timeline-tools class="mt-4 flex flex-wrap items-center justify-end gap-2 text-sm">
+  {% if spec.year %}
+  <div class="flex shrink-0 items-center gap-1 text-sm">
+    {% if timeline_year_prev_url %}
+    <a href="{{ timeline_year_prev_url }}" aria-label="Өмнөх жил" hx-get="{{ timeline_year_prev_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">‹</a>
+    {% else %}
+    <span aria-disabled="true" class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-300"><span class="sr-only">Өмнөх жил</span><span aria-hidden="true">‹</span></span>
+    {% endif %}
+    <span class="px-2 font-semibold text-slate-700">{{ spec.year }}</span>
+    {% if timeline_year_next_url %}
+    <a href="{{ timeline_year_next_url }}" aria-label="Дараах жил" hx-get="{{ timeline_year_next_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">›</a>
+    {% else %}
+    <span aria-disabled="true" class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-300"><span class="sr-only">Дараах жил</span><span aria-hidden="true">›</span></span>
+    {% endif %}
+  </div>
+  <a href="{{ timeline_all_url }}" hx-get="{{ timeline_all_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">Бүгд</a>
+  {% else %}
+  <a href="{{ timeline_year_enter_url }}" title="Нэг жилээр харах" hx-get="{{ timeline_year_enter_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-slate-700 hover:bg-slate-50">Он</a>
+  {% endif %}
+</div>
 <div class="mt-4 overflow-x-auto pb-2">
   <div class="space-y-2">
-    {% for b in timeline.bars %}
-    <div class="flex items-center gap-3 text-sm">
-      <div class="w-48 shrink-0 truncate">{% if b.item.href %}<a href="{{ b.item.href }}" class="text-violet-700 hover:underline">{{ b.item.title }}</a>{% else %}{{ b.item.title }}{% endif %}</div>
-      <div class="relative h-7 min-w-[40rem] flex-1 rounded bg-slate-100">
-        <div data-bar role="img" aria-label="{{ b.item.title }}: {{ b.start|date:'Y-m-d' }} – {{ b.end|date:'Y-m-d' }}" class="absolute inset-y-1 rounded {% if b.item.mark %}{{ b.item.mark }} ring-1 ring-inset{% else %}bg-violet-500{% endif %}" style="left:{{ b.left_pct|unlocalize }}%;width:{{ b.width_pct|unlocalize }}%" data-tip-title="{{ b.item.title }}" data-tip="{{ b.tip }}"></div>
+    {% if timeline.groups %}{% for g in timeline.groups %}
+    <div class="mt-2 flex items-center gap-3 text-sm font-semibold text-slate-900"><div class="w-48 shrink-0 truncate">{{ g.label }} · {{ g.count }}</div></div>
+    {% for b in g.bars %}
+    {% include "reports/layouts/_bar.html" %}
+    {% endfor %}{% endfor %}{% else %}{% for b in timeline.bars %}
+    {% include "reports/layouts/_bar.html" %}
+    {% endfor %}{% endif %}
+    {% if timeline.first %}
+    <div class="flex items-center gap-3 text-xs text-slate-500">
+      <div class="w-48 shrink-0"></div>
+      <div class="relative h-5 min-w-[40rem] flex-1 border-t border-slate-300">
+        {% for t in timeline.ticks %}<span aria-hidden="true" class="absolute -top-1 h-2 border-l border-slate-400" style="left:{{ t.left_pct|unlocalize }}%"></span><span class="absolute text-xs text-slate-500" style="left:{{ t.left_pct|unlocalize }}%">{{ t.label }}</span>
+        {% endfor %}{% if timeline.today_pct is not None %}<div aria-hidden="true" data-today class="absolute inset-y-0 w-px bg-violet-500" style="left:{{ timeline.today_pct|unlocalize }}%" title="Өнөөдөр"></div>{% endif %}
       </div>
     </div>
-    {% endfor %}
-    {% if timeline.first %}
     <div class="flex items-center gap-3 text-xs text-slate-500">
       <div class="w-48 shrink-0"></div>
       <div class="flex min-w-[40rem] flex-1 justify-between border-t border-slate-300 pt-1">

@@ -56,12 +56,16 @@ def test_opted_in_report_offers_its_views_and_each_answers_200(
     offered = offered_layouts(REPORTS[key], user)
     assert offered == EXPECTED[key]
     for name in offered[1:]:
-        resp = client.get(f"/reports/{key}/", {"layout": name})
+        resp = client.get(f"/reports/{key}/", {"layout": name, "lyear": "all"})
         assert resp.status_code == 200, name
 
 
 def test_only_the_planned_reports_opt_in() -> None:
-    assert {key for key, report in REPORTS.items() if report.layouts} == set(EXPECTED)
+    # every row report offers the views (registry._with_tools); a statistic report stays a table, except
+    # headcount-trend, which is statistic (one row per month) but declares its own chart
+    assert {key for key, report in REPORTS.items() if report.layouts} == {
+        key for key, report in REPORTS.items() if report.shows_count or key == "headcount-trend"
+    }
 
 
 @pytest.mark.parametrize("probe", HOSTILE, ids=[str(n) for n in range(len(HOSTILE))])
@@ -70,7 +74,7 @@ def test_hostile_address_on_the_staff_list_gives_no_500_and_no_raw_markup(
 ) -> None:
     login_as(client, "Admin", "hostile-admin")
     for name in LAYOUTS:
-        resp = client.get(f"/reports/staff-list/?layout={name}&{probe}")
+        resp = client.get(f"/reports/staff-list/?layout={name}&lyear=all&{probe}")
         assert resp.status_code == 200, (name, probe[:80])
         html = resp.content.decode()
         assert PAYLOAD not in html, (name, probe[:80])

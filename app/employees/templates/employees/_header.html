@@ -1,4 +1,4 @@
-{% load hr %}{% with photo=employee|thumb:80 %}
+{% load hr %}
 <div class="rounded-2xl border border-slate-200 bg-surface p-4 shadow-sm sm:p-6">
 <div class="flex flex-wrap items-start gap-x-5 gap-y-4 sm:items-center">
   <div class="flex flex-col items-center gap-1">
@@ -34,7 +34,7 @@
   <div class="flex w-full flex-col gap-3 self-start sm:w-auto sm:items-end">
     <div class="flex flex-col gap-1 sm:items-end">
       {% include "employees/_state.html" with state=row.state job=row.job until=leave_until %}
-      {% if next_event %}<a href="#work" onclick="showTab('work')" class="flex items-center gap-1 text-xs text-slate-500 hover:text-violet-700" title="Ажлын түүхээс харах, цуцлах">
+      {% if next_event %}<a href="#work" class="flex items-center gap-1 text-xs text-slate-500 hover:text-violet-700" title="Ажлын түүхээс харах, цуцлах">
         <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12" rx="2"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4"/></svg>
         {{ next_event.get_type_display }} · {{ next_event.effective|date:"Y-m-d" }}</a>{% endif %}
     </div>
@@ -52,10 +52,10 @@
     </div>
   </div>
 </div>
-<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 md:grid-cols-4">
+<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 lg:hidden md:grid-cols-4">
   <div class="min-w-0"><div class="text-xs text-slate-600">Ажилд орсон</div><div class="mt-0.5 font-semibold">{{ employee.first_hire_date|date:"Y-m-d"|default:"—" }}</div></div>
   <div class="min-w-0"><div class="text-xs text-slate-500">Ажилтны төрөл</div><div class="mt-0.5 truncate font-semibold">{{ row.job.get_employee_type_display|default:"—" }}</div></div>
   <div class="min-w-0"><div class="text-xs text-slate-500">Гэрээ дуусах</div><div class="mt-0.5 truncate font-semibold">{% if row.job.contract_end %}{{ row.job.contract_end|date:"Y-m-d" }}{% elif row.job.contract_type == "open_ended" %}Хугацаагүй{% else %}—{% endif %}</div></div>
   <div class="min-w-0"><div class="text-xs text-slate-500">Шууд удирдлага</div><div class="mt-0.5 truncate font-semibold">{{ row.job.manager|default:"—" }}</div></div>
 </div>
-</div>{% endwith %}
+</div>

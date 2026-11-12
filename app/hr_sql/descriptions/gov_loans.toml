@@ -1,0 +1,70 @@
+# needs native read
+# Draft. English from the catalogue text that was inline in hr_sql/catalogue.py. Mongolian drafted from the model
+# labels (macs/models.py LoanRow, LoanRefRow). Signed only by the domain owner.
+
+description = "One row per employee loan. Only users with the salary right get this view. The loan's reason is in REASON."
+description_mn = "Ажилтны зээл бүрийн нэг мөр. Зөвхөн цалин харах эрхтэй хэрэглэгч энэ хүснэгтийг авна. Үндэслэл REASON баганад байна."
+
+rules = [
+    # Amount is the loan amount; the monthly repayment is pay_permonth.
+    # app/macs/models.py (LoanRow.amount, LoanRow.pay_permonth)
+    "AMOUNT is the loan amount; MONTHLY_PAYMENT is the monthly repayment.",
+    # The reason is the loan basis name.
+    # app/macs/models.py (LoanRow.loan_ref, LoanRefRow.description)
+    "REASON is the loan basis name (the reason for the loan), from the loan basis list.",
+    # Only the salary right gives this view.
+    # app/hr_sql/catalogue.py (catalogue_for)
+    "Only users with the macs.view_salary right can ask about loans.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = "Ochroo"
+reviewed_on = "2026-11-12"
+
+[[columns]]
+name = "LOAN_ID"
+description = "Loan record number (internal id)"
+description_mn = "Зээлийн бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "LOAN_DATE"
+description = "Date the loan was taken"
+description_mn = "Зээл авсан огноо"
+label_mn = "Зээл авсан огноо"
+synonyms = ["taken", "start", "from"]
+
+[[columns]]
+name = "END_DATE"
+description = "Date the loan ends (last repayment)"
+description_mn = "Зээл дуусах огноо (сүүлийн төлбөр)"
+label_mn = "Зээл дуусах огноо"
+synonyms = ["to", "end", "until"]
+
+[[columns]]
+name = "AMOUNT"
+description = "Loan amount (money, two decimals)"
+description_mn = "Зээлийн дүн (мөнгөн дүн, хоёр аравтын орон)"
+label_mn = "Зээлийн дүн"
+synonyms = ["sum", "principal", "value"]
+
+[[columns]]
+name = "MONTHLY_PAYMENT"
+description = "Monthly repayment amount (money, two decimals)"
+description_mn = "Сарын төлбөрийн дүн (мөнгөн дүн, хоёр аравтын орон)"
+label_mn = "Сарын төлбөр"
+synonyms = ["monthly", "payment", "instalment"]
+
+[[columns]]
+name = "REASON"
+description = "Reason for the loan (the loan basis name)"
+description_mn = "Зээлийн үндэслэл"
+label_mn = "Үндэслэл"
+synonyms = ["purpose", "basis", "why"]

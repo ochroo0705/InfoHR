@@ -1610,7 +1610,8 @@ def test_saved_report_views_are_found_by_name_or_report_title(listed: Employee) 
     base = reverse("reports:report", args=[report.key])
     first = palette.Screen(f"Тайлан · {report.title} · Санхүүгийнхэн", f"{base}?department=1")
     assert first in palette.screens(hr, "санхуугийнхэн")  # folded
-    assert palette.Screen(f"Тайлан · {report.title} · Хоосон", base) in palette.screens(hr, "хоосон")
+    # an empty query must open the plain view; the bare address would open the report's default view instead
+    assert palette.Screen(f"Тайлан · {report.title} · Хоосон", f"{base}?view=plain") in palette.screens(hr, "хоосон")
     assert first not in palette.screens(hr, "")
 
 

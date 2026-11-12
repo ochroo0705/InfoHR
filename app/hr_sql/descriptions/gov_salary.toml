@@ -1,0 +1,68 @@
+# needs native read
+# Draft. English from the catalogue text that was inline in hr_sql/catalogue.py. CHANGE_TYPE words are the ChangeType
+# labels (employees/models.py). Mongolian drafted from the model labels. Signed only by the domain owner.
+
+description = "One row per base-salary period of an employee you may see. Only users with the salary right get this view."
+description_mn = "Харах эрхтэй ажилтны үндсэн цалингийн хугацаа бүрийн нэг мөр. Зөвхөн цалин харах эрхтэй хэрэглэгч энэ хүснэгтийг авна."
+
+rules = [
+    # One row per salary period; the end date is empty for a period that is still open.
+    # app/employees/models.py (SalaryRecord.end_date, nullable); app/hr_sql/views.py (GOV_SALARY statement)
+    "One row per base-salary period. An open (current) period has an empty END_DATE.",
+    # The salary valid on a day is the period that contains that day.
+    # app/employees/listing.py (current_salary asks for the salary valid today)
+    "The salary valid on a given day is the period whose START_DATE is on or before that day and whose END_DATE is empty or after it.",
+    # Only the salary right gives this view.
+    # app/hr_sql/catalogue.py (catalogue_for)
+    "Only users with the macs.view_salary right can ask about salaries.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+    # The view reads the HR salary records only. The employee list falls back to the salary kept on the MACS employee
+    # record for a person with no HR salary history (app/employees/listing.py, current_salary), so that person has no
+    # row here.
+    # needs native read
+    "A person with no HR salary history has no row in this view. The salary kept on their MACS employee record is not included, so totals here can be lower than the employee list's salary figures.",
+]
+reviewed_by = "Ochroo"
+reviewed_on = "2026-11-12"
+
+[[columns]]
+name = "SALARY_ID"
+description = "Salary period number (internal id)"
+description_mn = "Цалингийн түүхийн бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "START_DATE"
+description = "First day of this salary period"
+description_mn = "Хугацааны эхлэх огноо"
+label_mn = "Эхлэх огноо"
+synonyms = ["from", "start", "since"]
+
+[[columns]]
+name = "END_DATE"
+description = "Last day of this salary period; empty when it is still current"
+description_mn = "Хугацааны дуусах огноо; одоо хүчинтэй бол хоосон"
+label_mn = "Дуусах огноо"
+synonyms = ["to", "end", "until"]
+
+[[columns]]
+name = "BASE_SALARY"
+description = "Base salary amount (money, two decimals)"
+description_mn = "Үндсэн цалин (мөнгөн дүн, хоёр аравтын орон)"
+label_mn = "Үндсэн цалин"
+synonyms = ["salary", "pay", "wage", "amount"]
+
+[[columns]]
+name = "CHANGE_TYPE"
+description = "Why the period started: hire, opening, correction, transfer, promotion, demotion, salary_change or contract"
+description_mn = "Хугацаа эхлэх шалтгаан: hire = Ажилд авсан, opening = Эхлэл (MACS-аас), correction = Засвар, transfer = Шилжүүлсэн, promotion = Дэвшүүлсэн, demotion = Бууруулсан, salary_change = Цалин өөрчилсөн, contract = Гэрээ сунгасан/өөрчилсөн"
+label_mn = "Өөрчлөлтийн төрөл"
+synonyms = ["reason", "type", "kind"]

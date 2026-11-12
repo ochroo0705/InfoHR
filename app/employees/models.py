@@ -7,6 +7,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from logs import foldtext
 from macs.models import Department as Department
 from macs.models import EducRow as EducRow
@@ -343,6 +345,70 @@ class HrOrder(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee_id} {self.get_order_type_display()} {self.number}"
+
+
+class SavedSignature(models.Model):
+    """The signature image one HR user saved, to sign orders on screen. Personal data: the file lives in the
+    private order store, and deleting the row (or the user) deletes the file too."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_signature",
+        verbose_name="Хэрэглэгч",
+    )
+    image = models.FileField("Гарын үсгийн зураг", storage=order_storage, upload_to="signatures/")
+    updated_at = models.DateTimeField("Шинэчилсэн", auto_now=True)
+
+    class Meta:
+        verbose_name = "Хадгалсан гарын үсэг"
+        verbose_name_plural = "Хадгалсан гарын үсгүүд"
+        default_permissions = ()
+
+    def __str__(self) -> str:
+        return str(self.user)
+
+
+@receiver(post_delete, sender=SavedSignature, dispatch_uid="employees_saved_signature_file_removed")
+def _remove_saved_signature_file(sender: type[SavedSignature], instance: SavedSignature, **kwargs: Any) -> None:
+    if instance.image:
+        instance.image.delete(save=False)
+
+
+class OrderSigning(models.Model):
+    """The record that an HR order was signed on screen: who signed, how, and the signature image.
+    The signer's name is copied here, so it stays when the user account is later deleted."""
+
+    class Method(models.TextChoices):
+        SAVED = "saved", "Хадгалсан гарын үсэг"
+        DRAWN = "drawn", "Шинээр зурсан гарын үсэг"
+
+    order = models.OneToOneField(
+        HrOrder,
+        on_delete=models.PROTECT,
+        related_name="signing",
+        verbose_name="Тушаал",
+    )
+    signer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="Гарын үсэг зурсан хэрэглэгч",
+    )
+    signer_name = models.CharField("Гарын үсэг зурсан нэр", max_length=100)
+    signed_at = models.DateTimeField("Гарын үсэг зурсан огноо")
+    method = models.CharField("Арга", max_length=8, choices=Method.choices)
+    image = models.FileField("Гарын үсгийн зураг", storage=order_storage, upload_to="signing/%Y/")
+    pdf_sha256 = models.CharField("Тушаалын PDF-ийн хэш", max_length=64)
+
+    class Meta:
+        verbose_name = "Тушаалын гарын үсэг"
+        verbose_name_plural = "Тушаалын гарын үсгүүд"
+        default_permissions = ()
+
+    def __str__(self) -> str:
+        return f"{self.order_id} {self.signer_name}"
 
 
 class EventProdRow(models.Model):
@@ -757,6 +823,24 @@ class CompanySettings(models.Model):
         "Холбоосын хугацаа (цаг)",
         default=72,
         help_text="Ажилтны маягтын холбоос анх үүсгэхдээ хүчинтэй байх цаг.",
+    )
+    # Contract and probation ends this many days ahead count as «дөхсөн» (near) in the assistant and the reports.
+    soon_days = models.PositiveSmallIntegerField(
+        "«Дөхсөн» гэж тооцох хоног",
+        default=30,
+        help_text=(
+            "Гэрээ эсвэл туршилтын хугацаа дуусах хугацаанд хэдэн хоногийн өмнөөс «дөхсөн» гэж тооцохыг заана. "
+            "1-365 хоног."
+        ),
+    )
+    # Off by default: the assistant answers from governed SQL views only when an admin switches this on.
+    governed_sql_enabled = models.BooleanField(
+        "Өгөгдлөөс шууд хариулах (SQL)",  # needs native read
+        default=False,
+        help_text=(  # needs native read
+            "Идэвхжүүлвэл туслах өгөгдлийн санд зөвхөн унших SQL асуулгаар хариулж чадна. "
+            "Асуулга хэрэглэгчийн өөрийн эрхийн хүрээнд ажиллана."
+        ),
     )
 
     ORDER_FLAGS = {

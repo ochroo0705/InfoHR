@@ -4,6 +4,8 @@ from typing import Any
 
 import pytest
 from accounts.models import User
+from assistant import providers
+from assistant.providers import ProviderError
 from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
@@ -12,6 +14,7 @@ from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from employees.models import Employee, SalaryRecord, StaffImportDraft, StaffImportSettings
+from employees.staff_import.fields import FIELDS
 from employees.staff_import.views import UNFINISHED
 
 pytestmark = pytest.mark.django_db
@@ -490,3 +493,203 @@ def test_the_upload_page_cleans_up_old_drafts_but_keeps_the_import_record(client
     assert kept.state == "imported"
     assert kept.rejected_file is None
     assert StaffImportDraft.objects.filter(pk=fresh.pk).exists()
+
+
+UNKNOWN = "Төрсөн өдөр"  # not an alias, so the plain matcher leaves this column for the AI
+UNKNOWN_HEADINGS = [*HEADINGS[:-1], UNKNOWN]
+SALARY_KEY = next(field.key for field in FIELDS if field.needs_salary)
+
+
+class FakeAssistant:
+    """Stands in for the configured provider: counts its calls and gives back a fixed reply, or raises."""
+
+    def __init__(self, reply: Any = None, error: Exception | None = None) -> None:
+        self.reply = reply
+        self.error = error
+        self.calls = 0
+
+    def complete_json(self, system: str, user: str) -> Any:
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return self.reply
+
+
+# Patches assistant.providers.get_provider to return None, so no test reaches a real provider.
+@pytest.fixture(autouse=True)
+def assistant_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The assistant is off unless a test turns it on, so no test calls a real provider."""
+    monkeypatch.setattr(providers, "get_provider", lambda: None)
+
+
+def unknown_upload(client: Client, headings: list[str] = UNKNOWN_HEADINGS) -> StaffImportDraft:
+    upload(client, make_xlsx([person(10)[:6] + [date(1990, 5, 1)]], headings=headings))
+    return only_draft()
+
+
+def test_map_prefills_ai_suggestion_with_badge(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_badge")
+    draft = unknown_upload(client)
+    fake = FakeAssistant(reply={"matches": [{"column": 6, "field": "birth_date"}]})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
+    assert '<option value="birth_date" selected>' in page
+    assert page.count(">AI<") == 1
+    assert fake.calls == 1
+
+
+def test_map_without_ai_looks_as_before(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_off")
+    draft = unknown_upload(client)
+    monkeypatch.setattr(providers, "get_provider", lambda: None)
+    response = client.get(reverse("employees:import_map", args=[draft.pk]))
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert ">AI<" not in page
+    assert '<option value="birth_date" selected>' not in page
+
+
+def test_map_survives_provider_error(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_error")
+    draft = unknown_upload(client)
+    fake = FakeAssistant(error=ProviderError("provider down"))
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    response = client.get(reverse("employees:import_map", args=[draft.pk]))
+    assert response.status_code == 200
+    assert ">AI<" not in response.content.decode()
+    assert fake.calls == 1
+
+
+def test_ai_is_not_asked_again_after_mapping_saved(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_once")
+    draft = unknown_upload(client)
+    fake = FakeAssistant(reply={"matches": []})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    client.get(reverse("employees:import_map", args=[draft.pk]))
+    assert fake.calls == 1
+    saved = client.post(reverse("employees:import_map", args=[draft.pk]), map_post(NO_SALARY_KEYS))
+    assert saved.status_code == 302
+    client.get(reverse("employees:import_map", args=[draft.pk]))
+    assert fake.calls == 1
+
+
+def test_reread_asks_ai_again(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_reread")
+    draft = unknown_upload(client)
+    fake = FakeAssistant(reply={"matches": []})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    client.get(reverse("employees:import_map", args=[draft.pk]))
+    assert fake.calls == 1
+    response = client.post(
+        reverse("employees:import_map", args=[draft.pk]),
+        {"action": "reread", "sheet": SHEET, "header_rows": "1"},
+        follow=True,
+    )
+    assert response.status_code == 200
+    assert fake.calls == 2
+
+
+def test_hr_without_salary_right_gets_no_salary_suggestion(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_nosalary")
+    draft = unknown_upload(client, headings=[*HEADINGS[:-1], "Бусад тайлбар"])
+    fake = FakeAssistant(reply={"matches": [{"column": 6, "field": SALARY_KEY}]})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
+    assert fake.calls == 1
+    assert f'value="{SALARY_KEY}"' not in page
+    assert ">AI<" not in page
+
+
+def test_known_columns_get_no_badge(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "Admin", "admin_ai_known")
+    upload(client, make_xlsx([person(10)]))
+    draft = only_draft()
+    fake = FakeAssistant(reply={"matches": [{"column": 0, "field": "birth_date"}]})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
+    assert fake.calls == 0
+    assert ">AI<" not in page
+
+
+def test_ai_chip_survives_a_validation_error(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_error_post")
+    draft = unknown_upload(client)
+    fake = FakeAssistant(reply={"matches": [{"column": 6, "field": "birth_date"}]})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    url = reverse("employees:import_map", args=[draft.pk])
+    assert 'name="ai_cols" value="6:birth_date"' in client.get(url).content.decode()
+    failed = client.post(url, {"col_6": "birth_date", "ai_cols": "6:birth_date", "date_format": "iso"})
+    assert failed.status_code == 200
+    page = failed.content.decode()
+    assert "Дараах заавал талбарт" in page  # the required fields are missing, so the save is refused
+    assert '<option value="birth_date" selected>' in page
+    assert page.count(">AI<") == 1
+    draft.refresh_from_db()
+    assert draft.mapping == {}
+    assert fake.calls == 1
+
+
+def test_ai_cols_junk_and_out_of_range_show_no_badge(client: Client) -> None:
+    login_as(client, "HR", "hr_ai_junk")
+    draft = unknown_upload(client)
+    url = reverse("employees:import_map", args=[draft.pk])
+    response = client.post(url, {"col_6": "birth_date", "ai_cols": "abc,,99:x,0", "date_format": "iso"})
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert ">AI<" not in page  # no pair survives: no colon, a bad index, or an unknown key
+    assert '<option value="birth_date" selected>' in page
+
+
+def test_ai_chip_goes_when_the_user_changes_the_column(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_changed")
+    draft = unknown_upload(client)
+    fake = FakeAssistant(reply={"matches": [{"column": 6, "field": "birth_date"}]})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    url = reverse("employees:import_map", args=[draft.pk])
+    client.get(url)
+    failed = client.post(url, {"col_6": "department", "ai_cols": "6:birth_date", "date_format": "iso"})
+    assert failed.status_code == 200
+    page = failed.content.decode()
+    assert "Дараах заавал талбарт" in page
+    assert '<option value="department" selected>' in page
+    assert ">AI<" not in page  # the user chose another field, so the AI guess no longer applies
+    assert fake.calls == 1
+
+
+def test_tampered_ai_pair_adds_a_chip_only_where_the_value_matches(client: Client) -> None:
+    # Accepted as harmless: a forged pair can add a chip, but only on a column whose posted value equals the pair's
+    # key. Here column 0 really holds given_name, so the chip shows; nothing is saved by the error re-render.
+    login_as(client, "HR", "hr_ai_tamper")
+    draft = unknown_upload(client)
+    url = reverse("employees:import_map", args=[draft.pk])
+    posted = {"col_0": "given_name", "col_6": "birth_date", "ai_cols": "0:given_name", "date_format": "iso"}
+    failed = client.post(url, posted)
+    assert failed.status_code == 200
+    assert failed.content.decode().count(">AI<") == 1
+    draft.refresh_from_db()
+    assert draft.mapping == {}
+
+
+def test_hr_salary_heading_gets_no_salary_suggestion(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    login_as(client, "HR", "hr_ai_salary_heading")
+    draft = unknown_upload(client, headings=HEADINGS)
+    fake = FakeAssistant(reply={"matches": [{"column": 6, "field": SALARY_KEY}]})
+    monkeypatch.setattr(providers, "get_provider", lambda: fake)
+    page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
+    assert fake.calls == 1
+    assert f'value="{SALARY_KEY}"' not in page
+    assert ">AI<" not in page
+
+
+def test_hr_tampered_salary_pair_shows_no_chip_and_selects_nothing(client: Client) -> None:
+    login_as(client, "HR", "hr_ai_tamper_salary")
+    draft = unknown_upload(client)
+    url = reverse("employees:import_map", args=[draft.pk])
+    # The required fields are left blank, so the page re-renders with the validation error.
+    failed = client.post(url, {"col_6": SALARY_KEY, "ai_cols": f"6:{SALARY_KEY}", "date_format": "iso"})
+    assert failed.status_code == 200
+    page = failed.content.decode()
+    assert ">AI<" not in page
+    assert f'value="{SALARY_KEY}" selected' not in page
+    draft.refresh_from_db()
+    assert draft.mapping == {}

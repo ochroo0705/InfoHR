@@ -6,19 +6,20 @@
 {% if form or si_form %}<form id="emp-form" method="post" action="{% url 'employees:save' employee.pk %}" enctype="multipart/form-data" hx-post="{% url 'employees:save' employee.pk %}" hx-encoding="multipart/form-data" hx-target="main" hx-select="main" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="tab" id="emp-tab">{% if form %}<input type="hidden" name="loaded" value="{{ form|loaded_snapshot }}">{% endif %}{% if si_form %}<input type="hidden" name="si-loaded" value="{{ si_form|loaded_snapshot }}">{% endif %}</form>
 {% if form.non_field_errors or si_form.non_field_errors %}<p class="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">{{ form.non_field_errors|join:" " }} {{ si_form.non_field_errors|join:" " }}</p>{% endif %}{% endif %}
 {% if one_time_login %}{% include "employees/_one_time_login.html" %}{% endif %}
+{% with photo=employee|thumb:80 %}{# once for the rail card and the header: each thumb call reads the photo row #}
 <div class="mt-2 lg:flex lg:items-start lg:gap-8">
 {% include "employees/_rail.html" %}
 <div class="min-w-0 flex-1">
-<div id="header">{% include "employees/_header.html" %}</div>
+<div id="header">{% include "employees/_header.html" %}</div>{% endwith %}
 <div class="mt-6 rounded-xl border border-slate-200 bg-surface">
-  <nav class="flex gap-6 border-b lg:hidden border-slate-200 px-6" aria-label="Ажилтны хэсгүүд">
-    <a href="#work" class="tab" onclick="showTab('work')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7.5 6V4.5A1.5 1.5 0 0 1 9 3h2a1.5 1.5 0 0 1 1.5 1.5V6M3 10.5h14"/></svg>Ажил</a>
-    {% if can_view_salary %}<a href="#salary" class="tab" onclick="showTab('salary')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8v4M14.5 8v4"/></svg>Цалин, даатгал</a>{% endif %}
-    {% if can_view_personal %}<a href="#personal" class="tab" onclick="showTab('personal')"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>Хувийн</a>{% endif %}
+  <nav class="flex gap-6 sticky top-14 z-20 bg-surface border-b lg:hidden border-slate-200 px-6" aria-label="Ажилтны хэсгүүд">
+    <a href="#work" class="tab"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7.5 6V4.5A1.5 1.5 0 0 1 9 3h2a1.5 1.5 0 0 1 1.5 1.5V6M3 10.5h14"/></svg>Ажил</a>
+    {% if can_view_salary %}<a href="#salary" class="tab"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8v4M14.5 8v4"/></svg>Цалин, даатгал</a>{% endif %}
+    {% if can_view_personal %}<a href="#personal" class="tab"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>Хувийн</a>{% endif %}
   </nav>
-  <section id="tab-work" class="p-6">{% include "employees/_tab_work.html" %}</section>
-  {% if can_view_personal %}<section id="tab-personal" class="p-6 hidden">{% include "employees/_tab_personal.html" %}</section>{% endif %}
-  {% if can_view_salary %}<section id="tab-salary" class="p-6 hidden">{% include "employees/_tab_salary.html" %}</section>{% endif %}
+  <section id="tab-work" class="scroll-mt-28 lg:scroll-mt-20 p-6"><h2 class="mb-4 text-lg font-semibold text-slate-900">Ажил</h2>{% include "employees/_tab_work.html" %}</section>
+  {% if can_view_salary %}<section id="tab-salary" class="scroll-mt-28 lg:scroll-mt-20 border-t border-slate-200 p-6"><h2 class="mb-4 text-lg font-semibold text-slate-900">Цалин, даатгал</h2>{% include "employees/_tab_salary.html" %}</section>{% endif %}
+  {% if can_view_personal %}<section id="tab-personal" class="scroll-mt-28 lg:scroll-mt-20 border-t border-slate-200 p-6"><h2 class="mb-4 text-lg font-semibold text-slate-900">Хувийн</h2>{% include "employees/_tab_personal.html" %}</section>{% endif %}
 </div>
 </div>
 </div>
@@ -55,24 +56,52 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!e.defaultP
 window.addEventListener('resize',function(){render(isOpen())});
 if(wide()&&store('hr.activityOpen')==='1')render(true);
 })();
-// Rail name (_rail.html): shown once the page header has scrolled under the top bar.
-(function(){var who=document.getElementById('rail-who'),head=document.getElementById('header');
-if(!who||!head||!window.IntersectionObserver)return;
-new IntersectionObserver(function(es){who.classList.toggle('hidden',es[0].isIntersecting)},{rootMargin:'-80px 0px 0px 0px'}).observe(head);})();
-// A panel that comes into view plays swap-in once (input.css); the class goes on animationend, or on animationcancel (a
-// hidden panel cancels the animation). Only the target's own animation counts (a child's animation bubbles up to the panel too).
-function swapIn(el){if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;el.classList.add('swap-in');function end(e){if(e.target!==el)return;el.classList.remove('swap-in');el.removeEventListener('animationend',end);el.removeEventListener('animationcancel',end);}el.addEventListener('animationend',end);el.addEventListener('animationcancel',end);}
-// quiet: the call at page load (and after an htmx redraw of the tab) does not animate.
-function showTab(name,quiet){document.querySelectorAll('[id^=tab-]').forEach(s=>{var show=s.id==='tab-'+name;if(show&&!quiet&&s.classList.contains('hidden'))swapIn(s);s.classList.toggle('hidden',!show);});
+// The three sections (work, salary, personal) are stacked on one page. The rail and the narrow bar link to them;
+// currentSection is the one in view (the scroll-spy below), and a save sends it as the tab to reopen.
+var SECTIONS=['work','salary','personal'],currentSection='work',spyLockUntil=0;
+function sectionEl(name){return SECTIONS.indexOf(name)>-1?document.getElementById('tab-'+name):null;}
+// Marks the link of the section in view: the narrow bar (.tab-on) and the rail (.rtab).
+function setActive(name){currentSection=name;
 document.querySelectorAll('.tab').forEach(a=>{var on=a.hash==='#'+name;a.classList.toggle('tab-on',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
 document.querySelectorAll('.rtab').forEach(a=>{var on=a.hash==='#'+name;['bg-violet-50','text-violet-700','font-semibold'].forEach(c=>a.classList.toggle(c,on));if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
-var pm=document.getElementById('personal-nav');if(pm)pm.classList.toggle('hidden',name!=='personal');}
-// Tab links swap the #hash in place, so switching tabs doesn't add Back-button steps.
-document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');
-if(!a||!document.getElementById('tab-'+a.hash.slice(1)))return;e.preventDefault();showTab(a.hash.slice(1));history.replaceState(null,'',a.hash);});
-// #personal-<group> (a personal-tab group page, sections.js) opens the personal tab.
-var hashTab=location.hash.slice(1).split('-')[0];
-if(hashTab&&document.getElementById('tab-'+hashTab)){showTab(hashTab,true)}else{showTab('{{ tab|default:"work"|escapejs }}',true)}
+}
+// quiet: the call at page load scrolls at once; a reader's choice scrolls smoothly unless reduced motion is asked for.
+function showTab(name,quiet){var s=sectionEl(name);
+if(s)s.scrollIntoView({behavior:quiet||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)?'auto':'smooth',block:'start'});
+setActive(name);}
+window.showTab=showTab;
+// Scroll-spy: the last section whose top has reached 120 px is in view; above the first, the first; at the page's bottom, the last.
+function spyPick(){var els=SECTIONS.map(sectionEl).filter(Boolean);if(!els.length)return currentSection;
+var pick=els[0];els.forEach(function(s){if(s.getBoundingClientRect().top<=120)pick=s;});
+if(window.scrollY>0&&window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-2)pick=els[els.length-1];
+return pick.id.slice(4);}
+var spyTicking=false;
+function spy(){spyTicking=false;if(Date.now()<spyLockUntil)return;setActive(spyPick());}
+// The listeners are named on window: a redraw runs this script again, so the previous ones are removed, never stacked.
+if(window.__empScroll)window.removeEventListener('scroll',window.__empScroll);
+window.__empScroll=function(){if(!spyTicking){spyTicking=true;requestAnimationFrame(spy);}};
+window.addEventListener('scroll',window.__empScroll,{passive:true});
+// A link to one of the sections scrolls to it. The #hash is replaced, not pushed, so Back does not step through sections.
+if(window.__empClick)document.removeEventListener('click',window.__empClick);
+window.__empClick=function(e){var a=e.target.closest('a[href^="#"]');
+if(!a||!sectionEl(a.hash.slice(1)))return;e.preventDefault();
+// The clicked link stays marked for 600 ms: the smooth scroll passes other sections, and the page-bottom rule could flip it.
+spyLockUntil=Date.now()+600;showTab(a.hash.slice(1));history.replaceState(null,'',a.hash);};
+document.addEventListener('click',window.__empClick);
+// On load: a section named in the address (#personal-edu counts as personal, sections.js opens the group) is scrolled
+// to at once; else the tab the server names after a failed save, when it is not work; else no scroll.
+// A redraw (htmx swaps <main> and this script runs again; window.__empLoaded is set by the first run) ignores the address,
+// so a stale #hash cannot beat the real position: it uses the server's tab, and a form that came back with errors
+// scrolls its first error into view.
+var hashTab=location.hash.slice(1).split('-')[0],serverTab='{{ tab|default:"work"|escapejs }}';
+var redraw=!!window.__empLoaded;
+if(redraw){
+  if(serverTab!=='work'&&sectionEl(serverTab)){showTab(serverTab,true)}
+  var bad=document.querySelector('[aria-invalid="true"]');
+  if(bad){bad.scrollIntoView({behavior:'instant',block:'center'})}
+}else if(sectionEl(hashTab)){showTab(hashTab,true)}else if(serverTab!=='work'&&sectionEl(serverTab)){showTab(serverTab,true)}
+window.__empLoaded=true;
+spy();
 {% if form or si_form %}// Show a chosen photo before it is saved. Big downscales in one step look grainy
 // (browsers sample too few pixels), so halve the image step by step to the circle size.
 // "×" on the photo: marks it for removal on Save (dimmed + note); untick to undo.
@@ -93,7 +122,7 @@ var bar=document.getElementById('save-bar'),dirty={% if form.is_bound or si_form
 function mark(e){if(e.target.form===f){dirty=true;bar.classList.remove('hidden');bar.classList.add('flex');
 var dd=e.target.closest('dd');if(dd)dd.classList.add('f-changed');}}// violet edge on a changed soft box (UI_RULES §2e)
 document.addEventListener('input',mark);document.addEventListener('change',mark);
-f.addEventListener('submit',function(){dirty=false;document.getElementById('emp-tab').value=location.hash.slice(1).split('-')[0];});
+f.addEventListener('submit',function(){dirty=false;document.getElementById('emp-tab').value=currentSection;});
 document.getElementById('save-cancel').addEventListener('click',function(){dirty=false;var url='{% url 'employees:detail' employee.pk %}';
 if(location.pathname===url){location.reload();}else{location.assign(url+location.hash);}});
 window.addEventListener('beforeunload',function(e){if(dirty){e.preventDefault();e.returnValue='';}});

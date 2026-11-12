@@ -42,7 +42,7 @@ def test_hr_gets_six_groups_with_menus() -> None:
         "employees": ["Ажилтнууд", "Тушаалын бүртгэл", "Өөрөө бөглөх анкет", *STAFF_TYPES],
         "leave": ["Чөлөө, амралт"],
         "recruitment": ["Ажилд авах"],
-        "reports": ["Тайлан", "Бүртгэл"],
+        "reports": ["Тайлан", "Компанийн байдал", "Бүртгэл"],
         "settings": ["Жагсаалтууд", "Орон тооны төлөвлөгөө"],
     }
 
@@ -178,3 +178,16 @@ def test_staff_type_shortcuts_open_the_staff_list_filtered_and_mark_the_current_
     path = reverse("reports:report", args=["staff-list"]) + "?emptype=5"
     marked = {g.key: g for g in _nav(_user("nav_hr8", "HR"), path=path)}["employees"].items
     assert [i.label for i in marked if i.active] == ["Гэрээт ажилтан"]
+
+
+@pytest.mark.django_db
+def test_nav_has_company_item() -> None:
+    hr = _user("nav_company_hr", "HR")
+    reports = {g.key: g for g in _nav(hr)}["reports"]
+    company = [item for item in reports.items if item.label == "Компанийн байдал"]
+    assert len(company) == 1 and company[0].url == reverse("employees:company")
+    on_page = {g.key: g for g in _nav(hr, path=reverse("employees:company"))}
+    assert [i.label for i in on_page["reports"].items if i.active] == ["Компанийн байдал"]
+    assert not on_page["employees"].active  # the company page is not a staff-list screen
+    auditor = _user("nav_company_aud", "Auditor")
+    assert "Компанийн байдал" not in [i.label for i in {g.key: g for g in _nav(auditor)}["reports"].items]

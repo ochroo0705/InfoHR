@@ -388,6 +388,7 @@ def _saved_view_screens(user: User, words: list[str]) -> list[Screen]:
     view's name together; at most REPORT_LIMIT. One query."""
     from reports import registry  # local import: import cycle, as in `_report_screens`
     from reports.models import SavedView
+    from reports.views import PLAIN_VIEW  # an empty query opens this view, not the report's default view
 
     reports = {key: r for key, r in registry.REPORTS.items() if r.saved_views and registry.can_open(user, r)}
     if not reports:
@@ -398,7 +399,7 @@ def _saved_view_screens(user: User, words: list[str]) -> list[Screen]:
         if not all(w in _fold(f"{report.title} {view.name}") for w in words):
             continue
         base = reverse("reports:report", args=[report.key])
-        url = f"{base}?{view.query}" if view.query else base  # as the report page's own view picker
+        url = f"{base}?{view.query}" if view.query else f"{base}?{PLAIN_VIEW}"  # as reports.views._view_url
         found.append((view.name, Screen(f"Тайлан · {report.title} · {view.name}", url)))
     return _ranked(words, found)[:REPORT_LIMIT]
 

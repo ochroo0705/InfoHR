@@ -33,6 +33,7 @@ SEEDED_CODENAMES = [
     "issue_orders",
     "export_lists",
     "view_audit",
+    "sign_orders",
     "manage_lists",
     "view_leave",
     "record_leave",

@@ -26,8 +26,10 @@ from leave.services.approvers import (
 )
 
 from employees import attention
+from employees import today as facts
 from employees.access import own_employee
 from employees.models import Employee
+from employees.scope import team_ids
 from employees.services import history
 
 NOTICE_KIND = "leave_request_result"
@@ -35,6 +37,7 @@ NOTICE_SCAN = 20  # decided requests read per page; dismissed ones are skipped f
 NOTICE_SHOWN = 5  # notices shown at once
 NOTICE_DAYS = 90  # a decision older than this no longer raises a notice
 RECENT_LIMIT = 20  # own requests listed on the page, newest first
+TEAM_DAYS = 14  # the team strip: from the day shown, this many days
 
 
 @dataclass
@@ -116,6 +119,27 @@ def _own_requests(employee: Employee, day: date) -> list[dict[str, Any]]:
     ]
 
 
+def _team_away(employee: Employee, day: date, team: set[int]) -> list[dict[str, Any]]:
+    """People in `team` (the manager's direct and indirect reports, from scope.team_ids) with a counting leave inside
+    [day, day + TEAM_DAYS). One entry per person: the earliest start and the latest end of their leaves in the window.
+    Names and dates only: the leave type is not shown to a manager. Sorted by start; empty without a team."""
+    if not team:
+        return []
+    last = day + timedelta(days=TEAM_DAYS - 1)  # [day, day + TEAM_DAYS): rows.leaves takes an inclusive end
+    leaves = [lv for lv in rows.leaves(employee_ids=team, start=day, end=last) if lv.counts]
+    if not leaves:
+        return []
+    people = Employee.objects.in_bulk(list({lv.employee_id for lv in leaves}))
+    spans: dict[int, dict[str, Any]] = {}
+    for lv in leaves:
+        if lv.employee_id not in people:
+            continue
+        span = spans.setdefault(lv.employee_id, {"employee": people[lv.employee_id], "start": lv.start, "end": lv.end})
+        span["start"] = min(span["start"], lv.start)
+        span["end"] = max(span["end"], lv.end)
+    return sorted(spans.values(), key=lambda a: (a["start"], a["employee"].pk))
+
+
 @login_required
 def me_page(request: HttpRequest) -> HttpResponse:
     user = _user(request)
@@ -131,6 +155,7 @@ def me_page(request: HttpRequest) -> HttpResponse:
         key=lambda lv: lv.start,
         reverse=True,
     )
+    team = team_ids(employee.pk, day)  # once per request: the team strip and its line use it
     context = {
         "employee": employee,
         "job": history.job_on(employee, day),
@@ -144,6 +169,9 @@ def me_page(request: HttpRequest) -> HttpResponse:
         "requests": _own_requests(employee, day),
         "queue": _waiting_queue(user, day),
         "tasks": _my_tasks(user, day),
+        "has_team": bool(team),
+        "team_away": _team_away(employee, day, team),
+        "holidays": facts.holidays_ahead(day),
     }
     return render(request, "employees/me.html", context)
 

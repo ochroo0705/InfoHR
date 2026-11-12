@@ -1,2 +1,2 @@
 {# One calendar entry as a small chip: the title, a link when the row has one, the colour of its first passing mark. #}
-<li class="truncate rounded px-1.5 py-0.5 text-xs {% if item.mark %}{{ item.mark }}{% else %}bg-violet-100 text-violet-800{% endif %}" title="{{ item.title }}">{% if item.href %}<a href="{{ item.href }}" class="hover:underline">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</li>
+<li class="truncate rounded px-1.5 py-0.5 text-xs {% if item.mark %}{{ item.mark }}{% else %}bg-violet-100 text-violet-800{% endif %}" title="{{ item.title }}{% if item.note %} · {{ item.note }}{% endif %}">{% if item.href %}<a href="{{ item.href }}" class="hover:underline">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</li>

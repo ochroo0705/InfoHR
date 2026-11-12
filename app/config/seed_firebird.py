@@ -28,12 +28,13 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-# --- accounts (accounts 0002, 0003 names, 0008 view_audit, 0009 Auditor) -------------------------
+# --- accounts (accounts 0002, 0003 names, 0008 view_audit, 0009 Auditor, 0013 sign_orders) -----
 ACCOUNT_PERMISSIONS = {
     "approve_leave": "Чөлөө, амралт батлах",
     "issue_orders": "Тушаал гаргах / баталгаажуулах",
     "export_lists": "Жагсаалтыг Excel рүү гаргах",
     "view_audit": "Үйл ажиллагааны бүртгэл харах",
+    "sign_orders": "Тушаалд дэлгэц дээр гарын үсэг зурах",
 }
 ACCOUNT_GROUPS = {
     "Admin": tuple(ACCOUNT_PERMISSIONS),

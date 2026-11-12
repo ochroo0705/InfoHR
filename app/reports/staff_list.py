@@ -18,7 +18,7 @@ from macs.models import AddressRow, BirthPlace, ContactRow, Department, Employee
 from reports.column_filters import COLUMN_FILTERS
 from reports.filters import NO_WORKING_STATE, Filters
 from reports.rules import Group, Rule, dump_rules
-from reports.starter import rule_template, view_template
+from reports.starter import rule_template, soon_template, view_template
 from reports.table import usable_filters
 from reports.types import Column, Report
 
@@ -271,15 +271,28 @@ COLUMNS: tuple[Column, ...] = (
         group=GROUP_INSURANCE,
         needs=SALARY,
     ),
-    Column(key="work_phone", label="Ажлын утас", value=lambda s: s.row.employee.work_phone, group=GROUP_CONTACT),
+    Column(
+        key="work_phone",
+        label="Ажлын утас",
+        value=lambda s: s.row.employee.work_phone,
+        group=GROUP_CONTACT,
+        action="tel",
+    ),
     Column(
         key="private_phone",
         label="Хувийн утас",
         value=lambda s: s.row.employee.private_phone,
         group=GROUP_CONTACT,
         needs=PERSONAL,
+        action="tel",
     ),
-    Column(key="email", label="И-мэйл", value=lambda s: s.row.employee.email, group=GROUP_CONTACT),
+    Column(
+        key="email",
+        label="И-мэйл",
+        value=lambda s: s.row.employee.email,
+        group=GROUP_CONTACT,
+        action="mailto",
+    ),
     Column(
         key="contacts",
         label="Яаралтай үед холбогдох",
@@ -638,9 +651,10 @@ REPORT = Report(
     layouts=("board", "calendar", "timeline", "cards", "chart", "pivot"),
     layout_date="first_hire_date",  # the employment start; filled for everyone hired (birth date is never a default)
     layout_date2="contract_end",  # blank for open-ended contracts: then the timeline shows a one-day marker
+    layout_repeat=("birth_date", "first_hire_date"),  # the calendar repeats them each year (birthdays, anniversaries)
     templates=(
-        rule_template("Гэрээ дуусах дөхсөн", Rule("contract_end", "next_days", "60")),
-        rule_template("Туршилтын хугацаа дуусах дөхсөн", Rule("probation_end", "next_days", "30")),
+        soon_template("Гэрээ дуусах дөхсөн", "contract_end"),
+        soon_template("Туршилтын хугацаа дуусах дөхсөн", "probation_end"),
         rule_template("Нас 55+", Rule("age", "gte", "55")),
         # the retired surveys, now plain setups of this report (the counts are the pivot view)
         view_template(

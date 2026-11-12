@@ -171,6 +171,17 @@ CHANGE_TEXT_MIGRATIONS = {"employees": "0004_activityentry_change_text", "accoun
 VISIBILITY_MIGRATIONS = {"reports": "0003_savedview_visibility_default"}
 # The employee self-form (SelfFormInvitation and the selfform_* settings), added after change_text.
 SELFFORM_MIGRATIONS = {"employees": "0005_selfform"}
+# Migrations added after the self-form, in order: the modules flag, the signed-order fields, order signing.
+LATER_MIGRATIONS = {
+    "employees": [
+        "0006_companysettings_modules",
+        "0007_order_signing",
+        "0008_companysettings_soon_days",
+        "0009_companysettings_governed_sql",
+    ],
+    "accounts": ["0004_sign_orders"],
+    "assistant": ["0003_helpquestion_tokens", "0004_governed_sql_log", "0005_verifiedquery"],
+}
 
 
 def _expected_names(app: str) -> list[str]:
@@ -179,7 +190,8 @@ def _expected_names(app: str) -> list[str]:
     change_text = [CHANGE_TEXT_MIGRATIONS[app]] if app in CHANGE_TEXT_MIGRATIONS else []
     selfform = [SELFFORM_MIGRATIONS[app]] if app in SELFFORM_MIGRATIONS else []
     visibility = [VISIBILITY_MIGRATIONS[app]] if app in VISIBILITY_MIGRATIONS else []
-    return ["0001_initial", *second, *seed, *change_text, *selfform, *visibility]
+    later = LATER_MIGRATIONS.get(app, [])
+    return ["0001_initial", *second, *seed, *change_text, *selfform, *visibility, *later]
 
 
 def test_every_firebird_app_has_a_real_initial_set() -> None:
@@ -205,9 +217,19 @@ def test_firebird_sets_have_the_second_migrations() -> None:
         "0003_seed",
         "0004_activityentry_change_text",
         "0005_selfform",
+        "0006_companysettings_modules",
+        "0007_order_signing",
+        "0008_companysettings_soon_days",
+        "0009_companysettings_governed_sql",
     ]
     assert data["names"]["checklists"] == ["0001_initial", "0002_emulated_unique", "0003_seed"]
-    assert data["names"]["assistant"] == ["0001_initial", "0002_seed"]
+    assert data["names"]["assistant"] == [
+        "0001_initial",
+        "0002_seed",
+        "0003_helpquestion_tokens",
+        "0004_governed_sql_log",
+        "0005_verifiedquery",
+    ]
     assert data["names"]["leave"] == ["0001_initial", "0002_seed"]
 
 

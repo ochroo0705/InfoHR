@@ -372,14 +372,59 @@ def record_movement(
     return int(movement.pk)
 
 
+def job_state_on(employee: Employee, as_of: date) -> dict[str, Any]:
+    """The employee_history columns that depend on the HR job and salary valid on `as_of` (empty where HR has no job
+    record that day: legacy employees keep the live row's values)."""
+    # Local import: history imports this module, so a top-level import would be circular.
+    from employees.services.history import job_on, salary_on
+
+    state: dict[str, Any] = {}
+    job = job_on(employee, as_of)
+    if job is not None:
+        ext = EmployeeExt.objects.get_or_create(employee=employee)[0]
+        state.update(
+            department_id_value=job.department_id,
+            position_id_value=job.position_id,
+            contract_start=job.contract_start,
+            contract_end=job.contract_end,
+        )
+        if not keeps_emptype(employee, job, ext):
+            emptype = emptype_for(job, ext, as_of)
+            state["emptype"] = emptype
+            state["status"], state["contract_flag"], state["wagetest"] = EMPTYPE_FLAGS[emptype]
+    salary = salary_on(employee, as_of)
+    if salary is not None:
+        state["salary"] = salary.base_salary
+    return state
+
+
+def refresh_history_rows(employee: Employee, since: date) -> int:
+    """Recompute the job and salary columns of the history rows HR wrote for this employee's live events dated on or
+    after `since`. A snapshot copies the department, position and salary valid on its date, which include every
+    earlier change; when one of those changes is cancelled, the later snapshots must stop showing it. Returns the
+    number of rows changed. Rows the old program wrote (no event link) are never touched."""
+    live = EventProdRow.objects.filter(
+        event__employee=employee,
+        event__cancelled_at__isnull=True,
+        event__effective__gte=since,
+        history_id__isnull=False,
+    )
+    history_ids = list(live.values_list("history_id", flat=True))
+    changed = 0
+    for row in EmployeeHistory.objects.filter(pk__in=history_ids):
+        state = job_state_on(employee, row.changed_date)
+        fresh = {key: value for key, value in state.items() if getattr(row, key) != value}
+        if fresh:
+            EmployeeHistory.objects.filter(pk=row.pk).update(**fresh)
+            changed += 1
+    return changed
+
+
 def snapshot_history(
     employee: Employee, as_of: date | None = None, *, fired_reason_id: int | None = None, terminating: bool = False
 ) -> int:
     """Write an employee_history row and return its id. With `as_of` the job-dependent columns come from the
     HR job/salary valid that day (the live row where there is none: legacy employees)."""
-    # Local import: history imports this module, so a top-level import would be circular.
-    from employees.services.history import job_on, salary_on
-
     state: dict[str, Any] = {
         "salary": employee.salary,
         "status": employee.status,
@@ -395,22 +440,7 @@ def snapshot_history(
     extra: dict[str, Any] = {}
     if as_of is not None:
         state["changed_date"] = as_of
-        job = job_on(employee, as_of)
-        if job is not None:
-            ext = EmployeeExt.objects.get_or_create(employee=employee)[0]
-            state.update(
-                department_id_value=job.department_id,
-                position_id_value=job.position_id,
-                contract_start=job.contract_start,
-                contract_end=job.contract_end,
-            )
-            if not keeps_emptype(employee, job, ext):
-                emptype = emptype_for(job, ext, as_of)
-                state["emptype"] = emptype
-                state["status"], state["contract_flag"], state["wagetest"] = EMPTYPE_FLAGS[emptype]
-        salary = salary_on(employee, as_of)
-        if salary is not None:
-            state["salary"] = salary.base_salary
+        state.update(job_state_on(employee, as_of))
         if terminating or fired_reason_id is not None:
             extra = {"fired_date": as_of, "fired_reason_id_value": fired_reason_id}
     history_id = next_value("gen_employee_history_id")

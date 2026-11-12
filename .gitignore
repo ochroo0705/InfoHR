@@ -15,6 +15,8 @@ __pycache__/
 # Django
 app/staticfiles/
 app/media/
+# Failed-login counters (file cache)
+app/var/
 # Signed HR order files (staff personal data): never commit
 app/private/
 # Editors / OS

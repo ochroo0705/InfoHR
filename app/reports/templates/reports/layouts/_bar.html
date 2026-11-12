@@ -1,0 +1,7 @@
+{% load l10n %}<div class="flex items-center gap-3 text-sm">
+      <div class="w-48 shrink-0 truncate">{% if b.item.href %}<a href="{{ b.item.href }}" class="text-violet-700 hover:underline">{{ b.item.title }}</a>{% else %}{{ b.item.title }}{% endif %}</div>
+      <div class="relative h-7 min-w-[40rem] flex-1 rounded bg-slate-100">
+        {% if timeline.today_pct is not None %}<div aria-hidden="true" data-today class="absolute inset-y-0 w-px bg-violet-500" style="left:{{ timeline.today_pct|unlocalize }}%" title="Өнөөдөр"></div>{% endif %}
+        <div data-bar role="img" aria-label="{{ b.item.title }}: {{ b.start|date:'Y-m-d' }} – {{ b.end|date:'Y-m-d' }}" class="absolute inset-y-1 rounded {% if b.item.mark %}{{ b.item.mark }} ring-1 ring-inset{% else %}bg-violet-500{% endif %}" style="left:{{ b.left_pct|unlocalize }}%;width:{{ b.width_pct|unlocalize }}%" data-tip-title="{{ b.item.title }}" data-tip="{{ b.tip }}"></div>
+      </div>
+    </div>

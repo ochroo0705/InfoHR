@@ -107,6 +107,19 @@ def can_open_order_scan(user: User, order: HrOrder) -> bool:
     return True
 
 
+def signing_needs_salary_right(user: User, order: HrOrder) -> bool:
+    """True when this user may not sign this order because it shows a salary they cannot see: a hire or rehire order
+    (`is_hire`, or OrderType.HIRED) and no view-salary right. The one definition of that rule: the pop-up's GET, the
+    button on the order pop-up and the service's check (order_signing.sign_order) all use it."""
+    return (order.is_hire or order.order_type == OrderType.HIRED) and not can_view_salary(user)
+
+
+def can_sign_orders(user: User, order: HrOrder) -> bool:
+    """May this user sign this order on screen. Only the switch: the salary rule for hire orders is checked when
+    the signing happens (order_signing.sign_order), because it needs the order's type, not the user's right alone."""
+    return user.is_active and user.has_perm("accounts.sign_orders")
+
+
 def can_manage_salary(user: User) -> bool:
     return user.has_perm("macs.manage_salary") and can_view_salary(user)
 

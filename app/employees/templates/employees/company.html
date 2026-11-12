@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Компанийн байдал{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-baseline gap-3">
+  <h1 class="text-xl font-semibold">Компанийн байдал</h1>
+  <span class="ml-auto text-sm text-slate-500">{{ today|date:"Y-m-d" }}</span>
+</div>
+{% include "employees/_company.html" %}
+{% endblock %}

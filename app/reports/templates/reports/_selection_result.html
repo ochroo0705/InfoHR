@@ -1,6 +1,6 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)this.remove()">
   <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl bg-surface p-6 shadow-xl">
-    <h2 class="mb-2 text-lg font-semibold">Жагсаалт эхлүүлэх: үр дүн</h2>
+    <h2 class="mb-2 text-lg font-semibold">Ажлаас гарах жагсаалт эхлүүлэх: үр дүн</h2>
     <p class="mb-3 text-sm text-slate-700" data-selection-counts>
       Эхэлсэн {{ counts.started }} · Нээлттэй байсан {{ counts.already_open }} · Загвар алга {{ counts.no_template }}{% if counts.not_allowed %} · Харах эрх алга {{ counts.not_allowed }}{% endif %}{% if counts.left %} · Ажлаас гарсан {{ counts.left }}{% endif %}{% if counts.error %} · Алдаа гарлаа {{ counts.error }}{% endif %}
     </p>

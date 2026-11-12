@@ -5,6 +5,7 @@ from typing import Any
 from django.contrib.auth.backends import ModelBackend
 from django.http import HttpRequest
 
+from . import login_throttle
 from .models import User
 
 
@@ -25,4 +26,6 @@ class LengthCheckedModelBackend(ModelBackend):
         max_length = getattr(User._meta.get_field(User.USERNAME_FIELD), "max_length", None)
         if username is not None and max_length and len(username) > max_length:
             return None
+        if login_throttle.is_locked(request, username or ""):
+            return None  # locked: refused even with the right password (accounts/login_throttle.py)
         return super().authenticate(request, username=username, password=password, **kwargs)

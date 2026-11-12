@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const require = createRequire(import.meta.url);
-const { isPanelOpen, startExit, cancelExit } = require("./palette.js");
+const { isPanelOpen, startExit, cancelExit, workspaceFormPlan } = require("./palette.js");
 
 function makePanel(hidden) {
   const attrs = new Set();
@@ -91,4 +91,16 @@ test("without hrLeave the panel is hidden at once", () => {
   assert.equal(hides, 1);
   assert.equal(panel.hidden, true);
   assert.equal(panel.hasAttribute("data-leaving"), false);
+});
+
+test("the «Хүснэгт болгон нээх» form posts to its own address with the token as a hidden field", () => {
+  const plan = workspaceFormPlan("/assistant/workspace/open/42/", "tok123");
+  assert.equal(plan.method, "post");
+  assert.equal(plan.action, "/assistant/workspace/open/42/");
+  assert.deepEqual(plan.fields, [{ name: "csrfmiddlewaretoken", value: "tok123" }]);
+});
+
+test("no CSRF token gives no form plan, so nothing is sent without one", () => {
+  assert.equal(workspaceFormPlan("/assistant/workspace/open/42/", ""), null);
+  assert.equal(workspaceFormPlan("/assistant/workspace/open/42/", undefined), null);
 });

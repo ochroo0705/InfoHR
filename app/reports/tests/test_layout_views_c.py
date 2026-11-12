@@ -255,7 +255,7 @@ def hostile_report(monkeypatch: pytest.MonkeyPatch) -> Report:
         {"layout": "chart", "lby": "dept"},
         {"layout": "pivot", "lby": "dept"},
         {"layout": "calendar", "lby": "start"},
-        {"layout": "timeline", "lby": "start", "lby2": "end"},
+        {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"},
     ],
     ids=["chart", "pivot", "calendar", "timeline"],
 )
@@ -292,7 +292,7 @@ def test_timeline_with_only_undated_rows_says_no_data_and_counts_them(
     rows = [SimpleNamespace(name="А", dept="А", start=None, end=None, pay=0) for _ in range(2)]
     monkeypatch.setitem(REPORTS, KEY, replace(hostile_report, rows=lambda user, filters: rows))
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
     assert "Өгөгдөл олдсонгүй" in page
     assert "Огноогүй: 2" in page
     assert "data-bar" not in page
@@ -302,5 +302,5 @@ def test_timeline_bars_carry_an_aria_label_with_title_and_dates(
     client: Client, login_as: Callable[..., User], hostile_report: Report
 ) -> None:
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
     assert 'role="img" aria-label="Ок: 2026-03-16 – 2026-03-16"' in page

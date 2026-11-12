@@ -41,40 +41,47 @@ def test_tab_links_point_at_their_sections(client: Client, hired: Employee) -> N
     assert re.search(r'<a href="#personal" class="rtab', body)
 
 
-def test_personal_menu_hooks(client: Client, hired: Employee) -> None:
+def test_personal_group_hooks(client: Client, hired: Employee) -> None:
+    """The topic groups are <details data-pgroup> with an id (#personal-<group>); basic is open, the rest closed."""
     body = _page(client, hired)
-    start = body.index('id="personal-nav"')
-    nav = body[start : body.index("</nav>", start)]
-    assert 'data-pgroup-link="basic"' in nav
-    assert 'href="#personal-basic"' in nav
-    assert 'data-sec="identity"' in nav
+    assert 'id="personal-nav"' not in body
+    assert re.search(r'<details data-pgroup="basic" id="personal-basic"[^>]*\sopen>', body)
+    assert re.search(r'<details data-pgroup="edu" id="personal-edu"[^>]*>', body)
     assert 'id="sec-identity"' in body
-    assert re.search(r'data-pgroup="basic"', body)
 
 
-def test_showtab_calls_swap_in_on_the_panel_that_comes_into_view(client: Client, hired: Employee) -> None:
+def test_showtab_scrolls_to_the_section_instead_of_swapping_panels(client: Client, hired: Employee) -> None:
+    """The three sections are stacked and all shown, so no panel swaps in: showTab scrolls to its section."""
     body = _page(client, hired)
-    assert "swapIn(s)" in body, "detail.html showTab must call swapIn on the panel that becomes visible"
-    assert "function swapIn(el)" in body
-    assert "prefers-reduced-motion: reduce" in body[body.index("function swapIn(el)") :][:200], (
-        "swapIn in detail.html must skip the class under prefers-reduced-motion"
+    assert "swapIn" not in body, "detail.html no longer swaps panels in: every section is visible"
+    assert "function showTab(name,quiet)" in body
+    assert "s.scrollIntoView({behavior:quiet" in body, "showTab must scroll to #tab-<name> (smooth unless quiet)"
+    assert "prefers-reduced-motion: reduce" in body[body.index("function showTab(name,quiet)") :][:400], (
+        "showTab must scroll at once under prefers-reduced-motion"
     )
 
 
-def test_openGroup_calls_swap_in_on_the_group_that_comes_into_view() -> None:
+def test_openGroup_opens_the_details_element_without_swap_in() -> None:
+    """A group is a <details>: opening it sets open, with no data-off and no swap-in (plan 2026-11-09 task 4)."""
     js = SECTIONS_JS.read_text(encoding="utf-8")
-    assert "swapIn(g)" in js, "sections.js openGroup must call swapIn on the group that loses data-off"
-    assert "function swapIn(el)" in js
-    assert re.search(r"function swapIn\(el\) \{\s*if \(reduce\) return;", js), (
-        "sections.js swapIn must skip the class under prefers-reduced-motion"
+    assert "data-off" not in js, "sections.js must not hide groups with data-off any more"
+    assert "swapIn" not in js, "sections.js no longer swaps a group in: a details opens at once"
+    assert re.search(r"function groupEl\(key\)", js)
+    assert "g.open = true" in js, "opening a group must set details.open"
+
+
+def test_a_group_with_errors_or_unsaved_input_opens_itself() -> None:
+    js = SECTIONS_JS.read_text(encoding="utf-8")
+    assert re.search(r"""querySelector\(['"]\[aria-invalid="true"\], \[data-dirty\]['"]\)""", js), (
+        'sections.js must open any group that holds [aria-invalid="true"] or [data-dirty]'
     )
 
 
 def test_field_focus_opens_closed_groups_quietly_through_the_hook() -> None:
     js = SECTIONS_JS.read_text(encoding="utf-8")
-    assert re.search(
-        r"window\.hrOpenGroup = function \(key, animate\) \{ pickGroup\(key, animate\); remember\(\); \};", js
-    ), "sections.js must expose window.hrOpenGroup, which calls pickGroup and then remember()"
+    assert re.search(r"window\.hrOpenGroup = function \(key, animate\) \{", js), (
+        "sections.js must expose window.hrOpenGroup(key, animate), which opens the group"
+    )
     focus = FIELD_FOCUS_JS.read_text(encoding="utf-8")
     assert "window.hrOpenGroup(name, false)" in focus, (
         "employee_field_focus.js must open a closed group quietly (no swap-in on first render)"

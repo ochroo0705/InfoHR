@@ -92,9 +92,16 @@ FILTER_FIELDS: dict[str, tuple[str, ...]] = {
 MAX_COLUMNS = 60
 # The views a report can show its rows in (the switcher). "table" is the default and is never written to the address.
 LAYOUTS = ("table", "board", "calendar", "timeline", "cards", "chart", "pivot")
-CHARTS = ("bar", "line", "donut")
+CHARTS = ("bar", "stacked", "line", "donut")
 MIN_MONTH_YEAR = 1900
 _MONTH = re.compile(r"([0-9]{4})-(0[1-9]|1[0-2])")
+# The new layout options: a date grouping, a percent, a chart order, a board order, the calendar's yearly repeat.
+GRAINS = ("month", "quarter", "year")
+SHOWS = ("pct", "rowpct", "colpct")
+SORTS = ("value", "valueasc")
+ORDERS = ("count",)
+_FOUR_DIGITS = re.compile(r"[0-9]{4}")
+_DAY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 # Column, group and sort keys are short lowercase words. A sort key may start with "-" for descending order.
 # Sort takes up to MAX_SORT_KEYS comma-separated keys and group up to MAX_GROUP_KEYS.
@@ -127,6 +134,7 @@ class Filters:
     age_from: int | None = None  # the youngest age, 0-120
     age_to: int | None = None  # the oldest age, 0-120
     attribute: str = ""  # a key of ATTRIBUTES; "" = the default (gender)
+    mode: str = ""  # "" = one row per person; "children" = one row per child (spike-builder only)
     contact_type: int | None = None  # a contact type id (macs ContactType)
     year: int | None = None  # a survey year, 1990-2100; None = this year
     tr_type: int | None = None  # a key of TRAINING_TYPES (1 domestic, 2 foreign); None = all
@@ -146,6 +154,15 @@ class Filters:
     lval: str = ""  # what a chart or pivot adds up: "count" or one "col:agg"; "" = count
     lchart: str = ""  # a key of CHARTS; "" = bar
     lmonth: str = ""  # the calendar month as "YYYY-MM"; "" = this month
+    lgrain: str = ""  # a key of GRAINS: a date category grouped by month, quarter or year; "" = as the dates are
+    lshow: str = ""  # a key of SHOWS: a percent of the total (chart, pivot) or of the row or column; "" = none
+    lsort: str = ""  # a key of SORTS: a chart's order, high to low or low to high; "" = the category order
+    lorder: str = ""  # "count" = a board's lanes by number of cards; "" = alphabetical
+    lrep: str = ""  # the calendar's yearly repeat: "1" yes, "0" no; "" = automatic
+    lweek: str = ""  # the calendar's week as a date "YYYY-MM-DD" (its Monday); "" = the month view
+    lyear: str = ""  # the timeline's year window as four digits, or "all" (no window); "" = this year (the default)
+    lgroup: str = ""  # the timeline's grouping column key (a category column); "" = no grouping
+    lval2: str = ""  # the pivot's second value, as lval ("count" or "col:agg"); "" = no second value
 
 
 def _keys(text: str, pattern: re.Pattern[str], limit: int) -> str:
@@ -217,6 +234,31 @@ def _month(value: str | None) -> str:
     return value or ""
 
 
+def _choice(value: str | None, options: tuple[str, ...]) -> str:
+    """The value when it is one of `options`, else "". Never raises."""
+    return value if value in options else ""
+
+
+def _week(value: str | None) -> str:
+    """A date as «YYYY-MM-DD» with the year from MIN_MONTH_YEAR to MAX_YEAR, else "". Never raises."""
+    if not value or _DAY.fullmatch(value) is None:
+        return ""
+    try:
+        day = date.fromisoformat(value)
+    except ValueError:
+        return ""
+    return value if MIN_MONTH_YEAR <= day.year <= MAX_YEAR else ""
+
+
+def _year(value: str | None) -> str:
+    """Four digits from MIN_MONTH_YEAR to MAX_YEAR, or «all» (no year window), else "". Never raises."""
+    if value == "all":
+        return value
+    if not value or _FOUR_DIGITS.fullmatch(value) is None:
+        return ""
+    return value if MIN_MONTH_YEAR <= int(value) <= MAX_YEAR else ""
+
+
 def parse_filters(get: QueryDict) -> Filters:
     """Read report parameters from the address. Bad values fall back to the defaults; this never raises."""
     columns: list[str] = []
@@ -230,6 +272,7 @@ def parse_filters(get: QueryDict) -> Filters:
     sort = _keys(get.get("sort", ""), _SORT_KEY, MAX_SORT_KEYS)
     leave_state = get.get("leave_state", "")
     attribute = get.get("attribute", "")
+    mode = get.get("mode", "")
     rule_tree = rules_mod.parse_rules(get.get("rules", ""))
     totals = totals_mod.dump_totals(totals_mod.parse_totals(get.get("totals", "")))
     marks = marks_mod.dump_marks(marks_mod.parse_marks(get.get("marks", "")))
@@ -256,6 +299,7 @@ def parse_filters(get: QueryDict) -> Filters:
         age_from=_int_in(get.get("age_from"), 0, MAX_AGE),
         age_to=_int_in(get.get("age_to"), 0, MAX_AGE),
         attribute=attribute if attribute in ATTRIBUTES else "",
+        mode=mode if mode == "children" else "",
         contact_type=id_param(get.get("contact_type")),
         year=_int_in(get.get("year"), MIN_YEAR, MAX_YEAR),
         tr_type=_training_type(get.get("tr_type")),
@@ -275,6 +319,15 @@ def parse_filters(get: QueryDict) -> Filters:
         lval=_layout_value(get.get("lval")),
         lchart=lchart if lchart in CHARTS else "",
         lmonth=_month(get.get("lmonth")),
+        lgrain=_choice(get.get("lgrain"), GRAINS),
+        lshow=_choice(get.get("lshow"), SHOWS),
+        lsort=_choice(get.get("lsort"), SORTS),
+        lorder=_choice(get.get("lorder"), ORDERS),
+        lrep=_choice(get.get("lrep"), ("1", "0")),
+        lweek=_week(get.get("lweek")),
+        lyear=_year(get.get("lyear")),
+        lgroup=_layout_key(get.get("lgroup")),
+        lval2=_layout_value(get.get("lval2")),
     )
 
 
@@ -331,6 +384,8 @@ def to_query(f: Filters) -> str:
         params["age_to"] = f.age_to
     if f.attribute:
         params["attribute"] = f.attribute
+    if f.mode == "children":
+        params["mode"] = f.mode
     if f.contact_type is not None:
         params["contact_type"] = f.contact_type
     if f.year is not None and f.year != timezone.localdate().year:  # this year is the default, so it is not kept
@@ -367,6 +422,9 @@ def to_query(f: Filters) -> str:
         params["lchart"] = f.lchart
     if f.lmonth:
         params["lmonth"] = f.lmonth
+    for name in ("lgrain", "lshow", "lsort", "lorder", "lrep", "lweek", "lyear", "lgroup", "lval2"):
+        if getattr(f, name):
+            params[name] = getattr(f, name)
     return urlencode(params, doseq=True)
 
 
@@ -431,6 +489,8 @@ def describe(
             lines.append(f"Нас: {low} – {high}")
         elif key == "attribute":
             lines.append(f"Шинж: {ATTRIBUTES[f.attribute or 'gender']}")
+        elif key == "mode" and f.mode == "children":
+            lines.append("Горим: хүүхэд бүрээр")
         elif key == "contact_type" and f.contact_type is not None:
             lines.append(f"Холбоо барих төрөл: {name_of(ContactType.objects, f.contact_type) or '—'}")
         elif key == "year":

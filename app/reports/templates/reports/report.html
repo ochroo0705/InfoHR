@@ -3,6 +3,18 @@
 {% block content %}
 {# The whole block is the htmx target: filters, sort and grouping swap #report-page and keep the address in step (UI_RULES §4b). #}
 <div id="report-page">
+  {# Sticky tool strip (UI_RULES §4b): zero height so it never shifts the page; static/js/report_sticky.js shows it once the filter bar has scrolled under the top bar. Its buttons click the real tool buttons (data-tool). #}
+  <div data-sticky-strip class="sticky top-14 z-30 h-0">
+    <div data-sticky-strip-bar hidden class="absolute inset-x-0 top-0 flex items-center gap-2 border-b border-slate-200 bg-surface px-3 py-2 text-sm shadow-lg">
+      <div data-sticky-strip-chips class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap"></div>
+      <div class="flex shrink-0 items-center gap-1.5">
+        {% if report.picks_columns %}<button type="button" data-strip-tool="columns" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Багана</button>{% endif %}
+        {% if report.shows_count %}<button type="button" data-strip-tool="rules" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Шүүлтүүр</button>{% endif %}
+        {% if report.shows_count and layout != "chart" and layout != "pivot" %}<button type="button" data-strip-tool="format" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Хэлбэр</button>{% endif %}
+        <button type="button" data-strip-top class="rounded-lg bg-violet-600 px-3 py-1.5 text-white hover:bg-violet-700">↑ Дээш</button>
+      </div>
+    </div>
+  </div>
   {# Header: the title with the view tabs beside it, then a ribbon of captioned tool groups (UI_RULES §4b). #}
   <div class="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
     <h1 class="text-xl font-semibold">{{ report.title }}</h1>
@@ -29,9 +41,9 @@
     {% if report.picks_columns or report.shows_count %}
     <div class="flex flex-col gap-1">
       <div class="inline-flex max-w-full overflow-x-auto divide-x divide-slate-300 rounded-lg border border-slate-300 bg-surface text-sm [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:whitespace-nowrap [&>*]:px-3 [&>*]:py-2 [&>*:hover]:bg-slate-50">
-        {% if report.picks_columns %}<button type="button" hx-get="{% url 'reports:columns' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="columns" %}Багана</button>{% endif %}
-        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="filter" %}Шүүлтүүр</button>{% endif %}
-        {% if report.shows_count %}<button type="button" hx-get="{% url 'reports:format' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="format" %}Хэлбэр</button>{% endif %}
+        {% if report.picks_columns %}<button type="button" data-tool="columns" hx-get="{% url 'reports:columns' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="columns" %}Багана</button>{% endif %}
+        {% if report.shows_count %}<button type="button" data-tool="rules" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="filter" %}Шүүлтүүр</button>{% endif %}
+        {% if report.shows_count and layout != "chart" and layout != "pivot" %}<button type="button" data-tool="format" hx-get="{% url 'reports:format' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="format" %}Хэлбэр</button>{% endif %}
       </div>
       <span class="text-xs text-slate-500">Тохируулах</span>
     </div>
@@ -46,6 +58,12 @@
       <span class="text-xs text-slate-500">Гаргах, сонгох</span>
     </div>
     {% endif %}
+    {# Clean slate: drops every filter, rule, column choice, sort, grouping, format, layout and the chosen saved view or template (UI_RULES §4b). A plain link, so the page reloads and nothing stale (a picked view, a selection) stays. #}
+    <div class="flex flex-col gap-1">
+      {# Icon only, like the hire and import buttons: a text button pushed those onto a second line. #}
+      <a href="{{ clear_url }}" data-reset-all title="Бүгдийг арилгах: шүүлтүүр, загвар, багана, эрэмбэ бүгдийг цэвэрлэнэ" aria-label="Бүгдийг арилгах" class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-surface text-slate-700 hover:bg-slate-50">{% include "reports/_tool_icon.html" with kind="reset" cls="h-[18px] w-[18px]" %}</a>
+      <span class="text-center text-xs text-slate-500">Эхнээс</span>
+    </div>
     {% if staff_actions %}
     {# Hire and import: icon buttons at the right end of the tool row; the label is the tooltip and the screen-reader name (UI_RULES §4b). #}
     <div class="ml-auto flex flex-col gap-1">
@@ -62,7 +80,7 @@
   {% if layout != "table" and layout != "cards" %}{% include "reports/_layout_bar.html" %}{% endif %}
 
   {% if rules_text and table.shows_count %}
-  <p class="mt-3 text-sm text-slate-700">Нөхцөл: {{ rules_text }} · <button type="button" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend" class="text-violet-700 hover:underline">Засах</button> · <a href="{{ clear_rules_url }}" hx-get="{{ clear_rules_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="text-violet-700 hover:underline">Цэвэрлэх</a></p>
+  <p class="mt-3 text-sm text-slate-700">Нөхцөл: <span data-rules-text>{{ rules_text }}</span> · <button type="button" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend" class="text-violet-700 hover:underline">Засах</button> · <a href="{{ clear_rules_url }}" hx-get="{{ clear_rules_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" class="text-violet-700 hover:underline">Цэвэрлэх</a></p>
   {% endif %}
 
   {% if note %}<p class="mt-3 text-sm text-slate-500">{{ note }}</p>{% endif %}

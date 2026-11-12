@@ -37,6 +37,7 @@ python-docx==1.2.0
 ruff==0.14.0
 segno==1.6.1
 six==1.17.0
+sqlglot==30.31.0
 sqlparse==0.6.0
 types-openpyxl==3.1.5.20260827
 types-PyYAML==6.0.12.20260906

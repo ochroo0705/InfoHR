@@ -47,6 +47,12 @@ def _sort_of(address: str) -> list[str]:
     return parse_qs(urlsplit(address).query).get("sort", [""])
 
 
+def _has_visible_plain_arrow(page: str) -> bool:
+    """True when a header carries a visible up arrow: the arrow span is not hidden with visibility."""
+    found = re.findall(r'<span aria-hidden="true" style="([^"]*)">([^<]*)</span>', page)
+    return any(text == "↑" and "visibility:hidden" not in style for style, text in found)
+
+
 def test_shift_click_addresses_keep_the_sort_and_add_a_column(client: Client, login_hr: User) -> None:
     page = client.get("/reports/staff-list/?cols=name&cols=age&cols=department&sort=name,-age").content.decode()
     appends = _header_addresses(page, "data-append")
@@ -62,7 +68,7 @@ def test_arrows_show_order_only_with_two_or_more_keys(client: Client, login_hr: 
     assert "↑1" in two and "↓2" in two
     one = client.get("/reports/staff-list/?cols=name&cols=age&sort=name").content.decode()
     assert "↑1" not in one
-    assert '<span aria-hidden="true">↑</span>' in one
+    assert _has_visible_plain_arrow(one)
 
 
 def test_header_links_ignore_htmx_on_shift_click(client: Client, login_hr: User) -> None:
@@ -75,7 +81,7 @@ def test_hidden_sort_key_is_dropped_from_marks_and_links(client: Client, login_h
     # bank needs view_salary, which the HR user lacks: it must not count, show, or appear in any link
     page = client.get("/reports/staff-list/?cols=name&cols=bank&sort=bank,name").content.decode()
     assert "↑2" not in page and "↓2" not in page  # one usable key: plain arrows only
-    assert '<span aria-hidden="true">↑</span>' in page
+    assert _has_visible_plain_arrow(page)
     links = _header_addresses(page, "href") + _header_addresses(page, "data-append")
     assert links
     assert all("bank" not in _sort_of(address)[0] for address in links)

@@ -15,6 +15,8 @@ MAX_PARAM = 40
 MAX_VALUE = 200
 MAX_UNMAPPED = 100
 MAX_DATE = 10  # an ISO date, YYYY-MM-DD
+MAX_CONDITIONS = 12
+MAX_PHRASE = 100  # the words of the question that a part or a condition came from
 
 _SCHEMA_ERROR = "the model reply does not match the schema"
 
@@ -23,11 +25,20 @@ _SCHEMA_ERROR = "the model reply does not match the schema"
 class Part:
     param: str  # the filter's query parameter: "department", "emptype", "age_from" ...
     value: str  # a listed value, an ISO date, digits, or the words heard for a lookup filter
+    phrase: str = ""  # the words of the question this filter came from, or ""
+
+
+@dataclass(frozen=True)
+class Condition:
+    column: str  # the staff column the condition tests
+    op: str  # the comparison: "eq", "gte", "lte" ...
+    value: str  # the value to compare with
+    phrase: str  # the words of the question this condition came from
 
 
 @dataclass(frozen=True)
 class Plan:
-    tool: str  # "entry" | "staff_table" | "field" | "leave_form" | "none"
+    tool: str  # "entry" | "staff_table" | "field" | "leave_form" | "sql" | "none"
     entry: str  # help entry key, "" unless tool == "entry"
     also: str
     lead: str
@@ -43,6 +54,7 @@ class Plan:
     leave_type: str = ""  # the leave type as the user wrote it, for tool == "leave_form"
     start: str = ""  # an ISO date or ""
     end: str = ""  # an ISO date or ""
+    conditions: tuple[Condition, ...] = ()  # comparisons on staff columns that the filters cannot express
 
 
 def _text(data: dict[str, Any], key: str, limit: int) -> str:
@@ -69,8 +81,36 @@ def _parts(data: dict[str, Any]) -> tuple[Part, ...]:
             or not isinstance(item.get("value"), str)
         ):
             raise ProviderError(_SCHEMA_ERROR)
-        parts.append(Part(param=item["param"][:MAX_PARAM], value=item["value"][:MAX_VALUE]))
+        parts.append(
+            Part(
+                param=item["param"][:MAX_PARAM],
+                value=item["value"][:MAX_VALUE],
+                phrase=_optional_text(item, "phrase", MAX_PHRASE),
+            )
+        )
     return tuple(parts)
+
+
+def _conditions(data: dict[str, Any]) -> tuple[Condition, ...]:
+    """The optional "conditions" list: absent is (), present must be a list of objects with string fields."""
+    if "conditions" not in data:
+        return ()
+    raw = data["conditions"]
+    if not isinstance(raw, list):
+        raise ProviderError(_SCHEMA_ERROR)
+    conditions: list[Condition] = []
+    for item in raw[:MAX_CONDITIONS]:  # cut first: an item past the cap is never checked
+        if not isinstance(item, dict):
+            raise ProviderError(_SCHEMA_ERROR)
+        conditions.append(
+            Condition(
+                column=_text(item, "column", MAX_PARAM),
+                op=_text(item, "op", MAX_PARAM),
+                value=_text(item, "value", MAX_VALUE),
+                phrase=_optional_text(item, "phrase", MAX_PHRASE),
+            )
+        )
+    return tuple(conditions)
 
 
 def _unmapped(data: dict[str, Any]) -> tuple[str, ...]:
@@ -116,4 +156,5 @@ def parse_plan(data: Any) -> Plan:
         leave_type=_optional_text(data, "leave_type", MAX_SHORT),
         start=_optional_text(data, "start", MAX_DATE),
         end=_optional_text(data, "end", MAX_DATE),
+        conditions=_conditions(data),
     )

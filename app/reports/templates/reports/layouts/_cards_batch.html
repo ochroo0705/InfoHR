@@ -8,9 +8,7 @@
   <div class="flex min-w-0 flex-1 flex-col gap-1">
     <h2 class="line-clamp-2 font-semibold text-slate-900">{% if item.href %}<a href="{{ item.href }}" class="text-violet-700 hover:underline after:absolute after:inset-0 after:content-['']">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h2>
     {% if item.subtitle %}<p class="line-clamp-2 text-slate-500">{{ item.subtitle }}</p>{% endif %}
-    {% for label, value, money in item.extras %}
-    <p class="text-slate-700"><span class="text-slate-500">{{ label }}:</span> {% if money %}{{ value|mnt }}{% elif value.isoformat %}{{ value|date:"Y-m-d" }}{% else %}{{ value|default_if_none:"" }}{% endif %}</p>
-    {% endfor %}
+    {% include "reports/layouts/_extras.html" with extras_class="text-slate-700" %}
   </div>
 </article>
 {% endfor %}

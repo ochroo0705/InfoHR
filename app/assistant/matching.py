@@ -104,3 +104,28 @@ def narrow_entries(question: str, entries: Sequence[HelpEntry], limit: int = 15)
         return list(entries)
     scored.sort(key=lambda item: (item[0], item[1]))
     return [entry for _, _, entry in scored[:limit]]
+
+
+MIN_NAME = 2  # letters or digits; a shorter name would match inside any text
+
+
+def named_first(question: str, entries: Sequence[HelpEntry], narrowed: Sequence[HelpEntry]) -> list[HelpEntry]:
+    """`narrowed`, with the entries the question names put first and kept.
+
+    An entry built from the database (a saved report view, a template: key not in the fixed ENTRIES) carries its own
+    name as its first word. A question that holds that name writes it out, so that entry is the answer even when the
+    name has too few letters for `narrow_entries` to match, and the general report list shares more words with the
+    question. Fixed entries are never forced."""
+    from assistant.entries import ENTRY_BY_KEY  # local import: entries imports the areas, which import this package
+
+    text = question.casefold()
+    named = [
+        entry
+        for entry in entries
+        if entry.key not in ENTRY_BY_KEY
+        and entry.words
+        and len(entry.words[0]) >= MIN_NAME
+        and entry.words[0].casefold() in text
+    ]
+    keys = {entry.key for entry in named}
+    return [*named, *(entry for entry in narrowed if entry.key not in keys)]

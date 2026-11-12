@@ -110,16 +110,16 @@ def test_accountant_without_personal_right_sees_no_age_or_gender(client: Client,
     assert response.status_code == 200
     page = response.content.decode()
     assert "Өрхийн амьжиргааны баталгаажих түвшний тайлан" in page
-    assert ">Нас<" not in page
-    assert ">Хүйс<" not in page
+    assert ">Нас <span" not in page
+    assert ">Хүйс <span" not in page
 
 
 def test_admin_sees_age_and_gender_headers(client: Client, login_as: Callable[..., User]) -> None:
     """The positive control for the accountant test: with view_personal the two headers are shown."""
     login_as(client, "Admin", "adm")
     page = client.get("/reports/household-income/").content.decode()
-    assert ">Нас<" in page
-    assert ">Хүйс<" in page
+    assert ">Нас <span" in page
+    assert ">Хүйс <span" in page
 
 
 def test_hr_without_salary_right_is_refused(client: Client, login_as: Callable[..., User]) -> None:

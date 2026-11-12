@@ -303,7 +303,7 @@ def test_prev_too_long_is_ignored(
     provider = TableProvider(_plan())
     monkeypatch.setattr(views, "get_provider", lambda: provider)
     client.force_login(role_user("hr"))
-    client.post(URL, {"q": "тэгээд хэн байна", "prev": "emptype=5&" + "x=1&" * 600})
+    client.post(URL, {"q": "тэгээд хэн байна", "prev": "emptype=5&" + "x=1&" * 1100})
     assert provider.previous == [""]
 
 
@@ -317,3 +317,26 @@ def test_fragment_is_escaped(client: Client, role_user: Callable[[str], User], m
     body = client.post(URL, {"q": "хэлтэс"}).content.decode()
     assert "&lt;b&gt;x&lt;/b&gt;" in body
     assert "<b>x</b>" not in body
+
+
+def _query_of_length(length: int) -> str:
+    """An address query of exactly `length` characters that carries a percent-encoded rules value and parses."""
+    head = "department=1&" + urlencode({"rules": "years_worked gte 5"}) + "&pad="
+    return head + "x" * (length - len(head))
+
+
+def test_clean_query_keeps_a_query_with_rules_near_three_thousand_characters() -> None:
+    query = _query_of_length(3000)
+
+    assert len(query) == 3000
+    assert views._clean_query(query) == query
+
+
+def test_clean_query_keeps_a_query_at_the_cap() -> None:
+    query = _query_of_length(4000)
+
+    assert views._clean_query(query) == query
+
+
+def test_clean_query_drops_a_query_over_the_cap() -> None:
+    assert views._clean_query(_query_of_length(4001)) == ""

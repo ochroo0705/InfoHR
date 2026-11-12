@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date, timedelta
 
 import pytest
@@ -10,7 +11,7 @@ from macs.models import Department
 
 from reports.filters import Filters
 from reports.movements import HISTORY, LEAVERS, MOVEMENTS
-from reports.registry import REPORTS
+from reports.registry import ALL_LAYOUTS, REPORTS
 from reports.table import build_table
 from reports.types import Report
 
@@ -68,8 +69,14 @@ def test_pages_print_and_excel_open(client: Client, login_hr: User, hired: Emplo
 
 
 def test_built_reports_are_registered() -> None:
+    # the registry adds saved views to each report, and the view switcher to the ones without layouts of their own
+    # (registry._with_tools); the movements report keeps its own layouts
     registered: dict[str, Report] = {key: REPORTS[key] for key in ("movements", "history", "leavers")}
-    assert registered == {"movements": MOVEMENTS, "history": HISTORY, "leavers": LEAVERS}
+    assert registered == {
+        "movements": replace(MOVEMENTS, saved_views=True),
+        "history": replace(HISTORY, saved_views=True, layouts=ALL_LAYOUTS),
+        "leavers": replace(LEAVERS, saved_views=True, layouts=ALL_LAYOUTS),
+    }
 
 
 NOTE = (

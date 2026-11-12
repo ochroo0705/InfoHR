@@ -30,9 +30,11 @@ class HelpEntry:
     # app/employees/templates/employees/detail.html: "work" (the default tab, no hash needed for ""),
     # "salary" (tab-salary, shown with can_view_salary), "personal" (tab-personal, shown with can_view_personal).
     person_tab: str | None = None
+    url_query: str = ""  # a query string for the address (a saved report view), without the "?"
 
     def url(self) -> str:
-        return reverse(self.url_name, args=self.url_args)
+        url = reverse(self.url_name, args=self.url_args)
+        return f"{url}?{self.url_query}" if self.url_query else url
 
     def person_url(self, pk: int) -> str:
         url = reverse("employees:detail", args=[pk])

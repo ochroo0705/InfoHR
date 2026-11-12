@@ -71,6 +71,35 @@ def pending_orders(user: User, rows: list[Row]) -> int | None:
     return HrOrder.objects.filter(employee_id__in=ids, state=OrderState.PENDING).count()
 
 
+def open_vacancies(user: User) -> int | None:
+    """Vacancies with status open; None without the recruitment right (no line)."""
+    from recruitment.models import Vacancy, VacancyStatus  # local: recruitment imports employees
+    from recruitment.services import visibility
+
+    if not visibility.can_manage(user):
+        return None
+    return Vacancy.objects.filter(status=VacancyStatus.OPEN).count()
+
+
+def checklist_summary(user: User, rows: list[Row], today: date) -> tuple[int, int] | None:
+    """(open checklists, open tasks past their due day in open checklists) of the people in `rows` (the viewer's
+    visible people). None without the checklist right or when the checklists module is off."""
+    from accounts import modules
+    from checklists.models import Checklist, ChecklistState, ChecklistTask  # local import: checklists imports employees
+
+    if not modules.enabled("checklists") or not user.has_perm("checklists.manage_checklists"):
+        return None
+    ids = [r.employee.pk for r in rows]
+    open_lists = Checklist.objects.filter(state=ChecklistState.OPEN, employee_id__in=ids).count()
+    overdue = ChecklistTask.objects.filter(
+        checklist__state=ChecklistState.OPEN,
+        checklist__employee_id__in=ids,
+        done_at__isnull=True,
+        due_on__lt=today,
+    ).count()
+    return open_lists, overdue
+
+
 def _next_on(month: int, day: int, today: date) -> date:
     """The next date on or after `today` that falls on month/day (29 Feb counts as 28 Feb in other years)."""
     for year in (today.year, today.year + 1):
@@ -106,9 +135,34 @@ def upcoming(user: User, rows: list[Row], today: date) -> list[Upcoming]:
     return sorted(out, key=lambda u: (u.on, u.row.employee.full_name))
 
 
+def new_hires(rows: list[Row], today: date, days: int = UPCOMING_DAYS) -> list[Row]:
+    """Working people whose first hire date is in (today - days, today], newest first; ties by name."""
+    since = today - timedelta(days=days)
+    found = [
+        r
+        for r in rows
+        if r.state in WORKING_STATES
+        and r.employee.first_hire_date is not None
+        and since < r.employee.first_hire_date <= today
+    ]
+    found.sort(key=lambda r: r.employee.full_name)
+    return sorted(found, key=lambda r: r.employee.first_hire_date, reverse=True)
+
+
 def upcoming_counts(found: list[Upcoming]) -> dict[str, int]:
     """How many birthdays and anniversaries `found` holds; both keys are always present."""
     return {kind: sum(1 for u in found if u.kind == kind) for kind in ("birthday", "anniversary")}
+
+
+def holidays_ahead(today: date, days: int = UPCOMING_DAYS) -> list[tuple[date, str]]:
+    """Public holidays inside [today, today + days), soonest first. Reads the year of the window's end too."""
+    from leave.services import calendar  # local import: leave depends on employees, not the reverse
+
+    end = today + timedelta(days=days)
+    names: dict[date, str] = {}
+    for year in sorted({today.year, (end - timedelta(days=1)).year}):
+        names.update(calendar.holiday_names(year))
+    return sorted((d, name) for d, name in names.items() if today <= d < end)
 
 
 def prime_exts(rows: list[Row]) -> None:

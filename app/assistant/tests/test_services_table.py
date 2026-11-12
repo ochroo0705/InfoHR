@@ -13,7 +13,7 @@ from employees.tests.conftest import _no_offboarding_templates  # noqa: F401 (au
 from assistant import resolver, services
 from assistant.entries import HelpEntry
 from assistant.models import HelpQuestion, Outcome
-from assistant.plan import Part, Plan
+from assistant.plan import Condition, Part, Plan
 from assistant.providers import Choice
 from assistant.services import ASK_PER_HOUR, answer
 from assistant.tables import TableAnswer
@@ -67,6 +67,7 @@ def _table_plan(
     lead: str = "",
     unmapped: tuple[str, ...] = (),
     want: str = "count",
+    conditions: tuple[Condition, ...] = (),
 ) -> Plan:
     return Plan(
         tool="staff_table",
@@ -78,7 +79,122 @@ def _table_plan(
         want=want,
         chart_kind="",
         chart_by="",
+        conditions=conditions,
     )
+
+
+YEARS_FIVE = Condition("years_worked", "gte", "5", "5-аас дээш жил ажилласан")
+
+
+@pytest.mark.django_db
+def test_conditions_reach_the_table(role_user: Callable[[str], User]) -> None:
+    user = role_user("hr")
+    hire_one(user)
+    provider = PlanProvider(_table_plan(conditions=(YEARS_FIVE,)))
+
+    result = answer(user, QUESTION, DAY, provider)
+
+    assert result.table is not None
+    assert "rules=" in result.table.query
+    lines = [line for line in result.table.chips if line.startswith("Нөхцөл:")]
+    assert len(lines) == 1
+    assert "Ажилласан жил" in lines[0]
+    assert "years_worked" not in lines[0]
+
+
+@pytest.mark.django_db
+def test_conditions_ignored_when_tool_is_not_staff_table(role_user: Callable[[str], User]) -> None:
+    user = role_user("hr")
+    hire_one(user)
+    plan = Plan(
+        tool="none",
+        entry="",
+        also="",
+        lead="",
+        parts=(),
+        unmapped=(),
+        want="list",
+        chart_kind="",
+        chart_by="",
+        conditions=(YEARS_FIVE,),
+    )
+    result = answer(user, QUESTION, DAY, PlanProvider(plan))
+
+    assert result.outcome == Outcome.NONE
+    assert result.table is None
+
+
+@pytest.mark.django_db
+def test_fresh_drops_earlier_conditions(role_user: Callable[[str], User]) -> None:
+    from dataclasses import replace
+
+    user = role_user("hr")
+    hire_one(user)
+    first = answer(user, QUESTION, DAY, PlanProvider(_table_plan(conditions=(YEARS_FIVE,))))
+    assert first.table is not None
+    earlier = first.table.query
+    assert "rules=" in earlier
+
+    fresh = answer(user, QUESTION, DAY, PlanProvider(replace(_table_plan(), fresh=True)), previous=earlier)
+    assert fresh.table is not None
+    assert "rules=" not in fresh.table.query
+
+    kept = answer(user, QUESTION, DAY, PlanProvider(_table_plan()), previous=earlier)
+    assert kept.table is not None
+    assert "rules=" in kept.table.query
+
+
+@pytest.mark.django_db
+def test_fake_providers_get_no_rule_columns(role_user: Callable[[str], User]) -> None:
+    user = role_user("hr")
+    hire_one(user)
+    provider = PlanProvider(_table_plan())
+    assert not hasattr(provider, "takes_rules")
+
+    result = answer(user, QUESTION, DAY, provider)
+
+    assert result.outcome == Outcome.TABLE
+    assert provider.calls == 1
+
+
+class RulesProvider(PlanProvider):
+    """A provider that builds rules: it takes the rule columns and records their keys."""
+
+    takes_rules = True
+
+    def __init__(self, table: Plan) -> None:
+        super().__init__(table)
+        self.rule_keys_seen: list[list[str]] = []
+
+    def plan(
+        self,
+        question: str,
+        entries: Sequence[HelpEntry],
+        words: Sequence[FilterWords],
+        phrases: Mapping[str, list[str]],
+        today: date,
+        previous: str = "",
+        refusals: Sequence[str] = (),
+        table_examples: Sequence[tuple[str, str]] = (),
+        field_hints: Sequence[object] = (),
+        rule_columns: Sequence[object] = (),
+    ) -> Plan:
+        self.rule_keys_seen.append([str(getattr(column, "key", "")) for column in rule_columns])
+        return super().plan(question, entries, words, phrases, today, previous, refusals, table_examples, field_hints)
+
+
+@pytest.mark.django_db
+def test_real_style_provider_gets_rule_columns(role_user: Callable[[str], User]) -> None:
+    user = role_user("hr")
+    hire_one(user)
+    provider = RulesProvider(_table_plan())
+
+    answer(user, QUESTION, DAY, provider)
+
+    assert provider.rule_keys_seen
+    keys = provider.rule_keys_seen[0]
+    assert "years_worked" in keys
+    assert "salary" not in keys
 
 
 @pytest.mark.django_db

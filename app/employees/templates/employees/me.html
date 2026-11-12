@@ -67,6 +67,14 @@
 </section>
 {% endif %}
 
+{% if has_team %}{% include "employees/_me_team.html" %}{% endif %}
+
+{% if holidays %}
+<section class="mt-6">
+  <p data-holidays class="rounded-xl bg-surface px-4 py-3 text-sm text-slate-700 shadow-sm">Баяр ёслол: {% for day, name in holidays|slice:":3" %}{{ day|date:"Y-m-d" }} {{ name }}{% if not forloop.last %} · {% endif %}{% endfor %}{% if holidays|length > 3 %} +{{ holidays|length|add:"-3" }}{% endif %}</p>
+</section>
+{% endif %}
+
 <section class="mt-6">
   <h2 class="sec-title mb-2">Ээлжийн амралт</h2>
   {% leave_start_missing employee as start_missing %}

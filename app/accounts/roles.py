@@ -15,7 +15,7 @@ ROLE_LABELS: dict[str, str] = {
     HR: "Хүний нөөц",
 }
 
-SWITCHES = ("approve_leave", "issue_orders", "export_lists", "view_audit")
+SWITCHES = ("approve_leave", "issue_orders", "export_lists", "view_audit", "sign_orders")
 
 DEFAULT_SWITCHES: dict[str, tuple[str, ...]] = {
     ADMIN: SWITCHES,

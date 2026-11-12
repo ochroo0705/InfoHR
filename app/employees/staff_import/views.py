@@ -21,7 +21,7 @@ from macs.models import Country, Department, Position
 from employees import access
 from employees.forms import StyledForm
 from employees.models import STAFF_IMPORT_DATE_FORMATS, StaffImportDraft, StaffImportSettings
-from employees.staff_import import matching, plan, reader, run, template
+from employees.staff_import import ai_match, matching, plan, reader, run, template
 from employees.staff_import.fields import BY_KEY, FIELDS
 from employees.staff_import.rows import DATE_FORMATS
 
@@ -196,16 +196,19 @@ def _render_map(
     header_rows: int,
     errors: list[str] | None = None,
     missing: list[str] | None = None,
+    ai_suggested: dict[str, str] | None = None,
 ) -> HttpResponse:
     user = _user(request)
     allow_salary = access.can_manage_salary(user)
     settings_row = StaffImportSettings.get()
     shown = {index: key for index, key in mapping.items() if allow_salary or not BY_KEY[key].needs_salary}
+    suggested = ai_suggested or {}
     columns = [
         {
             "index": index,
             "label": heading or f"Багана {index + 1}",
             "key": shown.get(str(index), ""),
+            "ai": str(index) in shown and suggested.get(str(index)) == shown[str(index)],
         }
         for index, heading in enumerate(headings)
     ]
@@ -225,6 +228,7 @@ def _render_map(
         "errors": errors or [],
         "missing": missing or [],
         "allow_salary": allow_salary,
+        "ai_cols": ",".join(f"{column['index']}:{column['key']}" for column in columns if column["ai"]),
         **_choices(user),
     }
     return render(request, "employees/import_map.html", context)
@@ -249,12 +253,16 @@ def import_map(request: HttpRequest, pk: Any) -> HttpResponse:
 
     allow_salary = access.can_manage_salary(user)
     settings_row = StaffImportSettings.get()
+    ai_suggested: dict[str, str] = {}
     if draft.mapping:  # the mapping was saved before: show what was saved
         mapping = dict(draft.mapping)
         defaults = dict(draft.defaults)
         date_format = draft.date_format
-    else:  # first visit: guess the columns from the headings and the last import
+    else:  # first visit: guess the columns from the headings and the last import, then ask the AI for the rest
         mapping = matching.auto_match(headings, remembered=settings_row.mapping, allow_salary=allow_salary)
+        suggested = ai_match.suggest_columns(headings, mapping, allow_salary=allow_salary)
+        mapping = {**mapping, **suggested}
+        ai_suggested = suggested
         defaults = {key: value for key, value in settings_row.defaults.items() if key != "start"}
         date_format = settings_row.date_format
     start = _iso(str(draft.defaults.get("start", "")), draft.date_format) if draft.mapping else ""
@@ -268,6 +276,7 @@ def import_map(request: HttpRequest, pk: Any) -> HttpResponse:
         date_format=date_format,
         sheet=draft.sheet,
         header_rows=draft.header_rows,
+        ai_suggested=ai_suggested,
     )
 
 
@@ -344,6 +353,19 @@ def _posted_defaults(post: Any, date_format: str, choices: dict[str, list[str]])
     return defaults, errors
 
 
+def _posted_ai_suggestions(post: Any) -> dict[str, str]:
+    """The AI suggestions the page carried, as the hidden `ai_cols` field lists them: `index:key` pairs. Anything that
+    is not an ASCII column index and a known field key is dropped. _render_map shows a badge only where the posted
+    field still equals the suggested key, so a tampered value can add a badge only where the posted value matches it."""
+    suggestions: dict[str, str] = {}
+    for item in post.get("ai_cols", "").split(","):
+        index, sep, key = item.partition(":")
+        if not sep or not index.isascii() or not index.isdecimal() or key not in BY_KEY:
+            continue
+        suggestions.setdefault(index, key)
+    return suggestions
+
+
 def _save_map(request: HttpRequest, draft: StaffImportDraft, headings: list[str]) -> HttpResponse:
     allow_salary = access.can_manage_salary(_user(request))
     settings_row = StaffImportSettings.get()
@@ -370,6 +392,7 @@ def _save_map(request: HttpRequest, draft: StaffImportDraft, headings: list[str]
             header_rows=draft.header_rows,
             errors=errors,
             missing=missing,
+            ai_suggested=_posted_ai_suggestions(request.POST),
         )
 
     draft.mapping = mapping

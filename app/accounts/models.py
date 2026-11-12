@@ -26,6 +26,7 @@ class User(AbstractUser):
             ("issue_orders", "Тушаал гаргах / баталгаажуулах"),
             ("export_lists", "Жагсаалтыг Excel рүү гаргах"),
             ("view_audit", "Үйл ажиллагааны бүртгэл харах"),
+            ("sign_orders", "Тушаалд дэлгэц дээр гарын үсэг зурах"),
         ]
 
     def has_perm(self, perm: str, obj: object = None) -> bool:

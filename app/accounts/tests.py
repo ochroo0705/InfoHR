@@ -8,7 +8,7 @@ from django.test import override_settings
 from django.urls import path
 
 from accounts.models import User
-from accounts.roles import DEFAULT_SWITCHES, EMPLOYEE, HR, ROLE_LABELS
+from accounts.roles import ADMIN, DEFAULT_SWITCHES, EMPLOYEE, HR, ROLE_LABELS
 
 
 @pytest.mark.django_db
@@ -32,6 +32,18 @@ def test_hr_cannot_see_salary_until_switched_on() -> None:
     user.groups.add(Group.objects.get(name=HR))
     assert user.has_perm("accounts.approve_leave")
     assert not User.objects.get(pk=user.pk).has_perm("macs.view_salary")
+
+
+@pytest.mark.django_db
+def test_sign_orders_switch_default_roles() -> None:
+    assert "sign_orders" in DEFAULT_SWITCHES[ADMIN]
+    assert "sign_orders" not in DEFAULT_SWITCHES[HR]
+    admin = User.objects.create_user("adm-sign", password="x-long-pass-123")
+    admin.groups.add(Group.objects.get(name=ADMIN))
+    assert User.objects.get(pk=admin.pk).has_perm("accounts.sign_orders")
+    hr = User.objects.create_user("hr-sign", password="x-long-pass-123")
+    hr.groups.add(Group.objects.get(name=HR))
+    assert not User.objects.get(pk=hr.pk).has_perm("accounts.sign_orders")
 
 
 @pytest.mark.django_db
@@ -72,6 +84,7 @@ def test_role_editor_groups_permissions_into_cards() -> None:
         "Тушаал гаргах / баталгаажуулах",
         "Жагсаалтыг Excel рүү гаргах",
         "Үйл ажиллагааны бүртгэл харах",
+        "Тушаалд дэлгэц дээр гарын үсэг зурах",
     }
     employee_card = {label for _value, label in field.widget.choices[1][1]}
     assert "Цалин, даатгалын мэдээллийг харах" in employee_card

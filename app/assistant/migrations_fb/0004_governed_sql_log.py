@@ -1,0 +1,32 @@
+"""The governed SQL log fields (HelpQuestion.sql, sql_rows, salary_flag) and the «SQL хариулт» outcome, for the Firebird set."""
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ("assistant", "0003_helpquestion_tokens"),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name="helpquestion",
+            name="outcome",
+            field=models.CharField(choices=[('answered', 'Хариулсан'), ('none', 'Олдсонгүй'), ('error', 'Алдаа'), ('limited', 'Хязгаарлагдсан'), ('table', 'Хүснэгт'), ('action', 'Үйлдэл'), ('sql', 'SQL хариулт')], max_length=10, verbose_name='Үр дүн'),
+        ),
+        migrations.AddField(
+            model_name="helpquestion",
+            name="sql",
+            field=models.TextField(blank=True, verbose_name="SQL"),
+        ),
+        migrations.AddField(
+            model_name="helpquestion",
+            name="sql_rows",
+            field=models.PositiveIntegerField(default=0, verbose_name="SQL мөрийн тоо"),
+        ),
+        migrations.AddField(
+            model_name="helpquestion",
+            name="salary_flag",
+            field=models.BooleanField(default=False, verbose_name="Цалингийн өгөгдөл"),
+        ),
+    ]

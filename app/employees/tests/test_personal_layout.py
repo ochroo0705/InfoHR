@@ -28,19 +28,22 @@ def _personal(page: str) -> str:
     return page[page.index('id="sec-identity"') : page.index("</section>", page.index('id="sec-other"'))]
 
 
-def test_group_dividers_start_each_topic_group(client: Client, hired: Employee) -> None:
+def test_group_summaries_title_each_topic_group(client: Client, hired: Employee) -> None:
+    """Each topic group is a collapsible <details>; its <summary> carries the title (UI_RULES §8)."""
     page = _page(client, hired)
-    found = re.findall(r'class="grp-divider"[^>]*>([^<]+)<', page)
+    personal = page[page.index('data-pgroup="basic"') : page.index('id="sec-other"')]
+    found = re.findall(r'<summary[^>]*>.*?<span class="font-semibold text-slate-900">([^<]+)</span>', personal, re.S)
     assert found == GROUPS
+    assert 'class="grp-divider"' not in page
     for title, first in zip(GROUPS, FIRST, strict=True):
-        divider = page.index(f">{title}<", page.index('class="grp-divider"'))
-        assert divider < page.index(f'id="sec-{first}"'), title
+        summary = page.index(f'font-semibold text-slate-900">{title}</span>', page.index('data-pgroup="basic"'))
+        assert summary < page.index(f'id="sec-{first}"'), title
 
 
-def test_no_anketa_numbers_on_page_or_menu(client: Client, hired: Employee) -> None:
+def test_no_anketa_numbers_on_page_or_summaries(client: Client, hired: Employee) -> None:
     page = _page(client, hired)
-    menu = page[page.index('id="personal-nav"') : page.index("</nav>", page.index('id="personal-nav"'))]
-    assert not re.search(r">\s*\d+\.\s*</span>", _personal(page) + menu)
+    assert not re.search(r">\s*\d+\.\s*</span>", _personal(page))
+    assert 'id="personal-nav"' not in page
 
 
 def test_titles_share_one_style_without_section_lines(client: Client, hired: Employee) -> None:

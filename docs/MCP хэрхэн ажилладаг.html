@@ -1,0 +1,464 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>MCP хэрхэн ажилладаг</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: tabbed explainer (Mongolian). Left-to-right flow diagram (Та > AI апп > MCP сервер > Таны систем) with a step player underneath. */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --fg:#14181f; --muted:#5b6574; --line:#c9cfd9; --soft:#e9ecf1;
+  --ai:#2455d6; --ai-bg:#e4ebfc;
+  --srv:#0f7a5a; --srv-bg:#dcf2ea;
+  --sys:#b4570b; --sys-bg:#fbe9d6;
+  --code-bg:#0f1420; --code-fg:#d7e0f2;
+  --display:'Inter',system-ui,'Segoe UI',sans-serif; --body:'Inter',system-ui,'Segoe UI',sans-serif; --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1118; --surface:#171b25; --fg:#e8ecf4; --muted:#98a2b5; --line:#3a4254; --soft:#222837;
+    --ai:#7ea2ff; --ai-bg:#1b2747; --srv:#4fd1a4; --srv-bg:#12352b; --sys:#f0a35a; --sys-bg:#3b2a17;
+    --code-bg:#0a0d14; --code-fg:#d7e0f2; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1118; --surface:#171b25; --fg:#e8ecf4; --muted:#98a2b5; --line:#3a4254; --soft:#222837;
+  --ai:#7ea2ff; --ai-bg:#1b2747; --srv:#4fd1a4; --srv-bg:#12352b; --sys:#f0a35a; --sys-bg:#3b2a17;
+  --code-bg:#0a0d14; --code-fg:#d7e0f2; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font:700 clamp(24px,4.2vw,36px)/1.15 var(--display);margin:0 0 8px;text-wrap:balance}
+.lede{color:var(--muted);max-width:66ch;margin:0 0 22px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:22px}
+.tabs button{font:500 14px var(--body);color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;cursor:pointer;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--ai)}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+.panel[hidden]{display:none}
+figure{margin:0}
+.diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px}
+.diagram svg{display:block;min-width:760px;width:100%;height:auto;color:var(--fg)}
+figcaption{color:var(--muted);font-size:13px;margin-top:8px;max-width:75ch}
+svg text{font-family:var(--body);fill:currentColor}
+.t-lbl{font-size:12px;font-weight:600}
+.t-sm{font-size:11px;fill:var(--muted)!important}
+.t-mono{font-family:var(--mono)!important;font-size:12px}
+.node rect.box{fill:var(--surface);stroke:var(--line);stroke-width:1.5;transition:stroke .3s,fill .3s}
+.node.ai rect.box{fill:var(--ai-bg);stroke:var(--ai)}
+.node.srv rect.box{fill:var(--srv-bg);stroke:var(--srv)}
+.node.sys rect.box{fill:var(--sys-bg);stroke:var(--sys)}
+.host-box{fill:none;stroke:var(--ai);stroke-width:1.5;stroke-dasharray:5 4;opacity:.7}
+.node.active rect.box{stroke-width:3;filter:drop-shadow(0 0 7px currentColor)}
+.node.ai{color:var(--ai)} .node.srv{color:var(--srv)} .node.sys{color:var(--sys)} .node.you{color:var(--fg)}
+.node text{fill:var(--fg)!important}
+.tool rect{fill:var(--surface);stroke:var(--srv);stroke-width:1;transition:all .3s}
+.tool.hit rect{fill:var(--srv);}
+.tool.hit text{fill:var(--bg)!important}
+.lane{stroke:var(--line);stroke-width:2;fill:none;transition:stroke .3s}
+.lane.on{stroke:var(--fg);stroke-width:2.5}
+.boundary{stroke:var(--muted);stroke-dasharray:3 5;stroke-width:1.2}
+.packet circle{fill:var(--fg);stroke:var(--bg);stroke-width:2}
+.packet rect{fill:var(--fg)} .packet text{fill:var(--bg)!important;font-size:11px;font-weight:600}
+.packet{pointer-events:none}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0}
+.btn{font:500 14px var(--body);background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn:hover{border-color:var(--fg)}
+.btn.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.dots{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.dots button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 12px var(--body);cursor:pointer;padding:0}
+.dots button[aria-current="step"]{background:var(--ai);border-color:var(--ai);color:#fff}
+.dots button.past{color:var(--fg);border-color:var(--fg)}
+.detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media(max-width:760px){.detail{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0}
+.card h2{font:700 19px/1.25 var(--display);margin:6px 0 8px}
+.card p{margin:0 0 10px}
+.pill{display:inline-block;font:600 11px var(--body);letter-spacing:.02em;padding:3px 8px;border-radius:99px;border:1px solid currentColor}
+.pill.sdk{color:var(--ai)} .pill.you{color:var(--sys)} .pill.model{color:var(--muted)}
+.who{font-size:12px;color:var(--muted);margin-left:8px}
+pre.code{margin:0;background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px;font:12.5px/1.6 var(--mono);overflow-x:auto;white-space:pre}
+.msglabel{font:600 12px var(--body);color:var(--muted);margin-bottom:8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.seg button{font:500 14px var(--body);background:var(--surface);color:var(--muted);border:0;padding:9px 16px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.edge{fill:none;stroke-width:1.8;stroke-dasharray:1;stroke-dashoffset:1;opacity:0;transition:stroke-dashoffset .7s ease,opacity .2s}
+.edge.on{stroke-dashoffset:0;opacity:1}
+.count{font:700 clamp(20px,3vw,26px) var(--display);margin:12px 0 4px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+summary{cursor:pointer;padding:14px 18px;font:600 16px var(--display);display:flex;gap:12px;align-items:center;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary .n{width:26px;height:26px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font:700 13px var(--body);flex:none}
+summary .chev{margin-left:auto;transition:transform .2s;color:var(--muted)}
+details[open] summary .chev{transform:rotate(90deg)}
+details .body{padding:0 18px 16px 56px;color:var(--fg)}
+details .body p{margin:0 0 10px;max-width:68ch}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(max-width:600px){.two{grid-template-columns:minmax(0,1fr)} details .body{padding-left:18px}}
+.mini{background:var(--soft);border-radius:8px;padding:10px 12px;font-size:13.5px}
+.mini b{display:block;font-family:var(--display)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <h1>MCP нь AI-г таны системтэй хэрхэн холбодог вэ</h1>
+  <p class="lede">MCP (Model Context Protocol) нь AI апп өөр системийн хэрэгслүүдийг олж мэдэж, ашиглах стандарт арга юм. Доорх жишээнд HR системээс ажилтан хэдэн өдрийн амралт үлдсэнийг асууж байна.</p>
+
+  <div class="tabs" role="tablist" aria-label="Хэсгүүд">
+    <button role="tab" id="tab-flow" aria-selected="true" aria-controls="p-flow">Хүсэлт хэрхэн урсдаг</button>
+    <button role="tab" id="tab-why" aria-selected="false" aria-controls="p-why">Яагаад стандарт хэрэгтэй</button>
+    <button role="tab" id="tab-need" aria-selected="false" aria-controls="p-need">Юу бүтээх хэрэгтэй</button>
+  </div>
+
+  <!-- FLOW -->
+  <section class="panel" id="p-flow" role="tabpanel" aria-labelledby="tab-flow">
+    <figure>
+      <div class="diagram">
+      <svg viewBox="0 0 960 345" role="img" aria-label="Асуулт хэрэглэгчээс AI загвар руу, MCP клиентээр дамжин MCP сервер рүү очно. Сервер таны системийг дууддаг. Хариу яг ийм замаар буцна.">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        </defs>
+
+        <line class="boundary" x1="475" y1="30" x2="475" y2="318"/>
+        <line class="boundary" x1="760" y1="30" x2="760" y2="318"/>
+        <text class="t-sm" x="475" y="336" text-anchor="middle">MCP протокол (JSON-RPC мессеж)</text>
+        <text class="t-sm" x="760" y="336" text-anchor="middle">таны өөрийн API / өгөгдлийн сан</text>
+
+        <g id="lanes" style="color:var(--fg)">
+          <path class="lane" data-lane="ask"  d="M130 108 H208" marker-end="url(#arr)"/>
+          <path class="lane" data-lane="ans"  d="M208 135 H132" marker-end="url(#arr)"/>
+          <path class="lane" data-lane="pick" d="M340 160 V218" marker-end="url(#arr)"/>
+          <path class="lane" data-lane="got"  d="M380 218 V162" marker-end="url(#arr)"/>
+          <path class="lane" data-lane="req"  d="M410 240 H538" marker-end="url(#arr)"/>
+          <path class="lane" data-lane="res"  d="M538 275 H412" marker-end="url(#arr)"/>
+          <path class="lane" data-lane="api"  d="M720 185 H798" marker-end="url(#arr)"/>
+          <path class="lane" data-lane="data" d="M798 215 H722" marker-end="url(#arr)"/>
+        </g>
+        <text class="t-sm" x="169" y="102" text-anchor="middle">асуулт</text>
+        <text class="t-sm" x="169" y="152" text-anchor="middle">хариулт</text>
+        <text class="t-sm" x="333" y="193" text-anchor="end">хэрэгсэл хэрэгтэй</text>
+        <text class="t-sm" x="387" y="193">үр дүн авна</text>
+        <text class="t-sm" x="474" y="233" text-anchor="middle">хүсэлт</text>
+        <text class="t-sm" x="474" y="293" text-anchor="middle">хариу</text>
+        <text class="t-sm" x="759" y="179" text-anchor="middle">API дуудлага</text>
+        <text class="t-sm" x="759" y="233" text-anchor="middle">өгөгдөл</text>
+
+        <g class="node you" data-node="you">
+          <rect class="box" x="20" y="85" width="110" height="70" rx="10"/>
+          <text class="t-lbl" x="75" y="116" text-anchor="middle">Та</text>
+          <text class="t-sm" x="75" y="134" text-anchor="middle">хэрэглэгч</text>
+        </g>
+
+        <rect class="host-box" x="190" y="40" width="240" height="270" rx="14"/>
+        <text class="t-lbl" x="202" y="30" style="fill:var(--ai)!important">AI апп (“host”)</text>
+        <g class="node ai" data-node="llm">
+          <rect class="box" x="210" y="75" width="200" height="85" rx="10"/>
+          <text class="t-lbl" x="310" y="104" text-anchor="middle">AI загвар (LLM)</text>
+          <text class="t-sm" x="310" y="124" text-anchor="middle">хэрэгслийн жагсаалтыг уншиж,</text>
+          <text class="t-sm" x="310" y="141" text-anchor="middle">юуг дуудахаа шийднэ</text>
+        </g>
+        <g class="node ai" data-node="client">
+          <rect class="box" x="210" y="220" width="200" height="75" rx="10"/>
+          <text class="t-lbl" x="310" y="248" text-anchor="middle">MCP клиент</text>
+          <text class="t-sm" x="310" y="268" text-anchor="middle">протоколоор харилцана,</text>
+          <text class="t-sm" x="310" y="284" text-anchor="middle">сервер бүрт нэг</text>
+        </g>
+
+        <g class="node srv" data-node="server">
+          <rect class="box" x="540" y="40" width="180" height="270" rx="12"/>
+          <text class="t-lbl" x="630" y="64" text-anchor="middle">MCP сервер</text>
+          <text class="t-sm" x="630" y="80" text-anchor="middle">адаптер · хэрэгслийн цэс</text>
+        </g>
+        <g id="tools">
+          <g class="tool" data-tool="0"><rect x="556" y="95" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="118" text-anchor="middle">get_leave_balance</text></g>
+          <g class="tool" data-tool="1"><rect x="556" y="141" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="164" text-anchor="middle">find_employee</text></g>
+          <g class="tool" data-tool="2"><rect x="556" y="187" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="210" text-anchor="middle">list_requests</text></g>
+        </g>
+        <text class="t-sm" x="630" y="256" text-anchor="middle">+ хэн асууж буйг шалгана</text>
+        <text class="t-sm" x="630" y="272" text-anchor="middle">+ API руу хөрвүүлнэ</text>
+
+        <g class="node sys" data-node="system">
+          <rect class="box" x="800" y="95" width="140" height="150" rx="12"/>
+          <text class="t-lbl" x="870" y="150" text-anchor="middle">Таны систем</text>
+          <text class="t-sm" x="870" y="170" text-anchor="middle">HR өгөгдлийн сан,</text>
+          <text class="t-sm" x="870" y="186" text-anchor="middle">ERP, REST API…</text>
+        </g>
+
+        <g class="packet" id="packet" opacity="0">
+          <circle r="7"/>
+          <g id="pk-tag"><rect id="pk-rect" x="12" y="-10" height="20" rx="10"/><text id="pk-text" x="22" y="4"></text></g>
+        </g>
+      </svg>
+      </div>
+      <figcaption>Тоглуулах товчийг дарна уу. Нэг хүсэлтийн замыг пакет дагана: AI таны системд шууд хүрдэггүй. Тэр MCP серверээс хүсэх бөгөөд юуг ажиллуулахыг сервер шийднэ.</figcaption>
+    </figure>
+
+    <div class="controls">
+      <button class="btn primary" id="play" type="button">Зогсоох</button>
+      <button class="btn" id="prev" type="button">Өмнөх</button>
+      <button class="btn" id="next" type="button">Дараах</button>
+      <div class="dots" id="dots" role="group" aria-label="Алхам руу үсрэх"></div>
+    </div>
+
+    <div class="detail">
+      <div class="card" aria-live="polite">
+        <span class="pill" id="d-pill"></span><span class="who" id="d-who"></span>
+        <h2 id="d-title"></h2>
+        <p id="d-text"></p>
+        <p id="d-note" style="color:var(--muted);font-size:13.5px"></p>
+      </div>
+      <div class="card">
+        <div class="msglabel" id="d-msglabel"></div>
+        <pre class="code" id="d-msg"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY -->
+  <section class="panel" id="p-why" role="tabpanel" aria-labelledby="tab-why" hidden>
+    <div class="seg" role="group" aria-label="Холболтын хэлбэр">
+      <button type="button" id="m-without" aria-pressed="true">MCP-гүй</button>
+      <button type="button" id="m-with" aria-pressed="false">MCP-тэй</button>
+    </div>
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 640 280" role="img" aria-label="Гурван AI апп ба гурван систем. MCP-гүй бол хос бүр өөр холболт шаарддаг, нийт есөн. MCP-тэй бол апп болон систем бүр стандартад нэг удаа холбогдоно, нийт зургаа.">
+          <g id="why-edges"></g>
+          <g id="why-nodes"></g>
+        </svg>
+      </div>
+      <figcaption id="why-cap"></figcaption>
+    </figure>
+    <div class="count" id="why-count"></div>
+    <p class="lede" id="why-text" style="margin:0"></p>
+  </section>
+
+  <!-- NEED -->
+  <section class="panel" id="p-need" role="tabpanel" aria-labelledby="tab-need" hidden>
+    <p class="lede">AI аппыг системтэй ажиллуулахад таван зүйл хэрэгтэй. Тус бүрийг нээж үзнэ үү. Эхнийх нь таны одоо байгаа систем, дундах гурав нь таны бүтээх хэсэг.</p>
+
+    <details open>
+      <summary><span class="n">1</span>Гаднаас дуудаж болох систем<span class="chev">›</span></summary>
+      <div class="body">
+        <p>AI зөвхөн таны систем гаднаас зөвшөөрдөг зүйлийг хийж чадна: REST API, өгөгдлийн сангийн холболт эсвэл кодын функц. Хүн дэлгэц дээр дарж байж л хийдэг зүйл бол эхлээд API хэрэгтэй.</p>
+        <div class="mini"><b>Шалгах</b>Скрипт аппыг нээлгүйгээр амралтын үлдэгдлийг уншиж чадах уу?</div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">2</span>MCP сервер (адаптер)<span class="chev">›</span></summary>
+      <div class="body">
+        <p>Таны <b>хэрэгслүүдийг</b> жагсаадаг жижиг програм. Хэрэгсэл бүр нэр, энгийн хэлээр бичсэн тайлбар, авах оролтуудтай. AI загвар юуг дуудахаа эдгээр тайлбараас уншиж шийддэг тул загварт зориулж бичнэ. Албан ёсны SDK-ууд (Python, TypeScript, C#, Java болон бусад) протоколыг хариуцна, та зөвхөн хэрэгслийн биеийг бичнэ.</p>
+<pre class="code">from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("hr")
+
+@mcp.tool()
+def get_leave_balance(employee: str) -&gt; str:
+    """Ажилтны үлдсэн ээлжийн амралтын өдөр."""
+    row = hr_api.get("/leave/balance", employee=employee)
+    return f"{employee}: {row['days_left']} өдөр үлдсэн"
+
+mcp.run()  # stdio, эсвэл transport="streamable-http"</pre>
+        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">Зөвхөн жишээ: docstring нь хэрэгслийн тайлбар, type hint нь оролтын схем болно.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">3</span>Холбогдох арга (transport)<span class="chev">›</span></summary>
+      <div class="body">
+        <div class="two">
+          <div class="mini"><b>stdio (дотоод)</b>AI апп таны серверийг нэг компьютер дээр өөрөө ажиллуулж, шууд харилцана. Энгийн, сүлжээ шаардахгүй, нэг хүний компьютерт тохиромжтой.</div>
+          <div class="mini"><b>Streamable HTTP (алсын)</b>Сервер сүлжээнд URL хаягтай ажиллана. Олон хэрэглэгч хуваалцана. HTTPS болон нэвтрэлт шаардлагатай.</div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">4</span>Эрх ба аюулгүй байдал<span class="chev">›</span></summary>
+      <div class="body">
+        <p>Сервер бол цорын ганц хаалга. Хэн асууж буйг (API түлхүүр эсвэл OAuth нэвтрэлт) мэдэж, тухайн хүнд зөвшөөрөгдсөн зүйлийг л буцааж, дуудлагуудыг бүртгэж байх ёстой. Өгөгдөл өөрчилдөг хэрэгслийг (амралт батлах, бичлэг устгах) зөвхөн унших хэрэгслээс тусад нь тэмдэглэж, ажиллуулахаас өмнө хэрэглэгчээс баталгаажуулалт авна.</p>
+        <div class="mini"><b>Эхний дүрэм</b>Зөвхөн унших хэрэгслээс эхэл. Бичих хэрэгслийг дараа нь нэг нэгээр нэм.</div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">5</span>MCP дэмждэг AI апп<span class="chev">›</span></summary>
+      <div class="body">
+        <p>Host апп (дэлгэцийн туслах, IDE, чат бүтээгдэхүүн эсвэл SDK-аар бүтээсэн өөрийн агент) дотроо MCP клиенттэй. Та серверийн байршлыг, өөрөөр хэлбэл ажиллуулах тушаал эсвэл URL-ыг зааж өгнө. Үүнээс хойш олж мэдэх, дуудах ажлыг клиент хариуцна.</p>
+        <pre class="code">{
+  "mcpServers": {
+    "hr": { "command": "python", "args": ["hr_server.py"] }
+  }
+}</pre>
+        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">Ердийн тохиргооны хэлбэр. Файлын байршил, талбарууд аппаас хамаарч өөр байна.</p>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $ = function(s,r){return (r||document).querySelector(s)};
+  var $$ = function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+
+  var tabs = $$('.tabs [role=tab]');
+  function showTab(t){
+    tabs.forEach(function(b){
+      var on = b===t; b.setAttribute('aria-selected', on);
+      $('#'+b.getAttribute('aria-controls')).hidden = !on;
+    });
+    if(t.id!=='tab-flow'){ setPlaying(false); }
+    if(t.id==='tab-why'){ setWhy(whyMode,true); }
+  }
+  tabs.forEach(function(b){ b.addEventListener('click',function(){showTab(b)}); });
+
+  var steps = [
+    { title:'Холбогдох ба олж мэдэх', pill:'sdk', pillT:'MCP SDK хариуцна', who:'MCP клиент ↔ MCP сервер',
+      text:'AI апп эхлэхэд түүний MCP клиент таны сервертэй холболт нээж, юу хийж чадахыг асууна. Сервер хэрэгслийн цэсээ буцаана: нэр, тайлбар, хэрэгсэл бүрийн авах оролтууд. Үүнээс хойш AI загвар эдгээр хэрэгсэл байгааг мэднэ.',
+      note:'Энэ нь асуулт тавихаас өмнө нэг удаа болно. Загвар тайлбаруудыг уншдаг тул тодорхой бичих нь чухал.',
+      msgLabel:'Клиент асууна, сервер хариулна (JSON-RPC)',
+      msg:'→ {"method": "tools/list"}\n\n← {"tools": [\n    {"name": "get_leave_balance",\n     "description": "Үлдсэн амралтын өдөр",\n     "inputSchema": {"employee": "string"}},\n    {"name": "find_employee", …},\n    {"name": "list_requests", …}\n  ]}',
+      path:[[410,240],[538,240],[538,275],[412,275]], tag:'tools/list', nodes:['client','server'], lanes:['req','res'], tool:'all' },
+    { title:'Та асуулт асууна', pill:'model', pillT:'AI апп', who:'Та → AI апп',
+      text:'Та энгийн өгүүлбэр бичнэ. AI апп үүнийг боломжит хэрэгслүүдийн жагсаалтын хамт загварт дамжуулна.',
+      note:'Хэрэгслийн нэр нэрлэх, query бичих шаардлагагүй. Үлдсэнийг загвар өөрөө олно.',
+      msgLabel:'Таны бичсэн', msg:'"Бат хэдэн өдрийн амралт үлдсэн бэ?"',
+      path:[[130,108],[208,108]], tag:'асуулт', nodes:['you','llm'], lanes:['ask'] },
+    { title:'Загвар хэрэгсэл сонгоно', pill:'model', pillT:'AI загвар', who:'LLM → MCP клиент',
+      text:'Загвар get_leave_balance нь асуултад таарч байгааг хараад оролтыг нь бөглөнө. Өөрөө юу ч ажиллуулахгүй, зөвхөн хэрэгслийг дуудах хүсэлт үүсгэнэ.',
+      note:'Тохирох хэрэгсэл байхгүй бол загвар өөрийн мэдлэгээс хариулна.',
+      msgLabel:'Загварын гаралт', msg:'хэрэгсэл дуудах: get_leave_balance\n  employee = "Бат"',
+      path:[[340,160],[340,218]], tag:'хэрэгсэл хэрэгтэй', nodes:['llm','client'], lanes:['pick'] },
+    { title:'Дуудлага хилийг гаталж өнгөрнө', pill:'sdk', pillT:'MCP SDK хариуцна', who:'MCP клиент → MCP сервер',
+      text:'MCP клиент дуудлагыг JSON-RPC мессежээр таны MCP сервер рүү илгээнэ. Ихэнх AI апп энэ үед, ялангуяа өгөгдөл өөрчилдөг хэрэгсэлд хэрэглэгчээс зөвшөөрөл асуудаг.',
+      note:'Энэ бол стандарт хэсэг. Аливаа MCP клиент аливаа MCP сервертэй яг энэ форматаар ярьж чадна.',
+      msgLabel:'Хүсэлт (JSON-RPC)', msg:'{\n  "jsonrpc": "2.0", "id": 7,\n  "method": "tools/call",\n  "params": {\n    "name": "get_leave_balance",\n    "arguments": {"employee": "Бат"}\n  }\n}',
+      path:[[410,240],[538,240]], tag:'tools/call', nodes:['client','server'], lanes:['req'], tool:0 },
+    { title:'Таны сервер бодит ажлыг хийнэ', pill:'you', pillT:'Та бичих хэсэг', who:'MCP сервер → таны систем',
+      text:'Сервер хэн асууж буйг шалгаад таны бичсэн хэрэгслийн биеийг ажиллуулна: API дуудлага, SQL query, функц. Энд таны системийн өөрийн дүрэм, эрх үйлчилнэ.',
+      note:'AI таны нууц үг, өгөгдлийн санг хэзээ ч хардаггүй. Зөвхөн энэ сервер хардаг.',
+      msgLabel:'Таны өөрийн протокол (жишээ)', msg:'GET /api/leave/balance?employee=Bat\nAuthorization: Bearer <service token>',
+      path:[[720,185],[798,185]], tag:'API дуудлага', nodes:['server','system'], lanes:['api'], tool:0 },
+    { title:'Таны систем хариулна', pill:'you', pillT:'Таны одоо байгаа систем', who:'Таны систем → MCP сервер',
+      text:'Систем өгөгдлийг ердийн аргаараа буцаана. Сервер үүнийг уншигдахуйц хэлбэрт оруулж, тухайн хэрэглэгчид харах эрхтэй зүйлийг л үлдээнэ.',
+      note:'Богино, цэвэр текст буцаа. Урт түүхий өгөгдөл загварын анхаарлыг үрнэ.',
+      msgLabel:'Хариу (жишээ)', msg:'200 OK\n{"employee": "Bat", "days_left": 12}',
+      path:[[798,215],[722,215]], tag:'өгөгдөл', nodes:['system','server'], lanes:['data'], tool:0 },
+    { title:'Үр дүн загвар руу буцна', pill:'sdk', pillT:'MCP SDK хариуцна', who:'MCP сервер → клиент → LLM',
+      text:'Сервер хариуг хэрэгслийн үр дүн болгон боож өгнө. MCP клиент үүнийг загварт дамжуулах бөгөөд загвар үүнийг яриан дахь шинэ мэдээлэл гэж үзнэ.',
+      note:'Загварт илүү мэдээлэл хэрэгтэй бол өөр хэрэгсэл дуудаж, 3-р алхмаас давтаж болно.',
+      msgLabel:'Үр дүн (JSON-RPC)', msg:'{\n  "jsonrpc": "2.0", "id": 7,\n  "result": {\n    "content": [{\n      "type": "text",\n      "text": "Бат: 12 өдрийн амралт үлдсэн"\n    }]\n  }\n}',
+      path:[[538,275],[380,275],[380,162]], tag:'үр дүн', nodes:['server','client','llm'], lanes:['res','got'], tool:0 },
+    { title:'Загвар танд хариулна', pill:'model', pillT:'AI загвар', who:'LLM → Та',
+      text:'Загвар өгөгдлийг өгүүлбэр болгоно. Таны харсан бүх зүйл програмуудын хоорондын яриа байсан, та зөвхөн асуулт болон энэ хариуг харна.',
+      note:'Хариултын чанар хэрэгслийн өгөгдөл, тайлбараас хамаарна.',
+      msgLabel:'Таны уншсан', msg:'"Бат 12 өдрийн ээлжийн амралт үлдсэн байна."',
+      path:[[208,135],[132,135]], tag:'хариулт', nodes:['llm','you'], lanes:['ans'] }
+  ];
+
+  var dots = $('#dots'), idx = 0, playing = true, token = 0, timer = null, raf = null;
+  steps.forEach(function(s,i){
+    var b = document.createElement('button'); b.type='button'; b.textContent = i+1; b.title = s.title; b.setAttribute('aria-label',(i+1)+'-р алхам: '+s.title);
+    b.addEventListener('click',function(){ setPlaying(false); go(i); }); dots.appendChild(b);
+  });
+
+  var packet = $('#packet'), pkText = $('#pk-text'), pkRect = $('#pk-rect');
+  function clearHi(){
+    $$('.node').forEach(function(n){n.classList.remove('active')});
+    $$('.lane').forEach(function(n){n.classList.remove('on')});
+    $$('.tool').forEach(function(n){n.classList.remove('hit')});
+  }
+  function highlight(s){
+    clearHi();
+    s.nodes.forEach(function(id){ var n=$('[data-node="'+id+'"]'); if(n) n.classList.add('active'); });
+    s.lanes.forEach(function(id){ var n=$('[data-lane="'+id+'"]'); if(n) n.classList.add('on'); });
+    $$('.tool').forEach(function(t,i){ if(s.tool==='all'||s.tool===i) t.classList.add('hit'); });
+  }
+  function text(s){
+    var p = $('#d-pill'); p.className='pill '+s.pill; p.textContent = s.pillT;
+    $('#d-who').textContent = s.who;
+    $('#d-title').textContent = (idx+1)+'. '+s.title;
+    $('#d-text').textContent = s.text; $('#d-note').textContent = s.note;
+    $('#d-msglabel').textContent = s.msgLabel; $('#d-msg').textContent = s.msg;
+    $$('button',dots).forEach(function(b,i){
+      if(i===idx) b.setAttribute('aria-current','step'); else b.removeAttribute('aria-current');
+      b.classList.toggle('past', i<idx);
+    });
+  }
+  function segLens(pts){ var L=[],t=0; for(var i=1;i<pts.length;i++){var d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);L.push(d);t+=d;} return {L:L,t:t}; }
+  function at(pts,sl,d){
+    var i=0; while(i<sl.L.length-1 && d>sl.L[i]){d-=sl.L[i];i++;}
+    var f=Math.min(1,d/sl.L[i]), a=pts[i], b=pts[i+1]; return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f];
+  }
+  function setTag(label){
+    pkText.textContent = label;
+    pkRect.setAttribute('width', label.length*7+20);
+  }
+  function go(i){
+    token++; var my = token; clearTimeout(timer); cancelAnimationFrame(raf);
+    idx = (i+steps.length)%steps.length; var s = steps[idx];
+    highlight(s); text(s); setTag(s.tag);
+    var pts = s.path, sl = segLens(pts);
+    if(reduce){ packet.setAttribute('opacity',0); schedule(my); return; }
+    packet.setAttribute('opacity',1);
+    var dur = 900 + sl.t*3, start = null;
+    function frame(ts){
+      if(my!==token) return;
+      if(start===null) start = ts;
+      var f = Math.min(1,(ts-start)/dur), e = f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
+      var p = at(pts,sl,e*sl.t);
+      packet.setAttribute('transform','translate('+p[0]+','+p[1]+')');
+      if(f<1) raf = requestAnimationFrame(frame);
+      else { schedule(my); }
+    }
+    packet.setAttribute('transform','translate('+pts[0][0]+','+pts[0][1]+')');
+    raf = requestAnimationFrame(frame);
+  }
+  function schedule(my){
+    if(!playing || my!==token) return;
+    timer = setTimeout(function(){ if(playing && my===token) go(idx+1); }, reduce?3200:2800);
+  }
+  function setPlaying(p){
+    playing = p; $('#play').textContent = p?'Зогсоох':'Тоглуулах';
+    if(p){ go(idx); } else { clearTimeout(timer); }
+  }
+  $('#play').addEventListener('click',function(){ setPlaying(!playing); });
+  $('#next').addEventListener('click',function(){ setPlaying(false); go(idx+1); });
+  $('#prev').addEventListener('click',function(){ setPlaying(false); go(idx-1); });
+
+  var apps = ['Claude','Copilot','Өөрийн бот'], sysn = ['HR систем','ERP','Календарь'];
+  var ys = [60,140,220], NS='http://www.w3.org/2000/svg';
+  function el(n,a,p){ var e=document.createElementNS(NS,n); for(var k in a) e.setAttribute(k,a[k]); if(p) p.appendChild(e); return e; }
+  var edges = $('#why-edges'), nodes = $('#why-nodes'), E = {direct:[], app:[], sys:[]};
+  apps.forEach(function(_,i){ sysn.forEach(function(_,j){
+    var e = el('path',{class:'edge',pathLength:1,d:'M150 '+ys[i]+' C 300 '+ys[i]+' 340 '+ys[j]+' 490 '+ys[j],stroke:'var(--sys)'},edges); E.direct.push(e); }); });
+  apps.forEach(function(_,i){ E.app.push(el('path',{class:'edge',pathLength:1,d:'M150 '+ys[i]+' C 220 '+ys[i]+' 210 140 270 140',stroke:'var(--ai)'},edges)); });
+  sysn.forEach(function(_,j){ E.sys.push(el('path',{class:'edge',pathLength:1,d:'M370 140 C 430 140 420 '+ys[j]+' 490 '+ys[j],stroke:'var(--srv)'},edges)); });
+  apps.forEach(function(n,i){ var g=el('g',{class:'node ai'},nodes); el('rect',{class:'box',x:40,y:ys[i]-22,width:110,height:44,rx:8},g); var t=el('text',{class:'t-lbl',x:95,y:ys[i]+4,'text-anchor':'middle'},g); t.textContent=n; });
+  sysn.forEach(function(n,j){ var g=el('g',{class:'node sys'},nodes); el('rect',{class:'box',x:490,y:ys[j]-22,width:110,height:44,rx:8},g); var t=el('text',{class:'t-lbl',x:545,y:ys[j]+4,'text-anchor':'middle'},g); t.textContent=n; });
+  var hub = el('g',{class:'node srv',id:'hub',style:'opacity:0;transition:opacity .4s'},nodes);
+  el('rect',{class:'box',x:270,y:100,width:100,height:80,rx:10},hub);
+  var h1=el('text',{class:'t-lbl',x:320,y:136,'text-anchor':'middle'},hub); h1.textContent='MCP';
+  var h2=el('text',{class:'t-sm',x:320,y:154,'text-anchor':'middle'},hub); h2.textContent='нэг стандарт';
+  var whyMode='without';
+  function setWhy(m,instant){
+    whyMode=m;
+    $('#m-without').setAttribute('aria-pressed',m==='without'); $('#m-with').setAttribute('aria-pressed',m==='with');
+    var w = m==='without';
+    E.direct.forEach(function(e,i){ setTimeout(function(){e.classList.toggle('on',w)}, instant||reduce?0:i*50); });
+    E.app.concat(E.sys).forEach(function(e,i){ setTimeout(function(){e.classList.toggle('on',!w)}, instant||reduce?0:i*70); });
+    hub.style.opacity = w?0:1;
+    $('#why-count').textContent = w ? '3 апп × 3 систем = 9 тусгай холболт' : '3 апп + 3 систем = 6 холболт';
+    $('#why-cap').textContent = w ? 'Стандартгүй бол AI апп бүр систем бүрт зориулсан өөрийн кодтой байх ёстой.' : 'MCP-тэй бол апп бүр MCP-ээр нэг удаа ярьж, систем бүр нэг MCP сервертэй болно.';
+    $('#why-text').textContent = w
+      ? 'Дөрөв дэх апп нэмбэл гурван шинэ интеграц бичнэ. Шинэ систем нэмбэл бүх аппыг шинэчлэх хэрэгтэй.'
+      : 'Дөрөв дэх апп нэмбэл MCP сервертэй бүх системтэй шууд ажиллана. Шинэ систем нэмбэл MCP дэмждэг бүх апп өөрчлөлтгүй ашиглаж чадна.';
+  }
+  $('#m-without').addEventListener('click',function(){setWhy('without')});
+  $('#m-with').addEventListener('click',function(){setWhy('with')});
+  setWhy('without',true);
+
+  go(0);
+})();
+</script>
+
+</body></html>

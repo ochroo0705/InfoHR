@@ -59,7 +59,7 @@ def test_catalogue_links_only_the_surveys_hr_may_open_and_greying_count(
             assert link in page, key
         else:
             assert link not in page, key  # a built report the user may not open is not listed at all
-    assert page.count("удахгүй") == 28 - len(REPORTS)
+    assert page.count("удахгүй") == 31 - len(REPORTS)
 
 
 def test_catalogue_for_accountant_links_its_three_surveys(client: Client, login_as: Callable[..., User]) -> None:

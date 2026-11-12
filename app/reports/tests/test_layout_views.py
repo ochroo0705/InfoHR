@@ -194,7 +194,7 @@ def test_stub_layouts_answer_200(
     client: Client, login_as: Callable[..., User], views_report: Report, layout: str
 ) -> None:
     login_as(client, "HR")
-    response = client.get(PAGE, {"layout": layout})
+    response = client.get(PAGE, {"layout": layout, "lyear": "all"})  # lyear: no window (ignored by the other layouts)
     assert response.status_code == 200
     assert "Нийт: 75" in response.content.decode()
 
@@ -399,7 +399,7 @@ def test_no_django_comment_text_leaks_into_any_layout_page(
 ) -> None:
     # a multi-line {# ... #} is printed as text; every layout's page must be free of comment markers
     login_as(client, "HR")
-    text = client.get(PAGE, {"layout": layout, "lby": "dept"}).content.decode()
+    text = client.get(PAGE, {"layout": layout, "lby": "dept", "lyear": "all"}).content.decode()
     assert "{#" not in text
     assert "#}" not in text
 

@@ -54,9 +54,10 @@ def test_salary_hidden_from_a_viewer_does_not_remove_layouts_with_other_columns(
 
 
 def test_a_category_only_available_with_salary_is_not_offered_to_hr(accountant_user: User, hr_user: User) -> None:
-    """Board, chart and pivot need a category column; when the only one is salary-gated, HR gets no such layout."""
+    """Board needs a category column; when the only one is salary-gated, HR gets no board. Chart and pivot also take
+    a date column (Task 3), and this report's start and end dates are visible to HR, so HR gets those two."""
     report = _report(("board", "chart", "pivot", "calendar"), group_options=("pay",))
-    assert offered_layouts(report, hr_user) == ["table", "calendar"]
+    assert offered_layouts(report, hr_user) == ["table", "calendar", "chart", "pivot"]
     assert offered_layouts(report, accountant_user) == ["table", "board", "calendar", "chart", "pivot"]
 
 
@@ -66,8 +67,17 @@ def test_report_without_layouts_offers_only_table(accountant_user: User) -> None
     assert resolve(report, accountant_user, _filters("layout=board")).layout == "table"
 
 
-def test_chart_without_any_category_column_offers_only_table(accountant_user: User) -> None:
-    report = _report(("chart",), group_options=())
+def test_chart_without_any_category_or_date_column_offers_only_table(accountant_user: User) -> None:
+    """Chart needs a category or a date column (Task 3). A report with neither offers only the table."""
+    report = Report(
+        key="no-category",
+        title="Тайлан",
+        filters=(),
+        columns=(Column(key="name", label="Нэр", value=lambda r: r.name),),
+        default_columns=("name",),
+        rows=lambda user, filters: [],
+        layouts=("chart",),
+    )
     assert offered_layouts(report, accountant_user) == ["table"]
 
 
@@ -192,6 +202,16 @@ def test_pivot_ignores_a_hidden_second_column_and_uses_the_next_category(hr_user
     assert spec.by2 is None  # pay is hidden from HR, and dept is already the row
 
 
+def test_second_column_choices_leave_out_the_main_column(accountant_user: User) -> None:
+    report = _report(("pivot", "timeline"), group_options=("dept", "pay"))
+    pivot = layouts_mod.layout_choices(report, accountant_user, "pivot", "dept")
+    # Since Task 3 a pivot also takes the report's date columns, after the categories (start and end here)
+    assert [k for k, _ in pivot.by] == ["dept", "pay", "start", "end"]
+    assert [k for k, _ in pivot.by2] == ["pay", "start", "end"]
+    timeline = layouts_mod.layout_choices(report, accountant_user, "timeline", "start")
+    assert [k for k, _ in timeline.by2] == ["end"]
+
+
 def test_timeline_ignores_a_hidden_end_column(hr_user: User) -> None:
     report = Report(
         key="tl",
@@ -205,7 +225,7 @@ def test_timeline_ignores_a_hidden_end_column(hr_user: User) -> None:
         rows=lambda user, filters: [],
         layouts=("timeline",),
     )
-    spec = resolve(report, hr_user, _filters("layout=timeline&lby=start&lby2=pay"))
+    spec = resolve(report, hr_user, _filters("layout=timeline&lby=start&lby2=pay&lyear=all"))
     assert spec.by is not None and spec.by.key == "start"
     assert spec.by2 is None
 
@@ -244,13 +264,13 @@ def test_staff_list_calendar_defaults_to_first_hire_not_birth_date(hr_user: User
 
 
 def test_staff_list_timeline_runs_from_first_hire_to_contract_end_not_birth_date(hr_user: User) -> None:
-    spec = resolve(staff_list.REPORT, hr_user, Filters(layout="timeline"))
+    spec = resolve(staff_list.REPORT, hr_user, Filters(layout="timeline", lyear="all"))
     assert spec.by is not None and spec.by.key == "first_hire_date"
     assert spec.by2 is not None and spec.by2.key == "contract_end"
 
 
 def test_staff_list_default_is_not_birth_date_for_a_viewer_without_personal(accountant_user: User) -> None:
-    spec = resolve(staff_list.REPORT, accountant_user, Filters(layout="timeline"))
+    spec = resolve(staff_list.REPORT, accountant_user, Filters(layout="timeline", lyear="all"))
     assert spec.by is not None and spec.by.key == "first_hire_date"
 
 
@@ -260,7 +280,7 @@ def test_explicit_lby_still_wins_over_the_report_default(hr_user: User) -> None:
 
 
 def test_leave_requests_timeline_defaults_to_start_and_end(hr_user: User) -> None:
-    spec = resolve(leave_requests.REPORT, hr_user, Filters(layout="timeline"))
+    spec = resolve(leave_requests.REPORT, hr_user, Filters(layout="timeline", lyear="all"))
     assert spec.by is not None and spec.by.key == "start"
     assert spec.by2 is not None and spec.by2.key == "end"
 

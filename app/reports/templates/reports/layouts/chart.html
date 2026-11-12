@@ -11,19 +11,22 @@ always, the same numbers as a plain table, for screen readers, no-script, print 
     <thead>
       <tr>
         <th scope="col">{% if spec.by %}{{ spec.by.label }}{% else %}Ангилал{% endif %}</th>
-        <th scope="col" class="text-right">{{ chart.value_label }}</th>
+        {% for s in chart.series %}<th scope="col" class="text-right">{{ s.label }}</th>{% endfor %}
+        <th scope="col" class="text-right">{% if chart.series %}Нийт{% else %}{{ chart.value_label }}{% endif %}</th>
       </tr>
     </thead>
     <tbody>
-      {% for point in chart.points %}
+      {% for point, cells, href in chart_lines %}
       <tr>
-        <td>{{ point.label }}</td>
-        <td class="text-right">{% include "reports/layouts/_figure.html" with value=point.value money=point.money %}</td>
+        <td>{% if href %}<a href="{{ href }}" class="text-violet-700 hover:underline" title="Эдгээр мөрийг хүснэгтээр харах">{{ point.label }}</a>{% else %}{{ point.label }}{% endif %}</td>
+        {% for cell in cells %}<td class="text-right">{% include "reports/layouts/_figure.html" with value=cell money=point.money percent=chart.percent %}</td>{% endfor %}
+        <td class="text-right">{% include "reports/layouts/_figure.html" with value=point.value money=point.money percent=chart.percent %}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+{% if chart.masked %}<p class="mt-2 text-sm text-slate-500">{{ min_group }}-ээс цөөн мөртэй бүлгийн мөнгөн дүнг нуусан («—»).</p>{% endif %}
 {% else %}
 <p class="mt-4 py-6 text-center text-sm text-slate-400">Өгөгдөл олдсонгүй</p>
 {% endif %}

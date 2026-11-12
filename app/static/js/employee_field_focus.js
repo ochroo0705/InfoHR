@@ -38,18 +38,12 @@
     if (!hits.length) return;
     var target = pick(hits);
     if (!target) {
-      // A personal-tab field in a topic group that is not open (wide screens show one group at a time):
-      // open it as a menu click does (sections.js window.hrOpenGroup, quietly), then look again. Without that hook
-      // (an older sections.js) the group's own menu link is clicked.
+      // A personal-tab field in a collapsed topic group (a closed <details data-pgroup>): open that group quietly
+      // (sections.js window.hrOpenGroup), then look again. The field is scrolled to and rung below.
       var group = hits[0].closest('[data-pgroup]');
       var name = group && group.getAttribute('data-pgroup');
-      if (group && group.hasAttribute('data-off') && KEY.test(name)) {
-        if (window.hrOpenGroup) {
-          window.hrOpenGroup(name, false);
-        } else {
-          var link = document.querySelector('#personal-nav a[data-pgroup-link="' + name + '"]');
-          if (link) link.click();
-        }
+      if (group && !group.open && KEY.test(name) && window.hrOpenGroup) {
+        window.hrOpenGroup(name, false);
         target = pick(hits);
       }
     }

@@ -26,7 +26,9 @@ from employees.models import (
 from employees.services import macs_writes, orders, personal_writes, slots
 from employees.slot_kind import MAIN
 from leave.models import LeaveSettings, LeaveTypeExt
+from leave.services import records as leave_records
 from leave.services import requests as request_service
+from leave.services.records import Draft
 from macs.models import Branch, FamilyRelation, LeaveTypeRow, MaritalStatus
 from recruitment.models import Candidate, RecruitmentSettings
 from recruitment.services import pipeline
@@ -35,9 +37,10 @@ from reports.filters import parse_filters, to_query
 from reports.models import SavedView
 from reports.table import build_table
 
-from assistant.entries import ENTRY_BY_KEY, allowed_entries
+from assistant.entries import ENTRIES, ENTRY_BY_KEY, allowed_entries
 from assistant.evalset import ROLE_ENTRIES, ROLES
 from assistant.models import HelpQuestion, Outcome
+from assistant.tests.conftest import PASSWORD, ROLE_SETUP, TODAY
 from assistant.tests.helpers import (
     hire_one,
     left,
@@ -51,21 +54,13 @@ from assistant.tests.helpers import (
 
 pytestmark = pytest.mark.django_db
 
-TODAY = date(2026, 11, 4)
-PASSWORD = "x-long-pass-123"  # noqa: S105
-# role -> (fixture kind, approval on?)
-ROLE_SETUP: dict[str, tuple[str, bool]] = {
-    "hr": ("hr", True),
-    "hr_off": ("hr", False),
-    "accountant": ("accountant", True),
-    "staff": ("staff", True),
-    "staff_off": ("staff", False),
-    "approver": ("approver", True),
-    "admin": ("admin", True),
-    "auditor": ("auditor", True),
-    "none": ("none", True),
-}
-PAIRS = [(key, role) for role in ROLES for key in ROLE_ENTRIES[role]]
+PAIRS = [(entry.key, role) for role in ROLES for entry in ENTRIES]
+
+
+def _skip_unless_offered(key: str, role: str) -> None:
+    """The role lists are built from the real rules (ROLE_ENTRIES), so a pair the role is not offered is skipped."""
+    if key not in ROLE_ENTRIES[role]:
+        pytest.skip(f"{key} is not offered to {role}")
 
 
 def _set_approval(on: bool) -> None:
@@ -391,6 +386,26 @@ def _recruitment_change_page(client: Client, role_user: Callable[[str], User]) -
     return [_page(client, reverse("admin:recruitment_recruitmentsettings_change", args=[row.pk]), False)]
 
 
+def _leave_row_pages(client: Client, role_user: Callable[[str], User]) -> list[str]:
+    """Two recorded leaves of a new hire, one already started and one still ahead: the list shows «Буруу гэж
+    тэмдэглэх» and «Цуцлах», and the edit pop-up of one of them shows «Хадгалах»."""
+    actor = role_user("hr")
+    person = hire_one(actor)
+    leave_type = LeaveTypeRow.objects.create(name="Туршилтын чөлөө")
+    LeaveTypeExt.objects.create(leave_type=leave_type, uses_annual_balance=False, is_paid=True)
+    today = timezone.localdate()
+    started = leave_records.record(
+        Draft(person, leave_type, today - timedelta(days=14), today - timedelta(days=10)), actor, today
+    )
+    leave_records.record(
+        Draft(person, leave_type, today + timedelta(days=20), today + timedelta(days=24)), actor, today
+    )
+    return [
+        _page(client, reverse("leave:list"), False),  # fetched again: the page the test took first had no rows
+        _page(client, reverse("leave:edit", args=[started.pk]), True),
+    ]
+
+
 def _question_pages(client: Client, role_user: Callable[[str], User]) -> list[str]:
     """A question in the assistant's log: the log lists it with the «Засах» link (the corrections right)."""
     HelpQuestion.objects.create(question="Тест асуулт", outcome=Outcome.NONE)
@@ -449,6 +464,7 @@ EXTRA_PAGES: dict[str, ExtraPages] = {
     "settings.departments": _reference_change_pages,
     "settings.recruitment": _recruitment_change_page,
     "settings.assistant": _question_pages,
+    "leave.edit": _leave_row_pages,
 }
 
 
@@ -471,16 +487,9 @@ def _waiting_detail(role_user: Callable[[str], User]) -> tuple[User, str]:
     return boss, reverse("leave:request_detail", args=[req.pk])
 
 
-@pytest.mark.parametrize("role", ROLES)
-def test_role_entries_match_real_users(role_user: Callable[[str], User], role: str) -> None:
-    kind, approval = ROLE_SETUP[role]
-    _set_approval(approval)
-    user = role_user(kind)
-    assert [e.key for e in allowed_entries(user, TODAY)] == list(ROLE_ENTRIES[role])
-
-
 @pytest.mark.parametrize(("key", "role"), PAIRS)
 def test_every_entry_opens_for_its_user(role_user: Callable[[str], User], key: str, role: str) -> None:
+    _skip_unless_offered(key, role)
     entry = ENTRY_BY_KEY[key]
     kind, approval = ROLE_SETUP[role]
     _set_approval(approval)
@@ -490,6 +499,7 @@ def test_every_entry_opens_for_its_user(role_user: Callable[[str], User], key: s
 
 @pytest.mark.parametrize(("key", "role"), PAIRS)
 def test_every_label_is_on_screen(role_user: Callable[[str], User], key: str, role: str) -> None:
+    _skip_unless_offered(key, role)
     entry = ENTRY_BY_KEY[key]
     kind, approval = ROLE_SETUP[role]
     _set_approval(approval)

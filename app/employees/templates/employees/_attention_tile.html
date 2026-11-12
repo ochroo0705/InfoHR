@@ -1,0 +1,5 @@
+{# The «Хийх зүйл» tile. Included by today.html; attention_toggle sends it again with oob=True so the number follows a dismiss. #}
+<a id="attention-tile" href="#attention" class="card-soft flex items-center gap-3 p-4"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <span class="tile-icon {% if urgent_count %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm1-11a1 1 0 1 0-2 0v4a1 1 0 1 0 2 0V7Zm-1 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg></span>
+  <span><span class="block text-xs text-slate-500">Хийх зүйл</span><span class="block text-2xl font-semibold leading-tight {% if urgent_count %}text-red-700{% endif %}" data-tile="attention">{{ urgent_count }}</span><span class="block text-xs text-slate-500">+ {{ soon_count }} удахгүй · {{ gap_count }} дутуу</span></span>
+</a>

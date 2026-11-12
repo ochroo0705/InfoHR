@@ -1,0 +1,7 @@
+{% comment %}
+One count chip in a personal group's summary (_personal_group_summary.html): «Гэр бүл 2». Always rendered, hidden by CSS (has-[.invisible]) while its number is invisible, so a write's out-of-band refresh can show or hide it without a reload.
+The number has its own id (menu-count-<key>), so a write's out-of-band refresh (_page_refresh.html) can replace it.
+filled_only: the count is a «filled/total» text (Бусад мэдээлэл); it shows only once some field is filled (not «0/…»).
+Context: key, label, count, filled_only (optional).
+{% endcomment %}
+<span class="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700 tabular-nums has-[.invisible]:hidden">{{ label }} <span id="menu-count-{{ key }}"{% if not count or filled_only and count|slice:":2" == "0/" %} class="invisible"{% endif %}>{{ count }}</span></span>

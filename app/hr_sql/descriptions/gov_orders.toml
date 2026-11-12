@@ -1,0 +1,70 @@
+# needs native read
+# Draft. English from the catalogue text that was inline in hr_sql/catalogue.py. The type and state words are the
+# OrderType and OrderState labels (employees/models.py), used as they are. Signed only by the domain owner.
+
+description = "One row per HR order (тушаал) about an employee you may see: hires, transfers, promotions, dismissals and pensions. The order file and cancel reason are not here."
+description_mn = "Харах эрхтэй ажилтны ажил хэргийн тушаал (ажилд авах, шилжүүлэх, албан тушаал солих, ажлаас гарах, тэтгэвэрт гарах) бүрийн нэг мөр. Тушаалын файл, цуцлах шалтгаан энд байхгүй."
+
+rules = [
+    # Six order types, numbered 1 to 6 in OrderType.
+    # app/employees/models.py (OrderType); app/hr_sql/views.py (_ORDER_TYPE_WORDS)
+    "ORDER_TYPE_NAME is one of six kinds: hired, department, position, fired, pension, type_changed.",
+    # The state is the OrderState value as stored.
+    # app/employees/models.py (OrderState)
+    "STATE_NAME is the order state: pending, registered, signed or cancelled.",
+    # The file and the cancel reason are fields of HrOrder that the view does not expose.
+    # app/employees/models.py (HrOrder.file, HrOrder.cancel_reason); app/hr_sql/views.py (GOV_ORDERS statement)
+    "The order file and the cancel reason are not in the view.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = "Ochroo"
+reviewed_on = "2026-11-12"
+
+[[columns]]
+name = "ORDER_ID"
+description = "Order record number (internal id)"
+description_mn = "Тушаалын бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "ORDER_TYPE_NAME"
+description = "Kind of order: hired, department, position, fired, pension or type_changed"
+description_mn = "Тушаалын төрөл: hired = Ажилд орсон, department = Хэлтэс, салбар шилжсэн, position = Албан тушаал сольсон, fired = Ажлаас гарсан, pension = Тэтгэвэрт гарсан, type_changed = Төрөл солигдсон"
+label_mn = "Тушаалын төрөл"
+synonyms = ["type", "kind"]
+
+[[columns]]
+name = "STATE_NAME"
+description = "Order state: pending, registered, signed or cancelled"
+description_mn = "Төлөв: pending = Дугаар оруулаагүй, registered = Бүртгэсэн, signed = Гарын үсэгтэй, cancelled = Цуцалсан"
+label_mn = "Төлөв"
+synonyms = ["status", "state"]
+
+[[columns]]
+name = "ORDER_NUMBER"
+description = "Order number"
+description_mn = "Тушаалын дугаар"
+label_mn = "Тушаалын дугаар"
+synonyms = ["number", "no"]
+
+[[columns]]
+name = "ORDER_DATE"
+description = "Date of the order"
+description_mn = "Тушаалын огноо"
+label_mn = "Тушаалын огноо"
+synonyms = ["date"]
+
+[[columns]]
+name = "SUMMARY"
+description = "Short summary of what the order is about"
+description_mn = "Агуулга"
+label_mn = "Агуулга"
+synonyms = ["subject", "about"]

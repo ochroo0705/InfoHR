@@ -10,7 +10,19 @@ from accounts.models import User
 from employees.palette import _LEAVE_PERMS, _allowed, _may_request_leave, _sees_requests
 from leave.services.approvers import approval_enabled, may_decide
 
-from assistant.areas import admin_settings, checklist, employee, log, me, order, recruit, report, today
+from assistant.areas import (
+    admin_settings,
+    checklist,
+    doc_templates,
+    employee,
+    log,
+    me,
+    order,
+    recruit,
+    report,
+    saved_views,
+    today,
+)
 from assistant.areas import list as list_area
 from assistant.entry import HelpEntry
 
@@ -35,6 +47,11 @@ def _requests(user: User, day: date) -> bool:
 
 def _view(user: User, day: date) -> bool:
     return user.has_perm("leave.view_leave")
+
+
+def _leave_setup(user: User, day: date) -> bool:
+    """The holidays and the leave settings pages: the leave settings right (Admin)."""
+    return user.has_perm("leave.manage_leave_settings")
 
 
 _LEAVE_ENTRIES: tuple[HelpEntry, ...] = (
@@ -128,6 +145,69 @@ _LEAVE_ENTRIES: tuple[HelpEntry, ...] = (
         words=("хуанли", "хэн амарч байна", "чөлөөтэй хүмүүс"),
         examples=("энэ сард хэн чөлөөтэй вэ", "багийн хуанли хаана байна"),
     ),
+    HelpEntry(
+        key="leave.edit",
+        title="Бүртгэсэн чөлөөг засах, цуцлах",
+        steps=(
+            "Дээд цэсний «Чөлөө, амралт» хуудасны «Бүртгэл» табыг нээнэ.",
+            "Засах чөлөөгөө жагсаалтаас олж мөрийг нь дарна. Төрөл, огноог засаад «Хадгалах» дарна.",
+            "Хараахан эхлээгүй чөлөөг цуцлах бол мөрийн «Цуцлах» товч дарна.",
+            "Аль хэдийн эхэлсэн чөлөөг устгахгүй, мөрийн «Буруу гэж тэмдэглэх» товчоор буруу бүртгэл гэж тэмдэглэнэ.",
+        ),
+        url_name="leave:list",
+        modal=False,
+        need=_record,
+        labels=("Чөлөө, амралт", "Бүртгэл", "Хадгалах", "Цуцлах", "Буруу гэж тэмдэглэх"),
+        words=("чөлөө засах", "чөлөө цуцлах", "буруу бүртгэсэн чөлөө", "чөлөөний огноо өөрчлөх"),
+        examples=("оруулсан амралтын огноог өөрчлөх", "буруу бүртгэсэн чөлөөг хэрхэн хасах вэ"),
+        note="Цуцалсан чөлөөний хоног амралтын үлдэгдэлд буцаж нэмэгдэнэ.",
+    ),
+    HelpEntry(
+        key="leave.holidays",
+        title="Баярын өдөр бүртгэх",
+        steps=(
+            "Дээд цэсний «Чөлөө, амралт» хуудсанд орж, «Тохиргоо» цэснээс «Баярын өдрүүд»-ийг нээнэ.",
+            "Баярын огноо, нэрийг бичээд «Нэмэх» дарна.",
+            "Жил бүр давтагддаг тогтмол баярыг нэг дор оруулах бол «Тогтмол баярыг бөглөх» дарна.",
+        ),
+        url_name="leave:holidays",
+        modal=False,
+        need=_leave_setup,
+        labels=("Чөлөө, амралт", "Тохиргоо", "Баярын өдрүүд", "Нэмэх", "Тогтмол баярыг бөглөх"),
+        words=("баяр", "амралтын өдөр", "цагаан сар", "улсын баяр", "ажлын өдөр тоолох"),
+        examples=("цагаан сарын амралтын өдрийг хаана тэмдэглэх вэ", "засгийн газрын нэмэлт амралтыг оруулах"),
+        note=(
+            "Бямба, ням гараг үргэлж амралтын өдөр. Цагаан сар зэрэг хөдөлгөөнт баяр, нэмж зарласан амралтыг гараар "
+            "нэмнэ. Тухайн жилийн баяр бүртгээгүй бол чөлөөний ажлын өдрийг буруу тоолно."
+        ),
+    ),
+    HelpEntry(
+        key="leave.settings",
+        title="Чөлөөний төрөл, батлах журмыг тохируулах",
+        steps=(
+            "Дээд цэсний «Чөлөө, амралт» хуудсанд орж, «Тохиргоо» цэснээс «Амралтын төрөл, тохиргоо»-г нээнэ.",
+            "Шинэ төрөл нэмэх бол «Төрөл нэмэх» дарж нэр, цалинтай эсэх, ээлжийн амралтаас хасах эсэхийг сонгоно.",
+            "Хүсэлтийг хэн батлахыг «Чөлөөний хүсэлтийг хэн батлах вэ» хэсэгт сонгоод «Хадгалах» дарна.",
+        ),
+        url_name="leave:settings",
+        modal=False,
+        need=_leave_setup,
+        labels=(
+            "Чөлөө, амралт",
+            "Тохиргоо",
+            "Амралтын төрөл, тохиргоо",
+            "Төрөл нэмэх",
+            "Чөлөөний хүсэлтийг хэн батлах вэ",
+            "Хадгалах",
+            "Ээлжийн амралтаас хасна",
+        ),
+        words=("чөлөөний төрөл", "төрөл нэмэх", "батлагч", "ээлжийн амралтын эрх", "амралтын тохиргоо"),
+        examples=("шинэ төрлийн чөлөө нэмэх", "чөлөөний хүсэлтийг хэн батлахыг сонгох"),
+        note=(
+            "Ашиглагдаж байгаа чөлөөний төрлийг устгах боломжгүй. "
+            "«Ээлжийн амралтаас хасна» гэж тэмдэглэсэн төрөл ээлжийн амралтын үлдэгдэлд тооцогдохгүй."
+        ),
+    ),
 )
 
 # Each area's ENTRIES, in the order the areas are listed (the leave entries first, then the areas in the fixed order).
@@ -149,5 +229,9 @@ ENTRY_BY_KEY: dict[str, HelpEntry] = {entry.key: entry for entry in ENTRIES}
 
 
 def allowed_entries(user: User, day: date) -> list[HelpEntry]:
-    """The entries the user may be shown on `day`, in ENTRIES order."""
-    return [entry for entry in ENTRIES if entry.need(user, day)]
+    """The entries the user may be shown on `day`: the fixed ENTRIES in their order, then the entries built now from the
+    database: the user's saved report views (areas/saved_views.py), and the checklist and order templates an admin
+    keeps (areas/doc_templates.py)."""
+    fixed = [entry for entry in ENTRIES if entry.need(user, day)]
+    dynamic = [*saved_views.entries_for(user, day), *doc_templates.entries_for(user, day)]
+    return fixed + [entry for entry in dynamic if entry.need(user, day)]

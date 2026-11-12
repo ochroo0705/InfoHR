@@ -1,0 +1,70 @@
+{% comment %}The chat pane of the workspace page (ws_chat, ws_ask and ws_undo in ws_views.py). The stored lines, oldest first:
+the viewer's lines to the right, the assistant's to the left, each with a spoken «Та:» / «Туслах:» in front. Under the
+log: a caution line when the last refinement left no rows, then the version number with undo (only with more than one
+version), so undo sits next to the reply it takes back. The current SQL is folded away, as in the SQL answer card. The
+form posts to ws_ask and the fragment that comes back replaces the pane. While the answer is on its way, workspace.js
+copies the <template> below into the log (the sent line and a «working» line); a refused line comes back in the box.
+Line text and SQL are escaped by Django: nothing here is marked safe.{% endcomment %}
+<div class="flex flex-col gap-3 text-sm">
+  <div id="ws-chat-log" role="log" aria-live="polite" class="flex max-h-96 flex-col gap-2 overflow-y-auto overscroll-contain">
+    {% for message in chat_messages %}
+    <div class="flex {% if message.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+      <p class="max-w-[85%] break-words rounded-lg px-3 py-2 {% if message.role == 'user' %}bg-violet-100 text-slate-800{% else %}bg-slate-100 text-slate-800{% endif %}"><span class="sr-only">{% if message.role == 'user' %}Та: {% else %}Туслах: {% endif %}</span>{{ message.text }}</p>
+    </div>
+    {% empty %}
+    <p data-ws-empty class="py-4 text-center text-slate-500">Асуулт бичиж хүснэгтээ өөрчилнө үү.</p>
+    {% endfor %}
+  </div>
+  <template data-ws-pending-tpl>
+    <div data-ws-pending class="flex justify-end">
+      <p class="max-w-[85%] break-words rounded-lg bg-violet-100 px-3 py-2 text-slate-800"><span class="sr-only">Та: </span><span data-ws-pending-text></span></p>
+    </div>
+    <div data-ws-pending class="flex justify-start">
+      <p class="flex max-w-[85%] items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-slate-600"><svg aria-hidden="true" class="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round"/></svg><span class="sr-only">Туслах: </span>Боловсруулж байна…</p>
+    </div>
+  </template>
+  <script>
+    (function () { var log = document.getElementById("ws-chat-log"); if (log) { log.scrollTop = log.scrollHeight; } })();
+  </script>
+
+  {% if zero_rows %}<p role="status" class="rounded-lg bg-amber-50 p-2 text-amber-800">Энэ өөрчлөлтийн дараа нэг ч мөр үлдсэнгүй. Асуулт буруу ойлгогдсон байж магадгүй.{% if can_undo %} Өмнөх хүснэгтээ «Буцаах» товчоор сэргээнэ.{% endif %}</p>{% endif %}
+
+  {% if can_undo %}
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <p class="text-xs text-slate-500">Хувилбар {{ version_count }}</p>
+    <form method="post" action="{{ undo_url }}" data-ws-undo hx-post="{{ undo_url }}" hx-target="#ws-chat-pane" hx-swap="innerHTML" hx-disabled-elt="find button">{% csrf_token %}
+      <button type="submit" title="Өмнөх хувилбар руу буцна" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Буцаах</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if chat_sql %}
+  <details>
+    <summary class="cursor-pointer select-none text-violet-800">SQL харах</summary>
+    <pre class="mt-1 whitespace-pre-line break-words bg-slate-50 p-2 font-mono text-xs">{{ chat_sql }}</pre>
+  </details>
+  {% endif %}
+
+  {% if verify_id %}
+  <div class="flex flex-wrap items-center gap-2">
+    {% if verified %}
+    <span class="text-xs text-slate-500">Шалгагчид илгээлээ{# needs native read #}</span>
+    {% else %}
+    <form method="post" action="{% url 'assistant:sql_verify' %}" data-ws-verify class="contents">{% csrf_token %}
+      <input type="hidden" name="question_id" value="{{ verify_id }}">
+      <button type="submit" class="max-w-full break-words rounded-lg border border-violet-200 bg-surface px-3 py-1.5 text-left text-violet-800 hover:bg-violet-100 max-sm:min-h-11">Зөв гэж тэмдэглэх{# needs native read #}</button>
+    </form>
+    <span data-ws-verify-done hidden class="text-xs text-slate-500">Шалгагчид илгээлээ</span>
+    {% endif %}
+    <p class="text-xs text-slate-500">Хариулт зөв бол тэмдэглэвэл шалгагч үзээд ирээдүйд ижил асуултад ашиглана.{# needs native read #}</p>
+  </div>
+  {% endif %}
+
+  {% if chat_error %}<p role="alert" class="rounded bg-red-50 p-2 text-sm text-red-700">{{ chat_error }}</p>{% endif %}
+  <p data-ws-send-error role="alert" hidden class="rounded bg-red-50 p-2 text-sm text-red-700"></p>
+  <form method="post" action="{{ ask_url }}" data-ws-ask hx-post="{{ ask_url }}" hx-target="#ws-chat-pane" hx-swap="innerHTML" hx-disabled-elt="find button" class="flex items-start gap-2">{% csrf_token %}
+    <input type="text" name="q" value="{{ chat_draft|default:'' }}" maxlength="500" required placeholder="Асуулт бичих…" aria-label="Асуулт бичих"{% if chat_sql %} aria-describedby="ws-chat-hint"{% endif %} class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    <button type="submit" class="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Илгээх</button>
+  </form>
+  {% if chat_sql %}<p id="ws-chat-hint" class="text-xs text-slate-500">Шинэ асуулт хүснэгтийн шүүлтүүр, эрэмбэ, баганын сонголтыг анхны байдалд нь оруулна.</p>{% endif %}
+</div>

@@ -1,0 +1,46 @@
+<!doctype html>
+{% comment %}The print page of a workspace tab (ws_print in ws_views.py): the title, the date, the filters, then every row up
+to the export ceiling. Printed on load. Cell values are escaped by Django; nothing here is marked safe.{% endcomment %}
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 16px; color: #000; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; }
+  h1 { font-size: 16px; text-align: center; margin: 8px 0; }
+  .filters { margin-bottom: 8px; }
+  .note { font-style: italic; color: #444; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #444; padding: 3px 5px; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  .text-right { text-align: right; }
+  .total { margin-top: 8px; }
+  .noprint { margin-bottom: 8px; }
+  @media print { .noprint { display: none; } body { margin: 0; } tr { page-break-inside: avoid; } thead { display: table-header-group; } }
+</style>
+</head>
+<body>
+<div class="noprint"><button type="button" onclick="window.print()">Хэвлэх</button></div>
+<div class="top"><div></div><div>{{ today|date:"Y-m-d" }}</div></div>
+<h1>{{ title }}</h1>
+<div class="filters">{% for line in lines %}<div>{{ line }}</div>{% endfor %}</div>
+{% if cut %}<p class="note">Эхний {{ count }} мөр.</p>{% endif %}
+<table>
+  <thead>
+    <tr>{% for name in headers %}<th>{{ name }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>{% for cell in row %}<td{% if cell.numeric %} class="text-right"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
+    {% empty %}
+    <tr><td colspan="{{ headers|length }}">Олдсонгүй</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="total">Нийт: {{ count }}</p>
+<script>window.addEventListener("load", function () { window.print(); });</script>
+</body>
+</html>

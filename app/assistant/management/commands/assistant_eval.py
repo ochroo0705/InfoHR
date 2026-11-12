@@ -1,5 +1,8 @@
 """Run the accuracy set through the provider for each role and print the score. Writes nothing to the database.
 
+With --sql, runs the SQL accuracy set (assistant/sqleval.py) instead: each question is answered by the governed SQL path
+as the role's user, against the Firebird database. It calls the provider, so it refuses to run without --yes-spend.
+
 Every case goes through provider.plan with the inputs services.answer builds. An entry case passes when the plan picks
 the entry the role should get. A table case passes when the plan's parts settle (tables.settle, as the service does)
 to the expected filters. Each role's entry cases and gated table cases are gated separately at 90%; ungated cases are
@@ -9,26 +12,28 @@ import dataclasses
 import logging
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any
 
-from accounts import roles as account_roles
 from accounts.models import User
-from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
+from leave.models import LeaveSettings
 
 from assistant import learning
-from assistant.entries import ENTRY_BY_KEY, HelpEntry
+from assistant.columns import plan_extras
+from assistant.entries import HelpEntry, allowed_entries
 from assistant.evalcheck import ActionResult, TableResult, check_action, check_table
-from assistant.evalset import ACTION_CASES, CASES, ROLE_ENTRIES, ROLES, TABLE_CASES, EvalCase, TableCase, expected
+from assistant.evalset import ACTION_CASES, CASES, ROLES, TABLE_CASES, EvalCase, TableCase, expected
 from assistant.fields import AskableField, hints_for
 from assistant.matching import narrow_entries
 from assistant.plan import Plan
 from assistant.providers import Provider, get_provider
+from assistant.role_users import make_role_user
 from assistant.services import FIELD_HINTS, PLAN_ENTRIES, QUESTION_LIMIT, phrases_for
+from assistant.sqleval import SQL_CASES, SQL_ROLES, check_sql_case
 from assistant.tables import can_open_table
 from assistant.words import FilterWords, offered_words
 
@@ -36,32 +41,18 @@ logger = logging.getLogger(__name__)
 
 OFF_MESSAGE = "Туслах идэвхгүй: .env-д ASSISTANT_* тохиргоо алга."
 BELOW_MARK_MESSAGE = "Pass mark not reached: every role needs at least 90%."
+SPEND_MESSAGE = "The --sql run calls the provider and spends credit. Add --yes-spend to run it; nothing was run."
 
-# The group each role's rights come from (test_reach builds the same users). A role without a group has no rights.
-_GROUP_OF: dict[str, str | None] = {
-    "hr": account_roles.HR,
-    "hr_off": account_roles.HR,
-    "accountant": account_roles.ACCOUNTANT,
-    "staff": account_roles.EMPLOYEE,
-    "staff_off": account_roles.EMPLOYEE,
-    "approver": account_roles.EMPLOYEE,
-    "admin": account_roles.ADMIN,
-    "auditor": account_roles.AUDITOR,
-    "none": None,
-}
+# The user kind each role is built from (assistant.role_users). The roles ending in «_off» are the same users with
+# leave approval switched off.
+_KIND_OF: dict[str, str] = {role: role.removesuffix("_off") for role in ROLES}
 
 
 def _role_user(role: str) -> User:
-    """A login that holds the role's group. Created inside the run's transaction, which is rolled back."""
-    user = User.objects.create_user(f"eval_{role}_{uuid.uuid4().hex[:8]}")
-    # Every new user gets the Employee group (accounts/signals.py), so the groups are set, not added to: the role
-    # «none» ends with no group at all, as the real no-group user does.
-    group = _GROUP_OF[role]
-    user.groups.set([Group.objects.get(name=group)] if group is not None else [])
-    if role == "admin":
-        user.is_staff = True
-        user.save(update_fields=["is_staff"])
-    return user
+    """A real user of the role, with the rights and records the role really has. Created inside the run's transaction,
+    which is rolled back."""
+    actor = User.objects.create_user(f"eval_actor_{uuid.uuid4().hex[:8]}")
+    return make_role_user(actor, _KIND_OF[role], f"eval_{role}_{uuid.uuid4().hex[:8]}")
 
 
 def _plan(
@@ -75,10 +66,12 @@ def _plan(
     table_examples: tuple[tuple[str, str], ...] = (),
     previous: str = "",
     field_hints: Sequence[AskableField] = (),
+    extras: Mapping[str, Any] | None = None,
 ) -> Plan | None:
     """The provider's plan for the question, called as services.answer calls it: the question cut as the service cuts
     it, and the entries narrowed to the plan's share. `previous` is the earlier answer's query of a follow-up case.
-    `field_hints` are the registry fields the service would pass (only the action cases pass them).
+    `field_hints` are the registry fields the service would pass (only the action cases pass them). `extras` are the
+    provider's extra plan inputs for this user (plan_extras: the rule columns of a provider that builds rules).
     None when the call fails (one bad call is one failed case)."""
     text = question.strip()[:QUESTION_LIMIT]
     if pause > 0:  # spaces the calls out for providers with a requests-per-minute limit
@@ -95,6 +88,7 @@ def _plan(
             refusals,
             table_examples=table_examples,
             field_hints=field_hints,
+            **(extras or {}),
         )
     except Exception:
         logger.exception("The assistant eval could not get a plan for one case.")
@@ -129,8 +123,13 @@ class Command(BaseCommand):
             action="store_true",
             help="Only the shipped cases: no local tests, and no learned examples sent to the provider.",
         )
+        parser.add_argument("--sql", action="store_true", help="Score the SQL accuracy set instead (needs Firebird).")
+        parser.add_argument("--yes-spend", action="store_true", help="Allow the provider calls of --sql.")
 
     def handle(self, *args: Any, **options: Any) -> None:
+        if options["sql"]:
+            self._run_sql(options)
+            return
         provider = get_provider()
         if provider is None:
             raise CommandError(OFF_MESSAGE)
@@ -188,15 +187,19 @@ class Command(BaseCommand):
     ) -> tuple[bool, int, int]:
         """Scores one role. Returns (below the mark, gated cases passed, gated cases)."""
         user = _role_user(role)
+        # The roles ending in «_off» are the same users with leave approval switched off (inside the rolled-back run).
+        LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": not role.endswith("_off")})
         table_on = can_open_table(user)
         words = offered_words(user) if table_on else []  # no words for a user who may not open the table
-        entries = [dataclasses.replace(ENTRY_BY_KEY[k], learned=learned.get(k, ())) for k in ROLE_ENTRIES[role]]
-        role_keys = set(ROLE_ENTRIES[role])
+        extras = plan_extras(provider, user)  # the rule columns the service passes to a provider that builds rules
+        # The entries the user is really offered (what services.answer passes), not a list kept by hand.
+        entries = [dataclasses.replace(e, learned=learned.get(e.key, ())) for e in allowed_entries(user, today)]
+        role_keys = {e.key for e in entries}
 
         entry_passed = 0
         for case in cases:
-            want = expected(case, role)
-            plan = _plan(provider, case.question, entries, words, today, refusals, pause, table_examples)
+            want = expected(case, role, role_keys)
+            plan = _plan(provider, case.question, entries, words, today, refusals, pause, table_examples, extras=extras)
             got = _entry_got(plan, role_keys)
             ok = got == want
             entry_passed += ok
@@ -217,7 +220,16 @@ class Command(BaseCommand):
                 if tcase.roles and role not in tcase.roles:
                     continue
                 plan = _plan(
-                    provider, tcase.question, entries, words, today, refusals, pause, table_examples, tcase.previous
+                    provider,
+                    tcase.question,
+                    entries,
+                    words,
+                    today,
+                    refusals,
+                    pause,
+                    table_examples,
+                    tcase.previous,
+                    extras=extras,
                 )
                 result = check_table(user, tcase, plan, today) if plan is not None else TableResult(False, "error")
                 if kind == "local table":
@@ -238,6 +250,34 @@ class Command(BaseCommand):
         self.stdout.write(f"{summary}; {tables}")
         return below, gated_passed, gated_total
 
+    def _run_sql(self, options: dict[str, Any]) -> None:
+        """Scores the SQL accuracy set per role. Each role's cases are gated at 90%, like the entry cases."""
+        if not options["yes_spend"]:
+            raise CommandError(SPEND_MESSAGE)
+        provider = get_provider()
+        if provider is None:
+            raise CommandError(OFF_MESSAGE)
+        roles = (options["role"],) if options["role"] else SQL_ROLES
+        below_mark = False
+        total_passed = total = 0
+        with transaction.atomic():
+            for role in roles:
+                user = _role_user(role)
+                passed = count = 0
+                for case in (c for c in SQL_CASES if c.role == role):
+                    result = check_sql_case(case, user, provider)
+                    passed += result.passed
+                    count += 1
+                    self.stdout.write(f"{_status(result.passed)} sql {role} | {case.question} | {result.reason}")
+                below_mark = below_mark or not _pct_ok(passed, count)
+                total_passed += passed
+                total += count
+                self.stdout.write(f"{role}: {passed}/{count} sql cases")
+            transaction.set_rollback(True)  # nothing the eval made is kept
+        self.stdout.write(f"Overall: {total_passed}/{total} sql cases")
+        if below_mark:
+            raise CommandError(BELOW_MARK_MESSAGE)
+
     def _run_actions(
         self,
         provider: Provider,
@@ -249,8 +289,10 @@ class Command(BaseCommand):
         """Scores the field and leave-form sentences once, as the hr role (they name a person and a field, not a help
         entry). Ungated: each case is reported and the count is printed, but none counts in the 90% gate."""
         user = _role_user("hr")
-        entries = [ENTRY_BY_KEY[k] for k in ROLE_ENTRIES["hr"]]
+        LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": True})
+        entries = allowed_entries(user, today)
         words = offered_words(user)
+        extras = plan_extras(provider, user)
         passed = 0
         for case in ACTION_CASES:
             plan = _plan(
@@ -263,6 +305,7 @@ class Command(BaseCommand):
                 pause,
                 table_examples,
                 field_hints=hints_for(case.question, limit=FIELD_HINTS),
+                extras=extras,
             )
             result = check_action(case, plan) if plan is not None else ActionResult(passed=False, got="error")
             passed += result.passed

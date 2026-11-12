@@ -41,8 +41,25 @@
     el.inert = false;
   }
 
+  // The form «Хүснэгт болгон нээх» posts: its action and its fields, as plain data (no DOM), so Node can check it. The
+  // CSRF token is passed in at click time; it is never written into the thread's stored HTML. An empty token gives
+  // null: a form without a token would only come back 403.
+  function workspaceFormPlan(url, token) {
+    if (!token) return null;
+    return {
+      method: "post",
+      action: url,
+      fields: [{ name: "csrfmiddlewaretoken", value: token }],
+    };
+  }
+
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { isPanelOpen: isPanelOpen, startExit: startExit, cancelExit: cancelExit };
+    module.exports = {
+      isPanelOpen: isPanelOpen,
+      startExit: startExit,
+      cancelExit: cancelExit,
+      workspaceFormPlan: workspaceFormPlan,
+    };
     return;
   }
 
@@ -57,7 +74,6 @@
   var userId = panel.getAttribute("data-user") || "";
   var askOn = panel.getAttribute("data-ask-on") === "1";  // the assistant is on for this user (the «Асуух» row and button)
   var fab = document.querySelector("[data-assistant-fab]");
-  var chartPane = document.querySelector("[data-chart-pane]");  // the docked chart pane (base.html), may be absent
   var sendBtn = panel.querySelector("[data-assistant-send]");  // the round send button (only when the assistant is on)
   var DEBOUNCE_MS = 200;
   var RECENT_KEY = "palette-recent-" + userId;  // per user: shared PCs do not mix them
@@ -136,17 +152,15 @@
     if (store) store.setOpen(open);
   }
 
-  // The quick results always show (the recents with an empty box). The thread shows only with an empty box: a typed
-  // query hides it. A hidden thread loses its scroll, so it goes back to the newest item when it shows again.
+  // The quick results always show (the recents with an empty box) and keep their own cap, so the thread stays visible
+  // while typing: the results sit above it and the thread takes the remaining room. Typing only enables the send button.
   function syncMode() {
-    var hide = input.value.trim() !== "";
-    thread.hidden = hide;
-    // With a typed query the results take the room the thread had; with an empty box they keep their own cap.
-    results.classList.toggle("flex-1", hide);
-    results.style.maxHeight = hide ? "none" : "";
-    if (sendBtn) sendBtn.disabled = !hide || !askOn;
+    var typed = input.value.trim() !== "";
+    thread.hidden = false;
+    results.classList.remove("flex-1");
+    results.style.maxHeight = "";
+    if (sendBtn) sendBtn.disabled = !typed || !askOn;
     autosize();
-    if (!hide) scrollThread();  // after the thread shows: a hidden element has no scroll to set
   }
 
   // The box grows with its text up to its CSS max-height (then it scrolls) and shrinks back when text is removed.
@@ -204,8 +218,7 @@
     var useBack = restoreFocus && back && document.contains(back) && back.focus && back.getClientRects().length > 0;
     // Focus is inside the panel and nothing else takes it: move it to the floating button, or to the top-bar button,
     // before the panel is hidden, so focus does not fall to the body.
-    // Focus in the chart pane counts as inside too: the pane goes inert with the panel, so focus must leave it first.
-    var inside = panel.contains(document.activeElement) || !!(chartPane && chartPane.contains(document.activeElement));
+    var inside = panel.contains(document.activeElement);
     if (inside && !useBack) {
       var alt = fab && fab.getClientRects().length > 0 ? fab : document.querySelector("[data-palette-open]");
       if (alt && alt.focus) alt.focus();
@@ -230,7 +243,7 @@
   function activate(item) {
     // The «Асуух» row only asks the assistant, and only here (Enter or a click), never while typing.
     if (item.hasAttribute("data-palette-ask")) {
-      if (!askOn || loading || timer) return;  // same rule as Enter: no question while a search is still in flight or waiting
+      if (!askOn) return;  // a question never waits for the quick search: it reads the box, not the results
       ask(item);
       return;
     }
@@ -259,7 +272,7 @@
     busyTimer = setTimeout(function () {
       busyTimer = null;
       if (!loading) return;
-      results.classList.add("opacity-60");
+      setDim(true);
       results.setAttribute("aria-busy", "true");
     }, BUSY_MS);
   }
@@ -267,11 +280,41 @@
   function clearBusy() {
     clearTimeout(busyTimer);
     busyTimer = null;
-    results.classList.remove("opacity-60");
+    setDim(false);
     results.removeAttribute("aria-busy");
   }
 
-  // CSRF token, read as select.js does: the cookie first, the hx-headers JSON on <body> as the fallback.
+  // Dims the old results but never the «Асуух» row: asking stays available and looks available while a search runs.
+  function setDim(on) {
+    var all = results.querySelectorAll("[data-palette-item]:not([data-palette-ask])");
+    for (var i = 0; i < all.length; i++) all[i].classList.toggle("opacity-60", on);
+  }
+
+  // The «Асуух» row follows the box at once (no wait for the search answer). The last row the server sent is kept as a
+  // copy, so the row can come back at once when a search answer or the recents list had none.
+  var askRowCopy = null;
+  function syncAskRow() {
+    if (!askOn) return;
+    var q = input.value.trim();
+    var row = results.querySelector("[data-palette-ask]");
+    if (!q) {
+      if (row) row.remove();  // the empty box shows the recents; the send button is the way to ask
+      return;
+    }
+    if (!row) {
+      if (!askRowCopy) return;
+      row = askRowCopy.cloneNode(true);
+      row.removeAttribute("data-palette-ask-first");
+      row.setAttribute("aria-selected", "false");
+      results.insertBefore(row, results.firstChild);
+    }
+    var label = row.querySelector(".truncate");
+    if (label) label.textContent = "Асуух: «" + q.slice(0, 500) + "»";
+  }
+
+  // CSRF token, read as select.js does. The csrftoken cookie is HttpOnly (settings CSRF_COOKIE_HTTPONLY), so the script
+  // cannot read it and this normally falls through to the hx-headers JSON on <body>; the cookie read is kept only for a
+  // page that does expose it.
   function csrfToken() {
     var m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
     if (m) return decodeURIComponent(m[1]);
@@ -292,11 +335,7 @@
   }
 
   // The body of a typed question: the question, and the context of the thread's last answer as `prev` when it has one.
-  // With a chart open beside the chat, the question is about that chart: its filters are the previous filters and its
-  // kind and grouping go along, so «дугуй болго» or «зөвхөн ...» changes it.
   function typedBody(q) {
-    var chart = window.openChartState ? window.openChartState() : null;
-    if (chart) return "q=" + encodeURIComponent(q) + "&prev=" + encodeURIComponent(chart.query) + "&chart=" + encodeURIComponent(chart.kind + "|" + chart.by);
     return questionBody(q, previousContext(answerEntries()));
   }
 
@@ -400,9 +439,6 @@
       .then(function (html) {
         if (html === null) return;
         setAnswer(li, html);
-        // A chart question asked with a chart open: the chart in the pane is replaced by the new one.
-        var auto = li.querySelector("a[data-chart-auto]");
-        if (auto && window.openAssistantChart) window.openAssistantChart(auto.getAttribute("href"));
         var id = li.getAttribute("data-id");
         if (store && id) store.resolve(id, html, contextOf(slotOf(li)));
       })
@@ -445,6 +481,66 @@
     var ownerId = owner ? owner.getAttribute("data-id") : null;
     if (store && ownerId) store.resolve(ownerId, slot.innerHTML, contextOf(slot));
     startAsk(btn.getAttribute("data-follow-label") || "", url, btn.getAttribute("data-follow-body") || "", true);
+  }
+
+  // «Зөв гэж тэмдэглэх» on a governed SQL answer (data-verify-url, from the server's fragment): one POST for this answer's
+  // question id. The button is disabled while the request is sent. On success the button is hidden, the «илгээлээ» line
+  // shows, and the stored answer is updated so a page change keeps that line. A failure only enables the button again.
+  function verify(btn) {
+    var url = btn.getAttribute("data-verify-url");
+    if (btn.disabled || !isRelative(url)) return;
+    btn.disabled = true;
+    fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken(), "Content-Type": "application/x-www-form-urlencoded" },
+      body: "question_id=" + encodeURIComponent(btn.getAttribute("data-verify-id") || ""),
+    })
+      .then(function (r) { return r.ok ? r.json() : { ok: false }; })
+      .then(function (data) {
+        if (!data || !data.ok) { btn.disabled = false; return; }
+        btn.hidden = true;
+        var done = btn.parentNode.querySelector("[data-verify-done]");
+        if (done) done.hidden = false;
+        var slot = btn.closest("[data-assistant-slot]");
+        var owner = slot && slot.closest("[data-assistant-item]");
+        var ownerId = owner ? owner.getAttribute("data-id") : null;
+        if (store && ownerId) store.resolve(ownerId, slot.innerHTML, contextOf(slot));
+      })
+      .catch(function () { btn.disabled = false; });
+  }
+
+  // «Хүснэгт болгон нээх» on a governed SQL answer (data-ws-open-url, from the server's fragment). It makes or reuses the
+  // answer's workspace tab. It is a native form submit, not fetch: the browser itself follows the server's redirect to
+  // the tab, so the workspace page's messages (the tab limit line) reach the viewer. The token is read now, at click
+  // time, and never stored. With no token the button stays enabled and nothing is sent. The button is disabled while
+  // the page is leaving; the form leaves the DOM if the submit throws.
+  function openInWorkspace(btn) {
+    var url = btn.getAttribute("data-ws-open-url");
+    if (btn.disabled || !isRelative(url)) return;
+    var plan = workspaceFormPlan(url, csrfToken());
+    if (!plan) return;  // no token: the button stays enabled so the user can try again
+    btn.disabled = true;
+    // The page takes over from the panel: close it (and drop its open flag) so the new page does not bring it back.
+    closePanel(false);
+    var form = document.createElement("form");
+    form.method = plan.method;
+    form.action = plan.action;
+    plan.fields.forEach(function (field) {
+      var field_input = document.createElement("input");
+      field_input.type = "hidden";
+      field_input.name = field.name;
+      field_input.value = field.value;
+      form.appendChild(field_input);
+    });
+    document.body.appendChild(form);
+    try {
+      form.submit();
+    } catch (err) {
+      form.remove();
+      btn.disabled = false;
+      openPanel(false);  // the page did not leave: the panel comes back
+    }
   }
 
   // The thread on page load: answered items as stored, unanswered ones with the retry button. Nothing is asked again
@@ -534,6 +630,8 @@
         loading = false;
         clearBusy();
         results.innerHTML = html;  // the server's own fragment, trusted
+        var sentRow = results.querySelector("[data-palette-ask]");
+        if (sentRow) askRowCopy = sentRow.cloneNode(true);
         // An empty box shows the thread below the recents: the recents just changed the thread's height, so scroll again.
         if (!q.trim()) scrollThread();
         if (more) {
@@ -596,7 +694,7 @@
     select(list[next], true);
   }
 
-  // The box: typing starts a debounced search (the thread hides at once); a stale answer is dropped by search/ask.
+  // The box: typing starts a debounced search (the thread stays visible); a stale answer is dropped by search/ask.
   // Registered in the capture phase and with stopImmediatePropagation, so the page's own filter forms (htmx
   // `from:input` triggers bound to every input at page load) never see the panel's typing and do not reload their list.
   input.addEventListener("input", function (e) {
@@ -604,6 +702,11 @@
     clearTimeout(timer);
     syncMode();
     clearSelection();  // the old answer must not be activated for the new query
+    syncAskRow();
+    // While the new search is pending the «Асуух» row is the selected one (Enter asks), so the box never shows "nothing
+    // selected"; the answer then picks its usual row (highlightFirst).
+    var askRow = results.querySelector("[data-palette-ask]");
+    if (askRow && input.value.trim()) askRow.setAttribute("aria-selected", "true");
     timer = setTimeout(function () {
       timer = null;
       search(input.value);
@@ -614,7 +717,7 @@
   if (sendBtn) {
     sendBtn.addEventListener("click", function () {
       var q = input.value.trim();
-      if (!q || !askOn || loading || timer) return;
+      if (!q || !askOn) return;  // asks at once, even while a quick search is waiting or in flight
       startAsk(q, panel.getAttribute("data-ask-url"), typedBody(q), false);
       input.focus();
     });
@@ -696,8 +799,9 @@
           timer = null;
           search(input.value);
         }
-        if (loading) return;
         var cur = results.querySelector('[data-palette-item][aria-selected="true"]');
+        // A search still in flight: only the «Асуух» row (selected while typing) acts, since it reads the box, not the answer.
+        if (loading && !(cur && cur.hasAttribute("data-palette-ask"))) return;
         if (cur) activate(cur);
       }
     },
@@ -741,6 +845,18 @@
     if (followBtn) {
       e.preventDefault();
       follow(followBtn);
+      return;
+    }
+    var verifyBtn = t.closest("[data-verify-url]");
+    if (verifyBtn) {
+      e.preventDefault();
+      verify(verifyBtn);
+      return;
+    }
+    var wsBtn = t.closest("[data-ws-open-url]");
+    if (wsBtn) {
+      e.preventDefault();
+      openInWorkspace(wsBtn);
       return;
     }
     var modal = t.closest("a[data-palette-modal]");

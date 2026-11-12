@@ -1,0 +1,94 @@
+# needs native read
+# Draft. English from the catalogue text that was inline in hr_sql/catalogue.py; Mongolian drafted from the model
+# labels (macs/models.py Employee, Department, Branch, Position). Signed only by the domain owner.
+
+description = "One row per employee you are allowed to see. Use it for counts and lists of staff."
+description_mn = "Таны харах эрхтэй ажилтан бүрийн нэг мөр. Ажилтны тоо, жагсаалтад ашиглана."
+
+rules = [
+    # The WORKING column is decided in Python with the employee list's own rule (row_for and is_working): the job on
+    # today, or the MACS employment code for a person with no HR job history.
+    # app/employees/listing.py (row_for, is_working, WORKING_STATES)
+    "The view lists everyone in your scope, including people who have left. For head counts of people who still work here, filter WORKING = 1; WORKING is 0 for people who have left.",
+    # Old MACS employment codes 2, 3 and 4 mean not working (never worked, or dismissed).
+    # app/employees/listing.py (LEGACY_NOT_WORKING, NEVER_WORKED)
+    "Old MACS employment codes 2, 3 and 4 mean the person is not working. WORKING is 0 for them when the person has no HR job history; the rows are not filtered out.",
+    # One row per employee: the joins to department, branch and position are single-valued.
+    # app/hr_sql/views.py (GOV_EMPLOYEES statement)
+    "One row per employee, so COUNT(*) counts people.",
+    # Rows come only for employees whose id is in the asker's scope; an empty scope gives no rows.
+    # app/hr_sql/views.py (module docstring, GOV_SCOPE filter)
+    "Only employees whose id is in your scope appear; an empty scope gives no rows.",
+]
+reviewed_by = "Your Name"
+reviewed_on = "2026-11-12"
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (internal id; links to GOV_CHILDREN)"
+description_mn = "Ажилтны дотоод дугаар (GOV_CHILDREN-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["id", "employee", "staff"]
+
+[[columns]]
+name = "FIRST_NAME"
+description = "Given name (first name)"
+description_mn = "Нэр"
+label_mn = "Нэр"
+synonyms = ["name"]
+
+[[columns]]
+name = "LAST_NAME"
+description = "Family name (surname)"
+description_mn = "Эцэг/эхийн нэр"
+label_mn = "Эцэг/эхийн нэр"
+synonyms = ["surname"]
+
+[[columns]]
+name = "DEPARTMENT_NAME"
+description = "Department name"
+description_mn = "Хэлтэс"
+label_mn = "Хэлтэс"
+synonyms = ["department", "unit"]
+
+[[columns]]
+name = "BRANCH_NAME"
+description = "Branch name (the office or site)"
+description_mn = "Салбар"
+label_mn = "Салбар"
+synonyms = ["branch", "office"]
+
+[[columns]]
+name = "POSITION_NAME"
+description = "Job title (position)"
+description_mn = "Албан тушаал"
+label_mn = "Албан тушаал"
+synonyms = ["position", "title", "job"]
+
+[[columns]]
+name = "HIRE_DATE"
+description = "Date the person first joined the organisation"
+description_mn = "Анх ажилд орсон огноо"
+label_mn = "Ажилд орсон огноо"
+synonyms = ["hired", "start date"]
+
+[[columns]]
+name = "BIRTH_DATE"
+description = "Date of birth"
+description_mn = "Төрсөн огноо"
+label_mn = "Төрсөн огноо"
+synonyms = ["birthday", "age"]
+
+[[columns]]
+name = "GENDER"
+description = "Gender: M for male, F for female"
+description_mn = "Хүйс: M = эрэгтэй, F = эмэгтэй"
+label_mn = "Хүйс"
+synonyms = ["sex"]
+
+[[columns]]
+name = "WORKING"
+description = "1 if the person still works here today, 0 if not; use it for head counts"
+description_mn = "Ажилтан өнөөдөр энд ажиллаж буй бол 1, үгүй бол 0; тоо гаргахад ашиглана"
+label_mn = "Ажиллаж байгаа"
+synonyms = ["working", "active", "still working", "одоо ажиллаж буй"]

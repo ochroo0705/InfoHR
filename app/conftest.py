@@ -34,6 +34,20 @@ def _modules_cache_clear() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _throttle_cache_in_memory(settings: SettingsWrapper) -> Iterator[None]:
+    """Failed-login counters live in memory during tests (no files), and each test starts with none."""
+    from django.core.cache import caches
+
+    settings.CACHES = {
+        **settings.CACHES,
+        "throttle": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "test-throttle"},
+    }
+    caches["throttle"].clear()
+    yield
+    caches["throttle"].clear()
+
+
+@pytest.fixture(autouse=True)
 def _assistant_off(settings: SettingsWrapper) -> None:
     """A developer's real assistant key in .env must not change other tests or call the API."""
     settings.ASSISTANT_PROVIDER = ""
@@ -82,6 +96,8 @@ if FIREBIRD_TEST_DB:
         clone = prepare(template, WORK_DIR, empty=True)
         connections.close_all()
         connections["default"].settings_dict["NAME"] = clone
+        if "governed" in connections.databases:  # the governed alias reads the same copy (app/hr_sql)
+            connections["governed"].settings_dict["NAME"] = clone
         try:
             # The seeds (role groups, permissions, content types) are in the copy now, and the flush of the first
             # transactional test deletes them. TransactionTestCase(serialized_rollback=True) puts them back from this.

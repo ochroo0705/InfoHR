@@ -37,6 +37,7 @@ FILTER_NAMES = (  # every filter name a report may declare (Report.filters)
     "absence_type",
     "age_range",
     "attribute",
+    "mode",
     "contact_type",
     "year",
     "tr_type",
@@ -148,11 +149,19 @@ def usable_filters(report: Report, user: User, filters: Filters) -> Filters:
     return usable
 
 
+def default_cols(report: Report, filters: Filters) -> tuple[str, ...]:
+    """The column keys shown when the address names none: the report's own choice for these filters when it has one
+    (Report.default_columns_for), else its default_columns."""
+    if report.default_columns_for is not None:
+        return report.default_columns_for(filters)
+    return report.default_columns
+
+
 def shown_keys(report: Report, user: User, filters: Filters) -> list[str]:
     """The column keys the table shows, in order: those asked for that the user may see, else the defaults."""
     by_key = {c.key for c in allowed_columns(report, user)}
     keys = [k for k in dict.fromkeys(filters.columns) if k in by_key]
-    return keys or [k for k in report.default_columns if k in by_key]
+    return keys or [k for k in default_cols(report, filters) if k in by_key]
 
 
 def column_classes(columns: list[Column]) -> list[str]:
@@ -247,6 +256,15 @@ def restricted_filters(report: Report, user: User, filters: Filters) -> Filters:
         lval=layout["lval"],
         lchart=layout["lchart"],
         lmonth=layout["lmonth"],
+        lgrain=layout["lgrain"],
+        lshow=layout["lshow"],
+        lsort=layout["lsort"],
+        lorder=layout["lorder"],
+        lrep=layout["lrep"],
+        lweek=layout["lweek"],
+        lyear=layout["lyear"],
+        lgroup=layout["lgroup"],
+        lval2=layout["lval2"],
     )
 
 
@@ -308,14 +326,18 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
     # rows load the shown columns first, then those only a rule, sort or group uses (a hidden column still filters, and
     # an allowed unshown column still sorts or groups). A total or colour on an unshown column is not applied, so it
     # loads nothing. A layout other than the table loads its own columns, and the requested value column too, since
-    # its kind is only known from the loaded values (a hidden one still shows nothing).
+    # its kind is only known from the loaded values (a hidden one still shows nothing). A pivot's second value and a
+    # timeline's group load the same way: the first choice (without rows) may not carry them yet.
     requested_value = filters.lval.partition(":")[0]
+    requested_value2 = filters.lval2.partition(":")[0]
+    value2_column = spec.value2[0] if spec.value2 is not None else None
     layout_keys = (
         []
         if spec.layout == "table"
         else [
-            *(c.key for c in (spec.by, spec.by2, spec.value[0]) if c is not None),
-            *([requested_value] if spec.layout in layouts_mod.VALUE_LAYOUTS and requested_value in by_key else []),
+            *(c.key for c in (spec.by, spec.by2, spec.value[0], spec.group, value2_column) if c is not None),
+            *([requested_value] if spec.layout in layouts_mod.LVAL_LAYOUTS and requested_value in by_key else []),
+            *([requested_value2] if spec.layout == "pivot" and requested_value2 in by_key else []),
         ]
     )
     load = list(
@@ -352,12 +374,21 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
     if footer is not None:
         footer = [replace(cell, sticky_left=pin_style(i, pin, base)) for i, cell in enumerate(footer)]
 
+    by_shown = {c.key: c for c in shown}
+
     def cells(row: Any) -> list[Cell]:
         out: list[Cell] = []
         person = report.person(row) if report.person else 0
+        # a passing colour rule paints the whole row: the first rule (in the rules' own order) that passes wins
+        mark = ""
+        for rule in marks:
+            column = by_shown.get(rule.column)
+            if column is not None and rule.column in mark_kinds:
+                mark = marks_mod.mark_for((rule,), rule.column, column.value(row), mark_kinds[rule.column], today)
+                if mark:
+                    break
         for i, (c, cls) in enumerate(zip(shown, classes, strict=True)):
             value = c.value(row)
-            mark = marks_mod.mark_for(marks, c.key, value, mark_kinds[c.key], today) if c.key in mark_kinds else ""
             out.append(
                 Cell(
                     value=value,

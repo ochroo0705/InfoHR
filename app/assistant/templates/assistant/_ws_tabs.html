@@ -1,0 +1,14 @@
+{% comment %}The tab strip of the workspace page: one link per tab the viewer keeps (oldest first) in a strip that scrolls on its
+own, then «+ Шинэ» outside the strip so it is always in reach. The current tab is violet with aria-current (workspace.js
+scrolls it into view). A count shows from 15 tabs on, because the limit is 20. Titles are escaped by Django.{% endcomment %}
+<div class="flex items-end gap-2 border-b border-slate-200">
+  <nav aria-label="Хүснэгтүүд" data-ws-tabs class="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto [scrollbar-width:none]">
+    {% for tab in tabs %}
+    <a href="{% url 'assistant:workspace_tab' tab.pk %}" title="{{ tab.title }}" class="max-w-56 shrink-0 truncate rounded-t-lg px-3 py-2 text-sm max-sm:py-3 {% if current and tab.pk == current.pk %}border-b-2 border-violet-600 font-medium text-violet-700{% else %}text-slate-600 hover:bg-slate-50{% endif %}"{% if current and tab.pk == current.pk %} aria-current="page"{% endif %}>{{ tab.title }}</a>
+    {% endfor %}
+  </nav>
+  {% if tabs|length >= 15 %}<span class="shrink-0 pb-2.5 text-xs text-slate-500">{{ tabs|length }} / {{ max_tabs }}</span>{% endif %}
+  <form method="post" action="{% url 'assistant:ws_new' %}" class="shrink-0 pb-1">{% csrf_token %}
+    <button type="submit" aria-label="Шинэ хүснэгт" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm hover:bg-slate-50 max-sm:min-h-11"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="h-4 w-4 shrink-0"><path d="M12 5v14M5 12h14"/></svg>Шинэ</button>
+  </form>
+</div>

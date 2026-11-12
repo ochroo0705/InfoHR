@@ -21,6 +21,7 @@ class Column:
     money: bool = False  # an amount, shown as 2,500,000₮ (the mnt filter, UI_RULES §2b)
     href: Callable[[Any], str] | None = None  # link target of the cell (e.g. the employee page)
     kind: str = ""  # "text", "number" or "date"; empty means worked out from the values (reports.kinds)
+    action: str = ""  # a contact link on a card: "mailto" for an e-mail, "tel" for a phone number; "" for none
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class Template:
 
     name: str
     query: str
+    soon_column: str = ""  # the date column of a «дөхсөн» template: its window is CompanySettings.soon_days (starter)
 
 
 @dataclass(frozen=True)
@@ -54,9 +56,17 @@ class Report:
     layouts: tuple[str, ...] = ()  # the non-table views this report offers (reports.filters.LAYOUTS); () = table only
     layout_date: str = ""  # key of the default start date of calendar and timeline; "" = the first allowed date column
     layout_date2: str = ""  # key of the default end date of the timeline; "" = the next allowed date column
+    # keys of the date columns that repeat each year on the calendar when «Давтах» is automatic (birthdays, start
+    # dates); any other date column is shown on its own day only
+    layout_repeat: tuple[str, ...] = ()
     # the employee id of one raw row; None = the report offers no row selection
     person: Callable[[Any], int] | None = None
     # the optional module this report belongs to (accounts/modules.py key): off = the report cannot be opened; "" = none
     module: str = ""
     # the employee of one raw row, so a card can show their photo; None = cards without photos
     photo: Callable[[Any], Any] | None = None
+    # the default columns for these filters, when they differ by mode (spike-builder); None = default_columns
+    default_columns_for: Callable[[Filters], tuple[str, ...]] | None = None
+    # the flow order of a board's lanes, per column key: the category texts in the order the work runs (a board by
+    # «state» shows the open state first); a text not listed follows alphabetically (Decision 7); {} = alphabetical
+    lane_orders: dict[str, tuple[str, ...]] = field(default_factory=dict)

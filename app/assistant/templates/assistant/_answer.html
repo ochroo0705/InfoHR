@@ -43,6 +43,18 @@
   {% include "assistant/_table_answer.html" with ta=result.table %}
 {% elif result.outcome == "action" %}
   {% include "assistant/_action_answer.html" %}
+{% elif result.outcome == "sql" %}
+  {% include "assistant/_sql_answer.html" with card=result.sql_card %}
+{% elif result.outcome == "none" and result.tool == "sql" %}
+  {% if result.sql_status == "off" %}
+  <p>Энэ боломж одоогоор идэвхгүй байна. Байгууллагын тохиргооноос асаана.</p>
+  {% elif result.sql_status == "unavailable" %}
+  <p>Энэ асуултад өгөгдлөөс хариулах боломжгүй байна.</p>
+  {% elif result.sql_status == "refused" %}
+  <p>Энэ асуултад өгөгдлөөс найдвартай хариулж чадсангүй. Асуултаа тодруулаад үзнэ үү.</p>
+  {% else %}
+  <p>Энэ асуултад хариулт олдсонгүй. Асуултаа өөрөөр бичээд үзнэ үү.</p>
+  {% endif %}
 {% elif result.outcome == "none" %}
   <p>Энэ асуултад хариулт олдсонгүй. Асуултаа өөрөөр бичээд үзнэ үү.</p>
 {% elif result.outcome == "error" %}

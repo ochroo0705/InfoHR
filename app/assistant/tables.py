@@ -15,24 +15,30 @@ from config.params import date_param, id_param
 from django.core.exceptions import TooManyFieldsSent
 from django.http import QueryDict
 from django.urls import reverse
+from employees.models import CompanySettings
 from reports import registry
 from reports.filters import MAX_AGE, Filters, describe, parse_filters, to_query
+from reports.rules import MAX_RULES, MAX_TEXT, MAX_VALUE, Group, Rule, check_value, dump_rules, parse_rules, restrict
 from reports.staff_list import REPORT
 from reports.table import allowed_columns, build_table, usable_filters
 
-from assistant.plan import Part
+from assistant.columns import offered_columns
+from assistant.matching import covers, word_forms
+from assistant.plan import Condition, Part
 from assistant.resolver import LOOKUP_WHERE, LOOKUPS, Candidate, resolve
 from assistant.words import GROUP_OPTIONS, FilterWords, offered_words
 
 MAX_BUTTONS = 5
 MAX_ECHO = 80  # the user's own words, echoed in a line, are cut to this length
-MAX_BASE = 2000  # the previous answer's address query is cut to this many characters
+MAX_BASE = 4000  # the previous answer's address query is cut to this many characters (rules text is percent-encoded)
 
 _NUMBER = re.compile(r"[0-9]{1,12}")
 _AGE_PARAMS = frozenset({"age_from", "age_to"})
 _NOT_OFFERED = "Ийм шүүлтүүр байхгүй эсвэл танд нээлттэй биш."
 _NO_VALUE = "“{value}” гэсэн утга олдсонгүй."
 _UNMAPPED = "“{word}” — ийм шүүлтүүр алга."
+_TOO_MANY = "Нөхцөл хэт олон тул сүүлийн {n}-ийг хэрэглээгүй."  # needs native read
+_PREV_DROPPED = "Өмнөх нөхцөл хэрэглэгдсэнгүй."  # needs native read
 _NO_TABLE = "Ажилтны хүснэгтийг харах эрх алга."
 _NO_CHART = "График хийх боломжгүй: “{by}”."
 _NO_GROUP = "Ийм бүлэглэлт байхгүй эсвэл танд нээлттэй биш: “{by}”."
@@ -49,7 +55,7 @@ class Ask:
 
 @dataclass(frozen=True)
 class Settled:
-    params: tuple[tuple[str, str], ...]  # (query parameter, value), applied, in registry order
+    params: tuple[tuple[str, str], ...]  # (query parameter, value), applied, in registry order; "rules" comes last
     ask: Ask | None  # the first ambiguous part
     rest: tuple[Part, ...]  # parts after the ambiguous one, still to settle
     not_applied: tuple[str, ...]  # Mongolian lines
@@ -86,13 +92,105 @@ def _known_id(param: str, value: str) -> str | None:
     return str(number) if exists else None
 
 
+def _covered(word: str, used: Sequence[str]) -> bool:
+    """Whether the word lies inside one of the used phrases: every word of it matches a word of the phrase, with case
+    endings folded (matching.covers). One direction only: a phrase inside the word does not cover it. An empty or
+    blank word, or an empty phrase, never covers anything."""
+    forms = word_forms(word)
+    return any(covers(forms, phrase) for phrase in used)
+
+
+def _settle_conditions(
+    user: User, conditions: Sequence[Condition]
+) -> tuple[list[Rule], list[str], list[str], list[str]]:
+    """The conditions the staff table can apply, as rules, and a not-applied line for each one it cannot. A hidden
+    column and a column that does not exist give the same line, so the answer never shows that a hidden one exists.
+    Also returns the phrases of the applied conditions, and the phrases of the dropped ones whose line names them."""
+    columns = {c.key: c for c in offered_columns(user)}
+    applied: list[Rule] = []
+    lines: list[str] = []
+    applied_phrases: list[str] = []
+    dropped_phrases: list[str] = []
+    for condition in conditions:
+        column = columns.get(condition.column)
+        if column is None or condition.op not in column.ops:
+            lines.append(_UNMAPPED.format(word=_echo(condition.phrase or condition.column)))
+            dropped_phrases.append(condition.phrase)
+            continue
+        value = condition.value
+        if condition.op == "next_days" and not value.strip():
+            value = str(CompanySettings.get().soon_days)
+        # A blank value is refused too (an empty «contains» would match every row), except where none is needed.
+        needs_none = condition.op in ("empty", "filled")
+        too_long = len(value) > MAX_VALUE  # a longer value would make the whole rules text unreadable later
+        if too_long or (not value.strip() and not needs_none) or not check_value(condition.op, value, column.kind):
+            lines.append(_NO_VALUE.format(value=_echo(condition.value)))
+            continue
+        applied.append(Rule(condition.column, condition.op, value))
+        applied_phrases.append(condition.phrase)
+    return applied, lines, applied_phrases, dropped_phrases
+
+
+def _carried_rules(user: User, base: Mapping[str, str] | None) -> tuple[list[Rule], list[str]]:
+    """The earlier answer's conditions that carry over, and a not-applied line for each one that does not check out.
+    Only a flat AND group of rules is carried (checked before the permission cut, so a nested group is never carried,
+    even a hidden one). The earlier address is untrusted: each rule is checked as a new condition would be."""
+    text = (base or {}).get("rules", "")
+    if not text:
+        return [], []
+    group = parse_rules(text)
+    if group is None or group.op != "and" or not all(isinstance(node, Rule) for node in group.items):
+        return [], [_PREV_DROPPED]  # unreadable, too long, an OR group or a nested group: nothing is carried
+    columns = {c.key: c for c in offered_columns(user)}
+    checked = restrict(group, set(columns))  # hidden and unknown columns are dropped without a line
+    if checked is None:
+        return [], []
+    carried: list[Rule] = []
+    lines: list[str] = []
+    for node in checked.items:
+        if not isinstance(node, Rule):
+            continue
+        column = columns[node.column]
+        needs_none = node.op in ("empty", "filled")
+        if (
+            node.op not in column.ops
+            or len(node.value) > MAX_VALUE
+            or (not node.value.strip() and not needs_none)
+            or not check_value(node.op, node.value, column.kind)
+        ):
+            lines.append(_NO_VALUE.format(value=_echo(node.value)))
+            continue
+        carried.append(node)
+    return carried, lines
+
+
+def _merge_rules(carried: Sequence[Rule], applied: Sequence[Rule]) -> list[Rule]:
+    """The carried conditions, then the new ones. A new condition on a column that has carried conditions removes all
+    of them and takes the place of the first; two new conditions on one column are both kept. Other new conditions
+    are appended."""
+    new_columns = {rule.column for rule in applied}
+    carried_columns = {rule.column for rule in carried}
+    merged: list[Rule] = []
+    placed: set[str] = set()
+    for rule in carried:
+        if rule.column not in new_columns:
+            merged.append(rule)
+        elif rule.column not in placed:
+            merged.extend(r for r in applied if r.column == rule.column)
+            placed.add(rule.column)
+    merged.extend(r for r in applied if r.column not in carried_columns)
+    return merged
+
+
 def settle(
     user: User,
     parts: Sequence[Part],
     base: Mapping[str, str] | None = None,
     unmapped: Sequence[str] = (),
+    conditions: Sequence[Condition] = (),
 ) -> Settled:
-    """Apply the parts to the base query for this user. Stops at the first ambiguous lookup; never raises."""
+    """Apply the parts to the base query for this user, then the conditions (each becomes a rule or a not-applied line).
+    Stops at the first ambiguous lookup; never raises."""
     ordered = offered_words(user)  # the registry order; `params` comes out in this order
     words = {w.param: w for w in ordered}
     values: dict[str, str] = {}
@@ -106,6 +204,7 @@ def settle(
             values[param] = clean
 
     not_applied: list[str] = []
+    used: list[str] = []  # the phrases of the parts applied (a value stored, or an ask started)
     ask: Ask | None = None
     rest: tuple[Part, ...] = ()
     for index, part in enumerate(parts):
@@ -117,7 +216,9 @@ def settle(
             found = resolve(word.param, part.value)
             if found.status == "one":
                 values[word.param] = str(found.candidates[0].id)
+                used.append(part.phrase)
             elif found.status == "several":
+                used.append(part.phrase)
                 ask = Ask(
                     param=word.param,
                     label=word.label,
@@ -135,10 +236,28 @@ def settle(
             not_applied.append(_NO_VALUE.format(value=_echo(part.value)))
         else:
             values[word.param] = clean
+            used.append(part.phrase)
 
-    not_applied.extend(_UNMAPPED.format(word=_echo(word)) for word in unmapped)
+    applied, condition_lines, applied_phrases, dropped_phrases = _settle_conditions(user, conditions)
+    used.extend(applied_phrases)
+    used.extend(dropped_phrases)  # a dropped condition's own line already names its phrase
+    not_applied.extend(_UNMAPPED.format(word=_echo(word)) for word in unmapped if not _covered(word, used))
+    not_applied.extend(condition_lines)
+    carried, carried_lines = _carried_rules(user, base)
+    not_applied.extend(carried_lines)
+    merged = _merge_rules(carried, applied)
+    dropped = max(0, len(merged) - MAX_RULES)  # the newest rules go first: the cap and the text limit share one line
+    merged = merged[:MAX_RULES]
+    while merged and len(dump_rules(Group("and", tuple(merged)))) > MAX_TEXT:
+        merged.pop()
+        dropped += 1
+    if dropped:
+        not_applied.append(_TOO_MANY.format(n=dropped))
+    params = [(w.param, values[w.param]) for w in ordered if w.param in values]
+    if merged:
+        params.append(("rules", dump_rules(Group("and", tuple(merged)))))
     return Settled(
-        params=tuple((w.param, values[w.param]) for w in ordered if w.param in values),
+        params=tuple(params),
         ask=ask,
         rest=rest,
         not_applied=tuple(not_applied),
@@ -170,8 +289,11 @@ def can_open_table(user: User) -> bool:
 
 
 def _filters_of(user: User, params: Sequence[tuple[str, str]]) -> Filters:
-    """The settled parameters read the way the table reads its address, then cut to what this user may use."""
-    return usable_filters(REPORT, user, parse_filters(QueryDict(urlencode(params))))
+    """The settled parameters read the way the table reads its address, then cut to what this user may use. The rules
+    keep only the columns this user may see (usable_filters does not restrict them)."""
+    f = usable_filters(REPORT, user, parse_filters(QueryDict(urlencode(params))))
+    allowed = {c.key for c in allowed_columns(REPORT, user)}
+    return replace(f, rules=dump_rules(restrict(parse_rules(f.rules), allowed)))
 
 
 def _query(f: Filters) -> str:
@@ -221,6 +343,7 @@ def table_answer(
     chart_kind: str = "",
     chart_by: str = "",
     group_by: str = "",
+    conditions: Sequence[Condition] = (),
 ) -> TableAnswer:
     """The staff table answer for these parts: the settled filters, their count and chips. `base_query` is the address
     of an earlier answer (untrusted): only the parameters this user may use survive. A user who may not open the
@@ -239,7 +362,8 @@ def table_answer(
             chart_kind=chart_kind,
             chart_by=chart_by,
         )
-    settled = settle(user, parts, base=_base_of(base_query), unmapped=unmapped)
+    settled = settle(user, parts, base=_base_of(base_query), unmapped=unmapped, conditions=conditions)
+    labels = {c.key: c.label for c in allowed_columns(REPORT, user)}
     chart_lines = _chart_lines(want, chart_by)
     group = ""
     if group_by and want == "list":
@@ -258,7 +382,7 @@ def table_answer(
             query=query,
             url=_address(query),
             count=None,
-            chips=tuple(describe(f, REPORT.filters)),
+            chips=tuple(describe(f, REPORT.filters, labels=labels)),
             not_applied=settled.not_applied + chart_lines,
             ask=settled.ask,
             rest=settled.rest,
@@ -273,7 +397,7 @@ def table_answer(
         query=query,
         url=_address(to_query(replace(table.filters, columns=(), sort="", group=group)) if group else query),
         count=table.count,
-        chips=tuple(describe(table.filters, REPORT.filters)),
+        chips=tuple(describe(table.filters, REPORT.filters, labels=labels)),
         not_applied=settled.not_applied + chart_lines,
         ask=None,
         rest=(),

@@ -35,6 +35,7 @@
 </form>
 
 <form method="post" class="space-y-6">{% csrf_token %}
+  <input type="hidden" name="ai_cols" value="{{ ai_cols }}">
   <section>
     <h2 class="sec-title mb-3">Баганууд</h2>
     <div class="ptable overflow-x-auto">
@@ -50,10 +51,13 @@
           <tr>
             <td class="font-medium">{{ col.label }}</td>
             <td>
-              <select name="col_{{ col.index }}" aria-label="Багана: {{ col.label }}" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
-                <option value="">— алгасах —</option>
-                {% for field in fields %}<option value="{{ field.key }}"{% if field.key == col.key %} selected{% endif %}>{{ field.label }}</option>{% endfor %}
-              </select>
+              <div class="flex items-center gap-2">
+                <select name="col_{{ col.index }}" aria-label="Багана: {{ col.label }}" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm">
+                  <option value="">— алгасах —</option>
+                  {% for field in fields %}<option value="{{ field.key }}"{% if field.key == col.key %} selected{% endif %}>{{ field.label }}</option>{% endfor %}
+                </select>
+                {% if col.ai %}<span class="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-900 ring-1 ring-inset ring-violet-300" title="AI санал болгосон — шалгана уу">AI</span>{% endif %}
+              </div>
             </td>
           </tr>
           {% empty %}

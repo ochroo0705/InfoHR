@@ -40,7 +40,8 @@ def test_count_of_rows_by_department() -> None:
     assert chart.kind == "bar"
 
 
-def test_sum_of_pay_by_department_is_exact_and_money() -> None:
+def test_sum_of_pay_by_department_is_exact_and_money(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     rows = [
         _row("Бат", "Санхүү", pay=Decimal("1500000.50")),
         _row("Дорж", "Ачаа", pay=Decimal("900000")),
@@ -66,7 +67,8 @@ def test_count_counts_rows_including_blank_values() -> None:
     assert chart.points[0].value == 2
 
 
-def test_bucket_with_only_blank_values_gives_none() -> None:
+def test_bucket_with_only_blank_values_gives_none(settings: Any) -> None:
+    settings.REPORTS_MIN_GROUP = 1  # these tests check other things; the small-group rule has its own tests
     rows = [_row("Бат", "Санхүү", pay=None), _row("Дорж", "Ачаа", pay=3)]
     chart = _build(rows, _spec(value=(PAY, "sum")))
     values = {p.label: p.value for p in chart.points}

@@ -27,6 +27,7 @@ ASSISTANT_TIMEOUT = env.int("ASSISTANT_TIMEOUT", default=15)  # seconds
 ASSISTANT_EXAMPLES_PER_ENTRY = env.int("ASSISTANT_EXAMPLES_PER_ENTRY", default=10)  # learned examples sent per entry
 ASSISTANT_NO_ENTRY_EXAMPLES = env.int("ASSISTANT_NO_ENTRY_EXAMPLES", default=10)  # learned "no entry" questions sent
 ASSISTANT_SIMILARITY = env.float("ASSISTANT_SIMILARITY", default=0.8)  # how close a test must be to an example to clash
+REPORTS_MIN_GROUP = env.int("REPORTS_MIN_GROUP", default=3)  # a chart/pivot money figure over fewer rows is hidden
 
 INSTALLED_APPS = [
     "unfold",  # admin theme; must come before django.contrib.admin
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "config.middleware.SecurityHeadersMiddleware",
     "employees.selfform.middleware.SelfFormHeadersMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "config.middleware.DefaultLanguageMiddleware",
@@ -133,7 +135,19 @@ elif DB_ENGINE == "firebird":
         }
     }
     # django.contrib.postgres is dropped and the backend app added: its system checks and fb_guard command come from it.
-    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "django.contrib.postgres"] + ["infohr_firebird"]
+    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "django.contrib.postgres"] + ["infohr_firebird", "hr_sql"]
+    # Governed SQL (app/hr_sql): the assistant's read-only queries run on this second alias, on the same file. Its login
+    # is FIREBIRD_GOVERNED_USER with FIREBIRD_GOVERNED_PASSWORD when FIREBIRD_GOVERNED_USER is set (the read-only login
+    # from scripts/grant_governed_fb.sql). When it is not set, the default login is used (development only). The
+    # password is read only together with its user.
+    _fb_default = DATABASES["default"]
+    _governed_user = env.str("FIREBIRD_GOVERNED_USER", default="")
+    DATABASES["governed"] = {
+        **_fb_default,
+        "USER": _governed_user or _fb_default["USER"],
+        "PASSWORD": env.str("FIREBIRD_GOVERNED_PASSWORD", default="") if _governed_user else _fb_default["PASSWORD"],
+        "OPTIONS": dict(_fb_default["OPTIONS"]),
+    }
     # fields.E180 says the backend has no native JSON type. The backend stores JSON as text, which
     # round-trips (firebird3-foundation Task 4), so the check is silenced rather than lying in the feature flag.
     SILENCED_SYSTEM_CHECKS = ["fields.E180"]
@@ -168,6 +182,8 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 ORDER_FILES_ROOT = BASE_DIR / "private" / "orders"
 ORDER_FILE_MAX_MB = 10
+PRINT_JOBS_ROOT = BASE_DIR / "private" / "print_jobs"  # PDFs being built for «Сонгосныг хэвлэх» (app/private/ is gitignored)
+PRINT_JOBS_INLINE = False  # tests set True: build the PDF in the request, not in a thread
 RECRUITMENT_FILES_ROOT = BASE_DIR / "private" / "recruitment"  # candidate CVs (app/private/ is gitignored)
 ORDER_TEMPLATES_DIR = BASE_DIR.parent / "order_templates"  # Word templates of the six order types
 # Request header that carries the client IP behind a reverse proxy (e.g. "HTTP_X_FORWARDED_FOR").
@@ -200,6 +216,42 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "config.storage.VersionedStaticFilesStorage"},
 }
+
+# Failed-login counters (accounts/login_throttle.py). A file cache, so every worker on the server shares the
+# counts and a restart keeps them; no database table is needed (the Firebird build has its own migrations).
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "throttle": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": env.str("DJANGO_THROTTLE_CACHE_DIR", default=str(BASE_DIR / "var" / "throttle")),
+    },
+}
+
+# Everything the app loads is served by itself (static files are vendored), so no other site is allowed.
+# Inline scripts and styles still exist in the templates, hence 'unsafe-inline' for those two until they move out.
+# CSP_REPORT_ONLY=1 in .env makes the browser only report violations (to try a change without breaking pages).
+CSP_REPORT_ONLY = env.bool("CSP_REPORT_ONLY", default=False)
+CONTENT_SECURITY_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # htmx hx-on/trigger filters and the admin's Alpine eval
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "frame-src 'self' blob:",
+        "worker-src 'self' blob:",
+        "object-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'self'",
+    ]
+)
+PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
@@ -317,6 +369,18 @@ UNFOLD = {
                         "title": "Сурсан жишээ, тест",
                         "icon": "school",
                         "link": reverse_lazy("admin:assistant_helpexample_changelist"),
+                    },
+                    {
+                        "title": "Баталгаажуулсан асуултууд",  # needs native read
+                        "icon": "verified",
+                        "link": reverse_lazy("admin:assistant_verifiedquery_changelist"),
+                        "permission": lambda request: request.user.has_perm("assistant.view_verifiedquery"),
+                    },
+                    {
+                        "title": "Хадгалсан хүснэгтүүд",
+                        "icon": "table_chart",
+                        "link": reverse_lazy("admin:assistant_savedtable_changelist"),
+                        "permission": lambda request: request.user.has_perm("assistant.view_savedtable"),
                     },
                     {
                         "title": "Туслахын тохиргоо",

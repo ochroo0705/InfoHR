@@ -4,8 +4,7 @@ and one button per candidate; a button picks that row (palette.js posts its data
 answer has no link and no context. A denied table shows only the not-applied line.{% endcomment %}
 <div{% if ta.status == "list" %} data-assistant-context="{{ ta.query }}"{% endif %} class="space-y-2">
 {% if ta.status == "list" %}
-  {% if chart_auto %}<p class="text-xs text-slate-500">График шинэчлэгдлээ.</p>{% endif %}
-  <p class="font-semibold">{% if ta.count == 0 %}Хэн ч олдсонгүй. Шүүлтүүрээ багасгаад үзнэ үү.{% elif ta.want == "count" %}{{ ta.count }} хүн байна.{% else %}Ажилтны хүснэгт шүүлтүүртэй нээхэд бэлэн: {{ ta.count }} хүн.{% endif %}</p>
+  <p class="font-semibold">{% if ta.count == 0 %}Хэн ч олдсонгүй. Шүүлтүүрээ багасгаад үзнэ үү.{% elif ta.want == "count" %}{{ ta.count }} хүн байна.{% elif chart %}График нээхэд бэлэн: {{ ta.count }} хүн · {{ chart.label }} · {{ chart.kind }}.{% else %}Ажилтны хүснэгт шүүлтүүртэй нээхэд бэлэн: {{ ta.count }} хүн.{% endif %}</p>
   {% if ta.chips %}
   <ul class="flex flex-wrap gap-1">
     {% for chip in ta.chips %}
@@ -35,8 +34,8 @@ answer has no link and no context. A denied table shows only the not-applied lin
 {% endif %}
 {% if ta.status == "list" %}
   <div class="flex flex-wrap gap-2">
-    <a href="{{ ta.url }}" data-palette-item role="option" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-1.5 text-white hover:bg-violet-700 max-sm:min-h-11">Хүснэгт нээх →</a>
-    {% if chart_url %}<a href="{{ chart_url }}" data-chart-open{% if chart_auto %} data-chart-auto{% endif %} class="inline-flex items-center rounded-lg border border-violet-200 bg-surface px-3 py-1.5 text-violet-800 hover:bg-violet-100 max-sm:min-h-11">График харах →</a>{% endif %}
+    {% if chart %}<a href="{{ chart.url }}" data-chart-link data-palette-item role="option" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-1.5 text-white hover:bg-violet-700 max-sm:min-h-11">График нээх →</a>{% endif %}
+    <a href="{{ ta.url }}" data-palette-item role="option" class="inline-flex items-center rounded-lg {% if chart %}border border-violet-200 bg-surface text-violet-800 hover:bg-violet-100{% else %}bg-violet-600 text-white hover:bg-violet-700{% endif %} px-3 py-1.5 max-sm:min-h-11">Хүснэгт нээх →</a>
   </div>
 {% endif %}
 </div>

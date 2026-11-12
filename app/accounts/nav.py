@@ -4,6 +4,7 @@ A group with one link the user may open is drawn as that plain link; with two or
 the group's label. Hiding a link is not access control: every view checks its own right.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,6 +12,8 @@ from django.http import HttpRequest
 from django.urls import reverse
 
 from accounts.models import User
+
+logger = logging.getLogger(__name__)
 
 SLOT_PAGES = ("slots", "slot_add", "slot_edit", "slot_delete")  # the position-slot screen (settings group)
 # the employee self-form screens (employees/views_selfform.py)
@@ -60,14 +63,18 @@ def _sees_recruitment(request: HttpRequest) -> bool:
     return cached
 
 
-def _may_manage_modules(request: HttpRequest, user: User) -> bool:
-    """Whether the «Модулиуд» link shows: asked once per request (kept on the request), as the other nav checks."""
-    cached: bool | None = getattr(request, "_may_manage_modules", None)
+def _sees_workspace(request: HttpRequest) -> bool:
+    """Whether the «Асуулт, хүснэгт» link (workspace) shows: the workspace gate (assistant/ws_views.py), asked once per request."""
+    cached: bool | None = getattr(request, "_sees_workspace", None)
     if cached is None:
-        from accounts.views_modules import may_manage_modules  # local import: the view imports the models
+        try:
+            from assistant.ws_views import can_use_workspace  # local import: assistant imports accounts
 
-        cached = isinstance(user, User) and may_manage_modules(user)
-        request._may_manage_modules = cached  # type: ignore[attr-defined]
+            cached = bool(can_use_workspace(request.user))
+        except Exception as exc:  # the top bar is on every page: a failed check means no entry, never a 500
+            logger.warning("workspace nav check failed: %s", type(exc).__name__)
+            cached = False
+        request._sees_workspace = cached  # type: ignore[attr-defined]
     return cached
 
 
@@ -158,7 +165,10 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             NavItem(
                 "Ажилтнууд",
                 reverse("reports:report", args=["staff-list"]),
-                (app == "employees" and name not in ("today", "orders", "orders_print", *SLOT_PAGES, *SELFFORM_PAGES))
+                (
+                    app == "employees"
+                    and name not in ("today", "orders", "orders_print", "company", *SLOT_PAGES, *SELFFORM_PAGES)
+                )
                 or (app == "reports" and match.kwargs.get("key") == "staff-list" and not request.GET.get("emptype")),
                 icon="people",
                 hint="Жагсаалт, хайлт, хувийн хэрэг",
@@ -235,6 +245,15 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
             if user.has_perm("reports.view_reports")
             else None,
             NavItem(
+                "Компанийн байдал",
+                reverse("employees:company"),
+                app == "employees" and name == "company",
+                icon="chart",
+                hint="Ажилтны тоо, эргэлт, хэлтэс, ажилласан хугацаа",
+            )
+            if sees_staff
+            else None,
+            NavItem(
                 "Бүртгэл",
                 reverse("logs:employee" if sees_staff else "logs:system"),
                 app == "logs",
@@ -242,6 +261,28 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
                 hint="Хэн, хэзээ, юу өөрчилсөн",
             )
             if sees_staff or user.has_perm("accounts.view_audit")
+            else None,
+        ),
+        group(
+            "assistant",
+            "Туслах",
+            NavItem(
+                "Асуулт, хүснэгт",
+                reverse("assistant:workspace"),
+                app == "assistant" and name in ("workspace", "workspace_tab"),
+                icon="chart",
+                hint="Асуултаар хүснэгт гаргах, шүүх, Excel",
+            )
+            if _sees_workspace(request)
+            else None,
+            NavItem(
+                "Хадгалсан хүснэгт",
+                reverse("assistant:saved_list"),
+                app == "assistant" and name.startswith("saved"),
+                icon="chart",
+                hint="Асуултаар гаргаад хадгалсан хүснэгтүүд",
+            )
+            if _sees_workspace(request)
             else None,
         ),
         group(
@@ -258,9 +299,6 @@ def top_nav(request: HttpRequest, own_record: bool, leave_requests: dict[str, An
                 hint="Албан тушаал, салбар тус бүрийн орон тоо",
             )
             if user.has_perm("employees.manage_position_slots")
-            else None,
-            NavItem("Модулиуд", reverse("modules"), name == "modules", icon="gear", hint="Хэрэггүй хэсгийг унтраах")
-            if _may_manage_modules(request, user)
             else None,
             NavItem("Админ хэсэг", reverse("admin:index"), icon="gear", hint="Хэрэглэгч, эрх, тохиргоо")
             if getattr(user, "is_staff", False)

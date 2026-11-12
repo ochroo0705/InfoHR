@@ -182,26 +182,28 @@ def test_timeline_has_one_bar_per_row(
     ]  # five rows, five bars
     use_rows(rows)
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
     assert page.count("data-bar") == 5
 
 
-def test_timeline_notes_for_undated_rows_and_rows_off_the_axis(
+def test_timeline_notes_for_undated_rows_with_every_year(
     client: Client, login_as: Callable[..., User], use_rows: Callable[[list[Any]], None]
 ) -> None:
+    # Task 25: «Бүгд» (lyear=all) has no 5-year clip, so every dated row is drawn and no clip note or off-axis count
+    # shows; the clip itself is covered in test_layout_timeline_all_years.py
     rows = [
         _row("Ажилтан 01", start=date(2026, 1, 1), end=date(2026, 1, 10)),
-        _row("Ажилтан 02", start=date(2026, 2, 1), end=date(2033, 1, 1)),  # ends past 5 years: the axis is clipped
-        _row("Ажилтан 03", start=date(2032, 1, 1), end=date(2032, 2, 1)),  # starts after the clipped axis
+        _row("Ажилтан 02", start=date(2026, 2, 1), end=date(2033, 1, 1)),  # ends 7 years later: drawn, no clip
+        _row("Ажилтан 03", start=date(2032, 1, 1), end=date(2032, 2, 1)),  # starts years later: drawn too
         _row("Ажилтан 04"),  # no start: undated
     ]
     use_rows(rows)
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
-    assert page.count("data-bar") == 2
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
+    assert page.count("data-bar") == 3
     assert "Огноогүй: 1" in page
-    assert "Хүрээнээс гадуур: 1" in page
-    assert "Хугацааны хүрээ 5 жилээр хязгаарлагдсан." in page
+    assert "Хүрээнээс гадуур" not in page
+    assert "Хугацааны хүрээ 5 жилээр хязгаарлагдсан." not in page
 
 
 def test_timeline_over_the_cap_shows_the_note(
@@ -209,7 +211,7 @@ def test_timeline_over_the_cap_shows_the_note(
 ) -> None:
     use_rows([_row(f"Ажилтан {n:03d}", start=date(2026, 1, 1), end=date(2026, 1, 2)) for n in range(120)])
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
     assert page.count("data-bar") == 100
     assert "Эхний 100-г харууллаа. Шүүлтүүрээр нарийвчилна уу." in page
 
@@ -219,7 +221,7 @@ def test_timeline_under_the_cap_has_no_over_cap_note(
 ) -> None:
     use_rows([_row(f"Ажилтан {n:02d}", start=date(2026, 1, 1), end=date(2026, 1, 2)) for n in range(3)])
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
     assert "Шүүлтүүрээр нарийвчилна уу" not in page
 
 
@@ -233,7 +235,7 @@ def test_timeline_bar_positions_never_use_a_comma_decimal(
     ]
     use_rows(rows)
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
     tags = re.findall(r"<[a-z]+ [^>]*data-bar[^>]*>", page)
     assert len(tags) == 3
     styles = [re.search(r'style="([^"]*)"', tag).group(1) for tag in tags]  # type: ignore[union-attr]
@@ -246,7 +248,7 @@ def test_timeline_bar_has_its_dates_and_days_as_a_hover_tip(
 ) -> None:
     use_rows([_row("Ажилтан 01", start=date(2026, 1, 1), end=date(2026, 1, 10))])
     login_as(client, "HR")
-    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end"}).content.decode()
+    page = client.get(PAGE, {"layout": "timeline", "lby": "start", "lby2": "end", "lyear": "all"}).content.decode()
     assert 'data-tip="2026-01-01 – 2026-01-10 · 10 өдөр"' in page
     assert 'data-tip-title="Ажилтан 01"' in page
 
@@ -261,7 +263,9 @@ def test_hidden_salary_in_the_date_keys_gives_no_salary_and_no_option(
     rows = [_row("Ажилтан 01", start=date(2026, 3, 15), end=date(2026, 3, 20), pay=SALARY)]
     use_rows(rows)
     login_as(client, "HR")
-    response = client.get(PAGE, {"layout": layout, "lby": "pay", "lby2": "pay", "lval": "pay:sum", "lmonth": "2026-03"})
+    response = client.get(
+        PAGE, {"layout": layout, "lby": "pay", "lby2": "pay", "lval": "pay:sum", "lmonth": "2026-03", "lyear": "all"}
+    )
     assert response.status_code == 200
     page = response.content.decode()
     assert str(SALARY) not in page

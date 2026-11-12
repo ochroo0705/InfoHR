@@ -12,6 +12,7 @@ from django.contrib.auth.signals import user_logged_in, user_logged_out, user_lo
 from django.db.models.signals import m2m_changed, post_save, pre_save
 from django.dispatch import receiver
 
+from . import login_throttle
 from .audit import Category, record, record_safe
 from .models import User
 from .roles import EMPLOYEE
@@ -29,6 +30,7 @@ def add_employee_role(sender: type[User], instance: User, created: bool, **kwarg
 def log_login(sender: type[User], request: Any, user: User, **kwargs: Any) -> None:
     """Pass the user explicitly: during the login view the request context still shows no user."""
     record_safe(Category.ACCESS, "login", actor=user)
+    login_throttle.reset(request, user.get_username())
 
 
 @receiver(user_login_failed, dispatch_uid="accounts_audit_login_failed")
@@ -36,6 +38,7 @@ def log_login_failed(sender: Any, credentials: dict[str, Any], request: Any = No
     """Store only the username that was typed. The password is never written to the log."""
     username = str(credentials.get("username") or "")[:150]
     record_safe(Category.ACCESS, "login_failed", message=username, actor=None)
+    login_throttle.record_failure(request, username)
 
 
 @receiver(user_logged_out, dispatch_uid="accounts_audit_logout")

@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from datetime import date
 from decimal import Decimal
 from typing import Any
 from urllib.parse import parse_qsl, urlencode
@@ -36,7 +37,7 @@ from macs.models import (
     PresentType,
 )
 
-from reports import excel, registry
+from reports import drill, excel, privacy, registry
 from reports import layouts as layouts_mod
 from reports import marks as marks_mod
 from reports import rules as rules_mod
@@ -50,6 +51,8 @@ from reports.filters import (
     GENDERS,
     LEAVE_STATES,
     MAX_SORT_KEYS,
+    MAX_YEAR,
+    MIN_MONTH_YEAR,
     MOVEMENT_KINDS,
     NO_WORKING_STATE,
     ORDER_TYPES,
@@ -63,9 +66,11 @@ from reports.filters import (
     to_query,
 )
 from reports.forms import SavedViewForm
-from reports.kinds import KINDS
+from reports.kinds import KINDS, column_kind
 from reports.layouts import offered_layouts
 from reports.models import SavedView
+from reports.starter import resolved_query
+from reports.summary import summary_of
 from reports.table import (
     Table,
     allowed_columns,
@@ -164,6 +169,13 @@ def _address(path: str, f: Filters, adds: Sequence[str] = (), *, plain: bool = F
     if query:
         return f"{path}?{query}"
     return f"{path}?{PLAIN_VIEW}" if plain else path
+
+
+def _month_param(day: date, today: date) -> str:
+    """The «YYYY-MM» of a day's month for lmonth; "" for this month (the default, kept out of the address)."""
+    if (day.year, day.month) == (today.year, today.month):
+        return ""
+    return f"{day:%Y-%m}"
 
 
 def _added_names(get: QueryDict, offered: list[str]) -> list[str]:
@@ -395,7 +407,12 @@ LAYOUT_LABELS = {  # the switcher's labels (UI_RULES §4b)
     "chart": "Диаграм",
     "pivot": "Хөрвүүлэлт",
 }
-CHART_LABELS = {"bar": "Баганан", "line": "Шугаман", "donut": "Дугуй"}  # the chart kinds of the layout bar
+CHART_LABELS = {  # the chart kinds of the layout bar
+    "bar": "Баганан",
+    "stacked": "Давхарласан баганан",
+    "line": "Шугаман",
+    "donut": "Дугуй",
+}
 # A long filter bar (more than FILTERS_SLIM_FROM filters) keeps only the FILTERS_QUICK most useful ones on screen. The
 # others are offered in the «Шүүлтүүр нэмэх» menu and appear as a control with a ✕ once picked (`add=<name>` in the
 # address) or as soon as they hold a value. Only the filters in FOLDABLE can be folded: each maps to the Filters
@@ -449,7 +466,8 @@ def _builtin_panels(
     for name in secondary:
         if name in adds or _holds_value(name, f):
             shown.append(name)
-            reset = replace(f, **{field: ("" if field == "gender" else None) for field in FOLDABLE[name]})
+            blanks: dict[str, Any] = {field: ("" if field == "gender" else None) for field in FOLDABLE[name]}
+            reset = replace(f, **blanks)
             removes[name] = _address(path, reset, [a for a in adds if a != name], plain=plain)
         else:
             choices.append((name, FILTER_LABELS.get(name, name), _address(path, f, [*adds, name], plain=plain)))
@@ -479,16 +497,62 @@ def _number_or_none(value: object) -> float | None:
     return float(value) if isinstance(value, int | float | Decimal) else None
 
 
-def _chart_payload(chart: layouts_mod.Chart) -> dict[str, Any]:
+def _chart_payload(chart: layouts_mod.Chart, hrefs: list[str]) -> dict[str, Any]:
     """The chart's numbers for report_chart.js (in #report-chart-data): labels, values as floats (None stays null),
-    the kind and whether the values are money. The table under the chart is drawn from the same points."""
+    the kind, whether the values are money, and one click link per point (an empty text where there is none). The table
+    under the chart is drawn from the same points."""
     return {
         "kind": chart.kind,
         "labels": [point.label for point in chart.points],
         "values": [_number_or_none(point.value) for point in chart.points],
         "money": any(point.money for point in chart.points),
+        "percent": chart.percent,
         "value_label": chart.value_label,
+        "series": [{"label": s.label, "values": [_number_or_none(v) for v in s.values]} for s in chart.series],
+        "hrefs": hrefs,
     }
+
+
+# the nine parameters of the newer layouts: blanked wherever a layout's own parameters are blanked
+NEW_LAYOUT_BLANKS: dict[str, Any] = {
+    name: "" for name in ("lgrain", "lshow", "lsort", "lorder", "lrep", "lweek", "lyear", "lgroup", "lval2")
+}
+# the layout bar's own hidden inputs: every new parameter except lweek and lyear, which have no select in the bar
+# (the calendar's week and the timeline's year are set by header links), so the bar must carry them along
+LAYOUT_BAR_OWN_BLANKS: dict[str, Any] = {
+    name: value for name, value in NEW_LAYOUT_BLANKS.items() if name not in ("lweek", "lyear")
+}
+
+
+def _drill_url(
+    path: str,
+    f: Filters,
+    adds: Sequence[str],
+    plain: bool,
+    pairs: Sequence[tuple[Column | None, str | None]],
+    kinds: dict[str, str],
+    grains: dict[str, str],
+) -> str:
+    """The table's address for the rows of these (column, category key) pairs: the layout is dropped and one rule per
+    pair is added to the rules. "" when a pair has no key (the folded «Бусад»), no column, or the rules would not fit:
+    the caller then draws plain text. A date column with a grain (in grains) keeps its bucket's «between» rule."""
+    conditions: list[rules_mod.Rule] = []
+    for column, key in pairs:
+        if column is None or key is None:
+            return ""
+        grain = grains.get(column.key, "")
+        if grain:
+            condition = drill.bucket_condition(column.key, grain, key)
+        else:
+            condition = drill.condition(column.key, kinds[column.key], key)
+        if condition is None:
+            return ""
+        conditions.append(condition)
+    rules = drill.drill_rules(f.rules, conditions)
+    if rules == "":
+        return ""
+    cleared = replace(f, rules=rules, layout="", lby="", lby2="", lval="", lchart="", lmonth="", **NEW_LAYOUT_BLANKS)
+    return _address(path, cleared, adds, plain=plain)
 
 
 def _layout_context(
@@ -505,11 +569,20 @@ def _layout_context(
 
     def url(name: str) -> str:
         # another layout starts from its own defaults; the filters, sort, rules and format stay
-        cleared = replace(f, layout="" if name == "table" else name, lby="", lby2="", lval="", lchart="", lmonth="")
+        cleared = replace(
+            f,
+            layout="" if name == "table" else name,
+            lby="",
+            lby2="",
+            lval="",
+            lchart="",
+            lmonth="",
+            **NEW_LAYOUT_BLANKS,
+        )
         return _address(request.path, cleared, adds, plain=plain)
 
     urls = {name: url(name) for name in names}
-    keep = parse_qsl(to_query(replace(f, layout="", lby="", lby2="", lval="", lchart="")))
+    keep = parse_qsl(to_query(replace(f, layout="", lby="", lby2="", lval="", lchart="", **LAYOUT_BAR_OWN_BLANKS)))
     context: dict[str, Any] = {
         "layout": spec.layout,
         "layout_names": names,
@@ -517,33 +590,137 @@ def _layout_context(
         "layout_options": [LayoutOption(n, LAYOUT_LABELS[n], urls[n], n == spec.layout) for n in names],
         "layout_label": LAYOUT_LABELS,
         "layout_template": f"reports/layouts/{spec.layout}.html",
-        "layout_choices": layouts_mod.layout_choices(report, user, spec.layout),
+        "layout_choices": layouts_mod.layout_choices(report, user, spec.layout, spec.by.key if spec.by else ""),
         "layout_value": layouts_mod.value_text(spec.value),
+        "layout_value2": layouts_mod.value_text(spec.value2) if spec.value2 is not None else "",  # the «Утга 2» select
+        "layout_grain": spec.grain,  # the «Хуваалт» select: shown when a chart or pivot groups by a date column
+        "layout_dated": any(c is not None and c.kind == "date" for c in (spec.by, spec.by2)),
+        # the «Эрэмбэ» select: a date category is in time order, so the sort does not apply
+        "layout_sort_ok": not (spec.by is not None and spec.by.kind == "date" and spec.grain),
         "layout_keep": keep + [("add", name) for name in adds],  # hidden inputs of the layout bar's form
         "chart_labels": CHART_LABELS,
         "spec": spec,
+        "min_group": privacy.min_group(),  # the chart and pivot notes say how small a group is hidden
     }
+    # a category's table link: its rule compares the text, so a key that collides with another (case, spaces) gets none
+    kinds = {c.key: column_kind(c, table.rows) for c in (spec.by, spec.by2) if c is not None}
+
+    # a date category grouped by a grain: its buckets («2026-03») link by a «between» rule (drill.bucket_condition)
+    grains = {c.key: spec.grain for c in (spec.by, spec.by2) if c is not None and c.kind == "date" and spec.grain}
+
+    def drill_href(pairs: list[tuple[Column | None, str | None]]) -> str:
+        return _drill_url(request.path, f, adds, plain, pairs, kinds, grains)
+
+    def unless(key: str | None, colliding: set[str], grained: bool = False) -> str | None:
+        # the blank bucket «—» of a grained date category gets no link: its rows are the blank dates, not one value
+        return None if key in colliding or (grained and key == "") else key
+
+    by_grained = spec.grain != "" and spec.by is not None and spec.by.kind == "date"
+    by2_grained = spec.grain != "" and spec.by2 is not None and spec.by2.kind == "date"
+    # collisions over EVERY filtered row's key, folded «Бусад» rows included: their rows match a colliding rule too
+    by_bad: set[str] = set()
+    by2_bad: set[str] = set()
+    if spec.layout in layouts_mod.CATEGORY_LAYOUTS:
+        by_bad = drill.collisions(layouts_mod._key(spec.by, row, spec.grain) for row in table.rows)
+        by2_bad = drill.collisions(layouts_mod._key(spec.by2, row, spec.grain) for row in table.rows)
+
+    def pivot_parts(grid: layouts_mod.Pivot) -> tuple[list[tuple[str, str]], list[Any]]:
+        """A pivot grid's column heads as (label, link), and one line per row: its label and link, its cells with their
+        links, and its total. Both grids of a pivot with a second value are drawn with it, so their links match."""
+        col_heads = [
+            (label, drill_href([(spec.by2, unless(key, by2_bad, by2_grained))]))
+            for label, key in zip(grid.col_labels, grid.col_keys, strict=True)
+        ]
+        # one line per row: its label and link, its cells with their links, and its total (a template cannot index
+        # cells by row). Without a second category the single column is the row itself, so a cell links to the row.
+        lines = []
+        for i, (label, cells, total) in enumerate(zip(grid.row_labels, grid.cells, grid.row_totals, strict=True)):
+            row_key = unless(grid.row_keys[i], by_bad, by_grained)
+            row_href = drill_href([(spec.by, row_key)])
+            cell_links = []
+            for j, value in enumerate(cells):
+                col_key = unless(grid.col_keys[j], by2_bad, by2_grained)
+                href = row_href if spec.by2 is None else drill_href([(spec.by, row_key), (spec.by2, col_key)])
+                cell_links.append((value, href))
+            lines.append((label, row_href, cell_links, total))
+        return col_heads, lines
+
     cards: batching.Batch[layouts_mod.Item] | None = None
     if spec.layout == "board":
-        context["board"] = layouts_mod.build_board(table, spec, marks, today)
+        board = layouts_mod.build_board(table, spec, marks, today)
+        context["board"] = board
+        context["board_lanes"] = [(lane, drill_href([(spec.by, unless(lane.key, by_bad))])) for lane in board.lanes]
+        context["board_value_label"] = layouts_mod.value_caption(spec.value)  # «Утга: …»; "" = the count, nothing shown
+    elif spec.layout == "calendar" and spec.week is not None:
+        week = layouts_mod.build_week(table, spec, marks, today)
+        context["week"] = week
+        context["week_prev_url"] = _address(request.path, replace(f, lweek=week.prev, lmonth=""), adds, plain=plain)
+        context["week_next_url"] = _address(request.path, replace(f, lweek=week.next, lmonth=""), adds, plain=plain)
+        this_monday = layouts_mod.week_start(today).isoformat()
+        context["week_today_url"] = _address(request.path, replace(f, lweek=this_monday, lmonth=""), adds, plain=plain)
+        month_text = _month_param(week.start, today)
+        context["week_month_url"] = _address(request.path, replace(f, lweek="", lmonth=month_text), adds, plain=plain)
     elif spec.layout == "calendar":
         calendar = layouts_mod.build_calendar(table, spec, marks, today)
         context["calendar"] = calendar
         context["calendar_prev_url"] = _address(request.path, replace(f, lmonth=calendar.prev), adds, plain=plain)
         context["calendar_next_url"] = _address(request.path, replace(f, lmonth=calendar.next), adds, plain=plain)
+        context["calendar_today_url"] = _address(request.path, replace(f, lmonth=""), adds, plain=plain)
+        # the month form's hidden inputs: every parameter but lmonth (the layout, its columns, the filters)
+        context["calendar_keep"] = parse_qsl(to_query(replace(f, lmonth=""))) + [("add", name) for name in adds]
+
+        def week_address(day: date) -> str:
+            """The address of the week that holds this day: the month grid's «+N» link."""
+            week_text = layouts_mod.week_start(day).isoformat()
+            return _address(request.path, replace(f, lweek=week_text, lmonth=""), adds, plain=plain)
+
+        # the «7 хоног» link: the week of today when this month is the current one, else the week of the month's 1st
+        anchor = today if (calendar.month.year, calendar.month.month) == (today.year, today.month) else calendar.month
+        context["calendar_week_url"] = week_address(anchor)
+        # every day of the grid with the link of its week when it has a «+N» count (a template cannot index a dict)
+        context["calendar_cells"] = [
+            [(day, week_address(day.day) if day.more else "") for day in week] for week in calendar.weeks
+        ]
     elif spec.layout == "timeline":
-        context["timeline"] = layouts_mod.build_timeline(table, spec, marks, today)
+        timeline = layouts_mod.build_timeline(table, spec, marks, today)
+        context["timeline"] = timeline
         context["timeline_years"] = layouts_mod.TIMELINE_YEARS
+        # the year window (lyear): the default is this year; the arrows step one year and stop at the bounds; «Бүгд»
+        # sets lyear=all (no window, the 5-year axis); without a window «Он» opens the year of today (clamped to the
+        # allowed years), whatever the axis holds
+        window = spec.year
+        context["timeline_year_prev_url"] = (
+            _address(request.path, replace(f, lyear=str(window - 1)), adds, plain=plain)
+            if window is not None and window > MIN_MONTH_YEAR
+            else None
+        )
+        context["timeline_year_next_url"] = (
+            _address(request.path, replace(f, lyear=str(window + 1)), adds, plain=plain)
+            if window is not None and window < MAX_YEAR
+            else None
+        )
+        context["timeline_all_url"] = _address(request.path, replace(f, lyear="all"), adds, plain=plain)
+        enter_year = min(max(today.year, MIN_MONTH_YEAR), MAX_YEAR)
+        context["timeline_year_enter_url"] = _address(
+            request.path, replace(f, lyear=str(enter_year)), adds, plain=plain
+        )
     elif spec.layout == "chart":
         chart = layouts_mod.build_chart(table, spec)
         context["chart"] = chart
-        context["chart_json"] = _chart_payload(chart)
+        chart_hrefs = [drill_href([(spec.by, unless(key, by_bad, by_grained))]) for key in chart.keys]
+        context["chart_lines"] = [
+            (point, cells, href) for (point, cells), href in zip(chart.lines, chart_hrefs, strict=True)
+        ]
+        context["chart_json"] = _chart_payload(chart, chart_hrefs)
         context["chart_kind_label"] = CHART_LABELS[chart.kind]
     elif spec.layout == "pivot":
         pivot = layouts_mod.build_pivot(table, spec)
         context["pivot"] = pivot
-        # one line per row: its label, its cells and its total (a template cannot index cells by row)
-        context["pivot_lines"] = list(zip(pivot.row_labels, pivot.cells, pivot.row_totals, strict=True))
+        context["pivot_col_heads"], context["pivot_lines"] = pivot_parts(pivot)
+        if spec.value2 is not None:  # a second value: the same rows, columns and links; lshow applies to the first only
+            pivot2 = layouts_mod.build_pivot(table, replace(spec, value=spec.value2, show=""))
+            context["pivot2"] = pivot2
+            context["pivot2_col_heads"], context["pivot2_lines"] = pivot_parts(pivot2)
     elif spec.layout == "cards":
         items = layouts_mod.make_items(table, table.rows, marks, today, extras=CARD_EXTRAS, photo_of=report.photo)
         cards = batching.window(request, items)
@@ -824,7 +1001,7 @@ def _saved_context(user: User, report: Report, query: str) -> dict[str, Any]:
     for t in report.templates:
         if not _template_allowed(user, report, t):
             continue
-        own = _viewer_query(user, report, t.query)
+        own = _viewer_query(user, report, resolved_query(t))
         if own:
             template_options.append(
                 SavedOption(name=t.name, url=_view_url(report_url, own), selected=current is None and own == query)
@@ -842,7 +1019,7 @@ def _saved_context(user: User, report: Report, query: str) -> dict[str, Any]:
 
 def _template_allowed(user: User, report: Report, template: Template) -> bool:
     """A template is offered when its rules parse and use only columns this user may see."""
-    f = parse_filters(QueryDict(template.query))
+    f = parse_filters(QueryDict(resolved_query(template)))
     tree = rules_mod.parse_rules(f.rules)
     if tree is None and f.rules:
         return False  # rules that do not parse
@@ -870,6 +1047,8 @@ def report_print(request: HttpRequest, key: str) -> HttpResponse:
         "heads": [(c.label, cls) for c, cls in zip(table.columns, column_classes(table.columns), strict=True)],
         "lines": lines,
         "note": report.note(table.filters) if report.note is not None else "",
+        "summary": summary_of(table),  # a chart or pivot address adds its numbers above the row table
+        "min_group": privacy.min_group(),  # the note under the summary says how small a group is hidden
         "landscape": len(table.columns) > MAX_PORTRAIT_COLUMNS,
         "company": CompanySettings.get().name,
         "today": timezone.localdate(),
@@ -902,7 +1081,9 @@ def report_excel(request: HttpRequest, key: str) -> HttpResponse:
     lines = describe(table.filters, report.filters, labels=labels)
     lines += [note] if note else []  # the grey note goes in the sheet too
     today = timezone.localdate().isoformat()
-    response = HttpResponse(excel.workbook_bytes(report.title, lines, table, sheet=report.key), content_type=XLSX)
+    summary = summary_of(table)  # a chart or pivot address adds its numbers as a second sheet
+    body = excel.workbook_bytes(report.title, lines, table, sheet=report.key, summary=summary)
+    response = HttpResponse(body, content_type=XLSX)
     response["Content-Disposition"] = f'attachment; filename="{report.key}-{today}.xlsx"'
     log_label = describe(table.filters, report.filters, for_log=True, labels=labels)
     record_export(request, "export_report", report.title, filters="; ".join(log_label), rows=table.count)

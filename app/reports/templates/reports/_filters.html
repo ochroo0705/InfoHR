@@ -95,6 +95,11 @@
         <select data-filter="{{ name }}" name="attribute" aria-label="Шинж" data-search="off" class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
           {% for key, label in attributes.items %}<option value="{{ key }}"{% if filters.attribute == key or key == "gender" and not filters.attribute %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
+      {% elif name == "mode" %}
+        <select data-filter="{{ name }}" name="mode" aria-label="Горим" data-search="off" class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
+          <option value=""{% if filters.mode != "children" %} selected{% endif %}>Нэгтгэсэн: нэг ажилтан — нэг мөр</option>
+          <option value="children"{% if filters.mode == "children" %} selected{% endif %}>Хүүхэд бүрээр: нэг хүүхэд — нэг мөр</option>
+        </select>
       {% elif name == "contact_type" %}
         <select data-filter="{{ name }}" name="contact_type" aria-label="Холбоо барих төрөл" data-search="off" class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-3 pr-8 text-sm">
           <option value="">Бүх төрөл</option>
@@ -151,6 +156,15 @@
     {% if filters.lval %}<input type="hidden" name="lval" value="{{ filters.lval }}">{% endif %}
     {% if filters.lchart %}<input type="hidden" name="lchart" value="{{ filters.lchart }}">{% endif %}
     {% if filters.lmonth %}<input type="hidden" name="lmonth" value="{{ filters.lmonth }}">{% endif %}
+    {% if filters.lgrain %}<input type="hidden" name="lgrain" value="{{ filters.lgrain }}">{% endif %}
+    {% if filters.lshow %}<input type="hidden" name="lshow" value="{{ filters.lshow }}">{% endif %}
+    {% if filters.lsort %}<input type="hidden" name="lsort" value="{{ filters.lsort }}">{% endif %}
+    {% if filters.lval2 %}<input type="hidden" name="lval2" value="{{ filters.lval2 }}">{% endif %}
+    {% if filters.lrep %}<input type="hidden" name="lrep" value="{{ filters.lrep }}">{% endif %}
+    {% if filters.lweek %}<input type="hidden" name="lweek" value="{{ filters.lweek }}">{% endif %}
+    {% if filters.lyear %}<input type="hidden" name="lyear" value="{{ filters.lyear }}">{% endif %}
+    {% if filters.lgroup %}<input type="hidden" name="lgroup" value="{{ filters.lgroup }}">{% endif %}
+    {% if filters.lorder %}<input type="hidden" name="lorder" value="{{ filters.lorder }}">{% endif %}
   </form>
   {% include "reports/_column_filters.html" with part="picker" %}
   <a href="{{ clear_url }}" hx-get="{{ clear_url }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true"

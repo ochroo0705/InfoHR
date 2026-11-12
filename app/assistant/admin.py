@@ -2,6 +2,7 @@ import json
 from collections.abc import Sequence
 from typing import Any
 
+import sqlglot
 from django.conf import settings
 from django.contrib import admin, messages
 from django.db import transaction
@@ -10,6 +11,8 @@ from django.http import HttpRequest, HttpResponse, HttpResponseNotAllowed, HttpR
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from sqlcore.firebird import Firebird
+from sqlglot import exp
 from unfold.admin import ModelAdmin
 
 from . import learning
@@ -17,7 +20,7 @@ from .catalog import PROVIDER_CHOICES
 from .check import check_connection
 from .entries import ENTRY_BY_KEY
 from .forms import AssistantSettingsForm, HelpExampleForm
-from .models import AssistantSettings, HelpExample, HelpQuestion
+from .models import AssistantSettings, HelpExample, HelpQuestion, SavedTable, VerifiedQuery, VerifiedStatus
 
 
 @admin.register(HelpQuestion)
@@ -35,6 +38,10 @@ class HelpQuestionAdmin(ModelAdmin):  # type: ignore[misc]
         "not_applied_short",
         "corrected",
         "duration_ms",
+        "tokens_in",
+        "tokens_out",
+        "sql_rows",
+        "salary_flag",
     )
     list_filter = ("outcome", "tool", "entry", "asked_at", "user")
     search_fields = ("question", "query")
@@ -228,6 +235,144 @@ class HelpExampleAdmin(ModelAdmin):  # type: ignore[misc]
         hits = learning.name_hits(obj.question)
         if hits:
             messages.warning(request, _name_message(hits))
+
+
+# Column names that hold a person's name, and the ones that hold a person's or a record's number (EMP_ID, CHILD_ID ...).
+_NAME_COLUMNS = frozenset({"FIRST_NAME", "LAST_NAME"})
+
+
+def _names_a_person(sql: str) -> bool:
+    """True when the SQL compares a name column with a string, or an ..ID column with a whole number, using = IN or
+    LIKE (for a number, = and IN only). Such a literal points at one person, and an approved example is shown to other
+    askers. Gender and status words and numeric thresholds such as AMOUNT > 1000000 are not refused."""
+    root = sqlglot.parse_one(sql, dialect=Firebird)  # the checker has parsed it already: one SELECT
+    for node in root.find_all(exp.EQ, exp.In, exp.Like):
+        if isinstance(node, exp.In):
+            pairs = [(node.this, value) for value in node.expressions]
+        elif isinstance(node, exp.Like):
+            pairs = [(node.this, node.expression)]
+        else:
+            pairs = [(node.this, node.expression), (node.expression, node.this)]
+        for column, value in pairs:
+            if not (isinstance(column, exp.Column) and isinstance(value, exp.Literal)):
+                continue
+            name = column.name.upper()
+            if value.is_string and name in _NAME_COLUMNS:
+                return True
+            if value.is_number and not isinstance(node, exp.Like) and name.endswith("ID"):
+                return True
+    return False
+
+
+def _approval_check(reviewer: Any, row: VerifiedQuery) -> tuple[str, str]:
+    """Why a proposed query may not be approved (the reason, or "" when it may), and the views it uses now.
+
+    The SQL is checked again against the PROPOSER's current catalogue, so a right lost since the proposal counts. The
+    question must name no employee, the SQL must name no person (see `_names_a_person`), and the reviewer must not be
+    the proposer."""
+    from hr_sql.catalogue import catalogue_for  # lazy: the governed catalogue loads the HR descriptions
+    from sqlcore.check import CheckError, check_sql
+
+    # needs native read
+    if row.proposed_by_id is not None and row.proposed_by_id == reviewer.pk:
+        return "өөрийн саналыг өөрөө батлах боломжгүй", ""
+    # needs native read
+    if learning.name_hits(row.question):
+        return "асуултад ажилтны нэр байна", ""
+    if row.proposed_by is None:
+        return "санал болгосон хүн байхгүй", ""  # needs native read
+    try:
+        checked = check_sql(row.sql, catalogue_for(row.proposed_by))
+    except CheckError:
+        return "SQL одоо шалгалтад тэнцэхгүй байна", ""  # needs native read
+    # needs native read
+    if _names_a_person(row.sql):
+        return "SQL-д тодорхой ажилтны нэр эсвэл дугаар заасан байна", ""
+    return "", ",".join(sorted(checked.views))[:200]
+
+
+@admin.register(VerifiedQuery)
+class VerifiedQueryAdmin(ModelAdmin):  # type: ignore[misc]
+    """The review queue for answers marked correct. Rows are not edited by hand: approval and rejection are the actions,
+    and approval re-checks the SQL (see `_approval_check`). The change page only shows the row."""
+
+    list_display = ("created_at", "question", "status", "views", "proposed_by", "reviewed_by", "reviewed_at")
+    list_filter = ("status",)
+    search_fields = ("question",)
+    list_select_related = ("proposed_by", "reviewed_by")
+    actions = ("approve", "reject")
+    readonly_fields = (
+        "question",
+        "sql",
+        "views",
+        "status",
+        "source",
+        "proposed_by",
+        "reviewed_by",
+        "reviewed_at",
+        "note",
+        "created_at",
+    )
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def save_model(self, request: HttpRequest, obj: VerifiedQuery, form: Any, change: bool) -> None:
+        """Nothing to save: every field is read-only, so the change page cannot set a status by hand."""
+
+    @admin.action(description="Зөвшөөрөх", permissions=["change"])  # needs native read
+    def approve(self, request: HttpRequest, queryset: QuerySet[VerifiedQuery]) -> None:
+        done = 0
+        refused: list[str] = []
+        for row in queryset.filter(status=VerifiedStatus.PROPOSED).select_related("proposed_by"):
+            problem, views = _approval_check(request.user, row)
+            if problem:
+                refused.append(f"#{row.pk} ({problem})")
+                continue
+            row.status = VerifiedStatus.APPROVED
+            row.views = views
+            row.reviewed_by = request.user  # type: ignore[assignment]
+            row.reviewed_at = timezone.now()
+            row.save(update_fields=["status", "views", "reviewed_by", "reviewed_at"])
+            done += 1
+        text = f"{done} зөвшөөрлөө, {len(refused)} алгаслаа"  # needs native read
+        if refused:
+            messages.warning(request, f"{text}: " + "; ".join(refused))
+        else:
+            messages.success(request, text)
+
+    @admin.action(description="Татгалзах", permissions=["change"])  # needs native read
+    def reject(self, request: HttpRequest, queryset: QuerySet[VerifiedQuery]) -> None:
+        count = 0
+        with transaction.atomic():
+            for row in queryset.filter(status=VerifiedStatus.PROPOSED):
+                row.status = VerifiedStatus.REJECTED
+                row.reviewed_by = request.user  # type: ignore[assignment]
+                row.reviewed_at = timezone.now()
+                row.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+                count += 1
+        messages.success(request, f"{count} татгалзлаа")  # needs native read
+
+
+@admin.register(SavedTable)
+class SavedTableAdmin(ModelAdmin):  # type: ignore[misc]
+    """Saved workspace tables, for review. Tables are saved from the workspace and listed under «Тайлан»; the admin
+    only lists them and deletes with the usual permission."""
+
+    list_display = ("name", "visibility", "author", "updated_at")
+    list_filter = ("visibility",)
+    search_fields = ("name",)
+    list_select_related = ("author",)
+    readonly_fields = ("name", "visibility", "sql", "labels", "settings", "author", "created_at", "updated_at")
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: object = None) -> bool:
+        return False  # the SQL must only come from a checked workspace tab; a change here would skip that check
 
 
 @admin.register(AssistantSettings)

@@ -75,9 +75,9 @@ def test_pick_contrast_light() -> None:
     edge = _colour(light, "pick-edge")
     ink = _colour(light, "pick-ink")
     surface = _colour(light, "surface")
-    assert contrast(ink, bright) >= 4.5, "ink on bright lime must be at least 4.5:1"
+    assert contrast(ink, bright) >= 4.5, "ink on bright pick colour must be at least 4.5:1"
     assert contrast(edge, surface) >= 3, "edge on white surface must be at least 3:1"
-    assert contrast(edge, tint) >= 4.5, "olive text on tint must be at least 4.5:1"
+    assert contrast(edge, tint) >= 4.5, "edge text on tint must be at least 4.5:1"
 
 
 def test_pick_contrast_dark() -> None:
@@ -89,8 +89,8 @@ def test_pick_contrast_dark() -> None:
     ink = _colour(dark, "pick-ink")
     surface = _colour(dark, "surface")
     assert surface.lower() == "#1e2b38", "dark surface is expected to be #1e2b38"
-    assert contrast(ink, bright) >= 4.5, "ink on bright lime must be at least 4.5:1 in dark"
-    assert contrast(bright, tint) >= 4.5, "bright lime text on dark tint must be at least 4.5:1"
+    assert contrast(ink, bright) >= 4.5, "ink on bright pick colour must be at least 4.5:1 in dark"
+    assert contrast(bright, tint) >= 4.5, "bright pick text on dark tint must be at least 4.5:1"
     assert contrast(edge, surface) >= 3, "edge on dark surface must be at least 3:1"
     assert contrast(edge, tint) >= 3, "edge on dark tint must be at least 3:1"
 
@@ -308,22 +308,14 @@ def test_swap_in_keyframes_and_class() -> None:
     )
 
 
-def test_lime_personal_menu_item_rule() -> None:
+def test_personal_menu_rules_are_gone() -> None:
+    """The personal section menu (rail sub-menu, lime picked item) and the group-as-page hiding are removed: the
+    topic groups are collapsible <details> now (UI_RULES §8). Replaces the lime-item rule checks."""
     css = _css()
-    selector = r'#personal-nav a\[data-pgroup-link\]\[aria-current="true"\]'
-    m = re.search(selector + r"\s*\{([^}]*)\}", css)
-    assert m, 'the lime rule for #personal-nav a[data-pgroup-link][aria-current="true"] is missing'
-    body = m.group(1)
-    assert "background-color: var(--color-pick-tint)" in body, "the picked menu item needs the lime tint"
-    assert "color: var(--color-pick-edge)" in body, "the picked menu item text must be olive (pick-edge)"
-    assert "font-weight: 600" in body, "the picked menu item needs weight 600 (a non-colour cue)"
-    assert "box-shadow: inset 3px 0 0 var(--color-pick-edge)" in body, "the picked menu item needs a 3px inset left bar"
-    assert re.search(r"#personal-nav a\[data-pgroup-link\]\s*\{[^}]*transition:[^}]*var\(--dur-hover\)", css), (
-        "the menu item background must transition over --dur-hover"
-    )
-    assert re.search(selector + r"\s*\{", _outside_layers(css)), (
-        "the lime menu item rule must be unlayered so it beats the menu link's utility classes"
-    )
+    assert "#personal-nav" not in css, "the rail sub-menu rules must be deleted with the menu"
+    assert "[data-off]" not in css, "the group-as-page hiding (data-off) is gone"
+    assert "sec-flash" not in css, "the menu-click flash is gone with the menu"
+    assert "data-pgroup-link" not in css, "the menu group links are gone"
 
 
 def test_main_tabs_and_rail_stay_red() -> None:
@@ -400,9 +392,8 @@ def test_motion_js_hardening() -> None:
     )
 
 
-# --- Assistant panel and chart pane slide (plan 2026-11-08-selection-motion, task 9) ---
+# --- Assistant panel slide (plan 2026-11-08-selection-motion, task 9) ---
 PALETTE_JS = ROOT / "static/js/palette.js"
-ASSISTANT_CHART_JS = ROOT / "static/js/assistant_chart.js"
 
 
 def test_palette_close_starts_exit_after_focus_and_state() -> None:
@@ -440,7 +431,7 @@ def test_assistant_slide_keyframes_and_rules() -> None:
     assert "@keyframes hr-slide-in" in css, "the hr-slide-in keyframes are missing from input.css"
     assert "@keyframes hr-slide-out" in css, "the hr-slide-out keyframes are missing from input.css"
     rules = _rules(css)
-    for ident in ("#assistant-panel", "#assistant-chart-pane"):
+    for ident in ("#assistant-panel",):
         enter = [
             i
             for i, (sel, body) in enumerate(rules)
@@ -456,18 +447,7 @@ def test_assistant_slide_keyframes_and_rules() -> None:
         assert leave[-1] > enter[0], f"the {ident} exit rule must come after its entry rule (equal specificity)"
 
 
-def test_chart_pane_closes_through_hrleave_and_open_cancels_exit() -> None:
-    js = ASSISTANT_CHART_JS.read_text(encoding="utf-8")
-    close = _named_fn_body(js, "closePane")
-    assert "hrLeave(pane" in close, "closePane must play the pane exit through window.hrLeave"
-    assert "__closing" in close, "the pane exit uses a token"
-    opened = _named_fn_body(js, "openPane")
-    assert "__closing = null" in opened and 'removeAttribute("data-leaving")' in opened, "openPane cancels a pane exit"
-    assert 'attributeFilter: ["hidden", "data-leaving"]' in js, "the panel observer also follows the leaving state"
-    assert 'pane.hasAttribute("data-leaving")' in js, "openChartState: a pane that is sliding out is not an open chart"
-
-
-# --- Fix round 1 (task 9): no slide on page-load open; focus leaves the chart pane before the exit ---
+# --- Fix round 1 (task 9): no slide on page-load open ---
 def test_page_load_open_does_not_slide_in() -> None:
     js = PALETTE_JS.read_text(encoding="utf-8")
     body = _named_fn_body(js, "openPanel")
@@ -482,14 +462,6 @@ def test_page_load_open_does_not_slide_in() -> None:
     assert enter, "the enter rule for the panel must exist"
     assert ":not([data-no-enter])" in enter[0], "the enter rule skips a page-load open"
     assert ":not([data-leaving])" in enter[0], "the enter rule does not apply while the panel leaves"
-
-
-def test_close_panel_moves_focus_out_of_chart_pane_too() -> None:
-    js = PALETTE_JS.read_text(encoding="utf-8")
-    body = _named_fn_body(js, "closePanel")
-    assert "chartPane.contains(document.activeElement)" in body, (
-        "closePanel treats focus inside the chart pane as inside (it goes inert with the panel)"
-    )
 
 
 # --- Task 10: page cross-fade (plan 2026-11-08-selection-motion) ---
@@ -557,7 +529,11 @@ def test_picked_css_is_screen_only_or_print_neutralised() -> None:
         (enclosing, sel, body)
         for enclosing, sel, body in blocks
         if not sel.startswith("@")
-        and (PICK_TOKEN.search(body) or re.search(r"\.is-picked|bg-surface|a\.is-picked", sel))
+        # `:not(.is-picked)` styles rows that are NOT picked (hover, phone cards): not a picked rule.
+        and (
+            PICK_TOKEN.search(body)
+            or re.search(r"\.is-picked|bg-surface|a\.is-picked", sel.replace(":not(.is-picked)", ""))
+        )
     ]
     assert lime, "no picked (lime) rules found: the guard would pass vacuously"
     print_selectors: set[str] = set()
@@ -622,11 +598,10 @@ def test_popup_queries_skip_leaving_elements() -> None:
     assert not offenders, "popup queries must skip leaving elements:\n" + "\n".join(offenders)
 
 
-def test_swap_in_clears_class_on_cancel() -> None:
-    """A hidden panel cancels the swap-in animation: the class must go on animationcancel too, not stay on."""
-    for path in (DETAIL_HTML, STATIC_JS / "sections.js"):
-        text = path.read_text(encoding="utf-8")
-        m = re.search(r"function swapIn\(el\)", text)
-        assert m, f"swapIn missing in {path.name}"
-        body = text[m.start() : m.start() + 700]
-        assert "animationcancel" in body, f"swapIn in {path.name} must also listen for animationcancel"
+def test_swap_in_is_not_used_by_the_groups() -> None:
+    """Opening a personal group is a <details> toggle (one scroll, 2026-11-09): sections.js adds no swap-in class,
+    so no animation can be left stuck on a hidden panel. Replaces the old animationcancel check on swapIn()."""
+    text = (STATIC_JS / "sections.js").read_text(encoding="utf-8")
+    assert "swap-in" not in text
+    assert "swapIn" not in text
+    assert "animationcancel" not in text

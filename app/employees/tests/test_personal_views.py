@@ -436,7 +436,7 @@ def test_personal_tab_renders_six_sections(client: Client, hired: Employee) -> N
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     titles = ["Хаяг", "Яаралтай үед холбогдох", "Гэр бүл", "Боловсрол", "Авьяас", "Олгосон бэлэг"]
     start = body.index('id="tab-personal"')
-    positions = [body.index(f">{title}", start) for title in titles]
+    positions = [body.index(f'class="sec-title">{title}', start) for title in titles]  # the section heading, not a chip
     assert positions == sorted(positions)
     # address, contact, family, education, certificate, training, language, talent, gift are empty (9),
     # plus the 11 new personal lists, each empty list adds one more: 9 + 11 = 20
@@ -473,9 +473,7 @@ def test_personal_tab_sections_in_anketa_order(client: Client, hired: Employee) 
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     positions = [body.index(f'id="sec-{name}"') for name in ANKETA_ORDER]
     assert positions == sorted(positions)
-    # the menu links follow the same order, and each group header sits right before its first entry
-    menu = [body.index(f'href="#sec-{name}"') for name in ANKETA_ORDER]
-    assert menu == sorted(menu)
+    # each topic group's <details> opens right before its first section
     for key, first in (
         ("basic", "identity"),
         ("edu", "education"),
@@ -483,31 +481,35 @@ def test_personal_tab_sections_in_anketa_order(client: Client, hired: Employee) 
         ("health", "body"),
         ("other", "other"),
     ):
-        assert body.index(f'data-group="{key}"') < body.index(f'href="#sec-{first}"')
+        assert body.index(f'<details data-pgroup="{key}"') < body.index(f'id="sec-{first}"')
 
 
 def _nav_count(body: str, section: str) -> str:
-    """The grey count shown in the section menu link of one section."""
-    pattern = rf'data-sec="{section}"(?:(?!</a>).)*?text-xs (?:invisible|text-slate-500)">([^<]*)</span>'
-    found = re.search(pattern, body, re.S)
+    """The count chip in a group summary of one section (UI_RULES §8); no chip means no rows."""
+    found = re.search(rf'id="menu-count-{section}">([^<]*)</span>', body)
     assert found is not None, section
     return found.group(1)
 
 
-def test_personal_nav_counts(client: Client, hired: Employee, lists: dict[str, Any]) -> None:
+def _other_filled(body: str) -> int:
+    """Filled fields of «Бусад мэдээлэл» from its chip; no chip (nothing filled) counts as 0."""
+    found = re.search(r'id="menu-count-other">(\d+)/(\d+)</span>', body)
+    return int(found.group(1)) if found else 0
+
+
+def test_personal_group_counts(client: Client, hired: Employee, lists: dict[str, Any]) -> None:
+    """The group summaries show a chip per section with rows: contacts 2; a list with no rows has no chip at all."""
     login_as(client, "HR")
     assert client.post(add_url(hired, "address"), values_for("address", lists)).status_code == 204
     second = {**values_for("address", lists), "street": "Шинэ гудамж"}
     assert client.post(add_url(hired, "address"), second).status_code == 204
     Employee.objects.filter(pk=hired.pk).update(prior_service_years=3)
-    with_service = _nav_count(client.get(f"/employees/{hired.pk}/").content.decode(), "other")
+    with_service = client.get(f"/employees/{hired.pk}/").content.decode()
     Employee.objects.filter(pk=hired.pk).update(prior_service_years=0)
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     assert _nav_count(body, "contact") == "2"
-    assert _nav_count(body, "gift") == "0"  # list sections always show their count, 0 included
-    without_service = _nav_count(body, "other")
-    assert without_service.endswith("/10")
-    assert int(with_service.split("/")[0]) == int(without_service.split("/")[0]) + 1
+    assert 'id="menu-count-gift" class="invisible"' in body  # a list with no rows: chip hidden, number invisible
+    assert _other_filled(with_service) == _other_filled(body) + 1
 
 
 def test_personal_tab_has_no_emp_form_inputs(client: Client, hired: Employee) -> None:
@@ -518,8 +520,8 @@ def test_personal_tab_has_no_emp_form_inputs(client: Client, hired: Employee) ->
     if end == -1:
         end = body.index('id="activity-backdrop"', start)
     assert 'form="emp-form"' not in body[start:end]
-    assert 'id="personal-nav"' not in body[start:end]  # the section menu lives in the page rail
-    assert 'id="personal-nav"' in body[body.index('id="emp-rail"') : start]
+    assert 'data-pgroup="basic"' in body[start:end]  # the groups are collapsible groups in the section itself
+    assert 'id="personal-nav"' not in body  # the section menu is gone (plan 2026-11-09 task 4)
 
 
 def test_personal_tab_comes_last_in_rail_and_tab_bar(client: Client, hired: Employee) -> None:
@@ -533,13 +535,13 @@ def test_personal_tab_comes_last_in_rail_and_tab_bar(client: Client, hired: Empl
     assert bar.index('href="#work"') < bar.index('href="#salary"') < bar.index('href="#personal"')
 
 
-def test_rail_names_the_employee_for_a_scrolled_page(client: Client, hired: Employee) -> None:
-    """The rail carries the employee's name, hidden until the page header scrolls away (UI_RULES §8)."""
+def test_rail_names_the_employee(client: Client, hired: Employee) -> None:
+    """The rail carries the employee's name in the facts card, shown from the start (UI_RULES §8)."""
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
     rail = body[body.index('id="emp-rail"') : body.index("</aside>", body.index('id="emp-rail"'))]
     who = rail[rail.index('id="rail-who"') : rail.index("</div>", rail.index('id="rail-who"'))]
-    assert "hidden" in who
+    assert "hidden" not in who[: who.index(">")]
     assert hired.full_name in who
 
 
@@ -831,8 +833,8 @@ def test_relative_row_all_optional_null_is_editable(client: Client, hired: Emplo
 def test_relative_menu_after_family(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Хамаатан садан</span>" in body
-    family, relative, education = (body.index(f'href="#sec-{s}"') for s in ("family", "relative", "education"))
+    assert "Хамаатан садан" in body
+    family, relative, education = (body.index(f'id="sec-{s}"') for s in ("family", "relative", "education"))
     assert family < relative < education
 
 
@@ -879,9 +881,9 @@ def test_before_work_requires_years(client: Client, hired: Employee, lists: dict
 def test_before_work_menu_between_education_and_certificate(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Ажлын туршлага</span>" in body
+    assert "Ажлын туршлага" in body
     education, before_work, certificate = (
-        body.index(f'href="#sec-{s}"') for s in ("education", "before_work", "certificate")
+        body.index(f'id="sec-{s}"') for s in ("education", "before_work", "certificate")
     )
     assert education < before_work < certificate
 
@@ -936,9 +938,8 @@ def _add_rows(client: Client, employee: Employee, lists: dict[str, Any], numbers
 # 172 since base.html asks whether the assistant is on (the floating «Асуух» button, tag assistant_on): one settings lookup.
 # 173 since the nav link «Өөрөө бөглөх анкет» shows the count of submitted self-forms to users who can manage staff:
 # one cheap COUNT (accounts/nav.py, employee self-form spec).
-# 174 since the «Модулиуд» nav link asks whether the user is an Admin (accounts.views_modules.may_manage_modules: one
-# group lookup per request, skipped for a superuser). The module on/off state itself is cached per process for 30 s.
-PERSONAL_TAB_QUERIES = 174
+# (the «Модулиуд» nav link was removed when modules moved to the admin console: back to 173)
+PERSONAL_TAB_QUERIES = 173
 
 
 def test_personal_tab_query_count(
@@ -966,8 +967,8 @@ def test_personal_tab_query_count(
 # 170 with the nav query above.
 # 172 with the offboarding panel's two lookups (see PERSONAL_TAB_QUERIES).
 # 174 with the self-form nav count (see PERSONAL_TAB_QUERIES: 173 + the waiting-change lookup).
-# 175 with the «Модулиуд» nav link's group lookup (see PERSONAL_TAB_QUERIES).
-WAITING_ONE_QUERIES = 175
+# back to 174 once the «Модулиуд» nav link left the menu (see PERSONAL_TAB_QUERIES).
+WAITING_ONE_QUERIES = 174
 
 
 def test_personal_tab_query_count_with_one_waiting_change(
@@ -997,50 +998,49 @@ def test_personal_tab_query_count_with_one_waiting_change(
     assert len(after.captured_queries) == WAITING_ONE_QUERIES
 
 
-def test_menu_item_partial_has_no_number() -> None:
-    """Entries have no анкет numbers since 2026-10-22 (UI_RULES §8); a stray `number` is ignored."""
+def test_group_chip_has_no_number_and_shows_the_count() -> None:
+    """Entries have no анкет numbers since 2026-10-22 (UI_RULES §8); a stray `number` is ignored by the chip."""
     plain = render_to_string(
-        "employees/_personal_menu_item.html",
-        {"sec": "language", "title": "Гадаад хэл", "count": "3", "number": 7},
+        "employees/_personal_group_chip.html",
+        {"key": "language", "label": "Гадаад хэл", "count": 3, "number": 7},
     )
     assert "7." not in plain
-    assert 'href="#sec-language"' in plain
     assert "Гадаад хэл" in plain
-    assert ">3<" in plain
+    assert 'id="menu-count-language">3</span>' in plain
 
 
-def _menu(page: str) -> str:
-    """The personal tab's section menu out of a whole employee page."""
-    start = page.index('id="personal-nav"')
-    return page[start : page.index("</nav>", start)]
-
-
-def test_menu_group_partial_links_to_its_group_page() -> None:
-    """A group header opens that topic group as its own page (UI_RULES §8), it no longer folds."""
-    group = render_to_string("employees/_personal_menu_group.html", {"title": "Бусад жагсаалт", "key": "other"})
-    assert "Бусад жагсаалт" in group
-    assert 'href="#personal-other"' in group
-    assert 'data-pgroup-link="other"' in group
+def test_group_summary_partial_is_a_summary_row_with_its_title() -> None:
+    """A group's summary is a plain <summary> with the title and no button (UI_RULES §8): it folds, the title stays."""
+    group = render_to_string(
+        "employees/_personal_group_summary.html", {"title": "Бусад жагсаалт", "group": "other", "section_counts": {}}
+    )
+    assert "<summary" in group and "Бусад жагсаалт" in group
     assert "<button" not in group
+    assert 'href="#' not in group
 
 
-def test_personal_tab_groups_match_the_menu(client: Client, hired: Employee) -> None:
-    """Every menu group has a [data-pgroup] block on the tab; only the first starts shown."""
+def test_personal_tab_groups_are_details_in_order(client: Client, hired: Employee) -> None:
+    """The five topic groups are <details> blocks in order; only «Үндсэн мэдээлэл» starts open."""
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    menu_keys = re.findall(r'data-pgroup-link="(\w+)"', _menu(body))
     tab = body[body.index('id="tab-personal"') :]
-    assert menu_keys == ["basic", "edu", "award", "health", "other"]
-    assert re.findall(r'<div data-pgroup="(\w+)"', tab) == menu_keys
-    assert '<div data-pgroup="basic">' in tab
-    assert all(f'<div data-pgroup="{k}" data-off>' in tab for k in menu_keys[1:])
-    assert tab.index('<div data-pgroup="edu"') < tab.index('id="sec-talent"') < tab.index('<div data-pgroup="award"')
+    keys = ["basic", "edu", "award", "health", "other"]
+    assert re.findall(r'<details data-pgroup="(\w+)"', tab) == keys
+    assert re.search(r'<details data-pgroup="basic"[^>]*\sopen>', tab)
+    assert all(not re.search(rf'<details data-pgroup="{k}"[^>]*\sopen>', tab) for k in keys[1:])
+    edu, talent, award = (
+        tab.index(s) for s in ('<details data-pgroup="edu"', 'id="sec-talent"', '<details data-pgroup="award"')
+    )
+    assert edu < talent < award
 
 
-def test_menu_item_partial_without_count_has_no_count_span() -> None:
-    plain = render_to_string("employees/_personal_menu_item.html", {"sec": "identity", "title": "Хувийн мэдээлэл"})
-    assert "Хувийн мэдээлэл" in plain
-    assert 'href="#sec-identity"' in plain
+def test_group_summary_partial_without_counts_has_no_chip() -> None:
+    plain = render_to_string(
+        "employees/_personal_group_summary.html", {"title": "Үндсэн мэдээлэл", "group": "basic", "section_counts": {}}
+    )
+    assert "Үндсэн мэдээлэл" in plain
+    assert 'Гэр бүл <span id="menu-count-family" class="invisible"></span>' in plain  # no rows: chip present, hidden
+    assert plain.count('class="invisible"') == 3  # the three basic-group chips
     assert "text-xs text-slate-400" not in plain
 
 
@@ -1074,8 +1074,8 @@ def test_skill_norm_unchanged_edit_is_not_stale(client: Client, hired: Employee)
 def test_skill_menu_between_talent_and_gift(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Ур чадварын даалгавар</span>" in body
-    talent, skill, gift = (body.index(f'href="#sec-{s}"') for s in ("talent", "skill", "gift"))
+    assert "Ур чадварын даалгавар" in body
+    talent, skill, gift = (body.index(f'id="sec-{s}"') for s in ("talent", "skill", "gift"))
     assert talent < skill < gift
 
 
@@ -1092,8 +1092,8 @@ def test_material_help_section_renders_columns(client: Client, hired: Employee, 
 def test_material_help_menu_after_gift(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Буцалтгүй тусламж</span>" in body
-    gift, material_help, other = (body.index(f'href="#sec-{s}"') for s in ("gift", "material_help", "other"))
+    assert "Буцалтгүй тусламж" in body
+    gift, material_help, other = (body.index(f'id="sec-{s}"') for s in ("gift", "material_help", "other"))
     assert gift < material_help < other
 
 
@@ -1118,14 +1118,14 @@ def test_award_empty_description_saves_empty_string(client: Client, hired: Emplo
     assert AwardRow.objects.get(pk=key).description == ""
 
 
-def test_award_group_label_before_award_section(client: Client, hired: Employee) -> None:
+def test_award_group_opens_before_award_section(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    label = '<li class="menu-group" data-group="award">'
-    assert label in body
-    talent, group, award = (body.index(s) for s in ('href="#sec-skill"', label, 'href="#sec-award"'))
-    assert talent < group < award
-    assert "Шагнал урамшил</span>" in body
+    group = '<details data-pgroup="award"'
+    assert group in body
+    talent, opener, award = (body.index(s) for s in ('id="sec-skill"', group, 'id="sec-award"'))
+    assert talent < opener < award
+    assert "Шагнал урамшил" in body[award:]
 
 
 def test_discipline_section_renders_columns(client: Client, hired: Employee, lists: dict[str, Any]) -> None:
@@ -1157,8 +1157,8 @@ def test_discipline_percent_and_dates_unchanged_edit_not_stale(
 def test_discipline_menu_after_award(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Сахилгын шийтгэл</span>" in body
-    award, discipline = (body.index(f'href="#sec-{s}"') for s in ("award", "discipline"))
+    assert "Сахилгын шийтгэл" in body
+    award, discipline = (body.index(f'id="sec-{s}"') for s in ("award", "discipline"))
     assert award < discipline
 
 
@@ -1197,13 +1197,12 @@ def test_complaint_unknown_code_shows_number_and_stays_editable(
     assert ComplaintRow.objects.get(pk=key).ctype == 3
 
 
-def test_complaint_menu_after_discipline(client: Client, hired: Employee) -> None:
+def test_complaint_after_discipline(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Үйлчлүүлэгчийн гомдол</span>" in body
-    body = _menu(body)  # the page also shows the group as a divider (UI_RULES §8)
-    assert body.count("Шагнал, сахилга") == 1
-    discipline, complaint = (body.index(f'href="#sec-{s}"') for s in ("discipline", "complaint"))
+    assert "Үйлчлүүлэгчийн гомдол" in body
+    assert body.count('font-semibold text-slate-900">Шагнал, сахилга</span>') == 1  # the group's summary title
+    discipline, complaint = (body.index(f'id="sec-{s}"') for s in ("discipline", "complaint"))
     assert discipline < complaint
 
 
@@ -1245,18 +1244,14 @@ def test_body_edit_popup_shows_every_field(client: Client, hired: Employee, list
         assert f'name="{name}"' in page, name
 
 
-def test_body_group_label_after_complaint(client: Client, hired: Employee) -> None:
+def test_body_group_opens_after_complaint(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     full = client.get(f"/employees/{hired.pk}/").content.decode()
-    page = _menu(full)  # the page also shows the group as a divider (UI_RULES §8)
-    assert page.count("Эрүүл мэнд, цэрэг") == 1
-    group = page.index("Эрүүл мэнд, цэрэг")
-    assert page[:group].rindex('<li class="menu-group') > page.index(
-        'href="#sec-complaint"'
-    )  # header opens its own <li>
-    complaint, entry = (page.index(f'href="#sec-{s}"') for s in ("complaint", "body"))
+    assert full.count('font-semibold text-slate-900">Эрүүл мэнд, цэрэг</span>') == 1  # the group's summary title
+    group = full.index('<details data-pgroup="health"')
+    complaint, entry = (full.index(f'id="sec-{s}"') for s in ("complaint", "body"))
     assert complaint < group < entry
-    assert "Эрүүл мэндийн үзлэг</span>" in page
+    assert "Эрүүл мэндийн үзлэг" in full[entry:]
     assert full.index('id="sec-complaint"') < full.index('id="sec-body"')
 
 
@@ -1294,13 +1289,12 @@ def test_military_edit_popup_shows_every_field(client: Client, hired: Employee, 
         assert f'name="{name}"' in page, name
 
 
-def test_military_menu_after_driver(client: Client, hired: Employee) -> None:
+def test_military_after_driver(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    body = _menu(body)  # the page also shows the group as a divider (UI_RULES §8)
-    assert body.count("Эрүүл мэнд, цэрэг") == 1
-    assert "Цэргийн алба</span>" in body
-    driver, military = (body.index(f'href="#sec-{s}"') for s in ("driver", "military"))
+    assert body.count('font-semibold text-slate-900">Эрүүл мэнд, цэрэг</span>') == 1  # the group's summary title
+    assert "Цэргийн алба" in body
+    driver, military = (body.index(f'id="sec-{s}"') for s in ("driver", "military"))
     assert driver < military
 
 
@@ -1355,8 +1349,8 @@ def test_military_and_army_rank_are_separate_lists(client: Client, hired: Employ
 def test_army_rank_menu_after_military(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    assert "Цэргийн цол</span>" in body
-    military, army_rank = (body.index(f'href="#sec-{s}"') for s in ("military", "army_rank"))
+    assert "Цэргийн цол" in body
+    military, army_rank = (body.index(f'id="sec-{s}"') for s in ("military", "army_rank"))
     assert military < army_rank
     assert body.index('id="sec-military"') < body.index('id="sec-army_rank"')
 
@@ -1391,13 +1385,12 @@ def test_driver_unchanged_edit_not_stale(client: Client, hired: Employee, lists:
     assert row.inserted_ognoo == date(2026, 3, 1)
 
 
-def test_driver_menu_after_body(client: Client, hired: Employee) -> None:
+def test_driver_after_body(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
-    body = _menu(body)  # the page also shows the group as a divider (UI_RULES §8)
-    assert body.count("Эрүүл мэнд, цэрэг") == 1
-    assert "Жолоо</span>" in body
-    entry, driver = (body.index(f'href="#sec-{s}"') for s in ("body", "driver"))
+    assert body.count('font-semibold text-slate-900">Эрүүл мэнд, цэрэг</span>') == 1  # the group's summary title
+    assert "Жолоо" in body
+    entry, driver = (body.index(f'id="sec-{s}"') for s in ("body", "driver"))
     assert entry < driver
 
 
@@ -1439,7 +1432,7 @@ def test_new_list_hidden_without_personal_right(
     page = client.get(f"/employees/{hired.pk}/").content.decode()
     assert pw.TITLES[kind] not in page
     assert f'id="sec-{kind}"' not in page
-    assert f'href="#sec-{kind}"' not in page
+    assert f'id="menu-count-{kind}"' not in page
     assert client.get(add_url(hired, kind)).status_code in (403, 404)
     assert client.post(add_url(hired, kind), values_for(kind, lists)).status_code in (403, 404)
     assert client.get(edit_url(hired, kind, key)).status_code in (403, 404)

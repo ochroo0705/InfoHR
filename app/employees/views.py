@@ -28,8 +28,10 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import Resolver404, resolve, reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.vary import vary_on_headers
 from leave import access as leave_access
@@ -37,7 +39,7 @@ from leave.services import ledger as leave_ledger
 from macs.models import Absence, Command
 from reports.staff_list import REPORT as STAFF_LIST
 
-from employees import access, attention, company_stats, history_range, palette, sections, stale
+from employees import access, attention, company_stats, history_range, palette, sections, signature_image, stale
 from employees import today as facts
 from employees.forms import (
     BIRTH_FIELDS,
@@ -75,6 +77,7 @@ from employees.models import (
     EventType,
     HrOrder,
     JobRecord,
+    OrderSigning,
     OrderState,
     OrderType,
     SelfFormInvitation,
@@ -97,8 +100,10 @@ from employees.services import (
     macs_writes,
     order_docs,
     order_register,
+    order_signing,
     orders,
     personal_rows,
+    print_jobs,
     records,
     setup,
     slots,
@@ -187,16 +192,35 @@ def today_page(request: HttpRequest) -> HttpResponse:
         "headcount": headcount,
         "away": facts.away_on(user, rows, today),
         "pending_orders": facts.pending_orders(user, rows),
+        "can_manage": access.can_manage(user),
         "away_strip": strip,
         "away_cells": away_cells(strip, headcount),
         "upcoming_counts": facts.upcoming_counts(facts.upcoming(user, rows, today)),
+        "new_hires_count": len(facts.new_hires(rows, today)),  # Ойрын 30 хоног: hires line (count only)
         "show_birthdays": user.has_perm("macs.view_personal"),  # without it the count is always 0: no line
+        "holidays": facts.holidays_ahead(today),  # Ойрын 30 хоног: holidays line
+        "open_vacancies": facts.open_vacancies(user),  # Ойрын 30 хоног: vacancies line (None: no line)
+        "checklist_summary": facts.checklist_summary(user, rows, today),  # Ойрын 30 хоног: checklist line
         "company": company_stats.company(user, rows, today),
+        "has_own_page": access.own_employee(user) is not None,  # header link to My page (Миний хуудас)
         "attention_open": True,
     }
     context.update(_attention_context(user, attention.items(user, rows, today)))
     context["attention_count"] = len(context["attention"])
     return render(request, "employees/today.html", context)
+
+
+@login_required
+def company_page(request: HttpRequest) -> HttpResponse:
+    """The company figures (headcount, turnover, departments, tenure) on their own page; the Today page links here."""
+    user, today = _user(request), timezone.localdate()
+    if not user.has_perm("macs.view_employees"):
+        raise PermissionDenied
+    rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
+    company = company_stats.company(user, rows, today)
+    if company is None:
+        raise PermissionDenied
+    return render(request, "employees/company.html", {"today": today, "company": company})
 
 
 @login_required
@@ -219,6 +243,17 @@ def today_away(request: HttpRequest) -> HttpResponse:
 
 @login_required
 @require_GET
+def today_views(request: HttpRequest) -> HttpResponse:
+    """The report setups that say what is coming up, with their counts (empty without reports.view_reports)."""
+    from reports.today_tiles import tiles  # loaded per call: it pulls in the report registry, which imports employees
+
+    response = render(request, "employees/_today_views.html", {"tiles": tiles(_user(request))})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@login_required
+@require_GET
 def today_upcoming(request: HttpRequest) -> HttpResponse:
     """The birthdays or the work anniversaries in the next 30 days (`?kind=birthday|anniversary`)."""
     user, today = _user(request), timezone.localdate()
@@ -229,6 +264,18 @@ def today_upcoming(request: HttpRequest) -> HttpResponse:
     facts.prime_exts(rows)  # the personal-data check reads each person's HR row (own record)
     found = [u for u in facts.upcoming(user, rows, today) if u.kind == kind]
     response = render(request, "employees/_today_upcoming.html", {"upcoming": found, "kind": kind})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@login_required
+@require_GET
+def today_hires(request: HttpRequest) -> HttpResponse:
+    """The names of people who joined in the last 30 days (the hires line of «Ойрын 30 хоног»)."""
+    user, today = _user(request), timezone.localdate()
+    rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
+    facts.prime_exts(rows)
+    response = render(request, "employees/_today_hires.html", {"hires": facts.new_hires(rows, today)})
     response["Cache-Control"] = "no-store"
     return response
 
@@ -250,13 +297,16 @@ def attention_toggle(request: HttpRequest) -> HttpResponse:
             attention.restore(user, item)
         else:  # "dismiss" (one item) or "dismiss_all" (a whole group)
             attention.dismiss(user, item)
-    return render(request, "employees/_attention.html", _attention_context(user, found))
+    context = _attention_context(user, found)
+    box = render_to_string("employees/_attention.html", context, request=request)
+    tile = render_to_string("employees/_attention_tile.html", {**context, "oob": True}, request=request)
+    return HttpResponse(box + tile)  # the tile sits outside the box: it is swapped out of band
 
 
 @login_required
 @require_GET
 def attention_more(request: HttpRequest) -> HttpResponse:
-    """The items of one Анхаарах group past the first `GROUP_LIMIT`, loaded when «Бүгдийг харах» is pressed."""
+    """The items of one Анхаарах group past the first `GROUP_LIMIT` («Бүгдийг харах»), or all of them with `all=1`."""
     user, today = _user(request), timezone.localdate()
     rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
     facts.prime_exts(rows)  # one query for every HR row: the attention rules read it per person
@@ -265,16 +315,36 @@ def attention_more(request: HttpRequest) -> HttpResponse:
     found = next((g for g in attention.group(shown) if g.kind == kind and str(g.urgency) == urgency), None)
     if found is None:
         raise Http404
-    response = render(
-        request, "employees/_attention_more.html", {"group": found, "rest": found.items[attention.GROUP_LIMIT :]}
-    )
+    try:
+        offset = max(0, int(request.GET.get("offset", "0")))
+    except ValueError:
+        offset = 0
+    context: dict[str, Any] = {"group": found, "rest": found.items[attention.GROUP_LIMIT :], "more": 0}
+    if request.GET.get("all") == "1" and not found.dated:  # a missing-data row: its people a page at a time
+        page_end = offset + attention.GAP_PAGE
+        context.update(
+            rest=found.items[offset:page_end],
+            more=max(0, len(found.items) - page_end),
+            next_offset=page_end,
+        )
+    response = render(request, "employees/_attention_more.html", context)
     response["Cache-Control"] = "no-store"
     return response
 
 
 def _attention_context(user: User, found: list[attention.Attention]) -> dict[str, object]:
     shown, hidden = attention.split(user, found)
-    return {"attention": shown, "attention_groups": attention.group(shown), "attention_hidden": hidden}
+    groups = attention.group(shown)
+    tiers = attention.tiers(groups)
+    return {
+        "attention": shown,
+        "attention_groups": groups,
+        "attention_tiers": tiers,
+        "urgent_count": tiers.urgent_count,
+        "soon_count": tiers.soon_count,
+        "gap_count": tiers.gap_count,
+        "attention_hidden": hidden,
+    }
 
 
 def _needs_setup(employee: Employee) -> bool:
@@ -1842,6 +1912,110 @@ def order_upload(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     return _modal(request, "Гарын үсэгтэй файл хавсаргах", form, request.path)
 
 
+# --- On-screen signing (order-signing board): the pop-up, the signing POST, the saved signature pictures ---
+SAVED_MISSING = "Хадгалсан гарын үсэг алга. Шинээр зурна уу."
+TEMPLATE_BROKEN = "Тушаалын загвар олдсонгүй эсвэл эвдэрсэн байна."
+
+
+def _sign_input(post: Any, user: User) -> tuple[str, bytes, bool]:
+    """The picture to sign with: (method, PNG bytes, remember). A saved signature is read from the user's own row; a
+    drawn one is cleaned here (the service takes only the cleaned bytes)."""
+    mode = post.get("mode", "")
+    if mode == OrderSigning.Method.SAVED:
+        png = order_signing.saved_signature_png(user)
+        if png is None:
+            raise OrderError({"__all__": SAVED_MISSING})
+        return OrderSigning.Method.SAVED, png, False
+    if mode == OrderSigning.Method.DRAWN:
+        data = post.get("signature", "")
+        if not data:
+            raise signature_image.SignatureError(signature_image.DRAW_ERROR)
+        return OrderSigning.Method.DRAWN, signature_image.clean_signature_data_url(data), bool(post.get("remember"))
+    raise OrderError({"__all__": order_signing.METHOD_ERROR})
+
+
+def _sign_popup(request: HttpRequest, employee: Employee, order: HrOrder, errors: list[str]) -> HttpResponse:
+    context = {
+        "employee": employee,
+        "order": order,
+        "action": request.path,
+        "errors": errors,
+        "has_saved": order_signing.saved_signature_png(_user(request)) is not None,  # one source of truth
+    }
+    return render(request, "employees/_order_sign.html", context)
+
+
+@login_required
+def order_sign(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
+    """The signing pop-up of a registered order (GET), and the signing itself (POST, mode saved or drawn). The
+    switch is checked here (access.can_sign_orders); the service checks the order state and the salary rule."""
+    employee, order = _order_for(request, pk, order_id)
+    user = _user(request)
+    _require(access.can_sign_orders(user, order))
+    if order.state != OrderState.REGISTERED:
+        raise Http404  # only a registered order is signed; a signed or pending one is final or not yet ready
+    if request.method != "POST":
+        _require(not access.signing_needs_salary_right(user, order))  # the same rule the POST and the button apply
+        return _sign_popup(request, employee, order, [])
+    errors: list[str] = []
+    try:
+        method, png, remember = _sign_input(request.POST, user)
+        order_signing.sign_order(order, by=user, png=png, method=method, remember=remember)
+        return _done(employee)
+    except signature_image.SignatureError as error:
+        errors = [str(error)]
+    except OrderError as error:
+        errors = list(error.errors.values())
+    except order_docs.OrderDocError:  # the Word template is missing or broken: nothing was written
+        errors = [TEMPLATE_BROKEN]
+    return _sign_popup(request, employee, order, errors)
+
+
+@login_required
+def order_signing_image(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
+    """The signature picture stamped on a signed order. Anyone who may see the employee may see it (_order_for)."""
+    _employee, order = _order_for(request, pk, order_id)
+    signing = OrderSigning.objects.filter(order=order).first()
+    if signing is None or not signing.image:
+        raise Http404
+    try:
+        handle = signing.image.open("rb")
+    except FileNotFoundError:
+        raise Http404 from None
+    response = FileResponse(handle, content_type="image/png")
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@login_required
+def my_signature_image(request: HttpRequest) -> HttpResponse:
+    """The user's own saved signature picture (only ever the requester's own, 404 when none)."""
+    png = order_signing.saved_signature_png(_user(request))
+    if png is None:
+        raise Http404
+    response = HttpResponse(png, content_type="image/png")
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@login_required
+@require_POST
+def my_signature_delete(request: HttpRequest) -> HttpResponse:
+    """Delete the user's own saved signature. The pop-up posts `next` (its own address) so the answer is the pop-up
+    again, now showing the board; without it the page refreshes."""
+    order_signing.delete_saved_signature(_user(request))
+    target = request.POST.get("next", "")
+    if target and url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(target)
+    response = HttpResponse(status=204)
+    response["HX-Refresh"] = "true"
+    return response
+
+
 FILE_TYPES = ((b"%PDF-", "application/pdf", ".pdf"), (b"\x89PNG", "image/png", ".png"))
 
 
@@ -1907,6 +2081,46 @@ def orders_print_selected(request: HttpRequest) -> FileResponse | HttpResponseBa
 
 
 @login_required
+@require_POST
+def orders_print_start(request: HttpRequest) -> JsonResponse:
+    """Start building the ticked orders' PDF in the background (the register, 11 orders or more); the page keeps
+    polling `orders_print_status` and offers `orders_print_file` when it is ready."""
+    user = _user(request)
+    _require(access.can_manage(user))
+    ids = [int(v) for v in request.POST.getlist("ids") if v.isdecimal() and len(v) <= MAX_ID_DIGITS]
+    if not ids:
+        return JsonResponse({"error": print_jobs.NOTHING}, status=400)
+    token = print_jobs.start(user, ids)
+    return JsonResponse({
+        "token": token,
+        "status": reverse("employees:orders_print_status", args=[token]),
+        "file": reverse("employees:orders_print_file", args=[token]),
+    })
+
+
+@login_required
+@require_GET
+def orders_print_status(request: HttpRequest, token: str) -> JsonResponse:
+    user = _user(request)
+    _require(access.can_manage(user))
+    info = print_jobs.status(user, token)
+    if info is None:
+        raise Http404
+    return JsonResponse(info)
+
+
+@login_required
+@require_GET
+def orders_print_file(request: HttpRequest, token: str) -> FileResponse:
+    user = _user(request)
+    _require(access.can_manage(user))
+    path = print_jobs.pdf_path(user, token)
+    if path is None:
+        raise Http404
+    return FileResponse(path.open("rb"), filename="tushaal-songoson.pdf", content_type=order_docs.PDF_TYPE)
+
+
+@login_required
 def order_detail(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     """Everything about one order in a pop-up (opened from the register): facts, links, history, actions."""
     employee, order = _order_for(request, pk, order_id)
@@ -1914,7 +2128,12 @@ def order_detail(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     siblings = list(employee.hr_orders.order_by("-date", "-pk"))
     job = order_docs.build_context(order, _user(request))  # department and position as the order document shows them
     event = order.event
+    user = _user(request)
     context = {
+        "can_sign": access.can_sign_orders(user, order)
+        and order.state == OrderState.REGISTERED
+        and not access.signing_needs_salary_right(user, order),
+        "signing": OrderSigning.objects.filter(order=order).first(),
         "change_status": event.status(timezone.localdate()) if event else "effective",
         "cancel_change": event is not None
         and event.cancelled_at is None
@@ -1928,6 +2147,8 @@ def order_detail(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
         "entries": order.activity.select_related("by").order_by("-at", "-id"),
         "department": job["department"],
         "position": job["position"],
+        # What the change changes, field by field ("before → after"); empty for a hire or a termination.
+        "change_rows": order_docs.change_rows(order, user),
         "editable": can_manage and order.state in (OrderState.PENDING, OrderState.REGISTERED),
     }
     return render(request, "employees/_order_detail.html", context)
@@ -2067,6 +2288,7 @@ def orders_page(request: HttpRequest) -> HttpResponse:
     is_partial = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-History-Restore-Request")
     if not is_partial:
         template = "employees/orders.html"
+        context["background_from"] = print_jobs.BACKGROUND_FROM
     else:
         more_of_it = bool(context["offset"])  # a later batch adds rows to the table; the first replaces it
         template = "employees/_order_register_items.html" if more_of_it else "employees/_order_register_rows.html"

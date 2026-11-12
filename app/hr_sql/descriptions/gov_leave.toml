@@ -1,0 +1,71 @@
+# needs native read
+# Draft. English from the catalogue text that was inline in hr_sql/catalogue.py. Status words come from the
+# LeaveAssign constants (macs/models.py). Mongolian drafted from the model labels; the three status words are
+# guesses: check them. Signed only by the domain owner.
+
+description = "One row per leave record (annual, sick or other leave) of an employee you may see. Use it for leave days and leave status. The free-text comment is not here."
+description_mn = "Харах эрхтэй ажилтны амралтын бүртгэл бүрийн нэг мөр (ээлжийн, өвчний болон бусад амралт). Амралтын өдөр, төлөвийг харахад ашиглана. Тайлбар энд байхгүй."
+
+rules = [
+    # Status codes 1, 2, 3 are approved, cancelled, rejected; any other code gives an empty STATUS_NAME.
+    # app/macs/models.py (LeaveAssign.APPROVED, CANCELLED, REJECTED); app/hr_sql/views.py (_LEAVE_STATUS_WORDS)
+    "STATUS_NAME: approved, cancelled or rejected. Any other status code gives an empty value.",
+    # The free-text comment is not in the view.
+    # app/macs/models.py (LeaveAssign.comment); app/hr_sql/views.py (GOV_LEAVE statement)
+    "The free-text comment of a leave record is not in the view.",
+    # One row per leave record, not per person: one person can have many rows.
+    # app/hr_sql/views.py (GOV_LEAVE statement)
+    "One row per leave record, so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = "Ochroo"
+reviewed_on = "2026-11-12"
+
+[[columns]]
+name = "LEAVE_ID"
+description = "Leave record number (internal id)"
+description_mn = "Амралтын бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "LEAVE_TYPE_NAME"
+description = "Leave type name, for example annual leave"
+description_mn = "Амралтын төрөл"
+label_mn = "Амралтын төрөл"
+synonyms = ["type", "leave type"]
+
+[[columns]]
+name = "START_DATE"
+description = "First day of the leave"
+description_mn = "Эхлэх огноо"
+label_mn = "Эхлэх огноо"
+synonyms = ["from", "start"]
+
+[[columns]]
+name = "END_DATE"
+description = "Last day of the leave"
+description_mn = "Дуусах огноо"
+label_mn = "Дуусах огноо"
+synonyms = ["to", "end", "return"]
+
+[[columns]]
+name = "DAYS"
+description = "Number of leave days recorded"
+description_mn = "Хоног"
+label_mn = "Хоног"
+synonyms = ["days", "length"]
+
+[[columns]]
+name = "STATUS_NAME"
+description = "Status: approved, cancelled or rejected (empty when unknown)"
+description_mn = "Төлөв: approved = батлагдсан, cancelled = цуцалсан, rejected = татгалзсан. Хоосон бол тодорхойгүй."
+label_mn = "Төлөв"
+synonyms = ["status"]

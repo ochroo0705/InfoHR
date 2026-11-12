@@ -85,23 +85,22 @@ def _td_tags(row: str) -> list[str]:
 # ---- the colour of each cell ----
 
 
-def test_amber_mark_colours_only_the_matching_cells(marks_report: Report, accountant_user: User) -> None:
+def test_amber_mark_colours_the_whole_matching_row(marks_report: Report, accountant_user: User) -> None:
     table = build_table(marks_report, accountant_user, _filters("name,age", marks=AMBER_OVER_30))
     by_name = {row[0].value: row for row in table.groups[0][1]}
-    assert by_name["Дорж"][1].mark == AMBER
-    assert by_name["Сараа"][1].mark == AMBER
-    assert by_name["Бат"][1].mark == ""
-    assert by_name["Номин"][1].mark == ""
-    assert by_name["Дорж"][0].mark == ""  # the name column has no mark
+    assert all(cell.mark == AMBER for cell in by_name["Дорж"])
+    assert all(cell.mark == AMBER for cell in by_name["Сараа"])
+    assert all(cell.mark == "" for cell in by_name["Бат"])
+    assert all(cell.mark == "" for cell in by_name["Номин"])
 
 
-def test_amber_mark_puts_the_classes_on_the_matching_td_only(
+def test_amber_mark_puts_the_classes_on_every_td_of_the_matching_row(
     client: Client, login_as: Callable[..., User], marks_report: Report
 ) -> None:
     login_as(client, "Accountant")
     page = client.get(PAGE, {"cols": ["name", "age"], "marks": AMBER_OVER_30}).content.decode()
-    assert _td_tags(_body_row(page, "Дорж"))[1] == f'<td class="text-right {AMBER}">'
-    assert _td_tags(_body_row(page, "Сараа"))[1] == f'<td class="text-right {AMBER}">'
+    assert all(AMBER in td for td in _td_tags(_body_row(page, "Дорж")))
+    assert all(AMBER in td for td in _td_tags(_body_row(page, "Сараа")))
     assert _td_tags(_body_row(page, "Бат"))[1] == '<td class="text-right">'
     assert AMBER not in _body_row(page, "Бат")
 

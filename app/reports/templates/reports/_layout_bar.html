@@ -11,6 +11,15 @@
     </select>
   </label>
   {% endif %}
+  {% if layout == "board" %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Эрэмбэ</span>
+    <select name="lorder" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      <option value=""{% if not spec.order %} selected{% endif %}>Анхны дараалал</option>
+      <option value="count"{% if spec.order == "count" %} selected{% endif %}>Тоогоор</option>
+    </select>
+  </label>
+  {% endif %}
   {% if layout == "pivot" %}
   <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
     <span class="shrink-0 text-slate-500">Багана</span>
@@ -34,11 +43,80 @@
     </select>
   </label>
   {% endif %}
-  {% if layout == "chart" or layout == "pivot" %}
+  {% if layout == "timeline" %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Бүлэглэх</span>
+    <select name="lgroup" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      <option value=""{% if not spec.group %} selected{% endif %}>—</option>
+      {% for key, label in layout_choices.group %}<option value="{{ key }}"{% if spec.group and key == spec.group.key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if layout == "calendar" %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Давтах</span>
+    <select name="lrep" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      <option value=""{% if not filters.lrep %} selected{% endif %}>Автомат</option>
+      <option value="1"{% if filters.lrep == "1" %} selected{% endif %}>Тийм</option>
+      <option value="0"{% if filters.lrep == "0" %} selected{% endif %}>Үгүй</option>
+    </select>
+  </label>
+  {% endif %}
+  {% if layout == "board" or layout == "chart" or layout == "pivot" %}
   <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
     <span class="shrink-0 text-slate-500">Утга</span>
     <select name="lval" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
       {% for key, label in layout_choices.value %}<option value="{{ key }}"{% if key == layout_value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if layout == "pivot" %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Утга 2</span>
+    <select name="lval2" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      <option value=""{% if not layout_value2 %} selected{% endif %}>—</option>
+      {% for key, label in layout_choices.value %}<option value="{{ key }}"{% if key == layout_value2 %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if layout == "chart" and spec.chart == "stacked" and spec.by2 %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Хуваах</span>
+    <select name="lby2" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      {% for key, label in layout_choices.by2 %}<option value="{{ key }}"{% if key == spec.by2.key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if layout == "chart" or layout == "pivot" %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Харуулах</span>
+    <select name="lshow" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      <option value=""{% if not spec.show %} selected{% endif %}>Тоо / үнэ</option>
+      <option value="pct"{% if spec.show == "pct" %} selected{% endif %}>Нийтийн %</option>
+      {% if layout == "pivot" %}
+      <option value="rowpct"{% if spec.show == "rowpct" %} selected{% endif %}>Мөрийн %</option>
+      <option value="colpct"{% if spec.show == "colpct" %} selected{% endif %}>Баганын %</option>
+      {% endif %}
+    </select>
+  </label>
+  {% endif %}
+  {% if layout == "chart" or layout == "pivot" %}{% if layout_dated %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Хуваалт</span>
+    <select name="lgrain" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      <option value="month"{% if layout_grain == "month" %} selected{% endif %}>Сар</option>
+      <option value="quarter"{% if layout_grain == "quarter" %} selected{% endif %}>Улирал</option>
+      <option value="year"{% if layout_grain == "year" %} selected{% endif %}>Жил</option>
+    </select>
+  </label>
+  {% endif %}{% endif %}
+  {% if layout == "chart" and layout_sort_ok %}
+  <label class="flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-surface pl-3">
+    <span class="shrink-0 text-slate-500">Эрэмбэ</span>
+    <select name="lsort" data-search="off" class="max-w-full bg-transparent py-2 pl-1 pr-8 text-sm">
+      <option value=""{% if not spec.sort %} selected{% endif %}>Ангилалаар</option>
+      <option value="value"{% if spec.sort == "value" %} selected{% endif %}>Утгаар буурах</option>
+      <option value="valueasc"{% if spec.sort == "valueasc" %} selected{% endif %}>Утгаар өсөх</option>
     </select>
   </label>
   {% endif %}
