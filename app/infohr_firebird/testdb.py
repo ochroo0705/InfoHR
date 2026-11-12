@@ -56,6 +56,7 @@ MIGRATE_ORDER = (
     "employees",
     "checklists",
     "assistant",
+    "hr_mcp",
 )
 
 

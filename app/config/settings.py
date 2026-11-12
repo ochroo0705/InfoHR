@@ -28,6 +28,12 @@ ASSISTANT_EXAMPLES_PER_ENTRY = env.int("ASSISTANT_EXAMPLES_PER_ENTRY", default=1
 ASSISTANT_NO_ENTRY_EXAMPLES = env.int("ASSISTANT_NO_ENTRY_EXAMPLES", default=10)  # learned "no entry" questions sent
 ASSISTANT_SIMILARITY = env.float("ASSISTANT_SIMILARITY", default=0.8)  # how close a test must be to an example to clash
 REPORTS_MIN_GROUP = env.int("REPORTS_MIN_GROUP", default=3)  # a chart/pivot money figure over fewer rows is hidden
+# MCP server (app/sqlmcp, served by a separate process). Off by default; binds to localhost only.
+MCP_ENABLED = env.bool("MCP_ENABLED", default=False)
+MCP_BIND_HOST = env.str("MCP_BIND_HOST", default="127.0.0.1")
+MCP_BIND_PORT = env.int("MCP_BIND_PORT", default=8765)
+MCP_RATE_PER_MINUTE = env.int("MCP_RATE_PER_MINUTE", default=30)  # requests per token per minute
+MCP_ALLOWED_HOSTS = env.list("MCP_ALLOWED_HOSTS", default=["127.0.0.1:*", "localhost:*"])  # Host header allow-list
 
 INSTALLED_APPS = [
     "unfold",  # admin theme; must come before django.contrib.admin
@@ -48,6 +54,7 @@ INSTALLED_APPS = [
     "reports",
     "logs",
     "assistant",
+    "hr_mcp",
 ]
 
 MIDDLEWARE = [
@@ -166,6 +173,7 @@ elif DB_ENGINE == "firebird":
         "employees": "employees.migrations_fb",
         "checklists": "checklists.migrations_fb",
         "assistant": "assistant.migrations_fb",
+        "hr_mcp": "hr_mcp.migrations_fb",
     }
 else:
     raise ImproperlyConfigured(f"DB_ENGINE must be 'postgres' or 'firebird', not {DB_ENGINE!r}.")
@@ -317,6 +325,24 @@ UNFOLD = {
                 "items": [
                     {"title": _("Users"), "icon": "person", "link": reverse_lazy("admin:accounts_user_changelist")},
                     {"title": _("Roles"), "icon": "shield_person", "link": reverse_lazy("admin:auth_group_changelist")},
+                ],
+            },
+            {
+                "title": "MCP хандалт",
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "MCP токенууд",
+                        "icon": "key",
+                        "link": reverse_lazy("admin:hr_mcp_mcptoken_changelist"),
+                        "permission": lambda request: request.user.is_superuser,
+                    },
+                    {
+                        "title": "MCP дуудлагын түүх",
+                        "icon": "history",
+                        "link": reverse_lazy("admin:hr_mcp_mcpcall_changelist"),
+                        "permission": lambda request: request.user.is_superuser,
+                    },
                 ],
             },
             {

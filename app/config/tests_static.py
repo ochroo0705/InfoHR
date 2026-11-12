@@ -51,6 +51,14 @@ def test_debug_is_off_by_default() -> None:
 def test_datepicker_placeholder_and_title_say_year_month_day() -> None:
     """The date box shows ЖЖЖЖ-СС-ӨӨ and a tooltip with the order (audit task 8, step 2)."""
     text = (Path(settings.BASE_DIR) / "static" / "js" / "datepicker.js").read_text(encoding="utf-8")
-    assert 'input.placeholder = "ЖЖЖЖ-СС-ӨӨ"' in text
-    assert 'input.title = "Жил-сар-өдөр"' in text
+    assert '"ЖЖЖЖ-СС-ӨӨ"' in text
+    assert '"Жил-сар-өдөр"' in text
     assert "ОООО" not in text
+
+
+def test_datepicker_upgrades_month_inputs() -> None:
+    """A native <input type="month"> would show the browser's own English popup; the picker takes it over."""
+    text = (Path(settings.BASE_DIR) / "static" / "js" / "datepicker.js").read_text(encoding="utf-8")
+    assert 'input[type="month"]' in text
+    assert '"ЖЖЖЖ-СС"' in text
+    assert "Энэ сар" in text

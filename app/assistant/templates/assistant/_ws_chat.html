@@ -6,13 +6,13 @@ form posts to ws_ask and the fragment that comes back replaces the pane. While t
 copies the <template> below into the log (the sent line and a «working» line); a refused line comes back in the box.
 Line text and SQL are escaped by Django: nothing here is marked safe.{% endcomment %}
 <div class="flex flex-col gap-3 text-sm">
-  <div id="ws-chat-log" role="log" aria-live="polite" class="flex max-h-96 flex-col gap-2 overflow-y-auto overscroll-contain">
+  <div id="ws-chat-log" role="log" aria-live="polite" class="flex max-h-24 flex-col gap-2 overflow-y-auto group-data-[expanded]/dock:max-h-72 overscroll-contain empty:hidden has-[:not([hidden])]:pb-1">
     {% for message in chat_messages %}
     <div class="flex {% if message.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
       <p class="max-w-[85%] break-words rounded-lg px-3 py-2 {% if message.role == 'user' %}bg-violet-100 text-slate-800{% else %}bg-slate-100 text-slate-800{% endif %}"><span class="sr-only">{% if message.role == 'user' %}Та: {% else %}Туслах: {% endif %}</span>{{ message.text }}</p>
     </div>
     {% empty %}
-    <p data-ws-empty class="py-4 text-center text-slate-500">Асуулт бичиж хүснэгтээ өөрчилнө үү.</p>
+    <p data-ws-empty class="sr-only">Асуулт бичиж хүснэгтээ өөрчилнө үү.</p>
     {% endfor %}
   </div>
   <template data-ws-pending-tpl>
@@ -29,17 +29,18 @@ Line text and SQL are escaped by Django: nothing here is marked safe.{% endcomme
 
   {% if zero_rows %}<p role="status" class="rounded-lg bg-amber-50 p-2 text-amber-800">Энэ өөрчлөлтийн дараа нэг ч мөр үлдсэнгүй. Асуулт буруу ойлгогдсон байж магадгүй.{% if can_undo %} Өмнөх хүснэгтээ «Буцаах» товчоор сэргээнэ.{% endif %}</p>{% endif %}
 
-  {% if can_undo %}
+  {% if chat_messages or can_undo %}
   <div class="flex flex-wrap items-center justify-between gap-2">
-    <p class="text-xs text-slate-500">Хувилбар {{ version_count }}</p>
+    {% if chat_messages %}<button type="button" data-ws-dock-toggle aria-expanded="false" aria-controls="ws-chat-log" class="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"><span class="group-data-[expanded]/dock:hidden">Түүх харах ▴</span><span class="hidden group-data-[expanded]/dock:inline">Түүх нуух ▾</span></button>{% else %}<span></span>{% endif %}
+    {% if can_undo %}<div class="flex items-center gap-2"><p class="text-xs text-slate-500">Хувилбар {{ version_count }}</p>
     <form method="post" action="{{ undo_url }}" data-ws-undo hx-post="{{ undo_url }}" hx-target="#ws-chat-pane" hx-swap="innerHTML" hx-disabled-elt="find button">{% csrf_token %}
       <button type="submit" title="Өмнөх хувилбар руу буцна" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Буцаах</button>
-    </form>
+    </form></div>{% endif %}
   </div>
   {% endif %}
 
   {% if chat_sql %}
-  <details>
+  <details class="hidden group-data-[expanded]/dock:block">
     <summary class="cursor-pointer select-none text-violet-800">SQL харах</summary>
     <pre class="mt-1 whitespace-pre-line break-words bg-slate-50 p-2 font-mono text-xs">{{ chat_sql }}</pre>
   </details>
@@ -62,9 +63,9 @@ Line text and SQL are escaped by Django: nothing here is marked safe.{% endcomme
 
   {% if chat_error %}<p role="alert" class="rounded bg-red-50 p-2 text-sm text-red-700">{{ chat_error }}</p>{% endif %}
   <p data-ws-send-error role="alert" hidden class="rounded bg-red-50 p-2 text-sm text-red-700"></p>
-  <form method="post" action="{{ ask_url }}" data-ws-ask hx-post="{{ ask_url }}" hx-target="#ws-chat-pane" hx-swap="innerHTML" hx-disabled-elt="find button" class="flex items-start gap-2">{% csrf_token %}
-    <input type="text" name="q" value="{{ chat_draft|default:'' }}" maxlength="500" required placeholder="Асуулт бичих…" aria-label="Асуулт бичих"{% if chat_sql %} aria-describedby="ws-chat-hint"{% endif %} class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
-    <button type="submit" class="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">Илгээх</button>
+  <form method="post" action="{{ ask_url }}" data-ws-ask hx-post="{{ ask_url }}" hx-target="#ws-chat-pane" hx-swap="innerHTML" hx-disabled-elt="find button" class="flex items-center gap-2 rounded-xl border border-slate-300 bg-surface p-1.5 focus-within:border-violet-500">{% csrf_token %}
+    <input type="text" name="q" value="{{ chat_draft|default:'' }}" maxlength="500" required placeholder="Асуулт бичих…" aria-label="Асуулт бичих"{% if chat_sql %} aria-describedby="ws-chat-hint"{% endif %} class="min-w-0 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none focus:ring-0">
+    <button type="submit" class="shrink-0 rounded-lg bg-violet-600 px-4 py-1.5 text-sm text-white hover:bg-violet-700">Илгээх</button>
   </form>
-  {% if chat_sql %}<p id="ws-chat-hint" class="text-xs text-slate-500">Шинэ асуулт хүснэгтийн шүүлтүүр, эрэмбэ, баганын сонголтыг анхны байдалд нь оруулна.</p>{% endif %}
+  {% if chat_sql %}<p id="ws-chat-hint" class="hidden text-xs group-data-[expanded]/dock:block text-slate-500">Шинэ асуулт хүснэгтийн шүүлтүүр, эрэмбэ, баганын сонголтыг анхны байдалд нь оруулна.</p>{% endif %}
 </div>

@@ -523,6 +523,14 @@ def test_form_page_loads_the_stepper_script_deferred(visitor: Client, invitation
     assert re.search(r'<script src="[^"]*selfform_apply\.js(\?[^"]*)?" defer></script>', body)
 
 
+def test_form_page_loads_the_date_picker_before_the_stepper(visitor: Client, invitation: SelfFormInvitation) -> None:
+    """The page does not extend base.html, so without this tag its date boxes show the browser's own popup."""
+    body = visitor.get(form_url(invitation.token)).content.decode()
+
+    assert re.search(r'<script src="[^"]*datepicker\.js(\?[^"]*)?" defer></script>', body)
+    assert body.index("datepicker.js") < body.index("selfform_apply.js")
+
+
 def test_form_page_names_the_draft_url_for_this_token(visitor: Client, invitation: SelfFormInvitation) -> None:
     body = visitor.get(form_url(invitation.token)).content.decode()
 

@@ -352,6 +352,26 @@
   document.addEventListener("htmx:sendAbort", () => chatFailed(NETWORK_MSG));
   document.addEventListener("htmx:responseError", () => chatFailed(CHAT_FAILED_MSG));
 
+  // The dock is a one-line bar until «Түүх харах» opens the log, the SQL and the hint. The state lives on the pane
+  // (data-expanded), which a swap does not replace; the swapped-in button only gets its aria-expanded back.
+  function syncDock() {
+    const pane = chatPane();
+    const button = pane && pane.querySelector("[data-ws-dock-toggle]");
+    if (button) button.setAttribute("aria-expanded", pane.hasAttribute("data-expanded") ? "true" : "false");
+  }
+  document.addEventListener("click", (e) => {
+    const button = e.target instanceof Element ? e.target.closest("[data-ws-dock-toggle]") : null;
+    const pane = chatPane();
+    if (!button || !pane || !pane.contains(button)) return;
+    pane.toggleAttribute("data-expanded");
+    syncDock();
+    const log = pane.querySelector("#ws-chat-log");
+    if (log) log.scrollTop = log.scrollHeight;
+  });
+  document.addEventListener("htmx:afterSettle", (e) => {
+    if (e.target instanceof Element && e.target.id === "ws-chat-pane") syncDock();
+  });
+
   // «Зөв гэж тэмдэглэх» (form[data-ws-verify]): one POST for the source answer; on success the button is replaced by the
   // «илгээлээ» line. A failure only enables the button again.
   document.addEventListener("submit", (e) => {

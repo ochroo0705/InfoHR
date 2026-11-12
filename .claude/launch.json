@@ -48,6 +48,12 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& python app\\manage.py runserver 8012 --noreload"],
       "port": 8012
+    },
+    {
+      "name": "mcp-gov-8765",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set MCP_ENABLED=true&& set PYTHONUTF8=1&& set PYTHONIOENCODING=utf-8&& python app\\manage.py run_mcp"],
+      "port": 8765
     }
   ]
 }

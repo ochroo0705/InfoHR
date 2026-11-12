@@ -1,4 +1,4 @@
-// Calendar picker for every <input type="date">: Mongolian labels, weeks start on
+// Calendar picker for every <input type="date"> (and <input type="month">, a year + 12-month grid): Mongolian labels, weeks start on
 // Monday, month/year dropdowns for fast jumps (birth dates), typed YYYY-MM-DD still
 // works. The input keeps its name and ISO value, so the server side is unchanged.
 (function () {
@@ -15,6 +15,17 @@
     if (!m) return null;
     var d = new Date(+m[1], +m[2] - 1, +m[3]);
     return d.getMonth() === +m[2] - 1 ? d : null;
+  }
+  function parseM(s) {
+    var m = /^(\d{4})-(\d{2})$/.exec(s || "");
+    return m && +m[2] >= 1 && +m[2] <= 12 ? new Date(+m[1], +m[2] - 1, 1) : null;
+  }
+  function isMonth(input) { return input.dataset.dp === "month"; }
+  // "202610" or "2026.10" / "2026/10" -> "2026-10"
+  function normalizeM(s) {
+    var digits = (s || "").replace(/\D/g, "");
+    if (/^\d{6}$/.test(digits) && !parseM(s)) return digits.slice(0, 4) + "-" + digits.slice(4);
+    return s;
   }
   // "20261014" or "2026.10.14" / "2026/10/14" -> "2026-10-14"
   function normalize(s) {
@@ -60,7 +71,58 @@
     popup.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";
   }
 
+  // Month mode: year arrows + select, 12 month buttons, «Цэвэрлэх» / «Энэ сар»; value is YYYY-MM.
+  function renderMonths() {
+    var input = current, selected = parseM(input.value), today = new Date();
+    var min = parseM(input.min), max = parseM(input.max);
+    var vy = view.getFullYear();
+    popup.textContent = "";
+    var head = el("div", "dp-head");
+    var prev = el("button", "dp-nav", "‹"), next = el("button", "dp-nav", "›");
+    prev.type = next.type = "button";
+    prev.setAttribute("aria-label", "Өмнөх жил");
+    next.setAttribute("aria-label", "Дараах жил");
+    var year = el("select", "dp-select");
+    year.setAttribute("aria-label", "Он");
+    var from = Math.min(min ? min.getFullYear() : 1940, vy), to = Math.max(max ? max.getFullYear() : today.getFullYear() + 10, vy);
+    for (var y = to; y >= from; y--) { var o = el("option", null, y); o.value = y; year.appendChild(o); }
+    year.value = vy;
+    prev.disabled = vy <= from;
+    next.disabled = vy >= to;
+    prev.onclick = function () { view = new Date(vy - 1, 0, 1); render(); };
+    next.onclick = function () { view = new Date(vy + 1, 0, 1); render(); };
+    year.onchange = function () { view = new Date(+year.value, 0, 1); render(); };
+    head.append(prev, year, next);
+    popup.appendChild(head);
+
+    var grid = el("div", "dp-months");
+    grid.setAttribute("role", "grid");
+    MONTHS.forEach(function (name, i) {
+      var d = new Date(vy, i, 1);
+      var b = el("button", "dp-day dp-month", name);
+      b.type = "button";
+      b.dataset.value = vy + "-" + pad(i + 1);
+      if (d.getFullYear() === today.getFullYear() && i === today.getMonth()) b.classList.add("dp-today");
+      if (selected && selected.getTime() === d.getTime()) { b.classList.add("dp-selected"); b.setAttribute("aria-selected", "true"); }
+      if ((min && d < min) || (max && d > max)) b.disabled = true;
+      b.onclick = function () { var inp = current; setValue(inp, this.dataset.value); close(); inp.focus(); };
+      grid.appendChild(b);
+    });
+    popup.appendChild(grid);
+
+    var foot = el("div", "dp-foot");
+    var thisBtn = el("button", "dp-link", "Энэ сар"), clear = el("button", "dp-link dp-muted", "Цэвэрлэх");
+    thisBtn.type = clear.type = "button";
+    thisBtn.onclick = function () { var inp = current; setValue(inp, today.getFullYear() + "-" + pad(today.getMonth() + 1)); close(); inp.focus(); };
+    clear.onclick = function () { var inp = current; setValue(inp, ""); close(); inp.focus(); };
+    if (input.required) clear.hidden = true;
+    foot.append(clear, thisBtn);
+    popup.appendChild(foot);
+    place();
+  }
+
   function render() {
+    if (isMonth(current)) return renderMonths();
     var input = current, selected = parse(input.value), today = new Date();
     var min = parse(input.min), max = parse(input.max);
     popup.textContent = "";
@@ -122,11 +184,12 @@
     if (current === input) return;
     close();
     current = input;
-    var d = parse(input.value) || parse(input.min) && new Date() < parse(input.min) && parse(input.min) || new Date();
+    var pf = isMonth(input) ? parseM : parse;
+    var d = pf(input.value) || pf(input.min) && new Date() < pf(input.min) && pf(input.min) || new Date();
     view = new Date(d.getFullYear(), d.getMonth(), 1);
     popup = el("div", "dp-popup");
     popup.setAttribute("role", "dialog");
-    popup.setAttribute("aria-label", "Огноо сонгох");
+    popup.setAttribute("aria-label", isMonth(input) ? "Сар сонгох" : "Огноо сонгох");
     popup.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); var inp = current; close(); inp.focus(); } });
     document.body.appendChild(popup);
     render();
@@ -137,13 +200,14 @@
 
   function enhance(input) {
     if (input.dataset.dp) return;
-    input.dataset.dp = "1";
+    var month = input.type === "month";
+    input.dataset.dp = month ? "month" : "1";
     input.type = "text";
     input.inputMode = "numeric";
     input.autocomplete = "off";
-    if (!input.placeholder) input.placeholder = "ЖЖЖЖ-СС-ӨӨ";
-    if (!input.title) input.title = "Жил-сар-өдөр";
-    input.maxLength = 10;
+    if (!input.placeholder) input.placeholder = month ? "ЖЖЖЖ-СС" : "ЖЖЖЖ-СС-ӨӨ";
+    if (!input.title) input.title = month ? "Жил-сар" : "Жил-сар-өдөр";
+    input.maxLength = month ? 7 : 10;
     var wrap = el("span", "dp-wrap");
     input.parentNode.insertBefore(wrap, input);
     wrap.appendChild(input);
@@ -161,17 +225,17 @@
       else if (e.key === "Tab") close();
     });
     input.addEventListener("input", function () {
-      var d = parse(input.value);
+      var d = (month ? parseM : parse)(input.value);
       if (d && current === input) { view = new Date(d.getFullYear(), d.getMonth(), 1); render(); }
     });
     input.addEventListener("blur", function () {
-      var v = normalize(input.value.trim());
+      var v = (month ? normalizeM : normalize)(input.value.trim());
       if (v !== input.value) { input.value = v; fire(input); }
     });
   }
 
   function init(root) {
-    var sel = 'input[type="date"], input[data-datepicker]';
+    var sel = 'input[type="date"], input[type="month"], input[data-datepicker]';
     (root.matches && root.matches(sel) ? [root] : root.querySelectorAll(sel)).forEach(enhance);
   }
   document.addEventListener("DOMContentLoaded", function () { init(document); });

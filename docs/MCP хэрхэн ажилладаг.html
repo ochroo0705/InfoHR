@@ -1,14 +1,16 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html lang="mn"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <title>MCP хэрхэн ажилладаг</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: tabbed explainer (Mongolian). Left-to-right flow diagram (Та > AI апп > MCP сервер > Таны систем) with a step player underneath. */
+/* Layout: tabbed explainer (Mongolian) for the MACS Human Capital MCP server.
+   Tab 1: request flow with step player. Tab 2: how other systems connect. Tab 3: why a standard. Tab 4: what is built. */
 :root{
   --bg:#f5f6f8; --surface:#ffffff; --fg:#14181f; --muted:#5b6574; --line:#c9cfd9; --soft:#e9ecf1;
   --ai:#2455d6; --ai-bg:#e4ebfc;
   --srv:#0f7a5a; --srv-bg:#dcf2ea;
   --sys:#b4570b; --sys-bg:#fbe9d6;
+  --warn:#8a5a00; --warn-bg:#fff3d6;
   --code-bg:#0f1420; --code-fg:#d7e0f2;
   --display:'Inter',system-ui,'Segoe UI',sans-serif; --body:'Inter',system-ui,'Segoe UI',sans-serif; --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
 }
@@ -16,12 +18,14 @@
   :root:not([data-theme="light"]){
     --bg:#0e1118; --surface:#171b25; --fg:#e8ecf4; --muted:#98a2b5; --line:#3a4254; --soft:#222837;
     --ai:#7ea2ff; --ai-bg:#1b2747; --srv:#4fd1a4; --srv-bg:#12352b; --sys:#f0a35a; --sys-bg:#3b2a17;
+    --warn:#f2c46b; --warn-bg:#3a2d12;
     --code-bg:#0a0d14; --code-fg:#d7e0f2; color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#0e1118; --surface:#171b25; --fg:#e8ecf4; --muted:#98a2b5; --line:#3a4254; --soft:#222837;
   --ai:#7ea2ff; --ai-bg:#1b2747; --srv:#4fd1a4; --srv-bg:#12352b; --sys:#f0a35a; --sys-bg:#3b2a17;
+  --warn:#f2c46b; --warn-bg:#3a2d12;
   --code-bg:#0a0d14; --code-fg:#d7e0f2; color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -95,32 +99,41 @@ details .body p{margin:0 0 10px;max-width:68ch}
 @media(max-width:600px){.two{grid-template-columns:minmax(0,1fr)} details .body{padding-left:18px}}
 .mini{background:var(--soft);border-radius:8px;padding:10px 12px;font-size:13.5px}
 .mini b{display:block;font-family:var(--display)}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13.5px;margin:10px 0}
+.warn b{font-family:var(--display)}
+.stack{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:16px}
+.stack details{margin-bottom:0;min-width:0}
+code{overflow-wrap:anywhere}
+.note{color:var(--muted);font-size:13.5px;margin:10px 0 0}
+.node.client rect.box{fill:var(--ai-bg);stroke:var(--ai)}
+.gate{transition:opacity .4s}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
 <div class="wrap">
-  <h1>MCP нь AI-г таны системтэй хэрхэн холбодог вэ</h1>
-  <p class="lede">MCP (Model Context Protocol) нь AI апп өөр системийн хэрэгслүүдийг олж мэдэж, ашиглах стандарт арга юм. Доорх жишээнд HR системээс ажилтан хэдэн өдрийн амралт үлдсэнийг асууж байна.</p>
+  <h1>MCP нь AI-г MACS Human Capital-тай хэрхэн холбодог вэ</h1>
+  <p class="lede">MCP (Model Context Protocol) нь AI апп өөр системийн хэрэгслүүдийг олж мэдэж, ашиглах стандарт арга юм. Манай сервер хоёрхон хэрэгсэлтэй: <b>describe_data</b> ба <b>run_query</b>. Хэн ч асуусан зөвхөн тухайн хэрэглэгчид харах эрхтэй HR өгөгдлийг л авна. Доорх жишээнд «Одоо хэдэн ажилтан ажиллаж байна вэ?» гэж асууж байна.</p>
 
   <div class="tabs" role="tablist" aria-label="Хэсгүүд">
     <button role="tab" id="tab-flow" aria-selected="true" aria-controls="p-flow">Хүсэлт хэрхэн урсдаг</button>
+    <button role="tab" id="tab-conn" aria-selected="false" aria-controls="p-conn">Бусад систем хэрхэн холбогдох</button>
     <button role="tab" id="tab-why" aria-selected="false" aria-controls="p-why">Яагаад стандарт хэрэгтэй</button>
-    <button role="tab" id="tab-need" aria-selected="false" aria-controls="p-need">Юу бүтээх хэрэгтэй</button>
+    <button role="tab" id="tab-need" aria-selected="false" aria-controls="p-need">Юу бүтээгдсэн бэ</button>
   </div>
 
   <!-- FLOW -->
   <section class="panel" id="p-flow" role="tabpanel" aria-labelledby="tab-flow">
     <figure>
       <div class="diagram">
-      <svg viewBox="0 0 960 345" role="img" aria-label="Асуулт хэрэглэгчээс AI загвар руу, MCP клиентээр дамжин MCP сервер рүү очно. Сервер таны системийг дууддаг. Хариу яг ийм замаар буцна.">
+      <svg viewBox="0 0 960 345" role="img" aria-label="Асуулт хэрэглэгчээс AI загвар руу, MCP клиентээр дамжин MCP сервер рүү очно. Сервер токен шалгаж, хэрэглэгчийн эрхээр HR өгөгдлийн сангаас уншина. Хариу яг ийм замаар буцна.">
         <defs>
           <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
         </defs>
 
         <line class="boundary" x1="475" y1="30" x2="475" y2="318"/>
         <line class="boundary" x1="760" y1="30" x2="760" y2="318"/>
-        <text class="t-sm" x="475" y="336" text-anchor="middle">MCP протокол (JSON-RPC мессеж)</text>
-        <text class="t-sm" x="760" y="336" text-anchor="middle">таны өөрийн API / өгөгдлийн сан</text>
+        <text class="t-sm" x="475" y="336" text-anchor="middle">MCP протокол (JSON-RPC, HTTP /mcp + токен)</text>
+        <text class="t-sm" x="760" y="336" text-anchor="middle">зөвхөн GOV_ харагдац, хэрэглэгчийн эрхээр</text>
 
         <g id="lanes" style="color:var(--fg)">
           <path class="lane" data-lane="ask"  d="M130 108 H208" marker-end="url(#arr)"/>
@@ -136,10 +149,10 @@ details .body p{margin:0 0 10px;max-width:68ch}
         <text class="t-sm" x="169" y="152" text-anchor="middle">хариулт</text>
         <text class="t-sm" x="333" y="193" text-anchor="end">хэрэгсэл хэрэгтэй</text>
         <text class="t-sm" x="387" y="193">үр дүн авна</text>
-        <text class="t-sm" x="474" y="233" text-anchor="middle">хүсэлт</text>
+        <text class="t-sm" x="474" y="233" text-anchor="middle">хүсэлт + токен</text>
         <text class="t-sm" x="474" y="293" text-anchor="middle">хариу</text>
-        <text class="t-sm" x="759" y="179" text-anchor="middle">API дуудлага</text>
-        <text class="t-sm" x="759" y="233" text-anchor="middle">өгөгдөл</text>
+        <text class="t-sm" x="759" y="179" text-anchor="middle">SELECT</text>
+        <text class="t-sm" x="759" y="233" text-anchor="middle">мөрүүд</text>
 
         <g class="node you" data-node="you">
           <rect class="box" x="20" y="85" width="110" height="70" rx="10"/>
@@ -159,27 +172,28 @@ details .body p{margin:0 0 10px;max-width:68ch}
           <rect class="box" x="210" y="220" width="200" height="75" rx="10"/>
           <text class="t-lbl" x="310" y="248" text-anchor="middle">MCP клиент</text>
           <text class="t-sm" x="310" y="268" text-anchor="middle">протоколоор харилцана,</text>
-          <text class="t-sm" x="310" y="284" text-anchor="middle">сервер бүрт нэг</text>
+          <text class="t-sm" x="310" y="284" text-anchor="middle">өөрийн токенийг илгээнэ</text>
         </g>
 
         <g class="node srv" data-node="server">
           <rect class="box" x="540" y="40" width="180" height="270" rx="12"/>
           <text class="t-lbl" x="630" y="64" text-anchor="middle">MCP сервер</text>
-          <text class="t-sm" x="630" y="80" text-anchor="middle">адаптер · хэрэгслийн цэс</text>
+          <text class="t-sm" x="630" y="80" text-anchor="middle">sqlmcp · hr_mcp · 127.0.0.1:8765</text>
         </g>
         <g id="tools">
-          <g class="tool" data-tool="0"><rect x="556" y="95" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="118" text-anchor="middle">get_leave_balance</text></g>
-          <g class="tool" data-tool="1"><rect x="556" y="141" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="164" text-anchor="middle">find_employee</text></g>
-          <g class="tool" data-tool="2"><rect x="556" y="187" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="210" text-anchor="middle">list_requests</text></g>
+          <g class="tool" data-tool="0"><rect x="556" y="95" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="118" text-anchor="middle">describe_data</text></g>
+          <g class="tool" data-tool="1"><rect x="556" y="141" width="148" height="36" rx="6"/><text class="t-mono" x="630" y="164" text-anchor="middle">run_query</text></g>
         </g>
-        <text class="t-sm" x="630" y="256" text-anchor="middle">+ хэн асууж буйг шалгана</text>
-        <text class="t-sm" x="630" y="272" text-anchor="middle">+ API руу хөрвүүлнэ</text>
+        <text class="t-sm" x="630" y="214" text-anchor="middle">+ токен шалгана (эс бол 401)</text>
+        <text class="t-sm" x="630" y="230" text-anchor="middle">+ минутанд 30 дуудлага</text>
+        <text class="t-sm" x="630" y="246" text-anchor="middle">+ SELECT эсэхийг шалгана</text>
+        <text class="t-sm" x="630" y="262" text-anchor="middle">+ дуудлагыг түүхэд бичнэ</text>
 
         <g class="node sys" data-node="system">
           <rect class="box" x="800" y="95" width="140" height="150" rx="12"/>
-          <text class="t-lbl" x="870" y="150" text-anchor="middle">Таны систем</text>
-          <text class="t-sm" x="870" y="170" text-anchor="middle">HR өгөгдлийн сан,</text>
-          <text class="t-sm" x="870" y="186" text-anchor="middle">ERP, REST API…</text>
+          <text class="t-lbl" x="870" y="150" text-anchor="middle">HR өгөгдлийн сан</text>
+          <text class="t-sm" x="870" y="170" text-anchor="middle">Firebird · GOV_ харагдац</text>
+          <text class="t-sm" x="870" y="186" text-anchor="middle">зөвхөн унших</text>
         </g>
 
         <g class="packet" id="packet" opacity="0">
@@ -188,7 +202,7 @@ details .body p{margin:0 0 10px;max-width:68ch}
         </g>
       </svg>
       </div>
-      <figcaption>Тоглуулах товчийг дарна уу. Нэг хүсэлтийн замыг пакет дагана: AI таны системд шууд хүрдэггүй. Тэр MCP серверээс хүсэх бөгөөд юуг ажиллуулахыг сервер шийднэ.</figcaption>
+      <figcaption>Тоглуулах товчийг дарна уу. Нэг хүсэлтийн замыг пакет дагана: AI өгөгдлийн санд шууд хүрдэггүй. Тэр MCP серверээс хүсэх бөгөөд юуг ажиллуулахыг сервер шийднэ.</figcaption>
     </figure>
 
     <div class="controls">
@@ -212,6 +226,95 @@ details .body p{margin:0 0 10px;max-width:68ch}
     </div>
   </section>
 
+  <!-- CONNECT -->
+  <section class="panel" id="p-conn" role="tabpanel" aria-labelledby="tab-conn" hidden>
+    <p class="lede">Өөр систем (Claude, өөрийн бот, MACS ERP-ийн өөр модуль) энэ серверт <b>ердийн HTTP хаяг ба токеноор</b> холбогдоно. Тусгай програм суулгах шаардлагагүй. Холбогч бүр өөрийн токентой бөгөөд токен нэг HR хэрэглэгчид хамаарна.</p>
+
+    <div class="seg" role="group" aria-label="Холболтын байршил">
+      <button type="button" id="c-local" aria-pressed="true">Нэг машин дээр</button>
+      <button type="button" id="c-out" aria-pressed="false">Гаднаас (туннель / прокси)</button>
+    </div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 960 300" role="img" aria-label="Гурван гадаад систем MCP серверт HTTP болон токеноор холбогдоно. Гаднаас холбогдох бол туннель эсвэл HTTPS прокси дундуур дамжина.">
+          <g id="conn-edges"></g>
+          <g id="conn-nodes"></g>
+          <text class="t-sm" x="480" y="286" text-anchor="middle" id="conn-axis"></text>
+        </svg>
+      </div>
+      <figcaption id="conn-cap"></figcaption>
+    </figure>
+
+    <div class="stack">
+      <div class="card">
+        <h2 style="font-size:17px;margin-top:0">Холбогдохын тулд юу хэрэгтэй вэ</h2>
+        <div class="two">
+          <div class="mini"><b>1. Хаяг</b>Нэг машин дээр <code>http://127.0.0.1:8765/mcp</code>. Гаднаас бол туннель эсвэл HTTPS прокси-ийн нийтийн нэр, жишээ нь <code>https://mcp.example.com/mcp</code>.</div>
+          <div class="mini"><b>2. Токен</b>Админ дахь «MCP хандалт» → «MCP токенууд» дээр холбогч бүрт нэг токен үүсгэнэ. Токеныг зөвхөн нэг удаа харуулна. Токен нь сонгосон HR хэрэглэгчийн эрхээр ажиллана.</div>
+          <div class="mini"><b>3. Хост жагсаалт</b>Гаднаас холбогдох бол нийтийн нэрийг <code>.env</code> дахь <code>MCP_ALLOWED_HOSTS</code>-д нэмж серверийг дахин асаана. Нэмээгүй бол сервер HTTP 421 буцаана.</div>
+          <div class="mini"><b>4. Асаалт</b>Сервер анхнаасаа унтраастай. <code>.env</code>-д <code>MCP_ENABLED=true</code> тавьж <code>python manage.py run_mcp</code> ажиллуулна.</div>
+        </div>
+      </div>
+
+      <details open>
+        <summary><span class="n">A</span>Хамгийн энгийн шалгалт: curl<span class="chev">›</span></summary>
+        <div class="body">
+          <p>Токенгүй дуудвал <b>401</b> ирнэ. Энэ нь сервер ажиллаж, токенгүй хүсэлтийг татгалзаж байгааг харуулна.</p>
+<pre class="code"># токенгүй: 401 ирэх ёстой
+curl -i -X POST http://127.0.0.1:8765/mcp
+
+# токентой: хэрэгслийн жагсаалт
+curl -s http://127.0.0.1:8765/mcp \
+  -H "Authorization: Bearer mhc_xxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</pre>
+          <p class="note">Сервер төлөвгүй (stateless) тул «initialize» дуудлага заавал хийх шаардлагагүй. Ямар ч MCP клиент өөрөө энэ дарааллыг хийдэг.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="n">B</span>MCP дэмждэг AI апп (Claude гэх мэт)<span class="chev">›</span></summary>
+        <div class="body">
+          <p>Аппын тохиргоонд «алсын MCP сервер» нэмж <b>URL</b> болон <b>Authorization: Bearer</b> толгойг оруулна. Тохиргооны талбар, цэс нь апп бүрт өөр байна.</p>
+<pre class="code">URL:           https://mcp.example.com/mcp
+Header:        Authorization: Bearer mhc_xxxxxxxx
+Transport:     Streamable HTTP</pre>
+          <div class="warn"><b>Шалгаагүй:</b> бодит AI апптай (Claude Desktop, MCP Inspector) холбож үзээгүй байна. Тухайн апп «Bearer токен» толгойг дэмждэг эсэхийг эхлээд шалгана. Зарим апп зөвхөн OAuth дэмждэг бөгөөд манайд OAuth одоогоор байхгүй.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="n">C</span>Өөрийн код, бот эсвэл өөр MACS систем<span class="chev">›</span></summary>
+        <div class="body">
+          <p>Албан ёсны MCP SDK (Python, TypeScript болон бусад) нь Streamable HTTP клиенттэй. Хаяг ба токеныг өгөөд <code>describe_data</code>, дараа нь <code>run_query</code>-г дуудна. Протоколын хэсгийг SDK хариуцна.</p>
+<pre class="code"># Python SDK-ийн төрлийн жишээ (хэлбэр нь хувилбараас хамаарч өөр байж болно)
+async with streamablehttp_client(
+        "https://mcp.example.com/mcp",
+        headers={"Authorization": "Bearer mhc_xxxxxxxx"}) as (r, w, _):
+    async with ClientSession(r, w) as session:
+        await session.initialize()
+        await session.call_tool("describe_data", {})
+        await session.call_tool("run_query", {"sql": "SELECT ..."})</pre>
+          <p class="note">Жишээ нь зөвхөн ойлголтыг харуулна, ажиллуулж шалгаагүй. Энэ бол үндсэн санаа: өөр MACS систем бидний API-г биш, энэ стандарт хаалгыг дуудна.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="n">D</span>Гаднаас хэрхэн хүрэх вэ<span class="chev">›</span></summary>
+        <div class="body">
+          <p>Сервер анхнаасаа зөвхөн <code>127.0.0.1</code>-д сонсдог тул зөвхөн нэг машин доторх програм хүрнэ. Гаднаас хүрэхэд хоёр сонголт бий. Хоёулаа токенийг орлохгүй, токен хүсэлт бүрт шаардлагатай хэвээр.</p>
+          <div class="two">
+            <div class="mini"><b>Сонголт A: гарах туннель (cloudflared)</b>Харилцагчийн машин гадагш холболт нээнэ, галт ханад порт нээх шаардлагагүй.</div>
+            <div class="mini"><b>Сонголт B: HTTPS прокси</b>IIS, Nginx, Caddy гэх мэт одоо байгаа вэб серверээр <code>127.0.0.1:8765</code> руу дамжуулна.</div>
+          </div>
+          <div class="warn"><b>Шалгаагүй:</b> cloudflared болон прокси-ийн жишээнүүд баримтад бий (<code>docs/mcp-deployment.md</code>, 6-р хэсэг). Харилцагчийн машин дээр туршиж үзээгүй. Төвлөрсөн MACS гарц (gateway) хараахан бүтээгдээгүй.</div>
+        </div>
+      </details>
+    </div>
+  </section>
+
   <!-- WHY -->
   <section class="panel" id="p-why" role="tabpanel" aria-labelledby="tab-why" hidden>
     <div class="seg" role="group" aria-label="Холболтын хэлбэр">
@@ -231,64 +334,75 @@ details .body p{margin:0 0 10px;max-width:68ch}
     <p class="lede" id="why-text" style="margin:0"></p>
   </section>
 
-  <!-- NEED -->
+  <!-- BUILT -->
   <section class="panel" id="p-need" role="tabpanel" aria-labelledby="tab-need" hidden>
-    <p class="lede">AI аппыг системтэй ажиллуулахад таван зүйл хэрэгтэй. Тус бүрийг нээж үзнэ үү. Эхнийх нь таны одоо байгаа систем, дундах гурав нь таны бүтээх хэсэг.</p>
+    <p class="lede">Манайд бүтээгдсэн таван хэсэг ба одоогоор хийгээгүй зүйлс. Тус бүрийг нээж үзнэ үү. Файлын нэрс нь <code>app/</code> хавтас доторх.</p>
 
     <details open>
-      <summary><span class="n">1</span>Гаднаас дуудаж болох систем<span class="chev">›</span></summary>
+      <summary><span class="n">1</span>Хяналттай SQL (sqlcore, hr_sql)<span class="chev">›</span></summary>
       <div class="body">
-        <p>AI зөвхөн таны систем гаднаас зөвшөөрдөг зүйлийг хийж чадна: REST API, өгөгдлийн сангийн холболт эсвэл кодын функц. Хүн дэлгэц дээр дарж байж л хийдэг зүйл бол эхлээд API хэрэгтэй.</p>
-        <div class="mini"><b>Шалгах</b>Скрипт аппыг нээлгүйгээр амралтын үлдэгдлийг уншиж чадах уу?</div>
-      </div>
-    </details>
-
-    <details>
-      <summary><span class="n">2</span>MCP сервер (адаптер)<span class="chev">›</span></summary>
-      <div class="body">
-        <p>Таны <b>хэрэгслүүдийг</b> жагсаадаг жижиг програм. Хэрэгсэл бүр нэр, энгийн хэлээр бичсэн тайлбар, авах оролтуудтай. AI загвар юуг дуудахаа эдгээр тайлбараас уншиж шийддэг тул загварт зориулж бичнэ. Албан ёсны SDK-ууд (Python, TypeScript, C#, Java болон бусад) протоколыг хариуцна, та зөвхөн хэрэгслийн биеийг бичнэ.</p>
-<pre class="code">from mcp.server.fastmcp import FastMCP
-mcp = FastMCP("hr")
-
-@mcp.tool()
-def get_leave_balance(employee: str) -&gt; str:
-    """Ажилтны үлдсэн ээлжийн амралтын өдөр."""
-    row = hr_api.get("/leave/balance", employee=employee)
-    return f"{employee}: {row['days_left']} өдөр үлдсэн"
-
-mcp.run()  # stdio, эсвэл transport="streamable-http"</pre>
-        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">Зөвхөн жишээ: docstring нь хэрэгслийн тайлбар, type hint нь оролтын схем болно.</p>
-      </div>
-    </details>
-
-    <details>
-      <summary><span class="n">3</span>Холбогдох арга (transport)<span class="chev">›</span></summary>
-      <div class="body">
+        <p>Цөм нь AI-д өгөх өгөгдлийг хязгаарладаг. AI зөвхөн <b>GOV_</b> гэж нэрлэгдсэн харагдацуудыг (GOV_EMPLOYEES, GOV_LEAVE, GOV_ORDERS, GOV_SALARY гэх мэт) <b>SELECT</b>-ээр уншина. Асуулт бүрийн өмнө тухайн хэрэглэгчид харагдах ажилтны жагсаалтыг түр хүснэгтэнд (GOV_SCOPE) бөглөж, дараа нь гүйлгээг үргэлж буцаана (rollback).</p>
         <div class="two">
-          <div class="mini"><b>stdio (дотоод)</b>AI апп таны серверийг нэг компьютер дээр өөрөө ажиллуулж, шууд харилцана. Энгийн, сүлжээ шаардахгүй, нэг хүний компьютерт тохиромжтой.</div>
-          <div class="mini"><b>Streamable HTTP (алсын)</b>Сервер сүлжээнд URL хаягтай ажиллана. Олон хэрэглэгч хуваалцана. HTTPS болон нэвтрэлт шаардлагатай.</div>
+          <div class="mini"><b>Хязгаар</b>Хамгийн ихдээ 1000 мөр, 15 секундийн хугацаа, SQL 4000 тэмдэгтээс хэтрэхгүй.</div>
+          <div class="mini"><b>Татгалзах</b>DELETE зэрэг SELECT биш асуулт, жагсаалтад байхгүй хүснэгт нь татгалзагдана. Татгалзал нь алдааны тэмдэгтэй (isError) хариу болж буцна.</div>
         </div>
       </div>
     </details>
 
     <details>
-      <summary><span class="n">4</span>Эрх ба аюулгүй байдал<span class="chev">›</span></summary>
+      <summary><span class="n">2</span>MCP сервер (sqlmcp)<span class="chev">›</span></summary>
       <div class="body">
-        <p>Сервер бол цорын ганц хаалга. Хэн асууж буйг (API түлхүүр эсвэл OAuth нэвтрэлт) мэдэж, тухайн хүнд зөвшөөрөгдсөн зүйлийг л буцааж, дуудлагуудыг бүртгэж байх ёстой. Өгөгдөл өөрчилдөг хэрэгслийг (амралт батлах, бичлэг устгах) зөвхөн унших хэрэгслээс тусад нь тэмдэглэж, ажиллуулахаас өмнө хэрэглэгчээс баталгаажуулалт авна.</p>
-        <div class="mini"><b>Эхний дүрэм</b>Зөвхөн унших хэрэгслээс эхэл. Бичих хэрэгслийг дараа нь нэг нэгээр нэм.</div>
+        <p>Протоколын хэсэг: Streamable HTTP-ээр <code>/mcp</code> дээр хоёр хэрэгслийг (<b>describe_data</b>, <b>run_query</b>) нийтэлнэ. Төлөвгүй, JSON хариутай, токены шалгалттай. Django болон HR кодыг оруулдаггүй тул өөр MACS системд дахин ашиглахад бэлэн.</p>
+        <div class="mini"><b>Эхний дүрэм</b>AI эхлээд <code>describe_data</code> дуудаж, юу асууж болохыг мэдэж байж <code>run_query</code> бичнэ. Сервер өөрөө үүнийг заавал шаардахгүй, зөвхөн зааварт бичсэн.</div>
       </div>
     </details>
 
     <details>
-      <summary><span class="n">5</span>MCP дэмждэг AI апп<span class="chev">›</span></summary>
+      <summary><span class="n">3</span>Токен ба хэрэглэгч (hr_mcp)<span class="chev">›</span></summary>
       <div class="body">
-        <p>Host апп (дэлгэцийн туслах, IDE, чат бүтээгдэхүүн эсвэл SDK-аар бүтээсэн өөрийн агент) дотроо MCP клиенттэй. Та серверийн байршлыг, өөрөөр хэлбэл ажиллуулах тушаал эсвэл URL-ыг зааж өгнө. Үүнээс хойш олж мэдэх, дуудах ажлыг клиент хариуцна.</p>
-        <pre class="code">{
-  "mcpServers": {
-    "hr": { "command": "python", "args": ["hr_server.py"] }
-  }
-}</pre>
-        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">Ердийн тохиргооны хэлбэр. Файлын байршил, талбарууд аппаас хамаарч өөр байна.</p>
+        <p>Токен бүр нэг HR хэрэглэгчид хамаарна (<code>mhc_</code> угтвартай). Систем зөвхөн токеныхоо <b>хэш</b>-ийг хадгална, токеныг өөрийг нь хэзээ ч хадгалдаггүй. Токеныг админаас үүсгэж цуцлана, зөвхөн суперхэрэглэгч үздэг. Цуцлагдсан эсвэл идэвхгүй хэрэглэгчийн токен ажиллахаа болино.</p>
+        <div class="mini"><b>Анхаар</b>Токен тус бүрт тусдаа эрх байхгүй. Эрх нь токены хэрэглэгчийн эрхтэй адил. Холбогч бүрт зөвхөн хэрэгтэй эрхтэй тусдаа хэрэглэгч сонго.</div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">4</span>Хамгаалалт ба түүх<span class="chev">›</span></summary>
+      <div class="body">
+        <div class="two">
+          <div class="mini"><b>Хурдны хязгаар</b>Токен бүр минутанд 30 дуудлага (<code>MCP_RATE_PER_MINUTE</code>). Татгалзсан дуудлага мөн тоологдоно.</div>
+          <div class="mini"><b>Хост шалгалт</b>Зөвхөн жагсаалтад байгаа хаягаар ирсэн хүсэлтийг хүлээн авна (<code>MCP_ALLOWED_HOSTS</code>), эс бол 421.</div>
+          <div class="mini"><b>Дуудлагын түүх</b>Дуудлага бүр (татгалзсан ч) хэрэгслийн нэр, SQL, мөрийн тоо, хугацаатай бичигдэнэ. SQL нэр агуулж болох тул нууц гэж үз.</div>
+          <div class="mini"><b>Цэвэрлэгээ</b>Түүхийг автоматаар устгахгүй, хэр удаан хадгалахыг шийдээгүй.</div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">5</span>Асаах, ажиллуулах<span class="chev">›</span></summary>
+      <div class="body">
+        <p>Сервер Django сайтаас тусдаа програм бөгөөд анхнаасаа унтраастай. Тохиргоо нь <code>.env</code> файлд.</p>
+<pre class="code">MCP_ENABLED=true
+MCP_BIND_HOST=127.0.0.1
+MCP_BIND_PORT=8765
+MCP_RATE_PER_MINUTE=30
+MCP_ALLOWED_HOSTS=127.0.0.1:*,localhost:*
+
+python manage.py run_mcp</pre>
+        <p class="note">Дэлгэрэнгүй: <code>docs/mcp-deployment.md</code>.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">!</span>Одоогоор хийгээгүй, шалгаагүй зүйлс<span class="chev">›</span></summary>
+      <div class="body">
+        <div class="warn"><b>Шалгагдсан:</b> Firebird хуулбар дээр бодит <code>run_mcp</code> ба curl-ээр (токенгүй 401, буруу хост 421, хоёр хэрэгсэл, асуулт, DELETE-ийн татгалзал, түүх, цуцалсан токен 401) шалгасан. Тестүүд 41 амжилттай.</div>
+        <div class="two">
+          <div class="mini"><b>OAuth 2.1 нэвтрэлт</b>Байхгүй. Одоо токеныг гараар өгдөг.</div>
+          <div class="mini"><b>Төвлөрсөн MACS гарц</b>Байхгүй. Суулгалт бүр өөрийн туннелтэй.</div>
+          <div class="mini"><b>MCP resources</b>Байхгүй, зөвхөн хэрэгслүүд.</div>
+          <div class="mini"><b>Бодит AI клиент</b>MCP Inspector, Claude гэх мэттэй холбож шалгаагүй, мөн туннелийг ч шалгаагүй.</div>
+          <div class="mini"><b>Нэг хэрэглэгчийн цуцлалт</b>Нэг дуудлага хугацаа хэтэрвэл тухайн хэрэглэгчийн ажиллаж буй бусад асуулт ч цуцлагдана. Холбогч бүрт тусдаа хэрэглэгч өгснөөр зайлсхийнэ.</div>
+        </div>
       </div>
     </details>
   </section>
@@ -308,50 +422,51 @@ mcp.run()  # stdio, эсвэл transport="streamable-http"</pre>
     });
     if(t.id!=='tab-flow'){ setPlaying(false); }
     if(t.id==='tab-why'){ setWhy(whyMode,true); }
+    if(t.id==='tab-conn'){ setConn(connMode,true); }
   }
   tabs.forEach(function(b){ b.addEventListener('click',function(){showTab(b)}); });
 
   var steps = [
     { title:'Холбогдох ба олж мэдэх', pill:'sdk', pillT:'MCP SDK хариуцна', who:'MCP клиент ↔ MCP сервер',
-      text:'AI апп эхлэхэд түүний MCP клиент таны сервертэй холболт нээж, юу хийж чадахыг асууна. Сервер хэрэгслийн цэсээ буцаана: нэр, тайлбар, хэрэгсэл бүрийн авах оролтууд. Үүнээс хойш AI загвар эдгээр хэрэгсэл байгааг мэднэ.',
+      text:'AI апп эхлэхэд түүний MCP клиент серверийн хаяг руу өөрийн токентойгоо холбогдож, юу хийж чадахыг асууна. Сервер хоёр хэрэгслийн цэсээ буцаана: нэр, тайлбар, оролт. Токен буруу бол энд 401 ирж, цаашаа юу ч үргэлжлэхгүй.',
       note:'Энэ нь асуулт тавихаас өмнө нэг удаа болно. Загвар тайлбаруудыг уншдаг тул тодорхой бичих нь чухал.',
       msgLabel:'Клиент асууна, сервер хариулна (JSON-RPC)',
-      msg:'→ {"method": "tools/list"}\n\n← {"tools": [\n    {"name": "get_leave_balance",\n     "description": "Үлдсэн амралтын өдөр",\n     "inputSchema": {"employee": "string"}},\n    {"name": "find_employee", …},\n    {"name": "list_requests", …}\n  ]}',
+      msg:'POST /mcp\nAuthorization: Bearer mhc_xxxxxxxx\n\n→ {"method": "tools/list"}\n\n← {"tools": [\n    {"name": "describe_data",\n     "description": "Ямар өгөгдөл асууж болохыг жагсаана"},\n    {"name": "run_query",\n     "inputSchema": {"sql": "string, ≤ 4000 тэмдэгт"}}\n  ]}',
       path:[[410,240],[538,240],[538,275],[412,275]], tag:'tools/list', nodes:['client','server'], lanes:['req','res'], tool:'all' },
     { title:'Та асуулт асууна', pill:'model', pillT:'AI апп', who:'Та → AI апп',
       text:'Та энгийн өгүүлбэр бичнэ. AI апп үүнийг боломжит хэрэгслүүдийн жагсаалтын хамт загварт дамжуулна.',
-      note:'Хэрэгслийн нэр нэрлэх, query бичих шаардлагагүй. Үлдсэнийг загвар өөрөө олно.',
-      msgLabel:'Таны бичсэн', msg:'"Бат хэдэн өдрийн амралт үлдсэн бэ?"',
+      note:'Хэрэгслийн нэр нэрлэх, SQL бичих шаардлагагүй. Үлдсэнийг загвар өөрөө олно.',
+      msgLabel:'Таны бичсэн', msg:'"Одоо хэдэн ажилтан ажиллаж байна вэ?"',
       path:[[130,108],[208,108]], tag:'асуулт', nodes:['you','llm'], lanes:['ask'] },
     { title:'Загвар хэрэгсэл сонгоно', pill:'model', pillT:'AI загвар', who:'LLM → MCP клиент',
-      text:'Загвар get_leave_balance нь асуултад таарч байгааг хараад оролтыг нь бөглөнө. Өөрөө юу ч ажиллуулахгүй, зөвхөн хэрэгслийг дуудах хүсэлт үүсгэнэ.',
-      note:'Тохирох хэрэгсэл байхгүй бол загвар өөрийн мэдлэгээс хариулна.',
-      msgLabel:'Загварын гаралт', msg:'хэрэгсэл дуудах: get_leave_balance\n  employee = "Бат"',
-      path:[[340,160],[340,218]], tag:'хэрэгсэл хэрэгтэй', nodes:['llm','client'], lanes:['pick'] },
+      text:'Загвар эхлээд describe_data-аар ямар харагдац байгааг уншина. Дараа нь асуултад таарах SELECT-ийг бичиж run_query-г дуудах хүсэлт үүсгэнэ. Өөрөө юу ч ажиллуулахгүй.',
+      note:'Хоёр дуудлага тус тусдаа явна: эхлээд describe_data, дараа нь run_query. Доорх нь хоёр дахь дуудлага.',
+      msgLabel:'Загварын гаралт', msg:'хэрэгсэл дуудах: run_query\n  sql = "SELECT COUNT(*) FROM GOV_EMPLOYEES\n         WHERE WORKING = 1"',
+      path:[[340,160],[340,218]], tag:'хэрэгсэл хэрэгтэй', nodes:['llm','client'], lanes:['pick'], tool:1 },
     { title:'Дуудлага хилийг гаталж өнгөрнө', pill:'sdk', pillT:'MCP SDK хариуцна', who:'MCP клиент → MCP сервер',
-      text:'MCP клиент дуудлагыг JSON-RPC мессежээр таны MCP сервер рүү илгээнэ. Ихэнх AI апп энэ үед, ялангуяа өгөгдөл өөрчилдөг хэрэгсэлд хэрэглэгчээс зөвшөөрөл асуудаг.',
+      text:'MCP клиент дуудлагыг JSON-RPC мессежээр, токенийн толгойтойгоор серверт илгээнэ. Ихэнх AI апп энэ үед хэрэглэгчээс зөвшөөрөл асуудаг.',
       note:'Энэ бол стандарт хэсэг. Аливаа MCP клиент аливаа MCP сервертэй яг энэ форматаар ярьж чадна.',
-      msgLabel:'Хүсэлт (JSON-RPC)', msg:'{\n  "jsonrpc": "2.0", "id": 7,\n  "method": "tools/call",\n  "params": {\n    "name": "get_leave_balance",\n    "arguments": {"employee": "Бат"}\n  }\n}',
-      path:[[410,240],[538,240]], tag:'tools/call', nodes:['client','server'], lanes:['req'], tool:0 },
-    { title:'Таны сервер бодит ажлыг хийнэ', pill:'you', pillT:'Та бичих хэсэг', who:'MCP сервер → таны систем',
-      text:'Сервер хэн асууж буйг шалгаад таны бичсэн хэрэгслийн биеийг ажиллуулна: API дуудлага, SQL query, функц. Энд таны системийн өөрийн дүрэм, эрх үйлчилнэ.',
-      note:'AI таны нууц үг, өгөгдлийн санг хэзээ ч хардаггүй. Зөвхөн энэ сервер хардаг.',
-      msgLabel:'Таны өөрийн протокол (жишээ)', msg:'GET /api/leave/balance?employee=Bat\nAuthorization: Bearer <service token>',
-      path:[[720,185],[798,185]], tag:'API дуудлага', nodes:['server','system'], lanes:['api'], tool:0 },
-    { title:'Таны систем хариулна', pill:'you', pillT:'Таны одоо байгаа систем', who:'Таны систем → MCP сервер',
-      text:'Систем өгөгдлийг ердийн аргаараа буцаана. Сервер үүнийг уншигдахуйц хэлбэрт оруулж, тухайн хэрэглэгчид харах эрхтэй зүйлийг л үлдээнэ.',
-      note:'Богино, цэвэр текст буцаа. Урт түүхий өгөгдөл загварын анхаарлыг үрнэ.',
-      msgLabel:'Хариу (жишээ)', msg:'200 OK\n{"employee": "Bat", "days_left": 12}',
-      path:[[798,215],[722,215]], tag:'өгөгдөл', nodes:['system','server'], lanes:['data'], tool:0 },
+      msgLabel:'Хүсэлт (JSON-RPC)', msg:'POST /mcp\nAuthorization: Bearer mhc_xxxxxxxx\n\n{\n  "jsonrpc": "2.0", "id": 7,\n  "method": "tools/call",\n  "params": {\n    "name": "run_query",\n    "arguments": {"sql": "SELECT COUNT(*) …"}\n  }\n}',
+      path:[[410,240],[538,240]], tag:'tools/call', nodes:['client','server'], lanes:['req'], tool:1 },
+    { title:'Сервер шалгаж, хэрэглэгчийн эрхээр ажиллуулна', pill:'you', pillT:'Манай бүтээсэн хэсэг', who:'MCP сервер → HR өгөгдлийн сан',
+      text:'Сервер дарааллаар: токен хүчинтэй эсэх, минутанд 30 дуудлагын хязгаар, асуулт зөвхөн GOV_ харагдацын SELECT эсэх. Дараа нь токены хэрэглэгчид харагдах ажилтнуудыг түр хүснэгтэнд (GOV_SCOPE) бөглөж, асуултыг ажиллуулаад үргэлж буцаана. 1000 мөр, 15 секундээс хэтрэхгүй. Дуудлага түүхэд бичигдэнэ.',
+      note:'AI өгөгдлийн сангийн нууц үгийг хэзээ ч хардаггүй. Түүнд харагдахгүй ажилтны мөр (жишээ нь цалин) хариунд огт орохгүй.',
+      msgLabel:'Сервер ажиллуулах асуулт', msg:'SELECT COUNT(*) FROM GOV_EMPLOYEES\nWHERE WORKING = 1\n\n-- эхлээд GOV_SCOPE = токены хэрэглэгчид\n--   харагдах ажилтнууд\n-- ажиллуулсны дараа rollback',
+      path:[[720,185],[798,185]], tag:'SELECT', nodes:['server','system'], lanes:['api'], tool:1 },
+    { title:'Өгөгдлийн сан хариулна', pill:'you', pillT:'Одоо байгаа HR өгөгдөл', who:'HR өгөгдлийн сан → MCP сервер',
+      text:'Өгөгдлийн сан мөрүүдийг буцаана. Сервер мөнгө, огноог текст болгож, хариуг ойлгомжтой болгоно: баганууд, мөрүүд, SQL-ийн англи тайлбар, анхааруулга, мөрийн тоо.',
+      note:'Богино, цэвэр хариу буцаа. Урт түүхий өгөгдөл загварын анхаарлыг үрнэ.',
+      msgLabel:'Хариу (жишээ)', msg:'{"ok": true,\n "columns": ["COUNT"],\n "rows": [[61]],\n "row_count": 1,\n "warnings": []}',
+      path:[[798,215],[722,215]], tag:'мөрүүд', nodes:['system','server'], lanes:['data'], tool:1 },
     { title:'Үр дүн загвар руу буцна', pill:'sdk', pillT:'MCP SDK хариуцна', who:'MCP сервер → клиент → LLM',
-      text:'Сервер хариуг хэрэгслийн үр дүн болгон боож өгнө. MCP клиент үүнийг загварт дамжуулах бөгөөд загвар үүнийг яриан дахь шинэ мэдээлэл гэж үзнэ.',
-      note:'Загварт илүү мэдээлэл хэрэгтэй бол өөр хэрэгсэл дуудаж, 3-р алхмаас давтаж болно.',
-      msgLabel:'Үр дүн (JSON-RPC)', msg:'{\n  "jsonrpc": "2.0", "id": 7,\n  "result": {\n    "content": [{\n      "type": "text",\n      "text": "Бат: 12 өдрийн амралт үлдсэн"\n    }]\n  }\n}',
-      path:[[538,275],[380,275],[380,162]], tag:'үр дүн', nodes:['server','client','llm'], lanes:['res','got'], tool:0 },
+      text:'Сервер хариуг нэг текст блок (JSON) болгож хэрэгслийн үр дүнд боож өгнө. Татгалзсан бол ok=false ба шалтгаантай, isError тэмдэгтэй хариу ирнэ. MCP клиент үүнийг загварт дамжуулна.',
+      note:'Загварт илүү мэдээлэл хэрэгтэй бол дахин run_query дуудаж болно, гэхдээ минутанд 30 дуудлагын хязгаар үйлчилнэ.',
+      msgLabel:'Үр дүн (JSON-RPC)', msg:'{\n  "jsonrpc": "2.0", "id": 7,\n  "result": {\n    "content": [{\n      "type": "text",\n      "text": "{\\"ok\\": true, \\"rows\\": [[61]] …}"\n    }],\n    "isError": false\n  }\n}',
+      path:[[538,275],[380,275],[380,162]], tag:'үр дүн', nodes:['server','client','llm'], lanes:['res','got'], tool:1 },
     { title:'Загвар танд хариулна', pill:'model', pillT:'AI загвар', who:'LLM → Та',
       text:'Загвар өгөгдлийг өгүүлбэр болгоно. Таны харсан бүх зүйл програмуудын хоорондын яриа байсан, та зөвхөн асуулт болон энэ хариуг харна.',
-      note:'Хариултын чанар хэрэгслийн өгөгдөл, тайлбараас хамаарна.',
-      msgLabel:'Таны уншсан', msg:'"Бат 12 өдрийн ээлжийн амралт үлдсэн байна."',
+      note:'Хариултын чанар өгөгдлийн харагдацын тайлбараас хамаарна.',
+      msgLabel:'Таны уншсан', msg:'"Одоо 61 ажилтан ажиллаж байна."',
       path:[[208,135],[132,135]], tag:'хариулт', nodes:['llm','you'], lanes:['ans'] }
   ];
 
@@ -415,7 +530,7 @@ mcp.run()  # stdio, эсвэл transport="streamable-http"</pre>
   }
   function schedule(my){
     if(!playing || my!==token) return;
-    timer = setTimeout(function(){ if(playing && my===token) go(idx+1); }, reduce?3200:2800);
+    timer = setTimeout(function(){ if(playing && my===token) go(idx+1); }, reduce?3200:4200);
   }
   function setPlaying(p){
     playing = p; $('#play').textContent = p?'Зогсоох':'Тоглуулах';
@@ -425,9 +540,62 @@ mcp.run()  # stdio, эсвэл transport="streamable-http"</pre>
   $('#next').addEventListener('click',function(){ setPlaying(false); go(idx+1); });
   $('#prev').addEventListener('click',function(){ setPlaying(false); go(idx-1); });
 
-  var apps = ['Claude','Copilot','Өөрийн бот'], sysn = ['HR систем','ERP','Календарь'];
-  var ys = [60,140,220], NS='http://www.w3.org/2000/svg';
+  var NS='http://www.w3.org/2000/svg';
   function el(n,a,p){ var e=document.createElementNS(NS,n); for(var k in a) e.setAttribute(k,a[k]); if(p) p.appendChild(e); return e; }
+
+  /* CONNECT tab: three outside systems reach the one server, directly or through a tunnel / proxy */
+  var cEdges = $('#conn-edges'), cNodes = $('#conn-nodes');
+  var clients = [['Claude / AI апп','токен A',60],['Өөрийн бот','токен B',130],['Өөр MACS систем','токен C',200]];
+  var CE = {direct:[], toGate:[], gateSrv:[]};
+  clients.forEach(function(c,i){
+    var y=c[2]+25, ty=[100,150,200][i];
+    CE.direct.push(el('path',{class:'edge',pathLength:1,d:'M170 '+y+' C 330 '+y+' 450 '+ty+' 610 '+ty,stroke:'var(--ai)'},cEdges));
+    CE.toGate.push(el('path',{class:'edge',pathLength:1,d:'M170 '+y+' C 230 '+y+' 270 150 340 150',stroke:'var(--ai)'},cEdges));
+  });
+  CE.gateSrv.push(el('path',{class:'edge',pathLength:1,d:'M480 150 H610',stroke:'var(--srv)'},cEdges));
+  clients.forEach(function(c){
+    var g=el('g',{class:'node client'},cNodes);
+    el('rect',{class:'box',x:20,y:c[2],width:150,height:50,rx:8},g);
+    var t=el('text',{class:'t-lbl',x:95,y:c[2]+21,'text-anchor':'middle'},g); t.textContent=c[0];
+    var s=el('text',{class:'t-sm',x:95,y:c[2]+38,'text-anchor':'middle'},g); s.textContent=c[1];
+  });
+  var gate = el('g',{class:'node gate',id:'gate',style:'opacity:0',color:'var(--muted)'},cNodes);
+  el('rect',{class:'box',x:340,y:95,width:140,height:110,rx:10,'stroke-dasharray':'5 4'},gate);
+  var g1=el('text',{class:'t-lbl',x:410,y:128,'text-anchor':'middle'},gate); g1.textContent='Туннель / прокси';
+  var g2=el('text',{class:'t-sm',x:410,y:148,'text-anchor':'middle'},gate); g2.textContent='HTTPS, нийтийн нэр';
+  var g3=el('text',{class:'t-sm',x:410,y:164,'text-anchor':'middle'},gate); g3.textContent='MCP_ALLOWED_HOSTS-д';
+  var g4=el('text',{class:'t-sm',x:410,y:180,'text-anchor':'middle'},gate); g4.textContent='нэрийг нэмнэ';
+  var sg=el('g',{class:'node srv'},cNodes);
+  el('rect',{class:'box',x:610,y:60,width:170,height:180,rx:10},sg);
+  var s1=el('text',{class:'t-lbl',x:695,y:92,'text-anchor':'middle'},sg); s1.textContent='MCP сервер';
+  var s2=el('text',{class:'t-mono',x:695,y:114,'text-anchor':'middle'},sg); s2.textContent='/mcp';
+  var s3=el('text',{class:'t-sm',x:695,y:140,'text-anchor':'middle'},sg); s3.textContent='127.0.0.1:8765';
+  var s4=el('text',{class:'t-sm',x:695,y:166,'text-anchor':'middle'},sg); s4.textContent='токен бүр → нэг';
+  var s5=el('text',{class:'t-sm',x:695,y:182,'text-anchor':'middle'},sg); s5.textContent='HR хэрэглэгчийн эрх';
+  var s6=el('text',{class:'t-sm',x:695,y:206,'text-anchor':'middle'},sg); s6.textContent='describe_data · run_query';
+  var db=el('g',{class:'node sys'},cNodes);
+  el('rect',{class:'box',x:830,y:105,width:110,height:90,rx:10},db);
+  var d1=el('text',{class:'t-lbl',x:885,y:145,'text-anchor':'middle'},db); d1.textContent='HR өгөгдөл';
+  var d2=el('text',{class:'t-sm',x:885,y:162,'text-anchor':'middle'},db); d2.textContent='GOV_ харагдац';
+  el('path',{class:'lane',d:'M780 150 H828','marker-end':'url(#arr2)'},cEdges);
+  var defs=el('defs',{},cNodes); var mk=el('marker',{id:'arr2',viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},defs); el('path',{d:'M0,0 L10,5 L0,10 z',fill:'currentColor'},mk);
+  var connMode='local';
+  function setConn(m,instant){
+    connMode=m; var loc = m==='local';
+    $('#c-local').setAttribute('aria-pressed',loc); $('#c-out').setAttribute('aria-pressed',!loc);
+    CE.direct.forEach(function(e,i){ setTimeout(function(){e.classList.toggle('on',loc)}, instant||reduce?0:i*60); });
+    CE.toGate.concat(CE.gateSrv).forEach(function(e,i){ setTimeout(function(){e.classList.toggle('on',!loc)}, instant||reduce?0:i*60); });
+    $('#gate').style.opacity = loc?0:1;
+    $('#conn-axis').textContent = loc ? 'нэг машин, нэг сүлжээ' : 'интернет → харилцагчийн машин';
+    $('#conn-cap').textContent = loc
+      ? 'Нэг машин дээр холбогч нь шууд http://127.0.0.1:8765/mcp хаяг руу токентойгоо хандана. Токен бүр өөр HR хэрэглэгчийн эрхтэй байж болно.'
+      : 'Гаднаас бол туннель эсвэл HTTPS прокси нийтийн нэрийг хүлээн авч 127.0.0.1:8765 руу дамжуулна. Токен хүсэлт бүрт шаардлагатай хэвээр. Нийтийн нэрийг MCP_ALLOWED_HOSTS-д нэмэхгүй бол 421 ирнэ.';
+  }
+  $('#c-local').addEventListener('click',function(){setConn('local')});
+  $('#c-out').addEventListener('click',function(){setConn('out')});
+
+  var apps = ['Claude','Өөрийн бот','MACS ERP'], sysn = ['HR систем','Цалин','Календарь'];
+  var ys = [60,140,220];
   var edges = $('#why-edges'), nodes = $('#why-nodes'), E = {direct:[], app:[], sys:[]};
   apps.forEach(function(_,i){ sysn.forEach(function(_,j){
     var e = el('path',{class:'edge',pathLength:1,d:'M150 '+ys[i]+' C 300 '+ys[i]+' 340 '+ys[j]+' 490 '+ys[j],stroke:'var(--sys)'},edges); E.direct.push(e); }); });
@@ -456,6 +624,7 @@ mcp.run()  # stdio, эсвэл transport="streamable-http"</pre>
   $('#m-without').addEventListener('click',function(){setWhy('without')});
   $('#m-with').addEventListener('click',function(){setWhy('with')});
   setWhy('without',true);
+  setConn('local',true);
 
   go(0);
 })();

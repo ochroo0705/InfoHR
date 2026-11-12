@@ -657,16 +657,11 @@
     return results.querySelectorAll("[data-palette-item]");
   }
 
-  // The «Асуух» row is not selected by default (Enter on a plain search must open a result, not ask the assistant),
-  // unless the text reads as a question (data-palette-ask-first) or nothing matched (data-palette-empty). Then the first real result is selected.
+  // The «Асуух» row is the default: when it is in the list (typed text, assistant on) it is the first row and the one
+  // selected, so Enter asks. The quick-search results below it are the second choice (arrow down, or a click).
   function highlightFirst() {
     var list = items();
-    var pick = 0;
-    if (list.length > 1 && list[0].hasAttribute("data-palette-ask") && !list[0].hasAttribute("data-palette-ask-first")
-        && !results.querySelector("[data-palette-empty]")) {  // nothing matched: the question is the only real next step
-      pick = 1;
-    }
-    for (var i = 0; i < list.length; i++) list[i].setAttribute("aria-selected", i === pick ? "true" : "false");
+    for (var i = 0; i < list.length; i++) list[i].setAttribute("aria-selected", i === 0 ? "true" : "false");
   }
 
   function clearSelection() {

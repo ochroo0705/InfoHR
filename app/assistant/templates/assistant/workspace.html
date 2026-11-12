@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load static %}
-{% comment %}The workspace page: tab strip on top, the table pane and the chat pane. From xl up they sit side by side (table on the
-left, chat on the right); below xl they stack with the chat FIRST, so the question box is not at the bottom of a long table.
-The two panes are empty placeholders with stable ids (ws-table-pane, ws-chat-pane) that the table and chat parts fill.
+{% comment %}The workspace page: tab strip on top, the table pane full width, and the chat as a dock fixed at the bottom
+center (like the Claude desktop input bar): the question box is always in reach, replies and undo sit just above it, and
+the table pane has bottom padding so the dock never covers the last rows. The two panes are empty placeholders with stable ids (ws-table-pane, ws-chat-pane) that the table and chat parts fill.
 workspace.js (row ticks, copy, select all, the waiting and focus handling) is loaded here only; it reads the table pane from
 the DOM after every swap. #ws-live is a live region outside both panes: a swapped pane is not announced, this one is.{% endcomment %}
 {% block title %}Асуулт, хүснэгт{% endblock %}
@@ -35,8 +35,8 @@ the DOM after every swap. #ws-live is a live region outside both panes: a swappe
     {% endif %}
   </div>
 
-  <div class="flex flex-col gap-4 xl:flex-row xl:items-start">
-    <section id="ws-table-pane" aria-label="Хүснэгт" class="order-2 min-w-0 flex-1 rounded-lg border border-slate-200 bg-surface p-4 xl:order-none"{% if current %} hx-get="{% url 'assistant:ws_table' current.pk %}" hx-trigger="{% if not table %}load, {% endif %}ws-table-changed from:body"{% endif %}>
+  <div class="pb-44">
+    <section id="ws-table-pane" aria-label="Хүснэгт" class="min-w-0 rounded-lg border border-slate-200 bg-surface p-4"{% if current %} hx-get="{% url 'assistant:ws_table' current.pk %}" hx-trigger="{% if not table %}load, {% endif %}ws-table-changed from:body"{% endif %}>
       {% if table %}
       {% include "assistant/_ws_table.html" %}
       {% elif current %}
@@ -46,7 +46,7 @@ the DOM after every swap. #ws-live is a live region outside both panes: a swappe
       {% endif %}
     </section>
 
-    <aside id="ws-chat-pane" aria-label="Чат" class="order-1 w-full shrink-0 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-surface p-4 xl:sticky xl:top-20 xl:order-none xl:w-96" hx-on::before-swap="if (event.detail.xhr.getResponseHeader('X-Chat-Error')) { event.detail.shouldSwap = true; event.detail.isError = false; }"{% if current %} hx-get="{% url 'assistant:ws_chat' current.pk %}" hx-trigger="load"{% endif %}>
+    <aside id="ws-chat-pane" aria-label="Чат" class="group/dock fixed bottom-4 left-1/2 z-30 print:hidden max-h-[70vh] w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-surface p-3 shadow-xl" hx-on::before-swap="if (event.detail.xhr.getResponseHeader('X-Chat-Error')) { event.detail.shouldSwap = true; event.detail.isError = false; }"{% if current %} hx-get="{% url 'assistant:ws_chat' current.pk %}" hx-trigger="load"{% endif %}>
       {% if current %}<p class="text-slate-500">Чат ачаалж байна…</p>{% else %}<p class="text-slate-500">Чат энд харагдана.</p>{% endif %}
     </aside>
   </div>

@@ -280,6 +280,8 @@
       reindex(copy, index);
       var row = copy.querySelector("[data-row]");
       box.appendChild(copy);
+      // The date picker upgrades date boxes on this event (datepicker.js listens for htmx:load); a new row has none yet.
+      if (row) document.dispatchEvent(new CustomEvent("htmx:load", { detail: { elt: row } }));
       updateRows(box);
       var first = row && row.querySelector("input, select, textarea");
       if (first) first.focus();
