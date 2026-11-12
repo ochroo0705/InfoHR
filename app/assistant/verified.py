@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from hr_sql.catalogue import RESERVED_PREFIXES
 from hr_sql.descriptions import load_all
 from sqlcore.catalogue import Catalogue
 from sqlcore.check import CheckError, check_sql
@@ -64,7 +65,7 @@ def examples_for(catalogue: Catalogue, question: str, limit: int = EXAMPLE_LIMIT
 
 def full_catalogue() -> Catalogue:
     """Every governed view with its reviewed description: the reference the drift check uses."""
-    return Catalogue(views=tuple(load_all().values()))
+    return Catalogue(views=tuple(load_all().values()), reserved_prefixes=RESERVED_PREFIXES)
 
 
 def stale_examples() -> list[StaleExample]:

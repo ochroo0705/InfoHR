@@ -336,10 +336,10 @@ async with streamablehttp_client(
 
   <!-- BUILT -->
   <section class="panel" id="p-need" role="tabpanel" aria-labelledby="tab-need" hidden>
-    <p class="lede">Манайд бүтээгдсэн таван хэсэг ба одоогоор хийгээгүй зүйлс. Тус бүрийг нээж үзнэ үү. Файлын нэрс нь <code>app/</code> хавтас доторх.</p>
+    <p class="lede">Манайд бүтээгдсэн таван хэсэг, тэдгээрийн тусдаа багц болсон хуваалт, одоогоор хийгээгүй зүйлс. Тус бүрийг нээж үзнэ үү. <code>sqlcore</code> ба <code>sqlmcp</code> нь тусдаа <b>macs-sql-mcp</b> багцад, <code>hr_sql</code> ба <code>hr_mcp</code> нь HR-ийн <code>app/</code> хавтас дотор байна.</p>
 
     <details open>
-      <summary><span class="n">1</span>Хяналттай SQL (sqlcore, hr_sql)<span class="chev">›</span></summary>
+      <summary><span class="n">1</span>Хяналттай SQL (sqlcore багцад, hr_sql HR-д)<span class="chev">›</span></summary>
       <div class="body">
         <p>Цөм нь AI-д өгөх өгөгдлийг хязгаарладаг. AI зөвхөн <b>GOV_</b> гэж нэрлэгдсэн харагдацуудыг (GOV_EMPLOYEES, GOV_LEAVE, GOV_ORDERS, GOV_SALARY гэх мэт) <b>SELECT</b>-ээр уншина. Асуулт бүрийн өмнө тухайн хэрэглэгчид харагдах ажилтны жагсаалтыг түр хүснэгтэнд (GOV_SCOPE) бөглөж, дараа нь гүйлгээг үргэлж буцаана (rollback).</p>
         <div class="two">
@@ -350,7 +350,7 @@ async with streamablehttp_client(
     </details>
 
     <details>
-      <summary><span class="n">2</span>MCP сервер (sqlmcp)<span class="chev">›</span></summary>
+      <summary><span class="n">2</span>MCP сервер (sqlmcp, багцад)<span class="chev">›</span></summary>
       <div class="body">
         <p>Протоколын хэсэг: Streamable HTTP-ээр <code>/mcp</code> дээр хоёр хэрэгслийг (<b>describe_data</b>, <b>run_query</b>) нийтэлнэ. Төлөвгүй, JSON хариутай, токены шалгалттай. Django болон HR кодыг оруулдаггүй тул өөр MACS системд дахин ашиглахад бэлэн.</p>
         <div class="mini"><b>Эхний дүрэм</b>AI эхлээд <code>describe_data</code> дуудаж, юу асууж болохыг мэдэж байж <code>run_query</code> бичнэ. Сервер өөрөө үүнийг заавал шаардахгүй, зөвхөн зааварт бичсэн.</div>
@@ -389,6 +389,19 @@ MCP_ALLOWED_HOSTS=127.0.0.1:*,localhost:*
 
 python manage.py run_mcp</pre>
         <p class="note">Дэлгэрэнгүй: <code>docs/mcp-deployment.md</code>.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="n">6</span>Тусдаа багц ба бусад MACS систем<span class="chev">›</span></summary>
+      <div class="body">
+        <p><code>sqlcore</code> ба <code>sqlmcp</code> нь HR-ийн кодоос тусдаа <b>macs-sql-mcp</b> багц болсон (хувилбар 1.0.0, хувийн GitHub репозитор <code>ochroo0705/MacsMCP</code>). Django болон HR-ийн код оруулдаггүй. HR үүнийг <code>requirements.txt</code>-д <b>git tag-аар тогтоож</b> (<code>@v1.0.0</code>) суулгана.</p>
+        <div class="two">
+          <div class="mini"><b>HR-д үлдсэн</b><code>hr_sql</code> (GOV_ харагдац, <code>GOV_SCOPE</code>), <code>hr_mcp</code> (токен, түүх, хурдны хязгаар, админ) болон HR-ийн хэрэгслийн текст (<code>hr_mcp/text.py</code>).</div>
+          <div class="mini"><b>Өөр систем юу өгөх вэ</b>Өөрийн <b>host</b> (ямар харагдац, хэрэглэгчийн эрхээр хэрхэн ажиллуулах), токен шалгах функц, хүсвэл дуудлагын hook, мөн өөрийн зааврын текст.</div>
+        </div>
+        <div class="warn"><b>Чухал:</b> багц зөвхөн «нэг унших SELECT, жагсаалтад байгаа харагдацууд» гэдгийг шалгана. Хэн ямар мөрийг харах эрхтэйг <b>host</b> шийднэ (HR-д <code>GOV_SCOPE</code>). Харагдац нь хэрэглэгчээр хязгаарлагдаагүй системд зөв асуулт ч харах эрхгүй мөрийг буцааж болно.</div>
+        <p class="note">Багцыг өөрчлөхдөө тусдаа репозитор дотор засаж, тестлээд, шинэ tag тавьж, HR-ийн <code>requirements.txt</code> дахь tag-ийг солиод дахин суулгана. Хувилбар 1 нь зөвхөн Firebird. Багцын репозиторт README, төрлийн тэмдэглэгээ (<code>py.typed</code>), токены анхдагч хадгалалт одоогоор байхгүй. Жишээ: багцын <code>examples/minimal_host.py</code>.</p>
       </div>
     </details>
 

@@ -18,6 +18,7 @@ from starlette.applications import Starlette
 
 from hr_mcp.calls import log_and_limit
 from hr_mcp.models import McpToken
+from hr_mcp.text import HR_INSTRUCTIONS, HR_RUN_QUERY_DESCRIPTION
 from hr_mcp.tokens import find_token
 
 __all__ = ["make_app"]
@@ -57,4 +58,6 @@ def make_app(call_hook: CallHook | None = None) -> Starlette:
         _authenticate,
         call_hook=hook,
         allowed_hosts=settings.MCP_ALLOWED_HOSTS,
+        instructions=HR_INSTRUCTIONS,
+        run_query_description=HR_RUN_QUERY_DESCRIPTION,
     )

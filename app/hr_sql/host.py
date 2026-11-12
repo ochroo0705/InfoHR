@@ -26,7 +26,7 @@ from sqlcore.catalogue import Catalogue
 from sqlcore.check import CheckedQuery
 from sqlcore.limits import Limits, QueryTimeout, Result
 
-from hr_sql.catalogue import catalogue_for
+from hr_sql.catalogue import RESERVED_PREFIXES, catalogue_for
 from hr_sql.connection import GOVERNED_ALIAS, governed_connection
 from hr_sql.scope import fill_scope
 
@@ -71,7 +71,7 @@ def _unregister(user_id: int, run: _Run) -> None:
 class HrHost:
     def catalogue_for(self, user: object) -> Catalogue:
         if not isinstance(user, User):
-            return Catalogue(views=())
+            return Catalogue(views=(), reserved_prefixes=RESERVED_PREFIXES)
         return catalogue_for(user)
 
     def execute(self, user: object, query: CheckedQuery, limits: Limits) -> Result:

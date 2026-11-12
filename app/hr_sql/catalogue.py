@@ -24,8 +24,11 @@ EMPLOYEES: View = load_view("GOV_EMPLOYEES")
 CHILDREN: View = load_view("GOV_CHILDREN")
 LEAVE: View = load_view("GOV_LEAVE")
 ORDERS: View = load_view("GOV_ORDERS")
-SALARY: View = load_view("GOV_SALARY")
-LOANS: View = load_view("GOV_LOANS")
+# Names a common table may not take: the governed views and the scope tables of the host. sqlcore adds its own.
+RESERVED_PREFIXES: tuple[str, ...] = ("GOV_", "IHR_")
+# Many rows per person, one per pay change or loan; END_DATE ends each row's period.
+SALARY: View = replace(load_view("GOV_SALARY"), history_end_column="END_DATE")
+LOANS: View = replace(load_view("GOV_LOANS"), history_end_column="END_DATE")
 EMPLOYEES_NO_PERSONAL: View = replace(
     EMPLOYEES, columns=tuple(column for column in EMPLOYEES.columns if column.name not in PERSONAL_COLUMNS)
 )
@@ -54,13 +57,13 @@ def catalogue_for(user: User) -> Catalogue:
     place that decides which views and columns a user may ask about.
     """
     if not user.is_active:
-        return Catalogue(views=())
+        return Catalogue(views=(), reserved_prefixes=RESERVED_PREFIXES)
     if not (user.has_perm("macs.view_employees") or own_employee(user) is not None):
-        return Catalogue(views=())
+        return Catalogue(views=(), reserved_prefixes=RESERVED_PREFIXES)
     if _may_view_personal(user):
         views: tuple[View, ...] = (EMPLOYEES, CHILDREN, LEAVE, ORDERS)
     else:
         views = (EMPLOYEES_NO_PERSONAL, LEAVE, ORDERS)
     if user.has_perm("macs.view_salary"):
         views = (*views, SALARY, LOANS)
-    return Catalogue(views=views)
+    return Catalogue(views=views, reserved_prefixes=RESERVED_PREFIXES)
