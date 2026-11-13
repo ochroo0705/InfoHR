@@ -10,13 +10,17 @@ import pytest
 from accounts.models import User
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.db import transaction
+from django.utils import timezone
 from employees.access import can_view_personal, own_employee, visible_employees
+from employees.listing import employee_rows, is_working
+from employees.models import Employee
 from sqlcore.runner import Answered, Refused, run_question
 
+from hr_sql import scope as scope_module
 from hr_sql.catalogue import catalogue_for
 from hr_sql.connection import GOVERNED_ALIAS, governed_connection
 from hr_sql.host import HrHost
-from hr_sql.scope import fill_scope
+from hr_sql.scope import fill_scope, working_flags
 from hr_sql.tests.conftest import World
 
 COLUMNS = {
@@ -90,6 +94,40 @@ def test_user_with_no_right_and_no_record_gets_zero_ids(ready: World) -> None:
 
     assert ids == set()
     assert count == 0
+
+
+def test_working_flags_match_the_employee_list(ready: World) -> None:
+    """The lean working_flags must give the employee list's answer (listing.row_for + is_working) for everyone."""
+    today = timezone.localdate()
+    people = Employee.objects.all()
+    expected = {row.employee.pk: 1 if is_working(row) else 0 for row in employee_rows(people, today)}
+
+    assert expected  # the world has people
+    assert working_flags(people, today) == expected
+
+
+@pytest.mark.parametrize("block_rows", [1, 2, 100])
+def test_scope_fill_is_the_same_whatever_the_block_size(
+    ready: World, monkeypatch: pytest.MonkeyPatch, block_rows: int
+) -> None:
+    """Blocks of 1, 2 (uneven last block) and the real size all write every visible id with its flag."""
+    monkeypatch.setattr(scope_module, "_BLOCK_ROWS", block_rows)
+    connection = governed_connection()
+    with transaction.atomic(using=GOVERNED_ALIAS):
+        count = fill_scope(connection, ready.hr)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT EMP_ID, WORKING FROM GOV_SCOPE")
+            written = {int(pk): int(flag) for pk, flag in cursor.fetchall()}
+
+    assert count == len(written) >= 3
+    assert written == working_flags(visible_employees(ready.hr), timezone.localdate())
+
+
+def test_insert_blocks_split_rows_and_hold_only_integers() -> None:
+    blocks = list(scope_module._insert_blocks([(i, i % 2) for i in range(250)]))
+
+    assert [block.count("INSERT") for block in blocks] == [100, 100, 50]
+    assert list(scope_module._insert_blocks([])) == []
 
 
 def test_inactive_user_gets_zero_ids(ready: World) -> None:

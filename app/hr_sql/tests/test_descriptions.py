@@ -2,6 +2,7 @@
 files, the view definitions in hr_sql/views.py, and the catalogue built from them.
 """
 
+import re
 import shutil
 import tomllib
 from collections.abc import Iterator
@@ -31,9 +32,15 @@ ALL_VIEWS = [
 
 @pytest.fixture
 def copy_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    """A throw-away copy of the description files; the loader reads the copy for the test."""
+    """A throw-away copy of the description files, with every sign-off blanked (all views are drafts), so the tests do
+    not depend on whether the real files have been signed. The loader reads the copy for the test."""
     target = tmp_path / "descriptions"
     shutil.copytree(DESCRIPTIONS_DIR, target)
+    for path in target.glob("*.toml"):
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r'(?m)^reviewed_by = ".*"$', 'reviewed_by = ""', text)
+        text = re.sub(r'(?m)^reviewed_on = ".*"$', 'reviewed_on = ""', text)
+        path.write_text(text, encoding="utf-8")
     monkeypatch.setattr(descriptions, "DESCRIPTIONS_DIR", target)
     yield target
 
