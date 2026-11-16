@@ -106,6 +106,29 @@ def test_extend_reopens_expired_open_invitation_for_fresh_hours(actor: User) -> 
     assert is_fillable(inv)
 
 
+def test_extend_adds_hours_to_the_time_left(actor: User) -> None:
+    inv = create_invitation(label="Бат", branch=None, hours=72, by=actor)
+    extend(inv, hours=24, by=actor)
+    inv.refresh_from_db()
+    assert abs((inv.expires_at - (timezone.now() + timedelta(hours=96))).total_seconds()) < 5
+
+
+def test_extend_expired_open_invitation_counts_from_now(actor: User) -> None:
+    inv = create_invitation(label="Бат", branch=None, hours=1, by=actor)
+    _expire(inv)
+    extend(inv, hours=24, by=actor)
+    inv.refresh_from_db()
+    assert abs((inv.expires_at - (timezone.now() + timedelta(hours=24))).total_seconds()) < 5
+
+
+def test_extend_beyond_one_year_from_now_is_refused(actor: User) -> None:
+    inv = create_invitation(label="Бат", branch=None, hours=24 * 364, by=actor)
+    before = SelfFormInvitation.objects.get(pk=inv.pk).expires_at
+    with pytest.raises(SelfFormError):
+        extend(inv, hours=24 * 2, by=actor)
+    assert SelfFormInvitation.objects.get(pk=inv.pk).expires_at == before
+
+
 def test_extend_refuses_submitted_invitation(actor: User) -> None:
     inv = create_invitation(label="Бат", branch=None, hours=None, by=actor)
     inv.status = SelfFormStatus.SUBMITTED

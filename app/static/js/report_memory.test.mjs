@@ -32,9 +32,19 @@ test("rememberable returns nothing when only the day or month was set, or the se
   assert.equal(rememberable(""), "");
 });
 
+test("rememberable drops the search and keeps the other parameters", () => {
+  assert.equal(rememberable("?state=all&q=Батын&sort=name"), "?state=all&sort=name");
+  assert.equal(rememberable("?q=Батын"), "");
+  assert.equal(rememberable("?q=%D0%B1&layout=cards"), "?layout=cards");
+});
+
+test("a percent-encoded search name is dropped too", () => {
+  assert.equal(rememberable("?%71=abc&state=all"), "?state=all");
+});
+
 test("rememberable keeps the other parameters exactly as encoded", () => {
   assert.equal(rememberable("?rules=%7B%22op%22%3A%22and%22%7D"), "?rules=%7B%22op%22%3A%22and%22%7D");
-  assert.equal(rememberable("?q=a%20b+c&as_of=2026-10-31"), "?q=a%20b+c");
+  assert.equal(rememberable("?sort=a%20b+c&as_of=2026-10-31"), "?sort=a%20b+c");
 });
 
 test("rememberable removes every occurrence of the day and month parameters", () => {

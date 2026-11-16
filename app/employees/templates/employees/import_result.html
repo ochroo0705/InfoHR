@@ -22,10 +22,29 @@
   </div>
 </div>
 
-{% if draft.rejected_count and draft.rejected_file %}
+{% if list_results %}
 <div class="mt-6 rounded-xl border border-slate-200 bg-surface p-4">
-  <p class="text-sm text-slate-700">Алдаатай {{ draft.rejected_count }} мөрийг Excel файлаар татаж, засаад дахин оруулна уу. Файлд мөр бүрийн алдаа «Алдаа» баганад бичигдсэн байна.</p>
+  <p class="mb-2 text-sm font-medium">Нэмэлт жагсаалтын хуудас</p>
+  <table class="text-sm">
+    <thead><tr class="text-left text-slate-500"><th class="pr-6">Жагсаалт</th><th class="pr-6 text-right">Нэмэгдсэн</th><th class="text-right">Нэмэгдээгүй</th></tr></thead>
+    <tbody>
+      {% for item in list_results %}
+      <tr><td class="pr-6">{{ item.title }}</td><td class="pr-6 text-right">{{ item.added }}</td><td class="text-right">{{ item.refused }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if draft.rejected_file and draft.rejected_count %}
+<div class="mt-6 rounded-xl border border-slate-200 bg-surface p-4">
+  <p class="text-sm text-slate-700">Алдаатай {{ draft.rejected_count }} мөрийг Excel файлаар татаж, засаад дахин оруулна уу. Файлд мөр бүрийн алдаа «Алдаа» баганад бичигдсэн байна.{% if list_refused %} Жагсаалтын хуудасны {{ list_refused }} нэмэгдээгүй мөр мөн файлд байна: тэдгээрийг ажилтны «Хувийн мэдээлэл» хэсэгт гараар нэмнэ үү.{% endif %}</p>
   <a href="{% url 'employees:import_rejected' draft.pk %}" class="mt-3 inline-block rounded-lg border border-slate-300 px-4 py-2 text-sm">Алдаатай мөрийг татах</a>
+</div>
+{% elif draft.rejected_file %}
+<div class="mt-6 rounded-xl border border-slate-200 bg-surface p-4">
+  <p class="text-sm text-slate-700">Жагсаалтын хуудасны {{ list_refused }} мөр нэмэгдсэнгүй. Тэдгээрийг Excel файлаар татаж, алдааг нь «Алдаа» баганаас уншаад ажилтны «Хувийн мэдээлэл» хэсэгт гараар нэмнэ үү.</p>
+  <a href="{% url 'employees:import_rejected' draft.pk %}" class="mt-3 inline-block rounded-lg border border-slate-300 px-4 py-2 text-sm">Нэмэгдээгүй мөрийг татах</a>
 </div>
 {% endif %}
 

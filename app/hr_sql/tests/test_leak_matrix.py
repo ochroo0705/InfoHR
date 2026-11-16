@@ -21,15 +21,24 @@ from accounts.models import AccessScope, User
 from django.contrib.auth.models import Group
 from django.db import connection
 from employees.access import own_employee, visible_employees
-from employees.models import ChangeType, HrOrder, OrderState, OrderType, SalaryRecord
+from employees.models import ChangeType, Event, HrOrder, JobRecord, OrderState, OrderType, SalaryRecord
+from leave.models import LeaveRequest
 from macs.models import (
+    AwardRow,
     Branch,
+    CertificateRow,
+    Department,
+    EducRow,
+    Entitlement,
     FamilyRelation,
     FamilyRow,
     LeaveAssign,
     LeaveTypeRow,
     LoanRefRow,
     LoanRow,
+    Position,
+    PresentRow,
+    QualificationRow,
 )
 from pytest_django.plugin import DjangoDbBlocker
 from sqlcore.limits import Limits
@@ -38,9 +47,16 @@ from sqlcore.runner import Answered, Refused, run_question
 from hr_sql.catalogue import catalogue_for
 from hr_sql.host import HrHost
 from hr_sql.tests.conftest import PASSWORD, World
+from hr_sql.tests.expected import (
+    ALL_VIEWS,
+    EMPLOYEE_RIGHT_VIEWS,
+    OPEN_VIEWS,
+    ORG_VIEWS,
+    PERSONAL_VIEWS,
+    SALARY_VIEWS,
+)
 
-VIEWS = ("GOV_EMPLOYEES", "GOV_CHILDREN", "GOV_LEAVE", "GOV_ORDERS", "GOV_SALARY", "GOV_LOANS")
-SALARY_VIEWS = ("GOV_SALARY", "GOV_LOANS")
+VIEWS = ALL_VIEWS
 LISTING = Limits(max_rows=100_000)  # id listings: the whole test database must fit, so nothing is cut
 PRIVATE_NOTE = "private leak-matrix note"
 
@@ -206,6 +222,28 @@ def _orm_count(view: str, user: User) -> int:
         return people.count()
     if view == "GOV_CHILDREN":
         return FamilyRow.objects.filter(employee__in=people, relation__fm_type__in=("son", "daughter")).count()
+    if view == "GOV_EDUCATION":
+        return EducRow.objects.filter(employee__in=people).count()
+    if view == "GOV_QUALIFICATIONS":
+        return QualificationRow.objects.filter(employee__in=people).count()
+    if view == "GOV_CERTIFICATES":
+        return CertificateRow.objects.filter(employee__in=people).count()
+    if view == "GOV_AWARDS":
+        return AwardRow.objects.filter(employee__in=people).count()
+    if view == "GOV_GIFTS":
+        return PresentRow.objects.filter(employee__in=people).count()
+    if view == "GOV_JOB_HISTORY":
+        return JobRecord.objects.filter(employee__in=people).count()
+    if view == "GOV_EVENTS":
+        return Event.objects.filter(employee__in=people).count()
+    if view == "GOV_ENTITLEMENTS":
+        return Entitlement.objects.filter(employee__in=people).count()
+    if view == "GOV_LEAVE_REQUESTS":
+        return LeaveRequest.objects.filter(employee__in=people).count()
+    if view == "GOV_DEPARTMENTS":
+        return Department.objects.count()
+    if view == "GOV_POSITIONS":
+        return Position.objects.count()
     if view == "GOV_LEAVE":
         return LeaveAssign.objects.filter(employee__in=people).count()
     if view == "GOV_ORDERS":
@@ -219,16 +257,19 @@ def _orm_count(view: str, user: User) -> int:
 
 def _expected_views(user: User) -> set[str]:
     """Which views a user may ask about, by the rule in hr_sql/catalogue.py written out again here: active, and either
-    may see employees or has an own record; the salary views in addition only with macs.view_salary."""
+    may see employees or has an own record; the events view only with macs.view_employees; the salary views in
+    addition only with macs.view_salary."""
     if not user.is_active:
         return set()
     if not (user.has_perm("macs.view_employees") or own_employee(user) is not None):
         return set()
-    views = {"GOV_EMPLOYEES", "GOV_LEAVE", "GOV_ORDERS"}
+    views = {"GOV_EMPLOYEES", *OPEN_VIEWS}
+    if user.has_perm("macs.view_employees"):
+        views.update(EMPLOYEE_RIGHT_VIEWS)
     if _may_see_personal(user):
-        views.add("GOV_CHILDREN")
+        views.update(PERSONAL_VIEWS)
     if user.has_perm("macs.view_salary"):
-        views |= set(SALARY_VIEWS)
+        views.update(SALARY_VIEWS)
     return views
 
 
@@ -306,6 +347,8 @@ def test_limited_role_never_sees_outside_its_branch_in_any_view(data: Data) -> N
                 outcome = _listing(user, view)
                 if view not in _expected_views(user):
                     assert isinstance(outcome, Refused), f"{user.username} reached {view}"
+                    continue
+                if view in ORG_VIEWS:  # no EMP_ID to list; headcount scope is pinned in the views' own tests
                     continue
                 ids = _ids(outcome)
                 assert ids <= seen, f"{user.username} saw employees outside its branch in {view}: {ids - seen}"

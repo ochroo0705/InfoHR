@@ -1,0 +1,55 @@
+# Draft. English from the model labels in app/macs/models.py (AwardRow). Mongolian drafted from the same labels; check the
+# wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per award or commendation given to an employee you may see: the award name, the organisation that gave it, and the award date. Use it to answer questions about an employee's awards. Many rows can belong to one person."
+description_mn = "Харах эрхтэй ажилтанд олгосон шагнал, урамшлын бүртгэл бүрийн нэг мөр: шагналын нэр, олгосон байгууллага, огноо. Нэг ажилтанд хэд хэдэн мөр байж болно."
+
+rules = [
+    # One row per award, not per person: one person can have many rows.
+    # app/macs/models.py (AwardRow)
+    "One row per award, so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # GIVEN_BY and AWARD_DATE can be empty.
+    # app/macs/models.py (AwardRow.give_org, AwardRow.award_date)
+    "GIVEN_BY is the organisation that gave the award. GIVEN_BY and AWARD_DATE can be empty when they are not recorded.",
+    # The award's free-text description is not in this view; it is never shown.
+    # app/hr_sql/views.py (GOV_AWARDS statement: no description column)
+    "The award's free-text description is not in this view and cannot be shown.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "AWARD_ID"
+description = "Award record number (internal id)"
+description_mn = "Шагналын бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "AWARD_NAME"
+description = "Name of the award or commendation"
+description_mn = "Шагнал, урамшлын нэр"
+label_mn = "Шагналын нэр"
+synonyms = ["award", "commendation", "prize", "reward"]
+
+[[columns]]
+name = "GIVEN_BY"
+description = "Organisation that gave the award (empty when not recorded)"
+description_mn = "Шагнал олгосон байгууллага (бүртгэгдээгүй бол хоосон)"
+label_mn = "Олгосон байгууллага"
+synonyms = ["given by", "organization", "issuer", "from"]
+
+[[columns]]
+name = "AWARD_DATE"
+description = "Date the award was given (empty when not recorded)"
+description_mn = "Шагнал олгосон огноо (бүртгэгдээгүй бол хоосон)"
+label_mn = "Олгосон огноо"
+synonyms = ["date", "awarded"]

@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from assistant.models import SavedTable
-from assistant.saved_tables import can_delete, visible_to
+from assistant.saved_tables import VISIBILITIES, can_delete, filter_tables, visible_to
 from assistant.ws_excel import plain_title, ws_excel_bytes, ws_tsv_text
 from assistant.ws_views import (
     EXPORT_REFUSED,
@@ -56,13 +56,22 @@ def _page(request: HttpRequest, user, table: SavedTable) -> HttpResponse:
 @login_required
 @require_GET
 def saved_list(request: HttpRequest) -> HttpResponse:
-    """The saved tables the viewer may see: shared ones and their own private ones, by name."""
+    """The saved tables the viewer may see: shared ones and their own private ones, by name. `?q=` searches name and
+    author, `?visibility=shared|private` keeps one kind."""
     user = _gated_user(request)
+    q = request.GET.get("q", "").strip()
+    visibility = request.GET.get("visibility", "")
+    if visibility not in VISIBILITIES:
+        visibility = ""
     rows = [
         {"table": table, "can_delete": can_delete(user, table)}
-        for table in visible_to(user).select_related("author")
+        for table in filter_tables(visible_to(user), q, visibility).select_related("author")
     ]
-    return render(request, "assistant/saved_list.html", {"rows": rows})
+    return render(
+        request,
+        "assistant/saved_list.html",
+        {"rows": rows, "q": q, "visibility": visibility, "filtered": bool(q or visibility)},
+    )
 
 
 @login_required

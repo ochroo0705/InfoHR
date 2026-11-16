@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 
-FIELD_KINDS = ("text", "date", "money", "gender")
+FIELD_KINDS = ("text", "date", "money", "gender", "int", "yesno")
 
 _DROP = re.compile(r"[.:,№]")
 _SLASH = re.compile(r"\s*/\s*")
@@ -123,6 +123,155 @@ FIELDS: tuple[ImportField, ...] = (
         aliases=("ажлын нөхцөл", "work conditions"),
         kind="text",
         lookup="work_conditions",
+    ),
+    ImportField(
+        key="clan_name",
+        label="Ургийн овог",
+        aliases=("ургийн овог", "clan name"),
+        kind="text",
+    ),
+    ImportField(
+        key="phone2",
+        label="Утас #2",
+        aliases=("утас 2", "утас #2", "утас2", "second phone", "phone 2"),
+        kind="text",
+    ),
+    ImportField(
+        key="prior_service_years",
+        label="Өмнөх ажилласан жил",
+        aliases=("өмнөх ажилласан жил", "ажилласан жил", "prior service years", "years of service"),
+        kind="int",
+    ),
+    ImportField(
+        key="probation_end",
+        label="Туршилтын хугацаа дуусах",
+        aliases=("туршилтын хугацаа дуусах", "туршилт дуусах", "probation end"),
+        kind="date",
+    ),
+    ImportField(
+        key="employee_type",
+        label="Ажилтны төрөл",
+        aliases=("ажилтны төрөл", "employee type"),
+        kind="text",
+    ),
+    ImportField(
+        key="contract_type",
+        label="Гэрээний төрөл",
+        aliases=("гэрээний төрөл", "contract type"),
+        kind="text",
+    ),
+    ImportField(
+        key="contract_no",
+        label="Гэрээний дугаар",
+        aliases=("гэрээний дугаар", "contract no", "contract number"),
+        kind="text",
+    ),
+    ImportField(
+        key="contract_start",
+        label="Гэрээ эхлэх огноо",
+        aliases=("гэрээ эхлэх огноо", "гэрээ эхлэх", "contract start"),
+        kind="date",
+    ),
+    ImportField(
+        key="contract_end",
+        label="Гэрээ дуусах огноо",
+        aliases=("гэрээ дуусах огноо", "гэрээ дуусах", "contract end"),
+        kind="date",
+    ),
+    ImportField(
+        key="work_schedule",
+        label="Ажлын цагийн хуваарь",
+        aliases=("ажлын цагийн хуваарь", "цагийн хуваарь", "work schedule", "shift"),
+        kind="text",
+        lookup="work_schedule",
+    ),
+    ImportField(
+        key="marital_status",
+        label="Гэрлэлтийн байдал",
+        aliases=("гэрлэлтийн байдал", "гэр бүлийн байдал", "marital status"),
+        kind="text",
+        lookup="marital_status",
+    ),
+    ImportField(
+        key="nationality",
+        label="Үндэс угсаа",
+        aliases=("үндэс угсаа", "үндэстэн", "nationality"),
+        kind="text",
+        lookup="nationality",
+    ),
+    ImportField(
+        key="education_level",
+        label="Боловсрол",
+        aliases=("боловсрол", "боловсролын түвшин", "education", "education level"),
+        kind="text",
+        lookup="education_level",
+    ),
+    ImportField(
+        key="academic_degree",
+        label="Эрдмийн зэрэг",
+        aliases=("эрдмийн зэрэг", "academic degree", "degree"),
+        kind="text",
+        lookup="academic_degree",
+    ),
+    ImportField(
+        key="social_origin",
+        label="Нийгмийн гарал",
+        aliases=("нийгмийн гарал", "social origin"),
+        kind="text",
+        lookup="social_origin",
+    ),
+    ImportField(
+        key="housing_condition",
+        label="Орон байрны нөхцөл",
+        aliases=("орон байрны нөхцөл", "housing"),
+        kind="text",
+        lookup="housing_condition",
+    ),
+    ImportField(
+        key="car_ownership",
+        label="Автомашин эзэмшил",
+        aliases=("автомашин эзэмшил", "car ownership"),
+        kind="text",
+        lookup="car_ownership",
+    ),
+    ImportField(
+        key="clothing_size",
+        label="Хувцасны хэмжээ",
+        aliases=("хувцасны хэмжээ", "clothing size"),
+        kind="text",
+        lookup="clothing_size",
+    ),
+    ImportField(
+        key="shoe_size",
+        label="Гутлын хэмжээ",
+        aliases=("гутлын хэмжээ", "shoe size"),
+        kind="text",
+        lookup="shoe_size",
+    ),
+    ImportField(
+        key="elected_position",
+        label="Сонгуульт ажил",
+        aliases=("сонгуульт ажил", "elected position"),
+        kind="text",
+        lookup="elected_position",
+    ),
+    ImportField(
+        key="blood_type",
+        label="Цусны бүлэг",
+        aliases=("цусны бүлэг", "blood type"),
+        kind="text",
+    ),
+    ImportField(
+        key="military_service",
+        label="Цэргийн алба хаасан",
+        aliases=("цэргийн алба хаасан", "цэргийн алба", "military service"),
+        kind="yesno",
+    ),
+    ImportField(
+        key="has_disability",
+        label="Хөгжлийн бэрхшээлтэй",
+        aliases=("хөгжлийн бэрхшээлтэй", "хөгжлийн бэрхшээл", "disability"),
+        kind="yesno",
     ),
     ImportField(
         key="base_salary",

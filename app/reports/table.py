@@ -1,5 +1,6 @@
 """Turns a report's rows into the table the page, print and Excel show: visible columns only, sorted and grouped."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import Decimal
@@ -8,6 +9,8 @@ from typing import Any
 from accounts.models import User
 from django.utils import timezone
 from employees.access import visible_employees
+from employees.money import group
+from logs.foldtext import fold
 
 from reports import layouts as layouts_mod
 from reports import marks as marks_mod
@@ -57,6 +60,14 @@ class Cell:
     mark: str = ""  # the CSS classes of the colour rule that passes for this cell, "" for none (set by build_table)
     sticky_left: str = ""  # the inline offset of a pinned column, e.g. "left: 12rem"; "" when not pinned
     person: int = 0  # the employee id of the row this cell is in (Report.person); 0 when the report has none
+    # the employee the inline editors save for: Report.person, else Report.edit_person (editing only, no selection)
+    edit_person: int = 0
+    edit: str = ""  # the EmployeeForm field this cell edits (Column.edit), "" when read-only or the row has no employee
+    correct: str = ""  # the reports.corrections key this cell corrects (Column.correct), "" when none or no employee
+    record: int = 0  # the job record a job-key correction edits (Column.correct_record); 0 when there is none
+    row_kind: str = ""  # the list kind of the row this cell is in (Column.row_kind); "" when not a list row cell
+    row_key: int = 0  # the row's id in that list (Column.row_key); 0 when none
+    row_field: str = ""  # the row field this cell edits (Column.row_edit), "" when read-only or no employee
 
     @property
     def css(self) -> str:
@@ -181,6 +192,35 @@ def _text(value: object) -> str:
     if isinstance(value, date):
         return value.isoformat()
     return str(value)
+
+
+def _search_texts(column: Column, row: Any) -> list[str]:
+    """The texts a cell may be found by: what the screen shows, and for an amount also its plain digits, so «2500000»
+    finds «2,500,000₮». A blank value has none."""
+    value = column.value(row)
+    if value is None:
+        return []
+    if not column.money:
+        return [_text(value)]
+    try:
+        return [f"{group(value)}₮", _text(value)]
+    except (ArithmeticError, ValueError, TypeError):  # not a number: the text alone, as the screen shows it unformatted
+        return [_text(value)]
+
+
+def search_rows(rows: Sequence[Any], columns: Sequence[Column], q: str) -> list[Any]:
+    """The rows that match the report search «q». The text is split into words; a row matches when EVERY word is found
+    (as a part of the text, ignoring case and Mongolian ө/ү variants) in the text of at least one of `columns`. Pass
+    only the columns the viewer sees. An empty search keeps every row, in order."""
+    words = [fold(word) for word in q.split()]
+    if not words:
+        return list(rows)
+    kept: list[Any] = []
+    for row in rows:
+        texts = [fold(text) for column in columns for text in _search_texts(column, row) if text]
+        if all(any(word in text for text in texts) for word in words):
+            kept.append(row)
+    return kept
 
 
 def _sort_key(value: object) -> tuple[int, Any]:
@@ -358,6 +398,9 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
     kinds = {key: column_kind(by_key[key], rows) for key in rule_keys}
     today = timezone.localdate()
     rows = rules_mod.keep_rows(rows, rule_tree, by_key, kinds, today)
+    # the search sees the shown columns only, all loaded above; every row path (the count, totals, sort, batches, print,
+    # Excel, CSV, selections, layouts) takes its rows from here, so they all see the same rows
+    rows = search_rows(rows, shown, filters.q)
     # the last key is sorted first: each pass is stable and keeps blanks last, so the first key decides the order
     for column, descending in reversed(sort_cols):
         rows = _sorted_rows(rows, column, descending)
@@ -379,6 +422,7 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
     def cells(row: Any) -> list[Cell]:
         out: list[Cell] = []
         person = report.person(row) if report.person else 0
+        edit_person = report.person(row) if report.person else (report.edit_person(row) if report.edit_person else 0)
         # a passing colour rule paints the whole row: the first rule (in the rules' own order) that passes wins
         mark = ""
         for rule in marks:
@@ -398,6 +442,13 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
                     mark=mark,
                     sticky_left=pin_style(i, pin, base),
                     person=person,
+                    edit_person=edit_person,
+                    edit=c.edit if edit_person else "",
+                    correct=c.correct if edit_person else "",
+                    record=(c.correct_record(row) or 0) if edit_person and c.correct_record is not None else 0,
+                    row_kind=c.row_kind if edit_person else "",
+                    row_key=(c.row_key(row) or 0) if edit_person and c.row_key is not None else 0,
+                    row_field=c.row_edit if edit_person else "",
                 )
             )
         return out

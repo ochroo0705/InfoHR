@@ -66,6 +66,17 @@ def _valid_proposals(reply: Any, candidate_columns: set[int], candidate_keys: se
     return proposals
 
 
+def will_ask(headings: list[str], mapping: dict[str, str], *, allow_salary: bool) -> bool:
+    """True when `suggest_columns` would call the AI: a provider is configured, a heading is left unplaced and a field
+    is still free. Cheap (no call), so the page can show a waiting line and fetch the answer afterwards."""
+    from assistant.providers import get_provider
+
+    unplaced = any(str(index) not in mapping and heading.strip() for index, heading in enumerate(headings))
+    taken = set(mapping.values())
+    free = any(field.key not in taken and (allow_salary or not field.needs_salary) for field in FIELDS)
+    return unplaced and free and get_provider() is not None
+
+
 def suggest_columns(
     headings: list[str],
     mapping: dict[str, str],

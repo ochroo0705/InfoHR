@@ -527,14 +527,24 @@ def unknown_upload(client: Client, headings: list[str] = UNKNOWN_HEADINGS) -> St
     return only_draft()
 
 
-def test_map_prefills_ai_suggestion_with_badge(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+def ai_answer(client: Client, draft: StaffImportDraft) -> dict[str, str]:
+    """What the page's background request gets: the AI's column guesses, as {column index: field key}."""
+    response = client.get(reverse("employees:import_map", args=[draft.pk]), {"ai": "1"})
+    assert response.status_code == 200
+    return response.json()["suggestions"]  # type: ignore[no-any-return]
+
+
+def test_map_page_shows_at_once_and_the_ai_answers_afterwards(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
     login_as(client, "HR", "hr_ai_badge")
     draft = unknown_upload(client)
     fake = FakeAssistant(reply={"matches": [{"column": 6, "field": "birth_date"}]})
     monkeypatch.setattr(providers, "get_provider", lambda: fake)
     page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
-    assert '<option value="birth_date" selected>' in page
-    assert page.count(">AI<") == 1
+    assert 'id="ai-status"' in page  # the waiting line, filled in by import_map.js
+    assert "?ai=1" in page
+    assert '<option value="birth_date" selected>' not in page
+    assert fake.calls == 0  # the page did not wait for the AI
+    assert ai_answer(client, draft) == {"6": "birth_date"}
     assert fake.calls == 1
 
 
@@ -546,7 +556,9 @@ def test_map_without_ai_looks_as_before(client: Client, monkeypatch: pytest.Monk
     assert response.status_code == 200
     page = response.content.decode()
     assert ">AI<" not in page
+    assert 'id="ai-status"' not in page  # no assistant: no waiting line
     assert '<option value="birth_date" selected>' not in page
+    assert ai_answer(client, draft) == {}
 
 
 def test_map_survives_provider_error(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -557,6 +569,7 @@ def test_map_survives_provider_error(client: Client, monkeypatch: pytest.MonkeyP
     response = client.get(reverse("employees:import_map", args=[draft.pk]))
     assert response.status_code == 200
     assert ">AI<" not in response.content.decode()
+    assert ai_answer(client, draft) == {}  # the failure gives no guesses, not an error page
     assert fake.calls == 1
 
 
@@ -565,11 +578,13 @@ def test_ai_is_not_asked_again_after_mapping_saved(client: Client, monkeypatch: 
     draft = unknown_upload(client)
     fake = FakeAssistant(reply={"matches": []})
     monkeypatch.setattr(providers, "get_provider", lambda: fake)
-    client.get(reverse("employees:import_map", args=[draft.pk]))
+    ai_answer(client, draft)
     assert fake.calls == 1
     saved = client.post(reverse("employees:import_map", args=[draft.pk]), map_post(NO_SALARY_KEYS))
     assert saved.status_code == 302
-    client.get(reverse("employees:import_map", args=[draft.pk]))
+    page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
+    assert 'id="ai-status"' not in page
+    assert ai_answer(client, draft) == {}
     assert fake.calls == 1
 
 
@@ -578,7 +593,7 @@ def test_reread_asks_ai_again(client: Client, monkeypatch: pytest.MonkeyPatch) -
     draft = unknown_upload(client)
     fake = FakeAssistant(reply={"matches": []})
     monkeypatch.setattr(providers, "get_provider", lambda: fake)
-    client.get(reverse("employees:import_map", args=[draft.pk]))
+    ai_answer(client, draft)
     assert fake.calls == 1
     response = client.post(
         reverse("employees:import_map", args=[draft.pk]),
@@ -586,6 +601,8 @@ def test_reread_asks_ai_again(client: Client, monkeypatch: pytest.MonkeyPatch) -
         follow=True,
     )
     assert response.status_code == 200
+    assert 'id="ai-status"' in response.content.decode()  # a re-read starts the guessing over
+    ai_answer(client, draft)
     assert fake.calls == 2
 
 
@@ -594,10 +611,8 @@ def test_hr_without_salary_right_gets_no_salary_suggestion(client: Client, monke
     draft = unknown_upload(client, headings=[*HEADINGS[:-1], "Бусад тайлбар"])
     fake = FakeAssistant(reply={"matches": [{"column": 6, "field": SALARY_KEY}]})
     monkeypatch.setattr(providers, "get_provider", lambda: fake)
-    page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
+    assert ai_answer(client, draft) == {}  # the salary field is not offered to this user
     assert fake.calls == 1
-    assert f'value="{SALARY_KEY}"' not in page
-    assert ">AI<" not in page
 
 
 def test_known_columns_get_no_badge(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -609,6 +624,7 @@ def test_known_columns_get_no_badge(client: Client, monkeypatch: pytest.MonkeyPa
     page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
     assert fake.calls == 0
     assert ">AI<" not in page
+    assert 'id="ai-status"' not in page  # every heading is placed: nothing to ask
 
 
 def test_ai_chip_survives_a_validation_error(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -617,7 +633,7 @@ def test_ai_chip_survives_a_validation_error(client: Client, monkeypatch: pytest
     fake = FakeAssistant(reply={"matches": [{"column": 6, "field": "birth_date"}]})
     monkeypatch.setattr(providers, "get_provider", lambda: fake)
     url = reverse("employees:import_map", args=[draft.pk])
-    assert 'name="ai_cols" value="6:birth_date"' in client.get(url).content.decode()
+    assert client.get(url).status_code == 200
     failed = client.post(url, {"col_6": "birth_date", "ai_cols": "6:birth_date", "date_format": "iso"})
     assert failed.status_code == 200
     page = failed.content.decode()
@@ -626,7 +642,7 @@ def test_ai_chip_survives_a_validation_error(client: Client, monkeypatch: pytest
     assert page.count(">AI<") == 1
     draft.refresh_from_db()
     assert draft.mapping == {}
-    assert fake.calls == 1
+    assert fake.calls == 0
 
 
 def test_ai_cols_junk_and_out_of_range_show_no_badge(client: Client) -> None:
@@ -646,7 +662,7 @@ def test_ai_chip_goes_when_the_user_changes_the_column(client: Client, monkeypat
     fake = FakeAssistant(reply={"matches": [{"column": 6, "field": "birth_date"}]})
     monkeypatch.setattr(providers, "get_provider", lambda: fake)
     url = reverse("employees:import_map", args=[draft.pk])
-    client.get(url)
+    ai_answer(client, draft)
     failed = client.post(url, {"col_6": "department", "ai_cols": "6:birth_date", "date_format": "iso"})
     assert failed.status_code == 200
     page = failed.content.decode()
@@ -675,10 +691,8 @@ def test_hr_salary_heading_gets_no_salary_suggestion(client: Client, monkeypatch
     draft = unknown_upload(client, headings=HEADINGS)
     fake = FakeAssistant(reply={"matches": [{"column": 6, "field": SALARY_KEY}]})
     monkeypatch.setattr(providers, "get_provider", lambda: fake)
-    page = client.get(reverse("employees:import_map", args=[draft.pk])).content.decode()
+    assert ai_answer(client, draft) == {}
     assert fake.calls == 1
-    assert f'value="{SALARY_KEY}"' not in page
-    assert ">AI<" not in page
 
 
 def test_hr_tampered_salary_pair_shows_no_chip_and_selects_nothing(client: Client) -> None:

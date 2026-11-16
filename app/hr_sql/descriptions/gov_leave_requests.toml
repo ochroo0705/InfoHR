@@ -1,0 +1,75 @@
+# Draft. English from the model labels in app/leave/models.py (LeaveRequest, RequestStatus). Mongolian drafted from the
+# same labels; check the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per leave request made on the web by an employee you may see: waiting for approval, approved, rejected or withdrawn. The row shows the dates, the working days and the status. The request note and the rejection reason are not in the view."
+description_mn = "Харах эрхтэй ажилтны вэб-ээр гаргасан чөлөөний хүсэлт бүрийн нэг мөр: хүлээгдэж буй, батлагдсан, татгалзсан эсвэл буцаасан. Мөрөнд огноо, ажлын өдөр, төлөв харагдана. Хүсэлтийн тайлбар болон татгалзсан шалтгаан энд байхгүй."
+
+rules = [
+    # One row per request, not per person: one person can have many rows.
+    # app/leave/models.py (LeaveRequest)
+    "One row is one leave request made on the web. Count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # The status words: the stored values of RequestStatus, trimmed in the view.
+    # app/leave/models.py (RequestStatus); app/hr_sql/views.py (GOV_LEAVE_REQUESTS statement)
+    "STATUS_NAME codes: waiting = waiting for approval (not decided yet); approved = approved by the approvers; rejected = turned down by an approver; withdrawn = taken back by the employee.",
+    # A request is not leave taken: an approved request is recorded as a leave row in GOV_LEAVE.
+    # app/hr_sql/views.py (GOV_LEAVE statement)
+    "A request is not leave taken. An approved request also becomes a row in GOV_LEAVE when it is recorded as leave. Use GOV_LEAVE for leave actually taken, and this view for what was asked for and its status.",
+    # The approval steps, the approver groups and the history of the request are not in this view.
+    # app/leave/models.py (LeaveRequest.step1_group, step2_group, current_step; LeaveRequestAction)
+    "The approval steps, the approver groups, the step in progress and the history of a request are not in this view and cannot be shown.",
+    # Free text is not in this view and is never shown.
+    # app/leave/models.py (LeaveRequest.note, LeaveRequest.reason); app/hr_sql/views.py (GOV_LEAVE_REQUESTS statement)
+    "The note the employee wrote on the request and the reason given when a request was rejected are not in this view and cannot be shown.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "REQUEST_ID"
+description = "Leave request number (internal id)"
+description_mn = "Чөлөөний хүсэлтийн дугаар (дотоод)"
+label_mn = "Хүсэлтийн дугаар"
+synonyms = ["id", "request number"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "LEAVE_TYPE_NAME"
+description = "Leave type name requested, for example annual leave"
+description_mn = "Хүссэн амралтын төрлийн нэр"
+label_mn = "Амралтын төрөл"
+synonyms = ["type", "leave type"]
+
+[[columns]]
+name = "START_DATE"
+description = "First day of the requested leave"
+description_mn = "Хүссэн амралтын эхлэх огноо"
+label_mn = "Эхлэх огноо"
+synonyms = ["from", "start"]
+
+[[columns]]
+name = "END_DATE"
+description = "Last day of the requested leave"
+description_mn = "Хүссэн амралтын дуусах огноо"
+label_mn = "Дуусах огноо"
+synonyms = ["to", "end", "return"]
+
+[[columns]]
+name = "WORKING_DAYS"
+description = "Number of working days requested"
+description_mn = "Хүссэн ажлын өдрийн тоо"
+label_mn = "Ажлын өдөр"
+synonyms = ["days", "length", "working days"]
+
+[[columns]]
+name = "STATUS_NAME"
+description = "Status of the request as a word: waiting, approved, rejected or withdrawn (see the rules)"
+description_mn = "Хүсэлтийн төлөв, үгээр: waiting = хүлээгдэж буй, approved = батлагдсан, rejected = татгалзсан, withdrawn = буцаасан (дүрмийг үз)"
+label_mn = "Төлөв"
+synonyms = ["status", "state"]

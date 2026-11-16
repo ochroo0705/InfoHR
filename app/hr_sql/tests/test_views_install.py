@@ -18,7 +18,7 @@ from macs.models import Employee
 from pytest_django.plugin import DjangoDbBlocker
 
 from hr_sql.connection import GOVERNED_ALIAS, governed_connection
-from hr_sql.views import _col, _table
+from hr_sql.views import _col, _drop_governed, _table, view_columns
 
 
 def _firebird_only() -> None:
@@ -40,13 +40,7 @@ def _fill_scope(connection: Any, ids: list[int]) -> None:
 
 def _drop_objects() -> None:
     with connections["default"].cursor() as cursor:
-        cursor.execute("DROP VIEW GOV_LOANS")
-        cursor.execute("DROP VIEW GOV_SALARY")
-        cursor.execute("DROP VIEW GOV_ORDERS")
-        cursor.execute("DROP VIEW GOV_LEAVE")
-        cursor.execute("DROP VIEW GOV_CHILDREN")
-        cursor.execute("DROP VIEW GOV_EMPLOYEES")
-        cursor.execute("DROP TABLE GOV_SCOPE")
+        _drop_governed(cursor)
 
 
 @pytest.fixture
@@ -77,29 +71,19 @@ def employees(django_db_blocker: DjangoDbBlocker) -> Iterator[list[int]]:
 
 def test_install_twice_leaves_one_set_of_objects(governed: None) -> None:
     call_command("governed_views", "install")  # the fixture ran it once already
+    expected = [*view_columns(), "GOV_SCOPE"]
+    placeholders = ", ".join(["%s"] * len(expected))
     with connections["default"].cursor() as cursor:
         cursor.execute(
-            "SELECT TRIM(RDB$RELATION_NAME), RDB$RELATION_TYPE FROM RDB$RELATIONS"
-            " WHERE TRIM(RDB$RELATION_NAME) IN"
-            " ('GOV_SCOPE', 'GOV_EMPLOYEES', 'GOV_CHILDREN', 'GOV_LEAVE', 'GOV_ORDERS', 'GOV_SALARY', 'GOV_LOANS')"
+            "SELECT TRIM(RDB$RELATION_NAME), RDB$RELATION_TYPE FROM RDB$RELATIONS"  # noqa: S608 (placeholders only)
+            f" WHERE TRIM(RDB$RELATION_NAME) IN ({placeholders})",
+            expected,
         )
         found = {str(name): int(kind) for name, kind in cursor.fetchall()}
-    assert sorted(found) == [
-        "GOV_CHILDREN",
-        "GOV_EMPLOYEES",
-        "GOV_LEAVE",
-        "GOV_LOANS",
-        "GOV_ORDERS",
-        "GOV_SALARY",
-        "GOV_SCOPE",
-    ]
+    assert sorted(found) == sorted(expected)
     assert found["GOV_SCOPE"] == 5  # global temporary table, ON COMMIT DELETE ROWS
-    assert found["GOV_EMPLOYEES"] == 1  # view
-    assert found["GOV_CHILDREN"] == 1  # view
-    assert found["GOV_LEAVE"] == 1  # view
-    assert found["GOV_ORDERS"] == 1  # view
-    assert found["GOV_SALARY"] == 1  # view
-    assert found["GOV_LOANS"] == 1  # view
+    for view in view_columns():
+        assert found[view] == 1, view  # view
 
 
 def test_empty_scope_shows_no_employees(governed: None, employees: list[int]) -> None:
@@ -130,7 +114,7 @@ def test_scope_is_empty_in_a_new_transaction_after_commit(governed: None, employ
         assert _count(connection, "GOV_EMPLOYEES") == 0
 
 
-GOV_VIEWS = ["GOV_EMPLOYEES", "GOV_CHILDREN", "GOV_LEAVE", "GOV_ORDERS", "GOV_SALARY", "GOV_LOANS"]
+GOV_VIEWS = list(view_columns())
 
 
 def _field_names(relation: str) -> list[str]:

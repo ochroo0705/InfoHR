@@ -19,6 +19,7 @@ from sqlcore.runner import Host
 from hr_sql.connection import GOVERNED_ALIAS, governed_connection
 from hr_sql.host import HrHost
 from hr_sql.tests.conftest import World
+from hr_sql.tests.expected import EMPLOYEE_RIGHT_VIEWS, OPEN_VIEWS, PERSONAL_VIEWS
 
 EMP_IDS = "SELECT EMP_ID FROM GOV_EMPLOYEES"
 # Three system tables crossed: millions of rows, far longer than the cancel delay in the cancel test.
@@ -123,7 +124,7 @@ def test_non_user_is_refused_and_gets_an_empty_catalogue(ready: World) -> None:
 def test_host_catalogue_matches_the_role_catalogue(ready: World) -> None:
     catalogue: Catalogue = HrHost().catalogue_for(ready.hr)
 
-    assert catalogue.view_names() == frozenset({"GOV_EMPLOYEES", "GOV_CHILDREN", "GOV_LEAVE", "GOV_ORDERS"})
+    assert catalogue.view_names() == frozenset({"GOV_EMPLOYEES", *PERSONAL_VIEWS, *OPEN_VIEWS, *EMPLOYEE_RIGHT_VIEWS})
 
 
 def test_cancel_stops_a_slow_query_and_the_connection_still_works(ready: World) -> None:

@@ -60,6 +60,9 @@
   --color-pick-tint: #e6ecf1;
   --color-pick-edge: #2c3e50;
   --color-pick-ink: #fff;
+  /* Editable-column marks (grid_nav.js, UI_RULES §4b): faint tints laid over the cell's own background. */
+  --edit-tint: oklch(0.85 0.08 195 / 0.18);
+  --correct-tint: oklch(0.85 0.09 75 / 0.18);
 }
 /* Motion (plan 2026-11-08-selection-motion): every open, close and swap uses these. Never longer than 300 ms; with
    prefers-reduced-motion all motion is off (see the rule near the end of this file). */
@@ -82,6 +85,7 @@
 @source "../../employees/templatetags";
 @source "../../assistant/templates";
 @source "../js/modal.js";
+@source "../js/grid_nav.js";
 
 /* Date picker (static/js/datepicker.js) */
 @layer components {
@@ -221,6 +225,11 @@
   .card-soft { background: var(--color-surface); border-radius: .875rem; box-shadow: 0 1px 2px rgb(44 62 80 / .06), 0 6px 16px rgb(44 62 80 / .08); transition: box-shadow .15s, transform .15s; }
   a.card-soft:hover { box-shadow: 0 1px 2px rgb(44 62 80 / .08), 0 10px 24px rgb(44 62 80 / .13); transform: translateY(-1px); }
   .ptable.card-soft { border-color: transparent; }
+  /* Long lists (UI_RULES §4): the frame fits the screen, so its sideways scrollbar is always in view; the header row
+     stays pinned while rows scroll under it. Pinned left columns (z-10) sit above body cells; their header corner above both. */
+  .ptable-fit { max-height: max(20rem, calc(100dvh - 11rem)); overflow: auto; overscroll-behavior: contain; }
+  .ptable-fit thead th { position: sticky; top: 0; z-index: 20; }
+  .ptable-fit thead th.sticky { z-index: 30; }
   /* Top bar drop-down menus (base.html): a soft card like the Today tiles, opening with the palette's quick scale-in. */
   .nav-panel { background: var(--color-surface); border-radius: .875rem; box-shadow: 0 0 0 1px rgb(44 62 80 / .06), 0 4px 8px rgb(44 62 80 / .06), 0 16px 32px rgb(44 62 80 / .14); transform-origin: top; }
   /* Theme switch in the user menu (base.html, nav.js): three joined buttons, the chosen one filled. */
@@ -287,6 +296,10 @@
     color: var(--color-pick-edge);
     transition: background-color var(--dur-hover) var(--ease-out);
   }
+  /* The tint is also painted on the cells: Chrome does not always repaint a row's own background when rows are ticked
+     quickly inside a scrolling table (2026-11-16: picked rows stayed unpainted). Status-coloured cells keep their
+     colour (utilities beat this layer). */
+  tr.is-picked > td { background-color: var(--color-pick-tint); }
   /* The 3px bar sits on the first cell: box-shadow on a table row is not drawn reliably under border-collapse. */
   .is-picked > td:first-child {
     box-shadow: inset 3px 0 0 var(--color-pick-edge);
@@ -314,7 +327,7 @@
    becomes a card: the header row is hidden and every cell shows its label (data-label) in front of the value. A picked
    card keeps the pick tint (the :not keeps this background off it). Below sm the controls reach the 44 px touch size. */
 @media (max-width: 767px) {
-  .ptable.ws-cards { overflow-x: visible; border: 0; }
+  .ptable.ws-cards { overflow: visible; max-height: none !important; border: 0; }
   .ws-cards thead { display: none; }
   .ws-cards table, .ws-cards tbody { display: block; }
   .ws-cards tbody tr { display: block; margin-bottom: .5rem; padding: .5rem .75rem; border: 1px solid var(--color-slate-200); border-radius: .5rem; }
@@ -391,9 +404,11 @@
     --color-seal: #e74c3c;
     /* Picked state, dark: the light steel blue is also the text and edge colour on the dark surfaces. */
     --color-pick-bright: #9db4c8;
-    --color-pick-tint: #2a3a4a;
+    --color-pick-tint: #2c4560; /* 2026-11-16: was #2a3a4a, too close to the #1e2b38 surface to see */
     --color-pick-edge: #9db4c8;
     --color-pick-ink: #1e2b38;
+    --edit-tint: oklch(0.7 0.09 195 / 0.16);
+    --correct-tint: oklch(0.75 0.1 75 / 0.16);
   }
   /* Solid fills: hover shades stay deep under white text; amber badges keep dark text; the top bar and the
      pop-up overlay stay dark. */
@@ -486,7 +501,7 @@
    the guard test_picked_css_is_screen_only_or_print_neutralised in tests_guard/test_ui_tokens.py checks it. !important
    only beats the screen rules above, which stay as they are. */
 @media print {
-  .is-picked, .is-picked > td:first-child, .is-picked input, .is-picked select, .is-picked textarea, [role="group"] > a.is-picked,
+  .is-picked, tr.is-picked > td, #report-page tbody tr.is-picked:hover > td, .is-picked > td:first-child, .is-picked input, .is-picked select, .is-picked textarea, [role="group"] > a.is-picked,
   .sel-selected, .sel-selected.sel-active, .dp-selected, .dp-selected:hover, input[data-select-row]:checked,
   input[data-select-row], input[data-select-all], input[data-ws-row]:checked, input[data-ws-row], input[data-ws-all],
   input[type="checkbox"] {
@@ -508,7 +523,9 @@
 
 /* A report row that opens its record lights up under the pointer. Unlayered so it also wins over the pinned cells' own
    background utilities. */
-#report-page tbody tr:has(td a[href]):hover > td { background-color: var(--color-violet-50); }
+#report-page tbody tr:has(td a[href]):not(.is-picked):hover > td { background-color: var(--color-violet-50); }
+/* A picked row keeps its pick tint under the pointer (the red hover tint made picked rows look like a different state). */
+#report-page tbody tr.is-picked:hover > td { background-color: color-mix(in srgb, var(--color-pick-edge) 12%, var(--color-pick-tint)); }
 
 /* Colour rules (reports/marks.py) paint the whole row. The -50 tint of the utility classes is too faint on the page
    background, so the screen cells take the -100 tint, and the row's first cell (the checkbox cell of a selectable table, which has no colour class of its own) is tinted too and gets a 3px edge bar in the colour's
@@ -550,7 +567,8 @@ a[class*="after:inset-0"]:hover { text-decoration: none; }
 #report-filters input.sel-combo:has(+ select[data-applied]),
 #report-filters label[data-applied],
 #report-filters div[data-applied],
-#report-filters > input[data-applied] {
+#report-filters > input[data-applied],
+#report-filters input[name="q"][data-applied] {
   border-color: var(--color-violet-500);
   background-color: var(--color-violet-50);
   color: var(--color-violet-900);
@@ -579,3 +597,114 @@ a[class*="after:inset-0"]:hover { text-decoration: none; }
 .hr-confirm-yes { background: var(--color-violet-600); color: #fff; }
 .hr-confirm-yes:hover { background: var(--color-violet-700); }
 .hr-confirm button:focus-visible { outline: 2px solid var(--color-violet-500); outline-offset: 2px; }
+
+/* Scrollbars (UI_RULES §4), styled like the page loading bar (body::before): at rest a thin square-cornered slate
+   line; over the scrollbar it thickens and takes the loading bar's violet gradient. The scrollbar keeps one 10px lane
+   and the thumb's transparent border sets how much of it is painted (3px border = 4px line, 1px = 8px), so nothing
+   shifts on hover. Chrome/Edge/Safari use these rules; setting scrollbar-width/-color would switch them off there,
+   so the standard properties are only for browsers without them (Firefox: thin + colours is all it allows). */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: var(--color-slate-300); background-clip: padding-box; border: 3px solid transparent; border-radius: 0; }
+::-webkit-scrollbar-thumb:hover, ::-webkit-scrollbar-thumb:active { border-width: 1px; }
+::-webkit-scrollbar-thumb:horizontal:hover, ::-webkit-scrollbar-thumb:horizontal:active { background-image: linear-gradient(90deg, var(--color-violet-600), var(--color-violet-300)); }
+::-webkit-scrollbar-thumb:vertical:hover, ::-webkit-scrollbar-thumb:vertical:active { background-image: linear-gradient(180deg, var(--color-violet-600), var(--color-violet-300)); }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--color-slate-300) transparent; }
+}
+
+/* The app's scrollbars (static/js/scrollbars.js, UI_RULES §4), on every scroll box and the page. Native bars are
+   hidden; a 12px rail lies on the box's bottom / right inner edge. At rest: a hairline track along the whole edge and a 5px slate
+   progress fill from the start edge to the scroll position, with an 8px accent tip at its leading end. Over the rail or
+   while dragged the fill grows to 10px and fades into the loading bar's gradient (body::before); the tip darkens. */
+.sbar-host { position: relative; }
+.sbar-on { scrollbar-width: none; }
+.sbar-on::-webkit-scrollbar { display: none; }
+.sbar-rail { position: absolute; z-index: 35; display: none; cursor: pointer; touch-action: none; }
+.sbar-rail.is-on { display: block; }
+.sbar-fixed { position: fixed; }
+.sbar-page { z-index: 39; }  /* page rail: under the top bar, the assistant panel and pop-ups */
+html.sbar-page-on { scrollbar-width: none; }
+html.sbar-page-on::-webkit-scrollbar { display: none; }
+.sbar-x { height: 12px; }
+.sbar-y { width: 12px; }
+.sbar-rail::before { content: ""; position: absolute; background: var(--color-slate-300); transition: opacity .15s; }
+.sbar-x::before { left: 0; right: 0; bottom: 3px; height: 1px; }
+.sbar-y::before { top: 0; bottom: 0; right: 3px; width: 1px; }
+.sbar-thumb { position: absolute; background: var(--color-slate-400); }
+/* only the thickness animates; the length follows the scroll at once */
+.sbar-x .sbar-thumb { left: 0; bottom: 1px; height: 5px; transition: height .15s ease-out; }
+.sbar-y .sbar-thumb { top: 0; right: 1px; width: 5px; transition: width .15s ease-out; }
+.sbar-thumb::before { content: ""; position: absolute; z-index: 1; background: var(--color-violet-500); transition: width .15s, height .15s, background-color .15s; }
+.sbar-x .sbar-thumb::before { right: 0; top: 0; bottom: 0; width: 8px; }
+.sbar-y .sbar-thumb::before { left: 0; right: 0; bottom: 0; height: 8px; }
+.sbar-thumb::after { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity .15s; }
+.sbar-x .sbar-thumb::after { background: linear-gradient(90deg, var(--color-violet-600), var(--color-violet-300)); }
+.sbar-y .sbar-thumb::after { background: linear-gradient(180deg, var(--color-violet-600), var(--color-violet-300)); }
+.sbar-x:hover .sbar-thumb, .sbar-x.is-drag .sbar-thumb { height: 10px; }
+.sbar-y:hover .sbar-thumb, .sbar-y.is-drag .sbar-thumb { width: 10px; }
+.sbar-rail:hover .sbar-thumb::after, .sbar-rail.is-drag .sbar-thumb::after { opacity: 1; }
+.sbar-rail:hover::before, .sbar-rail.is-drag::before { opacity: .6; }
+.sbar-x:hover .sbar-thumb::before, .sbar-x.is-drag .sbar-thumb::before { width: 3px; background: var(--color-violet-700); }
+.sbar-y:hover .sbar-thumb::before, .sbar-y.is-drag .sbar-thumb::before { height: 3px; background: var(--color-violet-700); }
+.sbar-fade { position: absolute; z-index: 32; width: 24px; pointer-events: none; opacity: 0; transition: opacity .2s; --sbar-shade: rgb(44 62 80 / .14); }
+.sbar-fade.is-on { opacity: 1; }
+.sbar-fade-l { background: linear-gradient(90deg, var(--sbar-shade), transparent); }
+.sbar-fade-r { background: linear-gradient(270deg, var(--sbar-shade), transparent); }
+:root[data-theme="dark"] .sbar-fade { --sbar-shade: rgb(0 0 0 / .45); }
+@media (prefers-reduced-motion: reduce) { .sbar-fade, .sbar-x .sbar-thumb, .sbar-y .sbar-thumb, .sbar-thumb::before, .sbar-thumb::after, .sbar-rail::before { transition: none; } }
+
+/* Keyboard grid (grid_nav.js, UI_RULES §4): the cell cursor and a Shift range. Unlayered so it shows over row tints. */
+table[data-grid] td.is-cell-active { outline: 2px solid var(--color-violet-600); outline-offset: -2px; }
+table[data-grid] td.is-cell-range { background-color: color-mix(in oklch, var(--color-violet-600) 12%, transparent); }
+table[data-grid]:focus { outline: none; }
+table[data-grid] td.is-cell-pending { background-color: var(--color-amber-100); }
+table[data-grid] td.is-cell-rejected { background-color: var(--color-red-100); }
+
+/* Editable-column marks (grid_nav.js "editable columns", UI_RULES §4b). Unlayered, and a background-image overlay, so it
+   stacks on the row tint, the selection and the pending or rejected colours. The sticky header copy (report_sticky.js)
+   sets an inline background, so its tint carries !important. */
+table.edit-marks td.col-edit, table.edit-marks th.col-edit { background-image: linear-gradient(var(--edit-tint), var(--edit-tint)); }
+table.edit-marks td.col-correct, table.edit-marks th.col-correct { background-image: linear-gradient(var(--correct-tint), var(--correct-tint)); }
+table.edit-marks td.col-edit, table.edit-marks td.col-correct, table.edit-marks th.col-edit, table.edit-marks th.col-correct {
+  box-shadow: inset 1px 0 0 0 color-mix(in oklch, var(--color-amber-500) 40%, transparent);
+}
+[data-sticky-head] th.col-edit { background-image: linear-gradient(var(--edit-tint), var(--edit-tint)) !important; }
+[data-sticky-head] th.col-correct { background-image: linear-gradient(var(--correct-tint), var(--correct-tint)) !important; }
+/* Legend and note above the table frame (grid_nav.js): swatches share the tints. */
+[data-edit-legend] .edit-swatch, [data-edit-legend] .correct-swatch {
+  display: inline-block; width: 1.25rem; height: .75rem; margin-right: .375rem; vertical-align: -.1rem;
+  border-radius: 3px; background-color: var(--color-surface);
+}
+/* Swatches are the tints at three times their strength, so a small sample reads as the same colour as a whole column. */
+[data-edit-legend] .edit-swatch { background-image: linear-gradient(var(--edit-tint), var(--edit-tint)), linear-gradient(var(--edit-tint), var(--edit-tint)), linear-gradient(var(--edit-tint), var(--edit-tint)); }
+[data-edit-legend] .correct-swatch { background-image: linear-gradient(var(--correct-tint), var(--correct-tint)), linear-gradient(var(--correct-tint), var(--correct-tint)), linear-gradient(var(--correct-tint), var(--correct-tint)); box-shadow: inset 2px 0 0 0 color-mix(in oklch, var(--color-amber-500) 60%, transparent); }
+/* The pencil toggle in the report tool group: pressed (marks on) reads like the active tool buttons. */
+[data-edit-marks-toggle][aria-pressed="true"] { color: var(--color-violet-600); background-color: color-mix(in oklch, var(--color-violet-600) 14%, transparent); }
+
+/* The editable-columns legend opens and closes by height (grid row 0fr <-> 1fr), so the table below moves smoothly. */
+.edit-legend { display: grid; grid-template-rows: 1fr; opacity: 1;
+  transition: grid-template-rows var(--dur-in) var(--ease-out), opacity var(--dur-in) var(--ease-out); }
+.edit-legend > div { overflow: hidden; min-height: 0; }
+.edit-legend.is-closed { grid-template-rows: 0fr; opacity: 0; }
+.edit-legend.is-closing { transition-duration: var(--dur-out); transition-timing-function: var(--ease-in); }
+@media (prefers-reduced-motion: reduce) { .edit-legend { transition: none; } }
+
+/* Floating cell editor (UI_RULES §4, 2026-11-16): the correction editor (form.cell-pop, grid_nav.js mountEditor) opens
+   as a panel over the cell and its neighbours, at least 20rem wide, so the field, the reason and the note are not
+   squeezed into a narrow column. The cell keeps its old text faded underneath, so the row keeps its height. */
+table[data-grid] td.is-popped:not(.sticky) { position: relative; }
+table[data-grid] td.is-popped > [data-cell-ghost] { opacity: .35; }
+table[data-grid] td.is-popped > form.cell-pop {
+  position: absolute; top: -1px; left: -1px; z-index: 35;
+  width: max(calc(100% + 2px), 20rem); padding: .625rem .75rem;
+  background: var(--color-surface); color: var(--color-slate-800);
+  border: 2px solid var(--color-violet-600); border-radius: .5rem;
+  box-shadow: 0 10px 28px rgb(0 0 0 / .22);
+  white-space: normal; text-align: left;
+}
+table[data-grid] td.is-popped > form.cell-pop.pop-left { left: auto; right: -1px; }
+table[data-grid] td.is-popped > form.cell-pop.pop-up { top: auto; bottom: -1px; }
+table[data-grid] td.is-popped > form.cell-pop :is(select, input[type="text"], input:not([type])) { width: 100%; }
+@media print { table[data-grid] td.is-popped > form.cell-pop { position: static; box-shadow: none; } }

@@ -16,6 +16,7 @@
     var ctl = holder.matches("select, input") ? holder : holder.querySelector("select, input");
     if (!ctl) return "";
     if (ctl.tagName === "SELECT") return ctl.options[ctl.selectedIndex] ? ctl.options[ctl.selectedIndex].text.trim() : "";
+    if (ctl.name === "q") return ctl.value.trim() ? "Хайлт: " + ctl.value.trim() : "";  // the report search (textContent in renderChips)
     var vals = Array.prototype.map.call(holder.querySelectorAll("input"), function (i) { return i.value; }).filter(Boolean);
     return vals.join(" – ");
   }
@@ -113,7 +114,18 @@
     requestAnimationFrame(update);
   }
 
-  function rebuild() { dropClone(); schedule(); }  // widths, sort or rows may have changed
+  // A .ptable-fit frame ends at the bottom of the screen with the page scrolled to the top, so its sideways scrollbar
+  // shows without scrolling the page (UI_RULES §4). Measured, because the tools and filters above it vary in height.
+  function fitTables() {
+    document.querySelectorAll(".ptable-fit").forEach(function (box) {
+      var top = box.getBoundingClientRect().top + window.scrollY;
+      var outer = box.parentElement.classList.contains("sbar-host") ? box.parentElement : box;  // scrollbars.js wraps it
+      var after = outer.nextElementSibling ? outer.nextElementSibling.offsetHeight + 16 : 16;  // the «Нийт» line under it
+      box.style.maxHeight = Math.max(320, window.innerHeight - top - after) + "px";
+    });
+  }
+
+  function rebuild() { fitTables(); dropClone(); schedule(); }  // widths, sort or rows may have changed
 
   document.addEventListener("click", function (e) {
     var t = e.target.closest && e.target.closest("[data-strip-tool]");
@@ -139,6 +151,7 @@
   document.addEventListener("htmx:afterSettle", rebuild);
   document.addEventListener("htmx:historyRestore", schedule);
   window.addEventListener("pageshow", schedule);
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule);
-  else schedule();
+  window.addEventListener("pageshow", fitTables);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", rebuild);
+  else rebuild();
 })();

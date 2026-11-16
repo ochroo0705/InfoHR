@@ -22,16 +22,45 @@ PERSONAL_COLUMNS = frozenset({"BIRTH_DATE", "GENDER"})
 
 EMPLOYEES: View = load_view("GOV_EMPLOYEES")
 CHILDREN: View = load_view("GOV_CHILDREN")
+EDUCATION: View = load_view("GOV_EDUCATION")
+QUALIFICATIONS: View = load_view("GOV_QUALIFICATIONS")
+CERTIFICATES: View = load_view("GOV_CERTIFICATES")
 LEAVE: View = load_view("GOV_LEAVE")
 ORDERS: View = load_view("GOV_ORDERS")
+AWARDS: View = load_view("GOV_AWARDS")
+GIFTS: View = load_view("GOV_GIFTS")
 # Names a common table may not take: the governed views and the scope tables of the host. sqlcore adds its own.
 RESERVED_PREFIXES: tuple[str, ...] = ("GOV_", "IHR_")
 # Many rows per person, one per pay change or loan; END_DATE ends each row's period.
 SALARY: View = replace(load_view("GOV_SALARY"), history_end_column="END_DATE")
 LOANS: View = replace(load_view("GOV_LOANS"), history_end_column="END_DATE")
+# Many rows per person, one per job period; END_DATE ends each row's period.
+JOB_HISTORY: View = replace(load_view("GOV_JOB_HISTORY"), history_end_column="END_DATE")
+EVENTS: View = load_view("GOV_EVENTS")
+# Many rows per person, one per leave grant or deduction; END_DATE ends each row's period.
+ENTITLEMENTS: View = replace(load_view("GOV_ENTITLEMENTS"), history_end_column="END_DATE")
+LEAVE_REQUESTS: View = load_view("GOV_LEAVE_REQUESTS")
+DEPARTMENTS: View = load_view("GOV_DEPARTMENTS")
+POSITIONS: View = load_view("GOV_POSITIONS")
 EMPLOYEES_NO_PERSONAL: View = replace(
     EMPLOYEES, columns=tuple(column for column in EMPLOYEES.columns if column.name not in PERSONAL_COLUMNS)
 )
+# The four gates (see catalogue_for): the personal right, the open views for anyone with a catalogue, the employee right
+# (pending and cancelled HR changes, so not for an own-record-only user), the salary right.
+PERSONAL: tuple[View, ...] = (CHILDREN, EDUCATION, QUALIFICATIONS, CERTIFICATES)
+OPEN: tuple[View, ...] = (
+    LEAVE,
+    ORDERS,
+    AWARDS,
+    GIFTS,
+    JOB_HISTORY,
+    ENTITLEMENTS,
+    LEAVE_REQUESTS,
+    DEPARTMENTS,
+    POSITIONS,
+)
+EMPLOYEE_RIGHT: tuple[View, ...] = (EVENTS,)
+SALARY_VIEWS: tuple[View, ...] = (SALARY, LOANS)
 
 
 def _may_view_personal(user: User) -> bool:
@@ -50,8 +79,8 @@ def _may_view_personal(user: User) -> bool:
 
 def catalogue_for(user: User) -> Catalogue:
     """The views for this user: the employee views when the user is active and may see employees or has an own
-    record; the children view and the personal columns only when `_may_view_personal`; the salary and loan views in
-    addition only when the user has macs.view_salary.
+    record; the children view and the personal columns only when `_may_view_personal`; the events view only with
+    macs.view_employees; the salary and loan views in addition only when the user has macs.view_salary.
 
     An inactive user, or one with neither right nor own record, gets an empty catalogue. This function is the only
     place that decides which views and columns a user may ask about.
@@ -60,10 +89,10 @@ def catalogue_for(user: User) -> Catalogue:
         return Catalogue(views=(), reserved_prefixes=RESERVED_PREFIXES)
     if not (user.has_perm("macs.view_employees") or own_employee(user) is not None):
         return Catalogue(views=(), reserved_prefixes=RESERVED_PREFIXES)
-    if _may_view_personal(user):
-        views: tuple[View, ...] = (EMPLOYEES, CHILDREN, LEAVE, ORDERS)
-    else:
-        views = (EMPLOYEES_NO_PERSONAL, LEAVE, ORDERS)
-    if user.has_perm("macs.view_salary"):
-        views = (*views, SALARY, LOANS)
+    may_personal = _may_view_personal(user)
+    employees = EMPLOYEES if may_personal else EMPLOYEES_NO_PERSONAL
+    personal = PERSONAL if may_personal else ()
+    salary = SALARY_VIEWS if user.has_perm("macs.view_salary") else ()
+    employee_right = EMPLOYEE_RIGHT if user.has_perm("macs.view_employees") else ()
+    views: tuple[View, ...] = (employees, *personal, *OPEN, *employee_right, *salary)
     return Catalogue(views=views, reserved_prefixes=RESERVED_PREFIXES)

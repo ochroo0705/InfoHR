@@ -21,6 +21,7 @@ from macs.models import Branch, Employee
 from pytest_django.plugin import DjangoDbBlocker
 
 from hr_sql.connection import governed_connection
+from hr_sql.views import _drop_governed
 
 PASSWORD = "x-long-pass-123"  # noqa: S105 (a throw-away test login)
 
@@ -32,13 +33,7 @@ def _firebird_only() -> None:
 
 def _drop_objects() -> None:
     with connections["default"].cursor() as cursor:
-        cursor.execute("DROP VIEW GOV_LOANS")
-        cursor.execute("DROP VIEW GOV_SALARY")
-        cursor.execute("DROP VIEW GOV_ORDERS")
-        cursor.execute("DROP VIEW GOV_LEAVE")
-        cursor.execute("DROP VIEW GOV_CHILDREN")
-        cursor.execute("DROP VIEW GOV_EMPLOYEES")
-        cursor.execute("DROP TABLE GOV_SCOPE")
+        _drop_governed(cursor)
 
 
 @pytest.fixture

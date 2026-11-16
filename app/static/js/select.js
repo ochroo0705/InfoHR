@@ -102,10 +102,16 @@
     }
   }
 
+  // The hidden <select> must not be required: the browser cannot focus it, so its "please fill in" message
+  // never shows. The requirement is kept in data-required and carried by the visible text box instead.
+  function isRequired(c) {
+    return c.select.dataset.required === "1";
+  }
+
   function syncText(c) {
     c.input.value = shownText(c.select);
     c.input.disabled = c.select.disabled;
-    c.input.required = c.select.required;
+    c.input.required = isRequired(c);
   }
 
   function clearNote() {
@@ -224,7 +230,7 @@
   // A text box in place of a typing dropdown: leaving it without a pick restores the text; an emptied box
   // clears the select when the select is optional and has an empty entry.
   function leave(c) {
-    if (!c.input.value.trim() && !c.select.required) {
+    if (!c.input.value.trim() && !isRequired(c)) {
       var empty = emptyIndex(c.select);
       if (empty >= 0) choose(c.select, empty);
     }
@@ -233,6 +239,9 @@
 
   function combo(select) {
     var c = { select: select, input: null };
+    // Remember the requirement once (a rebuilt element keeps its own attribute), then take it off the hidden select.
+    if (select.dataset.required === undefined) select.dataset.required = select.required ? "1" : "";
+    select.required = false;
     var input = el("input");
     input.type = "text";
     input.className = select.className + " sel-combo";

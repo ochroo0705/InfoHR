@@ -484,6 +484,21 @@
     if (current && current.scrollIntoView) current.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
   showCurrentTab();
+
+  // The chat dock is fixed at the bottom and grows with the chat log, so the space under the table follows its real
+  // height: scrolled to the end, the last row stays just above the dock. (pb-44 in the template is the no-script fallback.)
+  const dock = document.getElementById("ws-chat-pane");
+  const dockSpace = dock && dock.closest("[data-ws-dock-space]");
+  function fitDockSpace() {
+    if (!dock || !dockSpace) return;
+    const bottomGap = parseFloat(getComputedStyle(dock).bottom) || 0;
+    dockSpace.style.paddingBottom = Math.ceil(dock.offsetHeight + bottomGap + 16) + "px";
+  }
+  if (dock && dockSpace) {
+    fitDockSpace();
+    if (window.ResizeObserver) new ResizeObserver(fitDockSpace).observe(dock);
+    window.addEventListener("resize", fitDockSpace);
+  }
   // A page shown from the browser's history may restore checkbox states: the bar follows the boxes it finds.
   window.addEventListener("pageshow", () => sync());
 

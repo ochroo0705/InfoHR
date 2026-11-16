@@ -1,0 +1,86 @@
+# Draft. English from the model labels in app/macs/models.py (PresentRow, PresentType). Mongolian drafted from the same
+# labels; check the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per gift (a present given to an employee for their children) that you may see: the gift type, the date, the year, the value, whether it was handed over, and the number and age of the children. Use it to answer questions about gifts given to an employee. Many rows can belong to one person."
+description_mn = "Харах эрхтэй ажилтанд өгсөн бэлгийн бүртгэл бүрийн нэг мөр: бэлгийн төрөл, огноо, он, үнэ, өгсөн эсэх, хүүхдийн тоо, нас. Нэг ажилтанд хэд хэдэн мөр байж болно."
+
+rules = [
+    # One row per gift record, not per person: one person can have many rows.
+    # app/macs/models.py (PresentRow)
+    "One row per gift record, so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # GIVEN is stored as 1 or 0 and is passed through as stored.
+    # app/macs/models.py (PresentRow.given)
+    "GIVEN = 1 means the gift was handed over; GIVEN = 0 means it was not (kept as stored).",
+    # PRICE is the value of the gift; the model keeps no currency.
+    # app/macs/models.py (PresentRow.price)
+    "PRICE is the value of the gift as a whole number. The model keeps no currency, so do not add a currency name.",
+    # GIFT_TYPE_NAME comes from the gift type list and can be empty.
+    # app/hr_sql/views.py (GOV_GIFTS statement: LEFT JOIN to the gift type)
+    "GIFT_TYPE_NAME is the gift type from the gift type list and is empty when no type is set.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "GIFT_ID"
+description = "Gift record number (internal id)"
+description_mn = "Бэлгийн бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "GIFT_TYPE_NAME"
+description = "Type of the gift from the gift type list (empty when not set)"
+description_mn = "Бэлгийн төрөл (бүртгэгдээгүй бол хоосон)"
+label_mn = "Бэлгийн төрөл"
+synonyms = ["gift type", "present type", "gift", "present"]
+
+[[columns]]
+name = "GIFT_DATE"
+description = "Date the gift was given"
+description_mn = "Бэлэг өгсөн огноо"
+label_mn = "Огноо"
+synonyms = ["date", "given on"]
+
+[[columns]]
+name = "GIFT_YEAR"
+description = "Year the gift was given"
+description_mn = "Бэлэглэсэн он"
+label_mn = "Бэлэглэсэн он"
+synonyms = ["year", "given year"]
+
+[[columns]]
+name = "PRICE"
+description = "Value of the gift (whole number, no currency)"
+description_mn = "Бэлгийн үнэ (бүхэл тоо, валютгүй)"
+label_mn = "Үнэ"
+synonyms = ["value", "cost", "amount"]
+
+[[columns]]
+name = "GIVEN"
+description = "1 when the gift was handed over, 0 when it was not"
+description_mn = "1 бол бэлгийг өгсөн, 0 бол өгөөгүй"
+label_mn = "Өгсөн эсэх"
+synonyms = ["handed over", "given", "delivered"]
+
+[[columns]]
+name = "CHILD_COUNT"
+description = "Number of children the gift is for"
+description_mn = "Бэлгийн хүүхдийн тоо"
+label_mn = "Хүүхдийн тоо"
+synonyms = ["children", "child count", "kids"]
+
+[[columns]]
+name = "CHILD_AGE"
+description = "Age of the child the gift is for (years, as stored)"
+description_mn = "Бэлэг хүртэх хүүхдийн нас (жилээр, хадгалсан байдлаар)"
+label_mn = "Хүүхдийн нас"
+synonyms = ["child age", "age"]

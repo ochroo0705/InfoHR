@@ -764,9 +764,7 @@ class Command(BaseCommand):
 
         # Old-style rows: no ext row, the way the old program wrote them (status NULL / adays NULL, rejected).
         year_start, year_end = date(today.year, 1, 1), date(today.year, 12, 31)
-        leave_writes.write_old_style_grant(
-            people["Болд"], types["annual"], year_start, year_end, 15, ""
-        )
+        leave_writes.write_old_style_grant(people["Болд"], types["annual"], year_start, year_end, 15, "")
         leave_writes.write_old_style_assign(
             people["Болд"],
             types["annual"],

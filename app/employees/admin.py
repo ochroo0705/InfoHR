@@ -15,8 +15,10 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString, mark_safe
 from lists.usage import usage_count
+from PIL import Image
 from unfold.admin import ModelAdmin
 
+from . import order_template_editor_views
 from .models import (
     ActivityEntry,
     CompanySettings,
@@ -140,13 +142,18 @@ class ActivityAdmin(ReadOnlyAdmin):
     list_display = ("employee", "at", "kind", "message", "personal", "sensitive")
 
 
-
 def _module_field(module: modules.Module) -> forms.BooleanField:
     help_text = module.description + " Унтраахад алга болох: " + "; ".join(module.effects) + "."
     return forms.BooleanField(label=module.label, required=False, help_text=help_text)
 
 
 MODULE_FIELDS = {f"module_{m.key}": _module_field(m) for m in modules.MODULES}
+
+
+LETTERHEAD_MAX_BYTES = 2 * 1024 * 1024
+LETTERHEAD_FORMATS = ("PNG", "JPEG")
+LETTERHEAD_MAX_LINES = 8  # the letterhead must fit the top of the page (see order_docs.LETTERHEAD_MAX_SHARE)
+LETTERHEAD_MAX_CHARS = 120  # per line
 
 
 class CompanySettingsForm(forms.ModelForm):  # type: ignore[type-arg]
@@ -161,10 +168,18 @@ class CompanySettingsForm(forms.ModelForm):  # type: ignore[type-arg]
         fields = [
             "soon_days",
             "governed_sql_enabled",
+            "report_corrections",
             "selfform_base_url",
             "selfform_notice",
             "selfform_retention_days",
             "selfform_default_hours",
+            "letterhead_logo",
+            "letterhead_lines",
+            "letterhead_logo_place",
+            "letterhead_text_align",
+            "letterhead_logo_size",
+            "letterhead_rule",
+            "letterhead_every_page",
         ]
         help_texts = {
             "selfform_base_url": (
@@ -224,14 +239,72 @@ class CompanySettingsForm(forms.ModelForm):  # type: ignore[type-arg]
             raise forms.ValidationError("Хаяг 200 тэмдэгтээс хэтрэхгүй байх ёстой.")
         return url
 
+    def clean_letterhead_lines(self) -> str:
+        """At most LETTERHEAD_MAX_LINES non-empty lines of at most LETTERHEAD_MAX_CHARS characters: a longer letterhead
+        would not fit the top of the order's page. Blank lines do not count."""
+        text: str = self.cleaned_data.get("letterhead_lines") or ""
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if len(lines) > LETTERHEAD_MAX_LINES:
+            raise forms.ValidationError(f"Бланкны текст {LETTERHEAD_MAX_LINES} мөрөөс хэтрэхгүй байх ёстой.")
+        if any(len(line) > LETTERHEAD_MAX_CHARS for line in lines):
+            raise forms.ValidationError(f"Бланкны мөр {LETTERHEAD_MAX_CHARS} тэмдэгтээс хэтрэхгүй байх ёстой.")
+        return text
+
+    def clean_letterhead_logo(self) -> Any:
+        """Only a newly uploaded file is checked; a logo already stored (or a cleared one) passes unchanged."""
+        upload = self.cleaned_data.get("letterhead_logo")
+        if not isinstance(upload, UploadedFile):
+            return upload
+        if (upload.size or 0) > LETTERHEAD_MAX_BYTES:
+            raise forms.ValidationError("Лого 2 МБ-аас ихгүй байх ёстой.")
+        try:
+            with Image.open(upload) as image:
+                fmt = image.format
+                pixels = image.width * image.height  # known from the header, before the picture is decoded
+                image.verify()
+        except Exception:  # Pillow raises several error types for a broken or truncated picture
+            raise forms.ValidationError("Лого зургийг уншиж чадсангүй. PNG эсвэл JPG файл оруулна уу.") from None
+        finally:
+            upload.seek(0)
+        if fmt not in LETTERHEAD_FORMATS:
+            raise forms.ValidationError("Лого зөвхөн PNG эсвэл JPG форматтай байх ёстой.")
+        if pixels > order_docs.LETTERHEAD_MAX_PIXELS:
+            raise forms.ValidationError("Лого зургийн хэмжээ 25 мегапикселээс хэтрэхгүй байх ёстой.")
+        return upload
+
 
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
     """One row only (CompanySettings.get): it can be added once and never deleted."""
 
     form = CompanySettingsForm
+    readonly_fields = ("letterhead_mock",)
+
+    class Media:
+        css = {"all": ("css/order_template_editor.css",)}  # the .lh-* rules that draw the letterhead mock
+        js = ("js/letterhead_preview.js",)  # redraws the letterhead mock while the presets change
+
     fieldsets = (
         (None, {"fields": ("name", "director_name")}),
+        (
+            "Бланк (толгой хэсэг)",
+            {
+                "description": (
+                    "Тушаалын PDF-ийн дээд хэсгийн бланк: лого, байгууллагын мэдээлэл. Бланк нь Word загварт "
+                    "орохгүй, PDF хэвлэх үед автоматаар нэмэгдэнэ."
+                ),
+                "fields": (
+                    "letterhead_logo",
+                    "letterhead_lines",
+                    "letterhead_logo_place",
+                    "letterhead_text_align",
+                    "letterhead_logo_size",
+                    "letterhead_rule",
+                    "letterhead_every_page",
+                    "letterhead_mock",
+                ),
+            },
+        ),
         (
             "Тушаал шаардах өөрчлөлтүүд",
             {
@@ -245,6 +318,7 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
         ("Орон тоо", {"fields": ("enforce_position_slots",)}),
         ("Гэрээ, туршилтын хугацаа", {"fields": ("soon_days",)}),
         ("Туслах: SQL хариулт", {"fields": ("governed_sql_enabled",)}),  # needs native read
+        ("Тайлан", {"fields": ("report_corrections",)}),
         (
             "Модулиуд",
             {
@@ -299,6 +373,15 @@ class CompanySettingsAdmin(ModelAdmin):  # type: ignore[misc]
     def has_add_permission(self, request: HttpRequest) -> bool:
         return not CompanySettings.objects.exists() and super().has_add_permission(request)
 
+    @admin.display(description="Урьдчилсан харагдац")
+    def letterhead_mock(self, obj: CompanySettings) -> str:
+        """A small picture of the presets; static/js/letterhead_preview.js draws it inside this form."""
+        return mark_safe(  # noqa: S308  # a constant string with no variables in it
+            "<div data-letterhead-mock></div>"
+            '<p class="help">Лого зурагт харагдахгүй, оронд нь «Лого» гэж харагдана. Тохиргоо өөрчлөгдөх бүрт '
+            "урьдчилсан харагдах хэсэг шинэчлэгдэнэ.</p>"
+        )
+
     def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
 
@@ -318,7 +401,7 @@ def _placeholder_help(order_type: int) -> SafeString:
 class OrderTemplateForm(forms.ModelForm):  # type: ignore[type-arg]
     class Meta:
         model = OrderTemplate
-        fields = ["file"]
+        fields = ["file", "show_letterhead"]
 
     class Media:
         css = {"all": ("css/admin_order_fields.css",)}
@@ -326,6 +409,16 @@ class OrderTemplateForm(forms.ModelForm):  # type: ignore[type-arg]
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["file"].help_text = _placeholder_help(self.instance.order_type)
+        letterhead_help = "Энэ сонголт зөвхөн оруулсан Word (.docx) файлд хамаарна."
+        letterhead_help += " Анхдагч (стандарт) загварт бланк үргэлж гарна."
+        self.fields["show_letterhead"].help_text = letterhead_help
+
+    def clean(self) -> dict[str, Any]:
+        cleaned: dict[str, Any] = super().clean() or {}
+        # No file after this save (starter, or «Clear» ticked): the letterhead always prints.
+        if not cleaned.get("file"):
+            cleaned["show_letterhead"] = True
+        return cleaned
 
     def clean_file(self) -> Any:
         value = self.cleaned_data.get("file")
@@ -348,8 +441,8 @@ class OrderTemplateAdmin(ModelAdmin):  # type: ignore[misc]
     means the bundled starter template. «Clear» ticked on a row puts the starter back."""
 
     form = OrderTemplateForm
-    list_display = ("order_type_label", "source", "needed", "updated_at", "downloads")
-    fields = ("order_type_label", "file", "downloads")
+    list_display = ("order_type_label", "source", "needed", "letterhead", "updated_at", "downloads", "edit_link")
+    fields = ("order_type_label", "file", "show_letterhead", "downloads")
     readonly_fields = ("order_type_label", "downloads")
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
@@ -378,6 +471,16 @@ class OrderTemplateAdmin(ModelAdmin):  # type: ignore[misc]
     def needed(self, obj: OrderTemplate) -> bool:
         return CompanySettings.get().requires_order(obj.order_type)
 
+    @admin.display(description="Бланк", boolean=True)
+    def letterhead(self, obj: OrderTemplate) -> bool:
+        return OrderTemplate.letterhead_on(obj.order_type)  # the same rule the PDF renderer uses
+
+    @admin.display(description="Засах")
+    def edit_link(self, obj: OrderTemplate) -> str:
+        if obj.pk is None:
+            return ""
+        return format_html('<a href="{}">Засах</a>', reverse("admin:employees_ordertemplate_edit", args=[obj.pk]))
+
     @admin.display(description="Татах")
     def downloads(self, obj: OrderTemplate) -> Any:
         if obj.pk is None:
@@ -396,8 +499,40 @@ class OrderTemplateAdmin(ModelAdmin):  # type: ignore[misc]
                 self.admin_site.admin_view(self.download),
                 name="employees_ordertemplate_download",
             ),
+            path(
+                "<int:pk>/edit/",
+                self.admin_site.admin_view(self.edit_view),
+                name="employees_ordertemplate_edit",
+            ),
+            path(
+                "<int:pk>/edit/save/",
+                self.admin_site.admin_view(self.save_view),
+                name="employees_ordertemplate_save",
+            ),
+            path(
+                "<int:pk>/edit/reset/",
+                self.admin_site.admin_view(self.reset_view),
+                name="employees_ordertemplate_reset",
+            ),
+            path(
+                "<int:pk>/preview/",
+                self.admin_site.admin_view(self.preview_view),
+                name="employees_ordertemplate_preview",
+            ),
             *super().get_urls(),
         ]
+
+    def edit_view(self, request: HttpRequest, pk: int) -> HttpResponse:
+        return order_template_editor_views.edit_page(self, request, pk)
+
+    def save_view(self, request: HttpRequest, pk: int) -> HttpResponse:
+        return order_template_editor_views.save_view(self, request, pk)
+
+    def preview_view(self, request: HttpRequest, pk: int) -> HttpResponse:
+        return order_template_editor_views.preview_view(self, request, pk)
+
+    def reset_view(self, request: HttpRequest, pk: int) -> HttpResponse:
+        return order_template_editor_views.reset_view(self, request, pk)
 
     def download(self, request: HttpRequest, pk: int) -> FileResponse:
         if not self.has_view_permission(request):

@@ -163,7 +163,11 @@ def extend(inv: SelfFormInvitation, *, hours: int | None, by: User) -> None:
             raise SelfFormError(_PURGED)
         if locked.status != SelfFormStatus.OPEN:
             raise SelfFormError("Зөвхөн нээлттэй холбоосын хугацааг сунгана.")
-        locked.expires_at = timezone.now() + timedelta(hours=_hours_or_default(hours))
+        # Added to the time left (an expired link counts from now), as the screen says («... цаг нэмнэ»).
+        base = max(locked.expires_at, timezone.now()) if locked.expires_at else timezone.now()
+        locked.expires_at = base + timedelta(hours=_hours_or_default(hours))
+        if locked.expires_at > timezone.now() + timedelta(hours=_MAX_HOURS):
+            raise SelfFormError("Холбоосын нийт үлдэх хугацаа нэг жилээс хэтрэхгүй байх ёстой.")
         locked.save(update_fields=["expires_at"])
         record_safe(Category.HR, "selfform_extended", actor=by, target_type=_TARGET_TYPE, target_label=locked.label)
     _sync(inv, locked, ("expires_at",))

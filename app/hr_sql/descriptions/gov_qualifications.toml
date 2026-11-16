@@ -1,0 +1,117 @@
+# Draft. English from the model labels in app/macs/models.py (QualificationRow and its code lists). Mongolian drafted
+# from the same labels; check the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until
+# then).
+
+description = "One row per qualification or diploma of an employee you may see: the qualification type, the profession, the organisation, the diploma number, the period, the education level, the academic degree and the country. Use it to answer questions about an employee's professional qualifications and diplomas. Many rows can belong to one person."
+description_mn = "Харах эрхтэй ажилтны мэргэшил, дипломын бүртгэл бүрийн нэг мөр: мэргэшлийн төрөл, мэргэжил, байгууллага, дипломын дугаар, хугацаа, боловсролын түвшин, эрдмийн зэрэг, улс. Нэг ажилтанд хэд хэдэн мөр байж болно."
+
+rules = [
+    # One row per qualification or diploma, not per person: one person can have many rows.
+    # app/hr_sql/views.py (GOV_QUALIFICATIONS statement)
+    "One row per qualification or diploma, so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # DEGREE_NAME is the academic degree (for example a master's degree); EDUCATION_LEVEL_NAME is the level of education.
+    # app/macs/models.py (QualificationRow.grade, QualificationRow.edu_level)
+    "DEGREE_NAME is the academic degree of the diploma (for example a bachelor's or master's degree). EDUCATION_LEVEL_NAME is the level of education of the qualification. Do not treat the two as the same.",
+    # The four name columns are empty when the record has no type, profession, level or degree that can be found.
+    # app/hr_sql/views.py (GOV_QUALIFICATIONS statement, LEFT JOINs to the code lists)
+    "QUALIFICATION_TYPE_NAME, PROFESSION_NAME, EDUCATION_LEVEL_NAME and DEGREE_NAME are empty when the record does not give that code, so a row can have empty names and still count.",
+    # START_YEAR and END_YEAR are always filled; START_DATE and END_DATE can be empty.
+    # app/macs/models.py (QualificationRow.start_year, QualificationRow.end_year)
+    "START_YEAR and END_YEAR are always filled. START_DATE and END_DATE can be empty, so use the years when the dates are empty.",
+    # No shared key with GOV_EDUCATION beyond EMP_ID: a join between the two views is only by employee.
+    # app/macs/models.py (QualificationRow has no link to EducRow)
+    "There is no shared key with GOV_EDUCATION except EMP_ID. Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "QUALIFICATION_ID"
+description = "Qualification record number (internal id)"
+description_mn = "Мэргэшлийн бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "QUALIFICATION_TYPE_NAME"
+description = "Qualification type name (empty when not recorded)"
+description_mn = "Мэргэшлийн төрөл (бүртгэгдээгүй бол хоосон)"
+label_mn = "Мэргэшлийн төрөл"
+synonyms = ["qualification", "type"]
+
+[[columns]]
+name = "PROFESSION_NAME"
+description = "Profession name (empty when not recorded)"
+description_mn = "Мэргэжлийн төрөл (бүртгэгдээгүй бол хоосон)"
+label_mn = "Мэргэжил"
+synonyms = ["profession", "job", "occupation"]
+
+[[columns]]
+name = "ORGANISATION"
+description = "Name of the organisation that issued the qualification or diploma"
+description_mn = "Мэргэшил, дипломыг олгосон байгууллагын нэр"
+label_mn = "Байгууллагын нэр"
+synonyms = ["organization", "school", "university", "institution", "issuer"]
+
+[[columns]]
+name = "DIPLOMA_NUMBER"
+description = "Diploma or certificate number (empty when not recorded)"
+description_mn = "Дипломын дугаар (бүртгэгдээгүй бол хоосон)"
+label_mn = "Дипломын дугаар"
+synonyms = ["diploma", "diploma no", "number"]
+
+[[columns]]
+name = "START_DATE"
+description = "Date the qualification started (empty when not recorded)"
+description_mn = "Мэргэшил эхэлсэн огноо (бүртгэгдээгүй бол хоосон)"
+label_mn = "Эхэлсэн огноо"
+synonyms = ["from", "start"]
+
+[[columns]]
+name = "END_DATE"
+description = "Date the qualification ended (empty when not recorded)"
+description_mn = "Мэргэшил дууссан огноо (бүртгэгдээгүй бол хоосон)"
+label_mn = "Дууссан огноо"
+synonyms = ["to", "end", "finish"]
+
+[[columns]]
+name = "START_YEAR"
+description = "Year the qualification started"
+description_mn = "Мэргэшил эхэлсэн он"
+label_mn = "Эхэлсэн он"
+synonyms = ["year", "start year"]
+
+[[columns]]
+name = "END_YEAR"
+description = "Year the qualification ended"
+description_mn = "Мэргэшил дууссан он"
+label_mn = "Дууссан он"
+synonyms = ["end year", "finish year"]
+
+[[columns]]
+name = "EDUCATION_LEVEL_NAME"
+description = "Education level of the qualification, for example higher education (empty when not recorded)"
+description_mn = "Мэргэшлийн боловсролын түвшин, жишээ нь дээд боловсрол (бүртгэгдээгүй бол хоосон)"
+label_mn = "Боловсролын түвшин"
+synonyms = ["level", "education level"]
+
+[[columns]]
+name = "DEGREE_NAME"
+description = "Academic degree of the diploma, for example a bachelor's or master's degree (empty when not recorded)"
+description_mn = "Дипломын эрдмийн зэрэг, жишээ нь бакалаврын эсвэл магистрын зэрэг (бүртгэгдээгүй бол хоосон)"
+label_mn = "Эрдмийн зэрэг"
+synonyms = ["degree", "academic degree", "master", "bachelor"]
+
+[[columns]]
+name = "COUNTRY"
+description = "Country where the qualification was obtained (empty when not recorded)"
+description_mn = "Мэргэшлийг авсан улс (бүртгэгдээгүй бол хоосон)"
+label_mn = "Улс"
+synonyms = ["country", "abroad"]

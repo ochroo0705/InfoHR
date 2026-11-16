@@ -577,7 +577,7 @@ def test_table_markup_for_phone_keyboard_and_screen_reader(
 
     html = _pane(client, _url(tab, "sort=NAME:desc&page=0"))
 
-    assert 'class="ptable ws-cards"' in html
+    assert 'class="ptable ptable-fit ws-cards"' in html
     assert 'data-label="NAME"' in html and 'data-label="ID"' in html  # a phone card names every value
     assert 'aria-sort="descending"' in html and html.count("aria-sort=") == 1
     assert 'data-ws-sort="NAME"' in html

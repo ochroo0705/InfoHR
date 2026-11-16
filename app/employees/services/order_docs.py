@@ -8,6 +8,7 @@ Conventions the templates rely on (see COWORK.md): `effective_date` and `probati
 
 import datetime
 import io
+import logging
 import zipfile
 from collections.abc import Callable
 from contextvars import ContextVar
@@ -25,15 +26,28 @@ from docx.opc.exceptions import PackageNotFoundError
 from docxtpl import DocxTemplate
 from fpdf import FPDF
 from fpdf.enums import MethodReturnValue
+from fpdf.errors import FPDFException
 from jinja2 import TemplateError
 from jinja2.sandbox import SandboxedEnvironment
 from macs.models import Department, Position
 from PIL import Image
 
 from employees import access, history_range
-from employees.models import CompanySettings, EmployeeExt, HrOrder, JobRecord, OrderTemplate, OrderType
+from employees.models import (
+    LETTERHEAD_LOGO_MM,
+    CompanySettings,
+    Employee,
+    EmployeeExt,
+    HrOrder,
+    JobRecord,
+    OrderState,
+    OrderTemplate,
+    OrderType,
+)
 from employees.money import group
 from employees.services import events, history, macs_writes, orders
+
+logger = logging.getLogger(__name__)
 
 TEMPLATE_FILES = {
     OrderType.HIRED: "01_ajild_orson.docx",
@@ -76,6 +90,14 @@ PT_MM = 25.4 / 72
 SIGNATURE_WIDTH_MM = 40  # the drawn signature on the PDF, right-aligned like the director's line under it
 SIGNATURE_MAX_HEIGHT_MM = 25  # the picture never gets taller than this (a thin, tall PNG would run off the page)
 SIGNATURE_LINE_MM = 4  # one line of the name and time under the picture
+LETTERHEAD_GAP_MM = 4  # between the logo and the text beside it, and between the letterhead and the order's text
+LETTERHEAD_MAX_HEIGHT_MM = 35  # a logo is never taller than this (its width shrinks to keep the picture's shape)
+LETTERHEAD_RULE_MM = 0.3  # the line under the letterhead
+LETTERHEAD_FIRST_PT = 12  # the company's first letterhead line (bold)
+LETTERHEAD_LINE_PT = 9  # the other letterhead lines
+LETTERHEAD_ALIGN = {"left": "L", "center": "C", "right": "R"}
+LETTERHEAD_MAX_SHARE = 0.4  # the letterhead (logo and text lines) takes at most this share of the page height
+LETTERHEAD_MAX_PIXELS = 25_000_000  # a logo with more pixels is refused at upload and skipped when printing
 
 
 class OrderDocError(Exception):
@@ -156,6 +178,35 @@ PLACEHOLDER_HELP: tuple[tuple[str, str, str], ...] = (
         "зурахаас өмнө хоосон зураас гарна.",
     ),
 )
+
+# The short label each placeholder shows as a chip in the template editor (1-3 words; the meaning above is the hint).
+# A test keeps the names in step with PLACEHOLDERS and the labels short.
+PLACEHOLDER_LABELS: dict[str, str] = {
+    "company_name": "Байгууллагын нэр",
+    "director_name": "Захирлын нэр",
+    "issued_by": "Гаргасан хүн",
+    "order_number": "Тушаалын дугаар",
+    "order_date": "Тушаалын огноо",
+    "order_summary": "Тушаалын агуулга",
+    "employee_full_name": "Ажилтны нэр",
+    "employee_short_name": "Товч нэр",
+    "employee_number": "Ажилтны код",
+    "register_number": "Регистрийн дугаар",
+    "department": "Хэлтэс",
+    "position": "Албан тушаал",
+    "employee_type": "Ажилтны төрөл",
+    "effective_date": "Хүчинтэй огноо",
+    "old_department": "Өмнөх хэлтэс",
+    "new_department": "Шинэ хэлтэс",
+    "old_position": "Өмнөх албан тушаал",
+    "new_position": "Шинэ албан тушаал",
+    "old_employee_type": "Өмнөх ажилтны төрөл",
+    "new_employee_type": "Шинэ ажилтны төрөл",
+    "probation_end": "Туршилт дуусах огноо",
+    "salary": "Үндсэн цалин",
+    "termination_reason": "Гарсан шалтгаан",
+    "signature": "Гарын үсэг",
+}
 
 
 # Placeholders every order type fills, and the extra ones that fill for each type (the template page lists only these).
@@ -414,9 +465,12 @@ def change_rows(order: HrOrder, user: User) -> list[tuple[str, str, str]]:
     return rows
 
 
-def render_order(order: HrOrder, user: User, *, signature: str = BLANK_SIGNATURE) -> bytes:
-    """The filled Word file of an order."""
-    return _render(template_source(order.order_type), build_context(order, user, signature=signature))
+def render_order(
+    order: HrOrder, user: User, *, signature: str = BLANK_SIGNATURE, template: bytes | None = None
+) -> bytes:
+    """The filled Word file of an order. `template` (a .docx) is filled instead of the stored template of the type."""
+    source = template_source(order.order_type) if template is None else io.BytesIO(template)
+    return _render(source, build_context(order, user, signature=signature))
 
 
 def _pdf_fonts() -> tuple[str, str, str, str]:
@@ -426,10 +480,32 @@ def _pdf_fonts() -> tuple[str, str, str, str]:
     raise OrderDocError("no Cyrillic font found (settings.ORDER_PDF_FONT_SETS)")
 
 
-def _new_pdf(word: Any) -> FPDF:
+@dataclass(frozen=True)
+class _Letterhead:
+    """What the letterhead of one order draws: the company settings, the logo bytes (None: text only) and whether it
+    repeats on every page."""
+
+    company: CompanySettings
+    logo: bytes | None
+    every_page: bool
+
+
+class _OrderPDF(FPDF):
+    """The order PDF. _draw_order sets `letterhead` for the order it draws. With «every page» on, header() (which
+    fpdf2 calls on each page add_page() starts) draws the letterhead; otherwise _draw_order draws it on the first
+    page."""
+
+    letterhead: _Letterhead | None = None
+
+    def header(self) -> None:
+        if self.letterhead is not None and self.letterhead.every_page:
+            _draw_letterhead(self, self.letterhead.company, self.letterhead.logo)
+
+
+def _new_pdf(word: Any) -> _OrderPDF:
     """An empty A4 PDF with the margins of the Word file and the Cyrillic fonts loaded."""
     section = word.sections[0]
-    pdf = FPDF(unit="mm", format="A4")
+    pdf = _OrderPDF(unit="mm", format="A4")
     left, top, right, bottom = (
         m.mm if m is not None else 25.4
         for m in (section.left_margin, section.top_margin, section.right_margin, section.bottom_margin)
@@ -530,8 +606,171 @@ def _draw_paragraph(pdf: FPDF, paragraph: Any, base_pt: float, text: str) -> Non
     pdf.ln(1.5)
 
 
-def _draw_order(pdf: FPDF, word: Any, stamp: SignatureStamp | None = None) -> None:
-    """One order on its own new page, paragraph by paragraph.
+def _read_logo(company: CompanySettings) -> bytes | None:
+    """The letterhead logo file as bytes. None when there is no logo, or the file cannot be read or is not a picture
+    (the order is printed without the logo, and a warning is logged)."""
+    if not company.letterhead_logo:
+        return None
+    try:
+        with company.letterhead_logo.open("rb") as handle:
+            data: bytes = handle.read()
+        with Image.open(io.BytesIO(data)) as picture:
+            pixels = picture.width * picture.height  # the size is known before any pixel is decoded
+            if pixels > LETTERHEAD_MAX_PIXELS:
+                logger.warning(
+                    "Letterhead logo %s is not a readable picture (%d pixels, over the limit); printing without it",
+                    company.letterhead_logo.name,
+                    pixels,
+                )
+                return None
+            picture.load()
+    except (OSError, ValueError, Image.DecompressionBombError):
+        logger.warning(
+            "Letterhead logo %s is not a readable picture; printing without it", company.letterhead_logo.name
+        )
+        return None
+    return data
+
+
+def _logo_bytes(company: CompanySettings) -> bytes | None:
+    """The letterhead logo, read once per batch of orders (see _remembered)."""
+    logo: bytes | None = _remembered("letterhead_logo", lambda: _read_logo(company))
+    return logo
+
+
+def _logo_size(logo: bytes, size: str) -> tuple[float, float]:
+    """The logo's size on the PDF in mm: the preset width, the height from the picture, and at most
+    LETTERHEAD_MAX_HEIGHT_MM high (the width then shrinks, so the shape is kept)."""
+    with Image.open(io.BytesIO(logo)) as picture:
+        width_px, height_px = picture.size
+    width = float(LETTERHEAD_LOGO_MM.get(size, LETTERHEAD_LOGO_MM["medium"]))
+    height = width * height_px / width_px
+    if height > LETTERHEAD_MAX_HEIGHT_MM:
+        height = float(LETTERHEAD_MAX_HEIGHT_MM)
+        width = LETTERHEAD_MAX_HEIGHT_MM * width_px / height_px
+    return width, height
+
+
+def _letterhead_for(order_type: int | None, show: bool | None = None) -> _Letterhead | None:
+    """The letterhead of an order of this type, or None when nothing is drawn: no order type given, the template
+    switches the letterhead off, or the company has neither a logo nor text lines. `show` overrides the stored switch
+    (the editor's preview asks for the switch it shows, not the one stored)."""
+    if order_type is None:
+        return None
+    if show is None:
+        show = _remembered(("letterhead_on", int(order_type)), lambda: OrderTemplate.letterhead_on(int(order_type)))
+    if not show:
+        return None
+    company = _remembered("company", CompanySettings.get)
+    if not company.letterhead_logo and not company.letterhead_text():
+        return None
+    return _Letterhead(company, _logo_bytes(company), company.letterhead_every_page)
+
+
+def _letterhead_text(pdf: FPDF, lines: list[str], x: float, y: float, width: float, align: str, limit: float) -> float:
+    """The text lines in a column at (x, y): the first bold and larger, the rest regular. A line that would end below
+    `limit` (an absolute y on the page) is not drawn, and neither is anything after it: the letterhead never takes
+    more than its share of the page. Returns the y under the lines drawn."""
+    current = y
+    for index, line in enumerate(lines):
+        points = LETTERHEAD_FIRST_PT if index == 0 else LETTERHEAD_LINE_PT
+        pdf.set_font("Order", "B" if index == 0 else "", points)
+        height = points * PT_MM * 1.25
+        rows = len(pdf.multi_cell(width, height, line, dry_run=True, output=MethodReturnValue.LINES))
+        if current + rows * height > limit:
+            break
+        pdf.set_xy(x, current)
+        pdf.multi_cell(
+            width,
+            height,
+            line,
+            align=LETTERHEAD_ALIGN.get(align, "L"),
+            new_x="LMARGIN",
+            new_y="NEXT",
+        )
+        current = float(pdf.get_y())
+    return current
+
+
+def _place_logo(pdf: FPDF, logo: bytes, x: float, y: float, width: float, height: float) -> bool:
+    """Draws the logo at (x, y). False when fpdf2 cannot embed it (logged), so the caller lays the letterhead out as
+    text only: an order is never failed by its logo."""
+    try:
+        pdf.image(io.BytesIO(logo), x=x, y=y, w=width, h=height)
+    except (FPDFException, OSError, ValueError):
+        logger.warning("Letterhead logo cannot be drawn on the order PDF; printing the text lines only", exc_info=True)
+        return False
+    return True
+
+
+def _draw_letterhead(pdf: FPDF, company: CompanySettings, logo: bytes | None) -> None:
+    """The letterhead (see _draw_letterhead_lines) with the automatic page break off while it is drawn, and the
+    previous setting restored after. A letterhead must never start a page: on «every page», header() would call
+    add_page(), which calls header() again, without end."""
+    auto, margin = pdf.auto_page_break, pdf.b_margin
+    pdf.set_auto_page_break(False, margin)
+    try:
+        _draw_letterhead_lines(pdf, company, logo)
+    finally:
+        pdf.set_auto_page_break(auto, margin)
+
+
+def _draw_letterhead_lines(pdf: FPDF, company: CompanySettings, logo: bytes | None) -> None:
+    """The letterhead at the top margin, in the chosen layout: the logo left or right of the text, or centred above
+    it, or the logo alone. Then the rule under it, if on. Leaves the cursor under it, at the left margin. Text lines
+    beyond LETTERHEAD_MAX_SHARE of the page height are not drawn."""
+    place = company.letterhead_logo_place
+    lines = [] if place == "logo_only" else company.letterhead_text()
+    picture = _logo_size(logo, company.letterhead_logo_size) if logo else None
+    if picture is None and not lines:
+        return
+    left = pdf.l_margin
+    usable = pdf.w - pdf.l_margin - pdf.r_margin
+    top = pdf.t_margin
+    limit = top + LETTERHEAD_MAX_SHARE * pdf.h
+    bottom, text_top, text_x, text_w = top, top, left, usable  # text-only layout: the default
+    if picture is not None and logo is not None:
+        width, height = picture
+        side = bool(lines) and place in ("left", "right")
+        if side:
+            logo_x = left if place == "left" else pdf.w - pdf.r_margin - width
+        else:  # centred above the text (also the logo alone, and a side layout with no text)
+            logo_x = left + (usable - width) / 2
+        if _place_logo(pdf, logo, logo_x, top, width, height):
+            bottom = top + height
+            if side:
+                text_x = left + width + LETTERHEAD_GAP_MM if place == "left" else left
+                text_w = usable - width - LETTERHEAD_GAP_MM
+            else:
+                text_top = top + height + LETTERHEAD_GAP_MM
+        elif not lines:
+            return  # the logo could not be drawn and there is no text: nothing to show
+    if lines:
+        bottom = max(
+            bottom,
+            _letterhead_text(pdf, lines, text_x, text_top, text_w, company.letterhead_text_align, limit),
+        )
+    if company.letterhead_rule:
+        rule_y = bottom + 1.5
+        previous = pdf.line_width
+        pdf.set_line_width(LETTERHEAD_RULE_MM)
+        pdf.line(left, rule_y, pdf.w - pdf.r_margin, rule_y)
+        pdf.set_line_width(previous)
+        bottom = rule_y
+    pdf.set_xy(left, bottom + LETTERHEAD_GAP_MM)
+
+
+def _draw_order(
+    pdf: _OrderPDF,
+    word: Any,
+    stamp: SignatureStamp | None = None,
+    *,
+    order_type: int | None = None,
+    letterhead: bool | None = None,
+) -> None:
+    """One order on its own new page, paragraph by paragraph. With `order_type` the letterhead is drawn at the top
+    (see _letterhead_for); without it the order is drawn with no letterhead. `letterhead` overrides the template's
+    stored switch when given.
 
     A paragraph holding the signature marker (SIGNATURE_TOKEN) is handled in two ways, for the first marker only when
     a stamp is given:
@@ -542,7 +781,10 @@ def _draw_order(pdf: FPDF, word: Any, stamp: SignatureStamp | None = None) -> No
     Later marker paragraphs keep their remaining text and get no picture. Without any marker the stamp goes after the
     last paragraph (_draw_signature). Without a stamp the marker paragraphs are drawn as plain text."""
     base_pt = word.styles["Normal"].font.size.pt if word.styles["Normal"].font.size else 11.0
-    pdf.add_page()
+    pdf.letterhead = _letterhead_for(order_type, letterhead)
+    pdf.add_page()  # with «every page», header() draws the letterhead here
+    if pdf.letterhead is not None and not pdf.letterhead.every_page:
+        _draw_letterhead(pdf, pdf.letterhead.company, pdf.letterhead.logo)
     token_seen = False
     for paragraph in word.paragraphs:
         if SIGNATURE_TOKEN in paragraph.text:
@@ -560,6 +802,7 @@ def _draw_order(pdf: FPDF, word: Any, stamp: SignatureStamp | None = None) -> No
         _draw_paragraph(pdf, paragraph, base_pt, paragraph.text)
     if stamp is not None and not token_seen:
         _draw_signature(pdf, stamp)
+    pdf.letterhead = None  # the next order decides its own letterhead
 
 
 def render_pdf(order: HrOrder, user: User) -> bytes:
@@ -574,7 +817,7 @@ def render_pdf_many(orders: list[HrOrder], user: User) -> tuple[bytes, list[HrOr
     from the first order's Word file. Raises OrderDocError when none can be printed."""
     used: list[HrOrder] = []
     words = []
-    token = _batch.set({})
+    token = _batch.set({})  # kept on while drawing too: the letterhead logo is read once for the whole batch
     try:
         for order in orders:
             try:
@@ -582,14 +825,38 @@ def render_pdf_many(orders: list[HrOrder], user: User) -> tuple[bytes, list[HrOr
             except OrderDocError:
                 continue
             used.append(order)
+        if not words:
+            raise OrderDocError("no orders to print")
+        pdf = _new_pdf(words[0])
+        for word, order in zip(words, used, strict=True):
+            _draw_order(pdf, word, order_type=order.order_type)
     finally:
         _batch.reset(token)
-    if not words:
-        raise OrderDocError("no orders to print")
-    pdf = _new_pdf(words[0])
-    for word in words:
-        _draw_order(pdf, word)
     return bytes(pdf.output()), used
+
+
+def preview_pdf(
+    order_type: int,
+    employee: Employee,
+    content: bytes,
+    user: User,
+    *,
+    show_letterhead: bool | None = None,
+) -> bytes:
+    """The editor's preview: the unsaved .docx `content` filled for `employee` and drawn like a print. Nothing is
+    saved: the order is an unsaved HrOrder (no number, no event), and the signature line stays blank. The letterhead
+    follows `show_letterhead` (None: the stored switch of the template)."""
+    order = HrOrder(
+        employee=employee,
+        order_type=int(order_type),
+        is_hire=int(order_type) == OrderType.HIRED,  # a hire's salary is shown on it, as on the real order
+        date=timezone.localdate(),
+        state=OrderState.PENDING,
+    )
+    word = Document(io.BytesIO(render_order(order, user, template=content)))
+    pdf = _new_pdf(word)
+    _draw_order(pdf, word, order_type=int(order_type), letterhead=show_letterhead)
+    return bytes(pdf.output())
 
 
 def render_signed_pdf(order: HrOrder, user: User, stamp: SignatureStamp) -> bytes:
@@ -600,5 +867,5 @@ def render_signed_pdf(order: HrOrder, user: User, stamp: SignatureStamp) -> byte
         raise OrderDocError(str(error)) from error
     word = Document(io.BytesIO(filled))
     pdf = _new_pdf(word)
-    _draw_order(pdf, word, stamp)
+    _draw_order(pdf, word, stamp, order_type=order.order_type)
     return bytes(pdf.output())

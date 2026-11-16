@@ -179,3 +179,15 @@ def test_query_count_does_not_grow_with_the_number_of_people(
         _complete(actor, job_values, email="")
     six = count_queries(data_gaps.REPORT, hr_user, Filters())
     assert two == six
+
+
+def test_gap_rows_keep_the_correction_record_of_the_staff_cell() -> None:
+    """A department cell in the gaps report corrects the same job record as on the staff list."""
+    from types import SimpleNamespace
+
+    column = next(c for c in data_gaps.COLUMNS if c.key == "department")
+    staff_row = SimpleNamespace(row=SimpleNamespace(job=SimpleNamespace(pk=7)))
+    gap_row = SimpleNamespace(staff=staff_row)
+    assert column.correct == "department"
+    assert column.correct_record is not None
+    assert column.correct_record(gap_row) == 7

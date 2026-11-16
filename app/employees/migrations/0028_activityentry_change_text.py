@@ -10,16 +10,15 @@ def fill_change_text(apps: Apps, schema_editor: object) -> None:
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('employees', '0027_salary_exact_money'),
+        ("employees", "0027_salary_exact_money"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='activityentry',
-            name='change_text',
-            field=models.TextField(blank=True, default='', editable=False),
+            model_name="activityentry",
+            name="change_text",
+            field=models.TextField(blank=True, default="", editable=False),
         ),
         migrations.RunPython(fill_change_text, migrations.RunPython.noop),
     ]

@@ -60,7 +60,9 @@ def test_nothing_to_print_fails_the_job(hr: Client, hired: Employee) -> None:  #
 
 
 def test_a_crash_while_building_fails_the_job(
-    hr: Client, hired: Employee, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+    hr: Client,
+    hired: Employee,
+    monkeypatch: pytest.MonkeyPatch,  # noqa: F811
 ) -> None:
     order = hire_order(hired)
 

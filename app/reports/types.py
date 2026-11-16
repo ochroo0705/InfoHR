@@ -22,6 +22,16 @@ class Column:
     href: Callable[[Any], str] | None = None  # link target of the cell (e.g. the employee page)
     kind: str = ""  # "text", "number" or "date"; empty means worked out from the values (reports.kinds)
     action: str = ""  # a contact link on a card: "mailto" for an e-mail, "tel" for a phone number; "" for none
+    edit: str = ""  # EmployeeForm field this cell edits (reports.cell_edit); "" = read-only
+    correct: str = ""  # a reports.corrections.KEYS key: the cell is corrected with a reason (D-080 phase 4); "" = none
+    # the job record id a job-key cell corrects, from one raw row; None = the row has no such record
+    correct_record: Callable[[Any], int | None] | None = None
+    # the list a row cell edits (reports.row_edit.KINDS key, e.g. "family"); "" = not a list row cell
+    row_kind: str = ""
+    # the id of one raw row in that list (the cell's row_edit key), None = the row has no such record
+    row_key: Callable[[Any], int | None] | None = None
+    # the row field this cell edits (a field of reports.row_edit.KINDS[row_kind]); "" = read-only
+    row_edit: str = ""
 
 
 @dataclass(frozen=True)
@@ -61,6 +71,8 @@ class Report:
     layout_repeat: tuple[str, ...] = ()
     # the employee id of one raw row; None = the report offers no row selection
     person: Callable[[Any], int] | None = None
+    # the employee of one raw row for inline editing only; does not enable row selection
+    edit_person: Callable[[Any], int] | None = None
     # the optional module this report belongs to (accounts/modules.py key): off = the report cannot be opened; "" = none
     module: str = ""
     # the employee of one raw row, so a card can show their photo; None = cards without photos

@@ -1,0 +1,143 @@
+# Draft. English from the model labels in app/employees/models.py (JobRecord, JobStatus, EmployeeType, ContractType,
+# ChangeType). Mongolian drafted from the same labels; check the wording. Signed only by the domain owner (reviewed_by
+# and reviewed_on stay empty until then).
+
+description = "One row per job period of an employee you may see: the department, the position, the manager, the status, the employee type, the contract and the reason the period started. Many rows can belong to one person."
+description_mn = "Харах эрхтэй ажилтны ажлын түүхийн хугацаа бүрийн нэг мөр: хэлтэс, албан тушаал, шууд удирдлага, төлөв, ажилтны төрөл, гэрээ, хугацаа эхлэх шалтгаан. Нэг ажилтанд хэд хэдэн мөр байж болно."
+
+rules = [
+    # One row per job period, not per person: one person can have many rows.
+    # app/employees/models.py (JobRecord, unique on employee and start date)
+    "One row per job period, so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # The open (current) period has an empty END_DATE.
+    # app/employees/models.py (JobRecord.end_date, nullable)
+    "The open (current) period has an empty END_DATE. A period can start in the future (a planned promotion or transfer), so the period in force today is the one with START_DATE <= CURRENT_DATE and (END_DATE IS NULL OR END_DATE > CURRENT_DATE).",
+    # A new period starts on any change (contract, leave, transfer, promotion), not only when the position changes.
+    # app/employees/models.py (JobRecord: one row per change, unique on employee and start date)
+    "A new job period starts at every change: a contract change, a long leave, a transfer, a promotion. So START_DATE is when that period started, not when the person got the position, department, employee type or contract type it shows. For how long a person has had a value, or since when, use the earliest START_DATE of their periods that have the same value as now (MIN(START_DATE) per EMP_ID); never the START_DATE of the open period, and do not filter those periods by END_DATE or by being in force today, which would leave only the current one.",
+    # CONTRACT_START is the start of one contract; a renewal is a new contract (a 'contract' change period).
+    # app/employees/models.py (JobRecord.contract_start, ChangeType.CONTRACT)
+    "CONTRACT_START and CONTRACT_END are the dates of one contract, and a renewal is a new contract. They do not say how long the person has had that contract type; for that use the job periods and CONTRACT_TYPE.",
+    # A manager outside the asker's scope gives an empty MANAGER_NAME, so a name is never shown for someone you may not see.
+    # app/hr_sql/views.py (GOV_JOB_HISTORY statement: the manager is joined only when in GOV_SCOPE)
+    "MANAGER_NAME is the manager's given name and family name. It is empty when the manager is not someone you may see.",
+    # The status words: the JobStatus labels.
+    # app/employees/models.py (JobStatus)
+    "STATUS codes: active = working (Ажиллаж байгаа); long_leave = on a long leave (Урт хугацааны чөлөөтэй); left = has left the job (Ажлаас гарсан).",
+    # The employee type words: the EmployeeType labels.
+    # app/employees/models.py (EmployeeType)
+    "EMPLOYEE_TYPE codes: full_time = full time, the main job (Үндсэн, бүтэн цаг); part_time = half time (Хагас цаг); contract = contract worker (Гэрээт); intern = trainee (Дадлагжигч).",
+    # The contract type words: the ContractType labels.
+    # app/employees/models.py (ContractType)
+    "CONTRACT_TYPE codes: open_ended = no end date (Хугацаагүй); fixed_term = for a set time (Хугацаатай). CONTRACT_START and CONTRACT_END are the contract dates; CONTRACT_END is empty for an open-ended contract.",
+    # The change type words: the ChangeType labels.
+    # app/employees/models.py (ChangeType)
+    "CHANGE_TYPE codes, the reason the period started: hire = hired (Ажилд авсан); opening = starting point taken from MACS (Эхлэл (MACS-аас)); correction = correction (Засвар); transfer = transferred (Шилжүүлсэн); promotion = promoted (Дэвшүүлсэн); demotion = demoted (Бууруулсан); contract = contract renewed or changed (Гэрээ сунгасан/өөрчилсөн); leave_start = long leave started (Урт чөлөө эхэлсэн); leave_return = back from leave (Чөлөөнөөс буцсан); termination = released from the job (Ажлаас чөлөөлсөн); rehire = hired again (Дахин ажилд авсан).",
+    # A period that began with a pay change keeps its dates, but its CHANGE_TYPE is empty (the salary right gates pay).
+    # app/hr_sql/views.py (GOV_JOB_HISTORY statement: CHANGE_TYPE is NULL when the stored change type is salary_change)
+    "A job period that began with a pay change is still listed, but its CHANGE_TYPE is empty. Pay history is in GOV_SALARY (salary right).",
+    # Free text and the internal links are not in this view and are never shown.
+    # app/hr_sql/views.py (GOV_JOB_HISTORY statement: no note, creator, creation time, event or MACS type code)
+    "The free-text note, who recorded the period, when it was recorded, the linked change event and the MACS employee type code are not in this view and cannot be shown.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "JOB_ID"
+description = "Job period number (internal id)"
+description_mn = "Ажлын түүхийн хугацааны дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "START_DATE"
+description = "First day of this job period"
+description_mn = "Ажлын хугацааны эхлэх огноо"
+label_mn = "Эхлэх огноо"
+synonyms = ["from", "start", "since"]
+
+[[columns]]
+name = "END_DATE"
+description = "Last day of this job period; empty when it is still current"
+description_mn = "Ажлын хугацааны дуусах огноо; одоо хүчинтэй бол хоосон"
+label_mn = "Дуусах огноо"
+synonyms = ["to", "end", "until"]
+
+[[columns]]
+name = "DEPARTMENT_NAME"
+description = "Department (хэлтэс) of this job period"
+description_mn = "Ажлын хугацааны хэлтэс"
+label_mn = "Хэлтэс"
+synonyms = ["department", "unit", "division"]
+
+[[columns]]
+name = "POSITION_NAME"
+description = "Position (албан тушаал) of this job period"
+description_mn = "Ажлын хугацааны албан тушаал"
+label_mn = "Албан тушаал"
+synonyms = ["position", "title", "job title"]
+
+[[columns]]
+name = "MANAGER_NAME"
+description = "Direct manager's name; empty when the manager is not someone you may see"
+description_mn = "Шууд удирдлагын нэр; удирдлага нь таны харах эрхгүй бол хоосон"
+label_mn = "Шууд удирдлага"
+synonyms = ["manager", "boss", "supervisor", "line manager"]
+
+[[columns]]
+name = "STATUS"
+description = "Status of the job period as a code: active, long_leave or left (see the rules)"
+description_mn = "Ажлын төлөв, код: active, long_leave эсвэл left (дүрмийг үз)"
+label_mn = "Төлөв"
+synonyms = ["state", "status"]
+
+[[columns]]
+name = "EMPLOYEE_TYPE"
+description = "Employee type as a code: full_time, part_time, contract or intern (see the rules)"
+description_mn = "Ажилтны төрөл, код: full_time, part_time, contract эсвэл intern (дүрмийг үз)"
+label_mn = "Ажилтны төрөл"
+synonyms = ["employment type", "type"]
+
+[[columns]]
+name = "CONTRACT_TYPE"
+description = "Contract type as a code: open_ended or fixed_term (see the rules)"
+description_mn = "Гэрээний төрөл, код: open_ended эсвэл fixed_term (дүрмийг үз)"
+label_mn = "Гэрээний төрөл"
+synonyms = ["contract"]
+
+[[columns]]
+name = "CONTRACT_NUMBER"
+description = "Contract number (empty when not recorded)"
+description_mn = "Гэрээний дугаар (бүртгэгдээгүй бол хоосон)"
+label_mn = "Гэрээний дугаар"
+synonyms = ["contract no", "contract number"]
+
+[[columns]]
+name = "CONTRACT_START"
+description = "Date the contract starts (empty when not recorded)"
+description_mn = "Гэрээ эхлэх огноо (бүртгэгдээгүй бол хоосон)"
+label_mn = "Гэрээ эхлэх"
+synonyms = ["contract from"]
+
+[[columns]]
+name = "CONTRACT_END"
+description = "Date the contract ends (empty for an open-ended contract or when not recorded)"
+description_mn = "Гэрээ дуусах огноо (хугацаагүй гэрээ эсвэл бүртгэгдээгүй бол хоосон)"
+label_mn = "Гэрээ дуусах"
+synonyms = ["contract to", "contract end"]
+
+[[columns]]
+name = "CHANGE_TYPE"
+description = "Why the period started, as a code: hire, promotion, transfer and so on; empty when the period began with a pay change (see the rules)"
+description_mn = "Хугацаа эхлэх шалтгаан, код: hire, promotion, transfer гэх мэт; цалингийн өөрчлөлтөөр эхэлсэн бол хоосон (дүрмийг үз)"
+label_mn = "Өөрчлөлтийн төрөл"
+synonyms = ["reason", "type", "kind"]

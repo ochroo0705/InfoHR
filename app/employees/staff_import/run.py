@@ -4,6 +4,7 @@ refused row never undoes the others."""
 
 import io
 import logging
+from collections.abc import Sequence
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, cast
@@ -20,11 +21,12 @@ from openpyxl.styles import Font
 from openpyxl.worksheet.worksheet import Worksheet
 
 from employees import named_lock
-from employees.models import StaffImportDraft
+from employees.models import Employee, StaffImportDraft
 from employees.named_lock import Lock, LockBusy
-from employees.services import history, macs_writes, records
+from employees.services import history, macs_writes, personal_writes, records
 from employees.services.personal_writes import PersonalConflict
-from employees.staff_import.plan import Preview, build_preview
+from employees.staff_import.lists import PERSON_NOT_SAVED, ListRow, SheetPreview
+from employees.staff_import.plan import NAMED_LISTS, Preview, build_preview
 from employees.staff_import.reader import read_rows
 from employees.staff_import.rows import ParsedRow
 
@@ -49,8 +51,21 @@ PERSON_KEYS = (
     "work_phone",
     "private_phone",
     "email",
+    "clan_name",
+    "phone2",
+    "prior_service_years",
+    "blood_type",
+    "military_service",
+    "has_disability",
 )
-PLACE_KEYS = ("branch_id", "citizenship_id", "work_conditions")
+PLACE_KEYS = (
+    "branch_id",
+    "citizenship_id",
+    "work_conditions",
+    *(f"{key}_id" for key in NAMED_LISTS),
+)
+# Job columns the sheet may set; the rest of the first job is fixed below.
+JOB_KEYS = ("employee_type", "contract_type", "contract_no", "contract_start", "contract_end")
 SALARY_TEXT_KEYS = ("account_no", "social_insurance_no", "health_insurance_no", "taxpayer_no")
 
 
@@ -95,10 +110,12 @@ def _hire_row(
     *,
     allow_salary: bool,
     by: User,
-) -> None:
+) -> Employee:
     start = values["start"]
     columns: dict[str, Any] = {key: values[key] for key in PERSON_KEYS if key in values}
     columns.update({key: values[key] for key in PLACE_KEYS if key in values})
+    if "military_service" in columns:  # the column holds "yes" / "no" text, not a flag
+        columns["military_service"] = "yes" if columns["military_service"] else "no"
     columns["first_hire_date"] = start
     job: dict[str, Any] = {
         "position": _position(values, positions),
@@ -107,14 +124,17 @@ def _hire_row(
         "status": "active",
         "contract_type": "open_ended",
     }
+    job.update({key: values[key] for key in JOB_KEYS if key in values})
+    ext: dict[str, Any] = {"setup_required": False}
+    if "probation_end" in values:
+        ext["probation_end"] = values["probation_end"]
     salary = values.get("base_salary") if allow_salary else None
-    employee = history.hire(
-        columns, {"setup_required": False}, start=start, job=job, salary=salary, by=by, with_order=False
-    )
+    employee = history.hire(columns, ext, start=start, job=job, salary=salary, by=by, with_order=False)
     if allow_salary:
         data = _salary_data(values)
         if data:
             records.update_salary_insurance(employee, data, by)
+    return employee
 
 
 def _write(ws: Worksheet, row: int, column: int, value: object, bold: bool = False) -> None:
@@ -135,12 +155,9 @@ def _write(ws: Worksheet, row: int, column: int, value: object, bold: bool = Fal
         cell.data_type = "s"
 
 
-def _rejected_workbook(headings: list[str], rows: list[ParsedRow]) -> bytes:
-    """One sheet: the original headings and a last «Алдаа» column, then the original cells of each refused row."""
+def _fill_sheet(ws: Worksheet, headings: list[str], rows: Sequence[ParsedRow | ListRow]) -> None:
+    """The original headings and a last «Алдаа» column, then the original cells of each refused row."""
     width = max([len(headings), *(len(row.cells) for row in rows)])
-    wb = Workbook()
-    ws = cast(Worksheet, wb.active)  # a new workbook always has its first sheet
-    ws.title = REJECTED_SHEET
     for column in range(1, width + 1):
         heading = headings[column - 1] if column <= len(headings) else None
         _write(ws, 1, column, heading, bold=True)
@@ -149,6 +166,22 @@ def _rejected_workbook(headings: list[str], rows: list[ParsedRow]) -> bytes:
         for column, value in enumerate(row.cells, start=1):
             _write(ws, offset, column, value)
         _write(ws, offset, width + 1, "; ".join(row.errors))
+
+
+def _rejected_workbook(headings: list[str], rows: list[ParsedRow], lists: Sequence[SheetPreview] = ()) -> bytes:
+    """The refused staff rows on the first sheet (when there are any), then the refused rows of each list sheet on a
+    sheet named like the list sheet they came from."""
+    wb = Workbook()
+    ws = cast(Worksheet, wb.active)  # a new workbook always has its first sheet
+    ws.title = REJECTED_SHEET
+    if rows or not lists:
+        _fill_sheet(ws, headings, rows)
+    else:
+        wb.remove(ws)
+    for sheet in lists:
+        refused = [row for row in sheet.rows if row.status != "ok"]
+        if refused:
+            _fill_sheet(wb.create_sheet(sheet.sheet.title), sheet.headings, refused)
     buffer = io.BytesIO()
     wb.save(buffer)
     return buffer.getvalue()
@@ -215,18 +248,45 @@ def _claim(draft: StaffImportDraft) -> None:
             raise DraftNotAvailable("Энэ файлыг аль хэдийн импортолж байна эсвэл импортолсон байна.")
 
 
+def _write_lists(sheets: list[SheetPreview], people: dict[int, Employee], *, by: User) -> dict[str, list[int]]:
+    """Writes the rows of every list sheet whose person was created, each in its own transaction. A row whose person
+    was not saved is refused; a row refused for a bad value was already refused by the preview.
+    Returns {list kind: [rows added, rows not added]} for each list sheet the file had."""
+    results: dict[str, list[int]] = {}
+    for sheet in sheets:
+        added = 0
+        for row in sheet.rows:
+            if row.status != "ok":
+                continue
+            person = people.get(row.person_row) if row.person_row is not None else None
+            if person is None:
+                row.status, row.errors = "error", [PERSON_NOT_SAVED]
+                continue
+            try:
+                with transaction.atomic():
+                    personal_writes.add(sheet.sheet.kind, person, row.values, row.ext, by)
+            except WRITE_ERRORS as exc:
+                logger.exception("staff import %s row %s refused: %s", sheet.sheet.kind, row.number, exc)
+                row.status, row.errors = "error", [REFUSED]
+            else:
+                added += 1
+        results[sheet.sheet.kind] = [added, len(sheet.rows) - added]
+    return results
+
+
 def _import(draft: StaffImportDraft, *, by: User, allow_salary: bool) -> StaffImportDraft:
     preview = build_preview(draft, allow_salary=allow_salary, user=by)
     headings, _ = read_rows(bytes(draft.data), draft.sheet, draft.header_rows)
     departments, positions = _create_lists(preview)
 
     created = 0
+    people: dict[int, Employee] = {}  # Excel row of the main sheet -> the person it created
     for row in preview.rows:
         if row.status != "new":
             continue
         try:
             with transaction.atomic():
-                _hire_row(row.values, departments, positions, allow_salary=allow_salary, by=by)
+                people[row.number] = _hire_row(row.values, departments, positions, allow_salary=allow_salary, by=by)
         except WRITE_ERRORS as exc:
             logger.exception("staff import row %s refused: %s", row.number, exc)
             row.status = "error"
@@ -234,12 +294,15 @@ def _import(draft: StaffImportDraft, *, by: User, allow_salary: bool) -> StaffIm
         else:
             created += 1
 
+    list_results = _write_lists(list(preview.lists.values()), people, by=by)
     rejected = [row for row in preview.rows if row.status == "error"]
+    list_rejected = [sheet for sheet in preview.lists.values() if sheet.refused]
+    draft.list_results = list_results
     draft.state = "imported"
     draft.created_count = created
     draft.duplicate_count = preview.duplicates
     draft.rejected_count = len(rejected)
-    draft.rejected_file = _rejected_workbook(headings, rejected) if rejected else None
+    draft.rejected_file = _rejected_workbook(headings, rejected, list_rejected) if rejected or list_rejected else None
     draft.finished_at = timezone.now()
     draft.data = b""
     draft.save()

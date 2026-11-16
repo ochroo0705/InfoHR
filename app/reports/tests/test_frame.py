@@ -102,7 +102,9 @@ def test_untouched_date_box_sends_no_date(client: Client, login_as: Callable[...
 
 def test_filter_form_reloads_on_select_change_and_date_commit_only(client: Client, login_hr: User) -> None:
     page = client.get("/reports/staff-list/").content.decode()
-    assert 'hx-trigger="change, submit"' in page
+    # the search box («q») sends its own request on input, so the form's change trigger skips it: a typed search must
+    # not reload the whole page on every change of the box (the box has its own trigger in _filters.html)
+    assert "hx-trigger=\"change[event.target.name!='q'], submit\"" in page
 
 
 def test_department_without_name_shows_a_dash_in_the_filter(client: Client, login_hr: User) -> None:

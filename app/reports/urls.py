@@ -6,6 +6,11 @@ app_name = "reports"
 
 urlpatterns = [
     path("", views.catalogue, name="catalogue"),
+    # before <slug:key>/, which would otherwise read «cell» as a report key
+    path("cell/", views.cell_edit, name="cell_edit"),
+    path("row-cell/", views.row_cell, name="row_cell"),
+    path("correct/", views.correct_cell, name="correct"),
+    path("cells/", views.cells_bulk, name="cells_bulk"),
     path("<slug:key>/", views.report_page, name="report"),
     path("<slug:key>/columns/", views.columns_modal, name="columns"),
     path("<slug:key>/rules/", views.rules_modal, name="rules"),

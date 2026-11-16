@@ -1,0 +1,422 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block bodyclass %}{{ block.super }} employees-ordertemplate editor-page{% endblock %}
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/order_template_editor.css' %}">
+{% endblock %}
+{% block extrahead %}{{ block.super }}
+<script src="{% static 'vendor/tiptap-editor.js' %}" defer></script>
+<script src="{% static 'js/order_template_editor.js' %}" defer></script>
+<script src="{% static 'js/modal.js' %}" defer></script>
+<script src="{% static 'js/letterhead_preview.js' %}" defer></script>
+{% endblock %}
+{% block content %}
+<div id="content-main" class="ote">
+  <p><a href="{{ back_url }}" class="ote-link">Загварын жагсаалт руу буцах</a></p>
+
+  <header class="ote-head">
+    <h1>{{ order_type_label }}</h1>
+    <div class="ote-actions">
+      {% if can_change and doc is not None %}
+        <label class="ote-switch">
+          <input type="checkbox" id="ote-show-letterhead" {% if show_letterhead %}checked{% endif %}>
+          <span>Бланк харуулах</span>
+        </label>
+      {% endif %}
+      <button type="button" class="ote-btn-secondary" id="ote-preview-open">Урьдчилан харах</button>
+      {% if can_change and doc is not None %}
+        <button type="button" class="ote-btn-primary" id="ote-save">Хадгалах</button>
+      {% endif %}
+      <a class="ote-btn-secondary" href="{{ download_url }}">Word болгон татах</a>
+      {% if can_change and doc is not None %}
+        <button type="button" class="ote-btn-secondary" id="ote-reset">Анхдагч загварт буцаах</button>
+      {% endif %}
+    </div>
+  </header>
+
+  <div id="ote-errors" class="ote-errors" role="alert" hidden><ul></ul></div>
+  <p id="ote-status" class="ote-note" role="status"></p>
+
+  {% if doc is None %}
+    <div class="ote-banner" role="note">
+      <p>Энэ загварыг хуудсан дээр засах боломжгүй.
+        Файлд хуудсанд харуулах боломжгүй зүйл (хүснэгт, нөхцөлт блок, зураг гэх мэт) байна.
+        Word файлаар татаж засаад дахин оруулна уу.</p>
+      {% if can_change and not uses_starter %}
+        <details class="ote-start">
+          <summary>Анхдагчаас шинээр эхлэх</summary>
+          <div class="ote-start__body">
+            <p>Одоогийн файлын текст алдагдана. Устгахаасаа өмнө файлаа татаж хадгалах боломжтой:
+              <a class="ote-link" href="{{ download_url }}">Одоогийн файлыг татах</a>.</p>
+            <div><button type="button" class="ote-btn-danger" id="ote-start-new">Анхдагчаар солих</button></div>
+          </div>
+        </details>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="ote-body">
+    <div class="ote-main">
+      <section class="ote-letterhead" id="ote-letterhead" aria-label="Бланк">
+        <div class="ote-letterhead__head">
+          <h2>Бланк (толгой хэсэг)</h2>
+          <a class="ote-link" href="{{ letterhead_url }}">Бланк засах</a>
+        </div>
+        <p class="ote-note">Бланк бүх тушаалд нэг адил гарна. Энд засахгүй: бланкны тохиргоог «Бланк засах»-аар нээнэ.
+          Доорх зураг бол тохиргооны урьдчилсан харагдац.</p>
+        <div data-letterhead-mock data-letterhead-data="ote-letterhead-data"></div>
+      </section>
+      {{ letterhead|json_script:"ote-letterhead-data" }}
+
+      <div id="order-template-editor"
+           data-can-change="{% if doc is not None and can_change %}true{% else %}false{% endif %}"
+           data-save-url="{{ save_url }}"
+           data-reset-url="{{ reset_url }}"
+           data-preview-url="{{ preview_url }}"
+           data-download-url="{{ download_url }}"
+           data-csrf="{{ csrf_token }}"></div>
+
+      <section class="ote-preview" id="ote-preview" aria-label="Урьдчилан харах" hidden>
+        <div class="ote-preview__bar">
+          <label>Жишээ ажилтан
+            <select id="ote-employee">
+              <option value="">Автомат: эхний ажилтан</option>
+              {% for choice in employee_choices %}<option value="{{ choice.pk }}">{{ choice.label }}</option>{% endfor %}
+            </select>
+          </label>
+          <button type="button" class="ote-btn-secondary" id="ote-preview-close">Хаах</button>
+        </div>
+        <p class="ote-note">Талбарууд энэ ажилтны мэдээллээр бөглөгдөнө. Урьдчилан харахад тушаал, дугаар, бүртгэл хадгалагдахгүй.
+          Ажил эхлүүлэх тушаалаас бусад төрлийн тушаалын хүчинтэй өдрийг урьдчилан харахдаа ажилтны ажилд орсон огнооноос ойролцоогоор тооцно.</p>
+        <p class="ote-note" id="ote-preview-state"></p>
+        <iframe id="ote-preview-frame" class="ote-preview__frame" title="Урьдчилан харах" hidden></iframe>
+      </section>
+    </div>
+
+    <aside class="ote-panel" aria-label="Талбарууд">
+      <h2>Талбар оруулах</h2>
+      <p class="ote-note">Талбарын товчийг дарахад редакторт сонгосон цэгт тухайн талбар орно.</p>
+      {% for group in panel_groups %}
+        <details class="ote-group"{% if forloop.first %} open{% endif %}>
+          <summary>{{ group.group }}</summary>
+          <div class="ote-group__items">
+            {% for item in group.items %}
+              <button type="button" class="ote-pick" data-field-name="{{ item.name }}" title="{{ item.meaning }}"{% if doc is None or not can_change %} disabled{% endif %}>{{ item.label }}</button>
+            {% endfor %}
+          </div>
+        </details>
+      {% empty %}
+        <p class="ote-note">Энэ төрөлд тохирох талбар алга.</p>
+      {% endfor %}
+      {% if other_fields %}
+        <details class="ote-group">
+          <summary>Бусад төрлийн талбар</summary>
+          <div class="ote-group__items">
+            {% for item in other_fields %}
+              <button type="button" class="ote-pick ote-pick--other" data-field-name="{{ item.name }}" title="{{ item.meaning }}"{% if doc is None or not can_change %} disabled{% endif %}>{{ item.label }}</button>
+            {% endfor %}
+          </div>
+        </details>
+      {% endif %}
+    </aside>
+  </div>
+
+  {{ payload|json_script:"order-template-editor-data" }}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  "use strict";
+  var GENERIC = "Хүсэлт амжилтгүй боллоо. Дахин оролдоно уу.";
+  var NETWORK = "Сервертэй холбогдож чадсангүй. Интернэт холболтоо шалгаад дахин оролдоно уу.";
+  var MOUNT_FAILED = "Редакторыг ачаалж чадсангүй. Хуудсаа дахин ачаална уу.";
+  var NO_DIALOG = "Тасалдаг цонх ачаалагдсангүй. Хуудсаа дахин ачаална уу.";
+
+  function readJson(id) {
+    var node = document.getElementById(id);
+    try {
+      return node ? JSON.parse(node.textContent) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  var root = document.getElementById("order-template-editor");
+  var data = readJson("order-template-editor-data");
+  var canChange = root.getAttribute("data-can-change") === "true";
+  var csrf = root.getAttribute("data-csrf");
+  var saveUrl = root.getAttribute("data-save-url");
+  var resetUrl = root.getAttribute("data-reset-url");
+  var previewUrl = root.getAttribute("data-preview-url");
+  var updatedAt = data.updated_at;
+  var saveBtn = document.getElementById("ote-save");
+  var resetBtn = document.getElementById("ote-reset");
+  var startBtn = document.getElementById("ote-start-new");
+  var previewBtn = document.getElementById("ote-preview-open");
+  var previewPanel = document.getElementById("ote-preview");
+  var previewClose = document.getElementById("ote-preview-close");
+  var employeeSelect = document.getElementById("ote-employee");
+  var frame = document.getElementById("ote-preview-frame");
+  var previewState = document.getElementById("ote-preview-state");
+  var errorBox = document.getElementById("ote-errors");
+  var statusLine = document.getElementById("ote-status");
+  var showLetterhead = document.getElementById("ote-show-letterhead");
+  var letterheadBlock = document.getElementById("ote-letterhead");
+  var blobUrl = null;
+  var editor = null;
+  var savedDoc = null;      // the document as last saved (or as loaded): the unsaved-changes reference
+  var savedShow = null;     // the letterhead switch as last saved (or as loaded)
+  var leaving = false;      // set before a reload that follows a reset, so the unsaved-changes guard stays quiet
+  var previewSeq = 0;       // only the latest preview request may show its result
+  var previewController = null;
+
+  // The letterhead switch exists only for a user who may change the template; a viewer gets the stored value.
+  function letterheadOn() {
+    return showLetterhead ? showLetterhead.checked : !!data.show_letterhead;
+  }
+
+  // The side panel lists the fields by group; the editor wants one flat list.
+  var fields = [];
+  (data.fields || []).forEach(function (group) {
+    (group.items || []).forEach(function (item) { fields.push(item); });
+  });
+
+  // Errors are listed under the page, in Mongolian, as text (never innerHTML, never a browser alert).
+  function showErrors(messages) {
+    var list = errorBox.querySelector("ul");
+    while (list.firstChild) list.removeChild(list.firstChild);
+    (messages || []).forEach(function (message) {
+      var item = document.createElement("li");
+      item.textContent = String(message);
+      list.appendChild(item);
+    });
+    errorBox.hidden = !(messages && messages.length);
+  }
+
+  function clearErrors() { showErrors([]); }
+
+  function setStatus(text) { statusLine.textContent = text || ""; }
+
+  function setBusy(button, busy) { if (button) button.disabled = busy; }
+
+  if (window.OrderTemplateEditor && typeof window.OrderTemplateEditor.mount === "function") {
+    try {
+      editor = window.OrderTemplateEditor.mount(root, { doc: data.doc, fields: fields, canChange: canChange });
+      savedDoc = JSON.stringify(editor.getDoc());
+      savedShow = letterheadOn();
+    } catch (err) {
+      showErrors([MOUNT_FAILED]);
+    }
+  } else {
+    showErrors([MOUNT_FAILED]);
+  }
+
+  // True while the editor or the letterhead switch differs from the last saved state.
+  function isDirty() {
+    if (!canChange || !editor) return false;
+    return JSON.stringify(editor.getDoc()) !== savedDoc || letterheadOn() !== savedShow;
+  }
+
+  window.addEventListener("beforeunload", function (event) {
+    if (!leaving && isDirty()) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  });
+
+  function post(url, body, signal) {
+    return fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+      body: JSON.stringify(body || {}),
+      signal: signal,
+    });
+  }
+
+  // The response as {ok, body}; a body that is not JSON (a 404 page, a crash) becomes the generic message.
+  function readResult(response) {
+    return response.json().catch(function () { return { ok: false, errors: [GENERIC] }; })
+      .then(function (body) { return { ok: response.ok, body: body }; });
+  }
+
+  function failWith(result) {
+    showErrors((result.body && result.body.errors) || [GENERIC]);
+  }
+
+  // Every destructive step asks first, in the in-app dialog (UI_RULES section 6).
+  function askFirst(message, okLabel, onYes) {
+    if (typeof window.hrConfirm !== "function") {
+      showErrors([NO_DIALOG]);
+      return;
+    }
+    window.hrConfirm(message, onYes, { ok: okLabel });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", function () {
+      if (!editor || !canChange) return;
+      clearErrors();
+      setStatus("Хадгалж байна…");
+      setBusy(saveBtn, true);
+      var sent = editor.getDoc();
+      var sentJson = JSON.stringify(sent);
+      var sentShow = letterheadOn();
+      post(saveUrl, { updated_at: updatedAt, doc: sent, show_letterhead: sentShow })
+        .then(readResult)
+        .then(function (result) {
+          if (result.ok && result.body.ok) {
+            updatedAt = result.body.updated_at;
+            savedDoc = sentJson;
+            savedShow = sentShow;
+            setStatus("Хадгалагдлаа.");
+          } else {
+            failWith(result);
+            setStatus("");
+          }
+        })
+        .catch(function () { showErrors([NETWORK]); setStatus(""); })
+        .then(function () { setBusy(saveBtn, false); });
+    });
+  }
+
+  // Puts the bundled starter back, then reloads the page so the editor shows it.
+  function resetTemplate(button) {
+    clearErrors();
+    setBusy(button, true);
+    post(resetUrl, {})
+      .then(readResult)
+      .then(function (result) {
+        if (result.ok && result.body.ok) {
+          leaving = true;
+          window.location.reload();
+          return;
+        }
+        failWith(result);
+        setBusy(button, false);
+      })
+      .catch(function () { showErrors([NETWORK]); setBusy(button, false); });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", function () {
+      askFirst(
+        "Одоогийн загварын текст алдагдана. Стандарт загвар руу буцаах уу?",
+        "Буцаах",
+        function () { resetTemplate(resetBtn); }
+      );
+    });
+  }
+
+  if (startBtn) {
+    startBtn.addEventListener("click", function () {
+      askFirst(
+        "Одоогийн файлын текст алдагдана. Файлаа дээрх «Одоогийн файлыг татах» холбоосоор эхлээд татаж аваарай. Анхдагч загвар руу солих уу?",
+        "Солих",
+        function () { resetTemplate(startBtn); }
+      );
+    });
+  }
+
+  function setPreviewBusy(busy) {
+    if (!previewBtn) return;
+    previewBtn.disabled = busy;
+    previewBtn.setAttribute("aria-busy", busy ? "true" : "false");
+  }
+
+  function showBlob(blob) {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    blobUrl = URL.createObjectURL(blob);
+    frame.src = blobUrl;
+    frame.hidden = false;
+  }
+
+  // The preview: the real renderer's PDF for the chosen employee, shown in the panel under the page. A new request
+  // aborts the one before it, and a result is shown only if it is still the latest one (seq).
+  function loadPreview() {
+    if (!editor) return;
+    clearErrors();
+    var seq = ++previewSeq;
+    if (previewController) previewController.abort();
+    previewController = typeof AbortController === "function" ? new AbortController() : null;
+    frame.hidden = true;
+    previewState.textContent = "Урьдчилан харж байна…";
+    setPreviewBusy(true);
+    post(
+      previewUrl,
+      {
+        doc: data.doc ? editor.getDoc() : null,  // a read-only template has no document: the stored one is drawn
+        employee_id: employeeSelect.value ? Number(employeeSelect.value) : null,
+        show_letterhead: letterheadOn(),
+      },
+      previewController ? previewController.signal : undefined
+    )
+      .then(function (response) {
+        if (seq !== previewSeq) return null;
+        if (!response.ok) {
+          return readResult(response).then(function (result) {
+            if (seq !== previewSeq) return;
+            failWith(result);
+            previewState.textContent = "";
+          });
+        }
+        return response.blob().then(function (blob) {
+          if (seq !== previewSeq) return;
+          showBlob(blob);
+          previewState.textContent = "";
+        });
+      })
+      .catch(function (err) {
+        if (err && err.name === "AbortError") return;  // replaced by a newer request: nothing to show
+        if (seq !== previewSeq) return;
+        showErrors([NETWORK]);
+        previewState.textContent = "";
+      })
+      .then(function () {
+        if (seq === previewSeq) setPreviewBusy(false);
+      });
+  }
+
+  if (previewBtn) {
+    previewBtn.addEventListener("click", function () {
+      previewPanel.hidden = false;
+      loadPreview();
+    });
+  }
+  if (employeeSelect) {
+    employeeSelect.addEventListener("change", function () {
+      if (!previewPanel.hidden) loadPreview();
+    });
+  }
+  if (previewClose) {
+    previewClose.addEventListener("click", function () { previewPanel.hidden = true; });
+  }
+
+  // The blob of the last preview is freed when the page goes away.
+  window.addEventListener("pagehide", function () {
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      blobUrl = null;
+    }
+  });
+
+  // A field button inserts its chip at the cursor of the editor. Its mousedown is cancelled so the button never takes
+  // focus: the editor keeps its cursor and selection, and the chip goes in where the cursor was.
+  Array.prototype.forEach.call(document.querySelectorAll("[data-field-name]"), function (button) {
+    button.addEventListener("mousedown", function (event) { event.preventDefault(); });
+    button.addEventListener("click", function () {
+      if (editor && canChange) editor.insertField(button.getAttribute("data-field-name"));
+    });
+  });
+
+  // The letterhead mock is dimmed while the switch is off (it is saved with the template).
+  function syncLetterhead() {
+    if (letterheadBlock) {
+      letterheadBlock.classList.toggle("ote-letterhead--off", !letterheadOn());
+    }
+  }
+  if (showLetterhead) showLetterhead.addEventListener("change", syncLetterhead);
+  syncLetterhead();
+});
+</script>
+{% endblock %}

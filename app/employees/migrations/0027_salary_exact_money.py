@@ -6,15 +6,14 @@ import employees.exact_money
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('employees', '0026_historylock'),
+        ("employees", "0026_historylock"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='salaryrecord',
-            name='base_salary',
-            field=employees.exact_money.ExactMoneyField(decimal_places=2, max_digits=14, verbose_name='Үндсэн цалин'),
+            model_name="salaryrecord",
+            name="base_salary",
+            field=employees.exact_money.ExactMoneyField(decimal_places=2, max_digits=14, verbose_name="Үндсэн цалин"),
         ),
     ]

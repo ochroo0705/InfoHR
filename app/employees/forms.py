@@ -248,6 +248,9 @@ class EmployeeForm(StyledForm):
         if not raw.strip() and self.register_optional:
             return None  # passport-only person: no register number, stored as empty
         value = normalize_register_no(raw)
+        # A number already on the row is kept, even when another row shares it (old duplicates in MACS).
+        if self.employee is not None and value == normalize_register_no(self.employee.register_no or ""):
+            return self.employee.register_no
         validate_register_no(value)
         # Stored rows may hold unnormalised numbers (e.g. "уб 99112233"): compare normalised to normalised.
         if is_firebird():

@@ -81,6 +81,11 @@ def _job_department(s: StaffRow) -> str | None:
     return job.department.name if job is not None and job.department_id is not None else None
 
 
+def _job_pk(s: StaffRow) -> int | None:
+    """The id of the job record the row shows: the department and position cells correct that record."""
+    return s.row.job.pk if s.row.job is not None else None
+
+
 def _job_position(s: StaffRow) -> str | None:
     job = s.row.job
     return job.position.name if job is not None and job.position_id is not None else None
@@ -115,10 +120,16 @@ COLUMNS: tuple[Column, ...] = (
         href=_detail_url,
     ),
     Column(
-        key="clan_name", label="Ургийн овог", value=lambda s: s.row.employee.clan_name, group=GROUP_NAME, needs=PERSONAL
+        key="clan_name",
+        edit="clan_name",
+        label="Ургийн овог",
+        value=lambda s: s.row.employee.clan_name,
+        group=GROUP_NAME,
+        needs=PERSONAL,
     ),
     Column(
         key="register_no",
+        edit="register_no",
         label="Регистрийн дугаар",
         value=lambda s: s.row.employee.register_no,
         group=GROUP_NAME,
@@ -126,6 +137,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="passport_no",
+        edit="passport_no",
         label="Иргэний үнэмлэх / паспорт",
         value=lambda s: s.row.employee.passport_no,
         group=GROUP_NAME,
@@ -133,6 +145,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="birth_date",
+        edit="birth_date",
         label="Төрсөн огноо",
         value=lambda s: s.row.employee.birth_date,
         group=GROUP_NAME,
@@ -157,6 +170,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="gender",
+        edit="gender",
         label="Хүйс",
         value=lambda s: s.row.employee.get_gender_display(),
         group=GROUP_NAME,
@@ -164,6 +178,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="nationality",
+        edit="nationality",
         label="Үндэс угсаа",
         value=lambda s: _name(s.row.employee.nationality),
         group=GROUP_NAME,
@@ -171,6 +186,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="citizenship",
+        edit="citizenship",
         label="Иргэншил",
         value=lambda s: _name(s.row.employee.citizenship),
         group=GROUP_NAME,
@@ -179,6 +195,7 @@ COLUMNS: tuple[Column, ...] = (
     Column(key="birthplace", label="Төрсөн газар", value=lambda s: s.birthplace, group=GROUP_NAME, needs=PERSONAL),
     Column(
         key="social_origin",
+        edit="social_origin",
         label="Нийгмийн гарал",
         value=lambda s: _name(s.row.employee.social_origin),
         group=GROUP_NAME,
@@ -191,8 +208,22 @@ COLUMNS: tuple[Column, ...] = (
         group=GROUP_JOB,
     ),
     Column(key="branch", label="Салбар", value=lambda s: _name(s.row.employee.branch), group=GROUP_JOB),
-    Column(key="department", label="Хэлтэс", value=_job_department, group=GROUP_JOB),
-    Column(key="position", label="Албан тушаал", value=_job_position, group=GROUP_JOB),
+    Column(
+        key="department",
+        label="Хэлтэс",
+        value=_job_department,
+        group=GROUP_JOB,
+        correct="department",
+        correct_record=_job_pk,
+    ),
+    Column(
+        key="position",
+        label="Албан тушаал",
+        value=_job_position,
+        group=GROUP_JOB,
+        correct="position",
+        correct_record=_job_pk,
+    ),
     Column(
         key="first_hire_date",
         label="Ажилд орсон",
@@ -216,6 +247,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="elected_position",
+        edit="elected_position",
         label="Сонгуульт ажил",
         value=lambda s: _name(s.row.employee.elected_position),
         group=GROUP_JOB,
@@ -244,6 +276,7 @@ COLUMNS: tuple[Column, ...] = (
     Column(key="probation_end", label="Туршилт дуусах", value=_probation_end, group=GROUP_CONTRACT, kind="date"),
     Column(
         key="insured_category",
+        edit="insured_category",
         label="Даатгуулагчийн төрөл",
         value=lambda s: _name(s.row.employee.insured_category),
         group=GROUP_INSURANCE,
@@ -251,6 +284,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="social_insurance_no",
+        edit="social_insurance_no",
         label="НДД-ийн дугаар",
         value=lambda s: s.row.employee.social_insurance_no,
         group=GROUP_INSURANCE,
@@ -258,14 +292,23 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="health_insurance_no",
+        edit="health_insurance_no",
         label="ЭМДД-ийн дугаар",
         value=lambda s: s.row.employee.health_insurance_no,
         group=GROUP_INSURANCE,
         needs=SALARY,
     ),
-    Column(key="bank", label="Банк", value=lambda s: _name(s.row.employee.bank), group=GROUP_INSURANCE, needs=SALARY),
+    Column(
+        key="bank",
+        edit="bank",
+        label="Банк",
+        value=lambda s: _name(s.row.employee.bank),
+        group=GROUP_INSURANCE,
+        needs=SALARY,
+    ),
     Column(
         key="account_no",
+        edit="account_no",
         label="Дансны дугаар",
         value=lambda s: s.row.employee.account_no,
         group=GROUP_INSURANCE,
@@ -273,6 +316,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="work_phone",
+        edit="work_phone",
         label="Ажлын утас",
         value=lambda s: s.row.employee.work_phone,
         group=GROUP_CONTACT,
@@ -280,6 +324,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="private_phone",
+        edit="private_phone",
         label="Хувийн утас",
         value=lambda s: s.row.employee.private_phone,
         group=GROUP_CONTACT,
@@ -288,6 +333,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="email",
+        edit="email",
         label="И-мэйл",
         value=lambda s: s.row.employee.email,
         group=GROUP_CONTACT,
@@ -303,6 +349,7 @@ COLUMNS: tuple[Column, ...] = (
     Column(key="address", label="Гэрийн хаяг", value=lambda s: s.address, group=GROUP_CONTACT, needs=PERSONAL),
     Column(
         key="education_level",
+        edit="education_level",
         label="Боловсрол",
         value=lambda s: _name(s.row.employee.education_level),
         group=GROUP_PERSONAL,
@@ -310,6 +357,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="academic_degree",
+        edit="academic_degree",
         label="Эрдмийн зэрэг",
         value=lambda s: _name(s.row.employee.academic_degree),
         group=GROUP_PERSONAL,
@@ -317,6 +365,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="marital_status",
+        edit="marital_status",
         label="Гэрлэлтийн байдал",
         value=lambda s: _name(s.row.employee.marital_status),
         group=GROUP_PERSONAL,
@@ -324,6 +373,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="housing_condition",
+        edit="housing_condition",
         label="Орон байрны нөхцөл",
         value=lambda s: _name(s.row.employee.housing_condition),
         group=GROUP_PERSONAL,
@@ -331,6 +381,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="car_ownership",
+        edit="car_ownership",
         label="Автомашин эзэмшил",
         value=lambda s: _name(s.row.employee.car_ownership),
         group=GROUP_PERSONAL,
@@ -338,6 +389,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="clothing_size",
+        edit="clothing_size",
         label="Хувцасны хэмжээ",
         value=lambda s: _name(s.row.employee.clothing_size),
         group=GROUP_PERSONAL,
@@ -345,6 +397,7 @@ COLUMNS: tuple[Column, ...] = (
     ),
     Column(
         key="shoe_size",
+        edit="shoe_size",
         label="Гутлын хэмжээ",
         value=lambda s: _name(s.row.employee.shoe_size),
         group=GROUP_PERSONAL,
@@ -356,6 +409,7 @@ COLUMNS: tuple[Column, ...] = (
         value=lambda s: s.salary,
         group=GROUP_SALARY,
         needs=SALARY,
+        correct="salary",
         numeric=True,
         kind="number",
         money=True,
@@ -659,7 +713,18 @@ REPORT = Report(
         # the retired surveys, now plain setups of this report (the counts are the pivot view)
         view_template(
             "Өндөр настнууд (60+), холбоо барих",
-            columns=("code", "name", "department", "position", "birth_date", "age", "years_worked", "private_phone", "contacts", "address"),
+            columns=(
+                "code",
+                "name",
+                "department",
+                "position",
+                "birth_date",
+                "age",
+                "years_worked",
+                "private_phone",
+                "contacts",
+                "address",
+            ),
             rules=dump_rules(Group("and", (Rule("age", "gte", "60"),))),
             sort="-age",
         ),

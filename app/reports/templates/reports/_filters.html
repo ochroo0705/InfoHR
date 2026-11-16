@@ -3,7 +3,15 @@
   {# «Цэвэрлэх» is outside the form so the form's hx-trigger="change" does not catch it. #}
   {# The date box is a text box after datepicker.js (static/js/datepicker.js): its change event fires on commit (blur, Enter) and when a day is picked, so typing a year does not reload the page. Enter also submits the form, which submit catches so the page is not left for a full reload. #}
   <form id="report-filters" method="get" action="{{ request.path }}" class="grid min-w-0 flex-1 grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-2"
-        hx-get="{{ request.path }}" hx-trigger="change, submit" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true">
+        hx-get="{{ request.path }}" hx-trigger="change[event.target.name!='q'], submit" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true">
+    {# The report search is the first control (UI_RULES §4b). It asks for the page itself after a pause of 300 ms or on Enter, and only when its text differs from the one the page was drawn with (defaultValue): the filter form's change does not catch it (the trigger above skips q). hx-include sends the rest of the bar with it. #}
+    <div class="relative">
+      {% include "reports/_tool_icon.html" with kind="search" cls="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" %}
+      <input type="search" name="q" value="{{ filters.q }}" maxlength="200" placeholder="Хайх…" aria-label="Тайлангаас хайх" autocomplete="off"
+             hx-get="{{ request.path }}" hx-trigger="input[this.value!=this.defaultValue] changed delay:300ms, search[this.value!=this.defaultValue]" hx-include="#report-filters"
+             hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true"
+             {% if filters.q %}data-applied {% endif %}class="w-full rounded-lg border border-slate-300 bg-surface py-2 pl-8 pr-3 text-sm">
+    </div>
     {% for item in filter_items %}{% with name=item.name %}
       {# a folded filter picked from «Шүүлтүүр нэмэх» or holding a value: drawn with a ✕ that resets it and drops it again (UI_RULES §4b) #}
       {% if item.remove %}<div data-filter-wrap class="relative{% if name == "period" %} sm:col-span-2{% endif %}"><input type="hidden" name="add" value="{{ name }}"><a href="{{ item.remove }}" hx-get="{{ item.remove }}" hx-target="#report-page" hx-select="#report-page" hx-swap="outerHTML" hx-push-url="true" aria-label="Шүүлтүүрийг арилгах" class="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-surface text-xs leading-none text-violet-700 hover:bg-violet-100">×</a>{% endif %}

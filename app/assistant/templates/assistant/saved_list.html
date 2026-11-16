@@ -4,6 +4,8 @@ is clickable as a whole (UI_RULES 4), and the delete control sits in its own cel
 single row control, so it uses the «confirm without a pop-up» pattern (UI_RULES 3): a summary that asks «Устгах уу?» and
 holds the red confirm button. The table turns into cards below md (UI_RULES 4, phone rows).{% endcomment %}
 {% block title %}Хадгалсан хүснэгт{% endblock %}
+{# List page: full width (UI_RULES §4) #}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
 {% block assistant_fab %}{% endblock %}
 {% block content %}
 <div class="flex flex-col gap-4">
@@ -14,7 +16,22 @@ holds the red confirm button. The table turns into cards below md (UI_RULES 4, p
 
   {% for message in messages %}<p class="rounded p-2 text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-emerald-50 text-emerald-800{% endif %}">{{ message }}</p>{% endfor %}
 
-  <div class="ptable overflow-visible">
+  {# Search and visibility filter (UI_RULES 4 index search, 2b-3): live through htmx, and a plain GET without script. #}
+  <form method="get" action="{% url 'assistant:saved_list' %}" role="search" class="flex flex-wrap items-center gap-2"
+        hx-get="{% url 'assistant:saved_list' %}" hx-trigger="input changed delay:250ms from:find input, search from:find input, change from:find select"
+        hx-target="#saved-body" hx-select="#saved-body" hx-swap="outerHTML" hx-replace-url="true">
+    <input type="search" name="q" value="{{ q }}" placeholder="Нэр эсвэл зохиогчоор хайх" aria-label="Хайх" autocomplete="off"
+           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm md:max-w-md">
+    <select name="visibility" aria-label="Харагдах байдал" data-search="off"
+            class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <option value="">Бүгд</option>
+      <option value="shared" {% if visibility == 'shared' %}selected{% endif %}>Хамтын</option>
+      <option value="private" {% if visibility == 'private' %}selected{% endif %}>Хувийн</option>
+    </select>
+    <noscript><button type="submit" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Хайх</button></noscript>
+  </form>
+
+  <div id="saved-body" class="ptable ptable-fit">
     <table class="w-full text-sm">
       <thead class="hidden md:table-header-group">
         <tr class="text-left text-slate-500">
@@ -35,9 +52,9 @@ holds the red confirm button. The table turns into cards below md (UI_RULES 4, p
           <td class="block tabular-nums md:table-cell"><span class="text-xs text-slate-500 md:hidden">Өөрчилсөн: </span>{{ table.updated_at|date:"Y-m-d" }}</td>
           <td class="block text-left md:table-cell md:text-right" onclick="event.stopPropagation()">
             {% if row.can_delete %}
-            <details class="relative inline-block">
+            <details data-row-menu class="relative inline-block">
               <summary class="cursor-pointer list-none rounded px-2 py-1 text-red-600 hover:bg-red-50 [&::-webkit-details-marker]:hidden">Устгах</summary>
-              <div class="absolute right-0 z-20 mt-1 grid w-56 gap-2 rounded-lg border border-slate-200 bg-surface p-3 text-left shadow-lg">
+              <div data-row-menu-panel class="absolute right-0 z-20 mt-1 grid w-56 gap-2 rounded-lg border border-slate-200 bg-surface p-3 text-left shadow-lg">
                 <p class="text-sm text-slate-800">«{{ table.name }}» устгах уу?</p>
                 <form method="post" action="{% url 'assistant:saved_delete' table.pk %}">{% csrf_token %}
                   <button type="submit" class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">Устгах</button>
@@ -49,7 +66,7 @@ holds the red confirm button. The table turns into cards below md (UI_RULES 4, p
         </tr>
         {% endwith %}
       {% empty %}
-        <tr><td colspan="5" class="py-6 text-center text-slate-500">Хадгалсан хүснэгт бүртгэгдээгүй</td></tr>
+        <tr><td colspan="5" class="py-6 text-center text-slate-500">{% if filtered %}Олдсонгүй{% else %}Хадгалсан хүснэгт бүртгэгдээгүй{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>

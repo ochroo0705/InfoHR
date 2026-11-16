@@ -14,7 +14,7 @@ from accounts.models import User
 from config import batching
 from config.params import id_param as _id_param
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import F, QuerySet
 from django.forms.utils import ErrorDict
@@ -26,6 +26,7 @@ from django.http import (
     HttpResponseBadRequest,
     HttpResponseRedirect,
     JsonResponse,
+    QueryDict,
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -1195,6 +1196,17 @@ def _error_tab(form: EmployeeForm | None, si_form: SalaryInsuranceForm | None, p
     return posted if posted in TABS else "work"
 
 
+def _surface_hidden_errors(form: EmployeeForm, posted: QueryDict) -> None:
+    """A field the page did not post (completed from the stored value) has no box to show its error: copy it to the
+    form-wide error line above the form, with the field's label."""
+    for name in list(form.errors):
+        if name == NON_FIELD_ERRORS or name in posted:
+            continue
+        label = form.fields[name].label if name in form.fields else name
+        for message in form.errors[name]:
+            form.add_error(None, f"{label}: {message}")
+
+
 @login_required
 @require_POST
 def employee_save(request: HttpRequest, pk: int) -> HttpResponse:
@@ -1248,6 +1260,8 @@ def employee_save(request: HttpRequest, pk: int) -> HttpResponse:
                 return response
             url = reverse("employees:detail", args=[pk])
             return HttpResponseRedirect(f"{url}#{tab}" if tab in TABS else url, status=303)
+    if form is not None and form.errors:
+        _surface_hidden_errors(form, request.POST)
     context = detail_context(request, employee) | {
         "form": form,
         "si_form": si_form,
@@ -2091,11 +2105,13 @@ def orders_print_start(request: HttpRequest) -> JsonResponse:
     if not ids:
         return JsonResponse({"error": print_jobs.NOTHING}, status=400)
     token = print_jobs.start(user, ids)
-    return JsonResponse({
-        "token": token,
-        "status": reverse("employees:orders_print_status", args=[token]),
-        "file": reverse("employees:orders_print_file", args=[token]),
-    })
+    return JsonResponse(
+        {
+            "token": token,
+            "status": reverse("employees:orders_print_status", args=[token]),
+            "file": reverse("employees:orders_print_file", args=[token]),
+        }
+    )
 
 
 @login_required
@@ -2233,6 +2249,7 @@ def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[st
         year = None
     today = timezone.localdate()
     q = get.get("q", "").strip()[:100]
+    sort = order_register.clean_sort(get.get("sort", order_register.DEFAULT_SORT))
     user = _user(request)
     filters: dict[str, Any] = {
         "year": year,
@@ -2241,6 +2258,7 @@ def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[st
         "state": state or None,
         "today": today,
         "q": q,
+        "sort": sort,
     }
     paging: dict[str, Any] = {}
     if batched:
@@ -2256,6 +2274,8 @@ def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[st
         "can_manage": access.can_manage(_user(request)),
         "rows": rows,
         "q": q,
+        "sort": sort,
+        "sort_heads": order_register.sort_heads(sort),
         "year": year,
         "order_type": order_type,
         "department": department,

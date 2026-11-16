@@ -22,24 +22,8 @@ from hr_sql.connection import GOVERNED_ALIAS, governed_connection
 from hr_sql.host import HrHost
 from hr_sql.scope import fill_scope, working_flags
 from hr_sql.tests.conftest import World
-
-COLUMNS = {
-    "GOV_EMPLOYEES": [
-        "EMP_ID",
-        "FIRST_NAME",
-        "LAST_NAME",
-        "DEPARTMENT_NAME",
-        "BRANCH_NAME",
-        "POSITION_NAME",
-        "HIRE_DATE",
-        "BIRTH_DATE",
-        "GENDER",
-        "WORKING",
-    ],
-    "GOV_CHILDREN": ["CHILD_ID", "EMP_ID", "BIRTH_DATE", "GENDER"],
-    "GOV_LEAVE": ["LEAVE_ID", "EMP_ID", "LEAVE_TYPE_NAME", "START_DATE", "END_DATE", "DAYS", "STATUS_NAME"],
-    "GOV_ORDERS": ["ORDER_ID", "EMP_ID", "ORDER_TYPE_NAME", "STATE_NAME", "ORDER_NUMBER", "ORDER_DATE", "SUMMARY"],
-}
+from hr_sql.tests.expected import EMPLOYEE_RIGHT_VIEWS, OPEN_VIEWS, PERSONAL_VIEWS, SALARY_VIEWS
+from hr_sql.views import view_columns
 
 
 @pytest.fixture
@@ -156,13 +140,19 @@ def test_user_with_no_right_and_no_record_gets_empty_catalogue(ready: World) -> 
     assert catalogue_for(ready.nobody).views == ()
 
 
-@pytest.mark.parametrize("who", ["hr", "limited", "own"])
-def test_user_who_sees_employees_gets_both_views(ready: World, who: str) -> None:
+@pytest.mark.parametrize("who", ["hr", "limited"])
+def test_user_who_sees_employees_gets_all_views(ready: World, who: str) -> None:
     user = getattr(ready, who)
 
     names = [view.name for view in catalogue_for(user).views]
 
-    assert names == ["GOV_EMPLOYEES", "GOV_CHILDREN", "GOV_LEAVE", "GOV_ORDERS"]
+    assert names == ["GOV_EMPLOYEES", *PERSONAL_VIEWS, *OPEN_VIEWS, *EMPLOYEE_RIGHT_VIEWS]
+
+
+def test_own_record_user_gets_no_events_view(ready: World) -> None:
+    names = [view.name for view in catalogue_for(ready.own).views]
+
+    assert names == ["GOV_EMPLOYEES", *PERSONAL_VIEWS, *OPEN_VIEWS]
 
 
 def test_catalogue_columns_match_the_firebird_views(ready: World) -> None:
@@ -170,8 +160,8 @@ def test_catalogue_columns_match_the_firebird_views(ready: World) -> None:
         for view in catalogue_for(ready.hr).views:
             cursor.execute(f"SELECT * FROM {view.name} WHERE 1 = 0")  # noqa: S608 (fixed view names)
             names = [str(column[0]).strip() for column in cursor.description or ()]
-            assert names == COLUMNS[view.name]
-            assert [column.name for column in view.columns] == COLUMNS[view.name]
+            assert names == list(view_columns()[view.name])
+            assert [column.name for column in view.columns] == list(view_columns()[view.name])
 
 
 def _names(user: User, view: str) -> list[str]:
@@ -184,13 +174,13 @@ def test_accountant_catalogue_has_no_children_view(ready: World) -> None:
     names = [view.name for view in catalogue_for(ready.accountant).views]
 
     assert "GOV_CHILDREN" not in names
-    assert names == ["GOV_EMPLOYEES", "GOV_LEAVE", "GOV_ORDERS", "GOV_SALARY", "GOV_LOANS"]
+    assert names == ["GOV_EMPLOYEES", *OPEN_VIEWS, *EMPLOYEE_RIGHT_VIEWS, *SALARY_VIEWS]
 
 
 def test_accountant_employees_view_has_no_birth_date_or_gender(ready: World) -> None:
     assert "BIRTH_DATE" not in _names(ready.accountant, "GOV_EMPLOYEES")
     assert "GENDER" not in _names(ready.accountant, "GOV_EMPLOYEES")
-    assert _names(ready.hr, "GOV_EMPLOYEES") == COLUMNS["GOV_EMPLOYEES"]
+    assert _names(ready.hr, "GOV_EMPLOYEES") == list(view_columns()["GOV_EMPLOYEES"])
 
     refused = run_question(HrHost(), ready.accountant, "SELECT BIRTH_DATE FROM GOV_EMPLOYEES")  # noqa: S608 (fixed names)
     assert isinstance(refused, Refused), refused

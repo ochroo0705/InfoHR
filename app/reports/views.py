@@ -1,7 +1,8 @@
 """The «Тайлан» catalogue page (every MACS report, grouped, with a search box) and the shared report page."""
 
+import json
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -16,15 +17,16 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.db.models import Q, QuerySet
-from django.http import Http404, HttpRequest, HttpResponse, QueryDict
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.utils.html import format_html
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.vary import vary_on_headers
-from employees import access, listing
+from employees import access, listing, stale
 from employees.images import attach_photo_digests
-from employees.models import CompanySettings
+from employees.models import CompanySettings, Employee
 from macs.models import (
     AbsenceType,
     Branch,
@@ -37,9 +39,12 @@ from macs.models import (
     PresentType,
 )
 
-from reports import drill, excel, privacy, registry
+from reports import bulk_edit as bulk_edit_service
+from reports import cell_edit as cell_edit_service
+from reports import corrections, drill, excel, privacy, registry
 from reports import layouts as layouts_mod
 from reports import marks as marks_mod
+from reports import row_edit as row_edit_service
 from reports import rules as rules_mod
 from reports import selection as selection_mod
 from reports import totals as totals_mod
@@ -810,6 +815,8 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
             )
         )
     selectable = report.person is not None and table.spec.layout == "table"
+    # the inline editors need the table layout only, not row selection (a report may edit without a checkbox)
+    table_layout = table.spec.layout == "table"
     period_start, period_end = period_of(f)
     context = {
         "report": report,
@@ -876,6 +883,19 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         "group_text": _group_text(f.group, [c for c in allowed_columns(report, user) if c.key in report.group_options]),
         # row selection: a table of a report that names its people (Report.person); the checkbox column adds one cell
         "selectable": selectable,
+        # the cells that name an employee field open the inline editor: plain fields for managers, salary and insurance
+        # fields for the salary right (reports.cell_edit.can_edit checks each row); _rows.html tells them apart
+        "can_edit_cells": table_layout and (access.can_manage(user) or access.can_manage_salary(user)),
+        "plain_cells": access.can_manage(user),
+        "salary_cells": access.can_manage_salary(user),
+        "salary_fields": cell_edit_service.SALARY_EDITABLE,
+        # the cells that correct a job field or the salary with a reason (reports.corrections, D-080 phase 4)
+        "can_correct_cells": table_layout and corrections.enabled() and access.can_manage(user),
+        "can_correct_salary": (
+            table_layout and corrections.enabled() and access.can_manage(user) and access.can_manage_salary(user)
+        ),
+        # the cells of a children or contacts row open the row editor (reports.row_edit); the server checks each row
+        "can_edit_rows": table_layout and access.can_manage(user),
         "selection_urls": _selection_urls(user, report) if selectable else dict.fromkeys(SELECTION_KEYS, ""),
         "selection_total": table.count,
         "selection_over_cap": table.count > selection_mod.MAX_PEOPLE,
@@ -1244,3 +1264,213 @@ def view_delete(request: HttpRequest, pk: int) -> HttpResponse:
     response = HttpResponse(status=204)
     response["HX-Redirect"] = reverse("reports:report", args=[key])
     return response
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def cell_edit(request: HttpRequest) -> HttpResponse:
+    """The inline editor of one employee field in a report cell (reports.cell_edit). GET opens the editor; POST saves
+    it: the new shown value when ok, else the editor again with the message. `person` and `field` come from the
+    address on both methods. 404 for an unknown employee or field, 403 when the user may not change it."""
+    user = request.user
+    field = request.GET.get("field", "")
+    try:
+        person = int(request.GET.get("person", ""))
+    except ValueError:
+        raise Http404 from None
+    if field not in cell_edit_service.EDITABLE and field not in cell_edit_service.SALARY_EDITABLE:
+        raise Http404
+    employee = get_object_or_404(access.visible_employees(user), pk=person)
+    if not cell_edit_service.can_edit(user, employee, field):
+        raise PermissionDenied
+    if request.method == "POST":
+        result = cell_edit_service.save(user, person, field, request.POST)
+        if result.ok:
+            return HttpResponse(format_html("<span data-cell-value>{}</span>", result.text))
+        if result.error == cell_edit_service.CLASH:
+            # someone else changed the value meanwhile: the editor shows the current value with a fresh snapshot, so
+            # the user sees what is stored now and a retry can succeed (the old snapshot would clash again)
+            current = cell_edit_service.editor_form(user, Employee.objects.get(pk=person), field)
+            return render(
+                request,
+                "reports/_cell_editor.html",
+                {
+                    "form": current,
+                    "field": current[field],
+                    "field_name": field,
+                    "loaded": stale.snapshot(current),
+                    "error": result.error,
+                },
+            )
+        # the editor again, with the user's text still in it and the snapshot they loaded (not a fresher one)
+        bound = cell_edit_service.editor_form(
+            user, employee, field, cell_edit_service.posted_data(user, employee, field, request.POST)
+        )
+        return render(
+            request,
+            "reports/_cell_editor.html",
+            {
+                "form": bound,
+                "field": bound[field],
+                "field_name": field,
+                "loaded": request.POST.get("loaded", ""),
+                "error": result.error,
+            },
+        )
+    form = cell_edit_service.editor_form(user, employee, field)
+    return render(
+        request,
+        "reports/_cell_editor.html",
+        {"form": form, "field": form[field], "field_name": field, "loaded": "", "error": ""},
+    )
+
+
+def _row_editor(request: HttpRequest, form: Any, field: str, error: str) -> HttpResponse:
+    """The editor of one row cell: the one visible field, and the other fields of the row form as hidden inputs (the
+    row's values and the loaded_* values of the stale check travel back with the save)."""
+    hidden = [form[name] for name in form.fields if name != field]
+    context = {"form": form, "visible": form[field], "hidden": hidden, "error": error}
+    return render(request, "reports/_row_cell_editor.html", context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def row_cell(request: HttpRequest) -> HttpResponse:
+    """The inline editor of one cell of a children or contacts row (reports.row_edit). Query: `person`, `kind`, `key`
+    (the row's id) and `field`. GET opens the editor; POST saves it: the new shown text when ok, else the editor again
+    with the message. 404 for an unknown kind, field, employee or row; 403 when the user may not change the row."""
+    user = request.user
+    kind = request.GET.get("kind", "")
+    field = request.GET.get("field", "")
+    try:
+        person = int(request.GET.get("person", ""))
+        key = int(request.GET.get("key", ""))
+    except ValueError:
+        raise Http404 from None
+    if kind not in row_edit_service.KINDS or field not in row_edit_service.KINDS[kind]:
+        raise Http404
+    employee = get_object_or_404(access.visible_employees(user), pk=person)
+    if request.method == "POST":
+        result = row_edit_service.save(user, employee, kind, key, field, request.POST)
+        if result.ok:
+            return HttpResponse(format_html("<span data-cell-value>{}</span>", result.text))
+        if result.conflict:
+            # the row changed meanwhile: the editor shows its current values with a fresh snapshot, so the user sees
+            # what is stored now and a retry can succeed (the posted snapshot would clash again)
+            form, _ = row_edit_service.editor(user, employee, kind, key, field)
+        else:
+            form, _ = row_edit_service.editor(user, employee, kind, key, field, request.POST)
+        return _row_editor(request, form, field, result.error)
+    form, _ = row_edit_service.editor(user, employee, kind, key, field)
+    return _row_editor(request, form, field, "")
+
+
+def _correct_editor(
+    request: HttpRequest,
+    key: str,
+    record: Any,
+    *,
+    old: str,
+    reason: str = "",
+    error: str = "",
+    data: QueryDict | None = None,
+    blocked: str = "",
+) -> HttpResponse:
+    """The correction editor of one cell: the field's own widget, the reason box and the grey note. When `blocked` is
+    the reason the cell cannot be corrected now, the editor shows only that message (nothing to type, nothing saved)."""
+    context: dict[str, Any] = {"key": key, "old": old, "reason": reason, "error": error, "blocked": blocked}
+    if not blocked:
+        form = corrections.form_for(request.user, record, key, data)
+        context.update(form=form, field=form[corrections.field_of(key)])
+    return render(request, "reports/_correct_editor.html", context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def correct_cell(request: HttpRequest) -> HttpResponse:
+    """The editor that corrects a job field (department, position, manager) or the base salary of one report cell
+    (reports.corrections, D-080 phase 4). Query: `person`, `key`, and `record` (the job record, job keys only). GET
+    opens the editor; POST saves it: the new shown text when ok, else the editor again with the message. A cell that
+    is not the record in force today, or whose change is scheduled or awaits its signed order, gets the editor with
+    only the message and no save. 404 for an unknown employee, key or record; 403 when the user may not correct this
+    cell (or the setting is off), checked before the record is looked up."""
+    user = request.user
+    assert isinstance(user, User)  # login_required guarantees a real user
+    key = request.GET.get("key", "")
+    if key not in corrections.KEYS:
+        raise Http404
+    try:
+        person = int(request.GET.get("person", ""))
+    except ValueError:
+        raise Http404 from None
+    record_id: int | None = None
+    if corrections.KEYS[key] == "job":
+        try:
+            record_id = int(request.GET.get("record", ""))
+        except ValueError:
+            raise Http404 from None
+    employee = get_object_or_404(access.visible_employees(user), pk=person)
+    if not corrections.can_correct(user, employee, key):
+        raise PermissionDenied
+    record, blocked = corrections.lookup(employee, key, record_id)
+    if record is None:
+        raise Http404
+    if request.method == "POST":
+        if blocked:  # nothing is written: the same message again
+            return _correct_editor(request, key, record, old=corrections.shown_text(record, key), blocked=blocked)
+        result = corrections.save(user, employee, key, record, request.POST)
+        if result.ok:
+            return HttpResponse(format_html("<span data-cell-value>{}</span>", result.text))
+        if result.error == cell_edit_service.CLASH:
+            # someone else changed the cell: the editor shows what is stored now, so a retry can succeed
+            fresh, fresh_blocked = corrections.lookup(employee, key, record_id)
+            if fresh is None:
+                raise Http404
+            return _correct_editor(
+                request,
+                key,
+                fresh,
+                old=corrections.shown_text(fresh, key),
+                error=result.error,
+                blocked=fresh_blocked,
+            )
+        # the editor again, with the user's text and the old text they loaded (not a fresher one)
+        return _correct_editor(
+            request,
+            key,
+            record,
+            old=request.POST.get("old", ""),
+            reason=request.POST.get("reason", ""),
+            error=result.error,
+            data=request.POST,
+        )
+    return _correct_editor(request, key, record, old=corrections.shown_text(record, key), blocked=blocked)
+
+
+@login_required
+@require_http_methods(["POST"])
+def cells_bulk(request: HttpRequest) -> HttpResponse:
+    """Bulk cell edit (reports.bulk_edit, D-080 phase 3). The JSON body is a batch of cells: a dry run when `apply` is
+    false, a save of the ok cells when true. Answers the outcome of every cell. 400 for a body of the wrong shape or
+    over 500 cells; a field that is not editable is a refused cell, not a 400."""
+    bad = JsonResponse({"error": "Буруу хүсэлт"}, status=400)
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        return bad
+    if not isinstance(body, dict) or not isinstance(body.get("apply"), bool) or not isinstance(body.get("cells"), list):
+        return bad
+    cells: list[bulk_edit_service.BulkCell] = []
+    for raw in body["cells"]:
+        if not isinstance(raw, dict):
+            return bad
+        person, field, text, old = raw.get("person"), raw.get("field"), raw.get("text"), raw.get("old")
+        if type(person) is not int or not all(isinstance(v, str) for v in (field, text, old)):
+            return bad
+        cells.append(bulk_edit_service.BulkCell(person=person, field=field, text=text, old=old))
+    if len(cells) > bulk_edit_service.MAX_CELLS:
+        return JsonResponse({"error": bulk_edit_service.TOO_MANY}, status=400)
+    apply = body["apply"]
+    outcomes = bulk_edit_service.run(request.user, cells, apply=apply)
+    saved = sum(1 for outcome in outcomes if outcome.ok) if apply else 0
+    return JsonResponse({"cells": [asdict(outcome) for outcome in outcomes], "saved": saved})

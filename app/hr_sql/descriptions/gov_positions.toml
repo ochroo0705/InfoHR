@@ -1,0 +1,46 @@
+# Draft. English from the model labels in app/macs/models.py (Position). Mongolian drafted from the same labels; check
+# the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per position (албан тушаал) of the organisation, every position listed. The row shows the position number and name, and HEADCOUNT: how many people in that position you may see who still work here."
+description_mn = "Байгууллагын албан тушаал бүрийн нэг мөр, бүх албан тушаал жагсаалтад орно. Мөрөнд албан тушаалын дугаар, нэр, ба HEADCOUNT харагдана: тухайн албан тушаалд, та харах эрхтэй, одоо ажиллаж буй хүний тоо."
+
+rules = [
+    # One row per position, and every position is listed, even one with no staff in scope.
+    # app/macs/models.py (Position)
+    "One row is one position. Every position is listed, also a position with no staff you may see (its HEADCOUNT is 0).",
+    # HEADCOUNT counts only people you may see who still work here, so it can be lower than the real number in the position.
+    # app/hr_sql/views.py (GOV_POSITIONS statement: HEADCOUNT counts employees in GOV_SCOPE with WORKING = 1)
+    "HEADCOUNT is the number of people in this position who you may see and who still work here (WORKING = 1 in GOV_EMPLOYEES). It can be lower than the true number of people in the position, because people you may not see and people who have left are not counted. Do not report it as the full headcount of the position.",
+    # To list the people, use GOV_EMPLOYEES: its POSITION_NAME is the same name.
+    # app/hr_sql/views.py (GOV_EMPLOYEES statement)
+    "To list the people of a position, use GOV_EMPLOYEES and filter on POSITION_NAME; that list shows the same people you may see, including those who no longer work here.",
+    # Join key: GOV_EMPLOYEES carries the position name only, not the number.
+    # app/hr_sql/views.py (GOV_EMPLOYEES statement: POSITION_NAME)
+    "Positions are linked to GOV_EMPLOYEES by POSITION_NAME, not by a number, because GOV_EMPLOYEES does not carry the position number.",
+    # Only the current position is counted: a person's past positions (GOV_JOB_HISTORY) are not in HEADCOUNT.
+    # app/hr_sql/views.py (GOV_POSITIONS statement joins Employee.position, the current position)
+    "HEADCOUNT counts each person by their current position only. A person's earlier positions, from GOV_JOB_HISTORY, are not counted.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "POSITION_ID"
+description = "Position number (internal id)"
+description_mn = "Албан тушаалын дугаар (дотоод)"
+label_mn = "Албан тушаалын дугаар"
+synonyms = ["id", "position number", "pos id", "occupation id"]
+
+[[columns]]
+name = "POSITION_NAME"
+description = "Name of the position"
+description_mn = "Албан тушаалын нэр"
+label_mn = "Албан тушаал"
+synonyms = ["position", "job title", "title", "post", "name"]
+
+[[columns]]
+name = "HEADCOUNT"
+description = "Number of people in this position you may see who still work here; can be lower than the true number (see the rules)"
+description_mn = "Тухайн албан тушаалд харах эрхтэй, одоо ажиллаж буй хүний тоо; жинхэнэ тооноос бага байж болно (дүрмийг үз)"
+label_mn = "Ажилтны тоо"
+synonyms = ["headcount", "staff count", "number of staff", "how many", "size"]

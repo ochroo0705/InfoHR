@@ -14,10 +14,38 @@ SALARY_KEYS = {
     "taxpayer_no",
     "insured_category",
 }
-ALLOWED_LOOKUPS = {"department", "position", "branch", "country", "bank", "insured", "work_conditions"}
+ALLOWED_LOOKUPS = {
+    "department",
+    "position",
+    "branch",
+    "country",
+    "bank",
+    "insured",
+    "work_conditions",
+    "work_schedule",
+    "marital_status",
+    "nationality",
+    "education_level",
+    "academic_degree",
+    "social_origin",
+    "housing_condition",
+    "car_ownership",
+    "clothing_size",
+    "shoe_size",
+    "elected_position",
+}
 # Skipped by the attribute check: `start` is Employee.first_hire_date (a different name), `department` and
 # `position` are skipped as the review asked, and `base_salary` is SalaryRecord.base_salary; Employee has `salary`.
-NOT_EMPLOYEE_ATTRIBUTES = {"start", "department", "position", "base_salary"}
+# `employee_type` and `contract_type` are JobRecord columns, `probation_end` is EmployeeExt.probation_end.
+NOT_EMPLOYEE_ATTRIBUTES = {
+    "start",
+    "department",
+    "position",
+    "base_salary",
+    "employee_type",
+    "contract_type",
+    "probation_end",
+}
 
 
 def _register_for(born: date, gender_digit: int) -> str:
@@ -114,6 +142,29 @@ def test_by_key_has_every_field_and_salary_gating_is_exact() -> None:
         "health_insurance_no",
         "taxpayer_no",
         "insured_category",
+        "clan_name",
+        "phone2",
+        "prior_service_years",
+        "probation_end",
+        "employee_type",
+        "contract_type",
+        "contract_no",
+        "contract_start",
+        "contract_end",
+        "work_schedule",
+        "marital_status",
+        "nationality",
+        "education_level",
+        "academic_degree",
+        "social_origin",
+        "housing_condition",
+        "car_ownership",
+        "clothing_size",
+        "shoe_size",
+        "elected_position",
+        "blood_type",
+        "military_service",
+        "has_disability",
     }
     assert set(BY_KEY) == expected_keys
     assert len(FIELDS) == len(expected_keys)

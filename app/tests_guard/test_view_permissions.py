@@ -266,6 +266,10 @@ EXPECTED: dict[str, Rule] = {
     "reports:sel_excel": ("reports.view_reports", "accounts.export_lists"),  # POST; a file of the picked rows
     "reports:sel_csv": ("reports.view_reports", "accounts.export_lists"),  # POST; a file of the picked rows
     "reports:sel_checklist": ("reports.view_reports", "macs.manage_employees"),  # POST; checklists.access.can_start
+    "reports:cell_edit": LOGIN_ONLY,  # GET/POST; 404 without a visible employee + editable field, 403 unless cell_edit.can_edit
+    "reports:row_cell": LOGIN_ONLY,  # GET/POST; 404 without a visible employee + row, 403 unless row_edit allows (manage + view personal)
+    "reports:correct": LOGIN_ONLY,  # GET/POST; 404 for an unknown key/record, 403 unless corrections allow (setting on, manage; salary: manage salary)
+    "reports:cells_bulk": LOGIN_ONLY,  # POST; JSON batch, every cell checked by bulk_edit (same rights as cell_edit); refused cells, no 403
     # --- lists (lists/urls.py): every view has @permission_required ---
     "lists:index": ("lists.manage_lists",),
     "lists:meaning": ("lists.manage_lists",),

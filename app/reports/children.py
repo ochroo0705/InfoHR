@@ -28,6 +28,10 @@ def _person(c: Child) -> Person:
     return c.person
 
 
+def _person_id(c: Child) -> int:
+    return c.person.row.employee.pk
+
+
 def in_age_range(age: int | None, f: Filters) -> bool:
     """Without an age filter every child passes; with one, a child needs a birth date inside the range."""
     if f.age_from is None and f.age_to is None:
@@ -55,6 +59,11 @@ def _rows(user: User, f: Filters) -> list[Child]:
     return found
 
 
+def _row_id(c: Child) -> int:
+    """The family row's id: the key the row editor saves by (reports.row_edit)."""
+    return c.item.pk
+
+
 def _relation(c: Child) -> str | None:
     relation: Any = c.item.relation
     name: str | None = relation.name
@@ -63,9 +72,24 @@ def _relation(c: Child) -> str | None:
 
 COLUMNS: tuple[Column, ...] = (
     *(on_person(c, _person) for c in PERSON_COLUMNS),
-    Column(key="child", label="Хүүхдийн нэр", value=lambda c: c.item.given_name),
-    Column(key="relation", label="Хамаарал", value=_relation),
-    Column(key="birth_date", label="Төрсөн огноо", value=lambda c: c.item.birth_date, kind="date"),
+    Column(
+        key="child",
+        label="Хүүхдийн нэр",
+        value=lambda c: c.item.given_name,
+        row_kind="family",
+        row_key=_row_id,
+        row_edit="given_name",
+    ),
+    Column(key="relation", label="Хамаарал", value=_relation, row_kind="family", row_key=_row_id, row_edit="relation"),
+    Column(
+        key="birth_date",
+        label="Төрсөн огноо",
+        value=lambda c: c.item.birth_date,
+        kind="date",
+        row_kind="family",
+        row_key=_row_id,
+        row_edit="birth_date",
+    ),
     Column(key="age", label="Нас", value=lambda c: c.age, numeric=True),
 )
 
@@ -84,6 +108,7 @@ REPORT = Report(
     rows=_rows,
     needs=NEEDS_PERSONAL,
     source=FamilyRow,
+    edit_person=_person_id,
     group_options=("department", "relation"),
     note=_note,
 )

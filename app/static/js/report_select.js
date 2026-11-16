@@ -487,6 +487,7 @@
   // Controls in the row keep their own action; Ctrl/Cmd or middle click opens a new tab; a text selection is not a click.
   function openRowLink(e) {
     if (isOn(state) || e.defaultPrevented) return;
+    if (closestOf(e.target, "table[data-grid]")) return; // a click on a grid cell puts the cursor there (grid_nav.js)
     const row = closestOf(e.target, "#report-page tbody tr");
     if (!row || closestOf(e.target, "a, button, input, select, textarea, label")) return;
     if (window.getSelection && String(window.getSelection())) return;

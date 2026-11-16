@@ -12,6 +12,10 @@ rules = [
     # The salary valid on a day is the period that contains that day.
     # app/employees/listing.py (current_salary asks for the salary valid today)
     "The salary valid on a given day is the period whose START_DATE is on or before that day and whose END_DATE is empty or after it.",
+    # A period can start for a reason other than a pay change (CHANGE_TYPE: transfer, promotion, contract), so two
+    # periods in a row can carry the same amount.
+    # app/employees/models.py (SalaryRecord.change_type)
+    "A new salary period can start for a transfer, a promotion or a contract change as well as a pay change (see CHANGE_TYPE), so two periods in a row can have the same BASE_SALARY. START_DATE of the open period is not when the current amount began: for how long a salary has been the same, use the earliest START_DATE of the person's periods with the same BASE_SALARY as now.",
     # Only the salary right gives this view.
     # app/hr_sql/catalogue.py (catalogue_for)
     "Only users with the macs.view_salary right can ask about salaries.",

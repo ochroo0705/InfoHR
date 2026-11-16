@@ -1,0 +1,190 @@
+/* In-page order template editor (plan 2026-11-13-order-template-editor, task 8). Plain CSS on purpose: the admin is
+   Unfold, which does not compile the project's Tailwind classes. Colours follow the site's red accent and stay
+   readable in the admin's light and dark themes (the page itself is a light sheet of paper). */
+
+.ote { display: grid; gap: 1rem; }
+.ote-head { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: center; justify-content: space-between; }
+.ote-head h1 { font-size: 1.25rem; font-weight: 600; margin: 0; }
+.ote-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.ote-note { font-size: .8125rem; opacity: .75; margin: 0; }
+/* Links take the text colour of the theme (currentColor), so they read on the admin's light and dark themes. */
+.ote-link { color: inherit; text-decoration: underline; cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+.ote-link:hover { text-decoration: none; }
+
+.ote-btn-primary,
+.ote-btn-secondary,
+.ote-btn-danger {
+  border-radius: .5rem; padding: .5rem 1rem; font-size: .875rem; cursor: pointer; line-height: 1.25rem;
+}
+.ote-btn-primary { background: #c0392b; color: #fff; border: 1px solid #c0392b; }
+.ote-btn-primary:hover:not(:disabled) { background: #a93226; }
+.ote-btn-secondary { background: transparent; color: inherit; border: 1px solid rgb(127 127 127 / .45); }
+.ote-btn-danger { background: #dc2626; color: #fff; border: 1px solid #dc2626; }
+.ote-btn-danger:hover:not(:disabled) { background: #b91c1c; }
+.ote-btn-primary:disabled,
+.ote-btn-secondary:disabled,
+.ote-btn-danger:disabled,
+.ote-pick:disabled { opacity: .5; cursor: not-allowed; }
+
+.ote-switch { display: inline-flex; gap: .4rem; align-items: center; font-size: .875rem; cursor: pointer; }
+.ote-switch input { width: 1rem; height: 1rem; }
+
+.ote-banner {
+  border-radius: .5rem; border: 1px solid rgb(217 119 6 / .5); background: rgb(251 191 36 / .12);
+  padding: .75rem 1rem; font-size: .875rem; display: grid; gap: .5rem;
+}
+.ote-banner p { margin: 0; }
+.ote-start summary { cursor: pointer; color: inherit; text-decoration: underline; }
+.ote-start[open] > summary { margin-bottom: .5rem; }
+.ote-start__body { display: grid; gap: .5rem; }
+
+/* Main column and side panel: one column on a phone, the panel beside the page from lg up. */
+.ote-body { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) {
+  .ote-body { grid-template-columns: minmax(0, 1fr) 18rem; align-items: start; }
+}
+
+.ote-main { display: grid; gap: 1rem; min-width: 0; }
+
+/* The editor: the toolbar (created by order_template_editor.js) and the page. */
+#order-template-editor { border: 1px solid rgb(127 127 127 / .35); border-radius: .5rem; overflow: hidden; }
+.ote-toolbar {
+  display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; padding: .4rem;
+  border-bottom: 1px solid rgb(127 127 127 / .35); background: rgb(127 127 127 / .08);
+}
+.ote-toolbar[hidden] { display: none; }
+.ote-btn {
+  min-width: 2.25rem; min-height: 2.25rem; padding: .25rem .5rem; border-radius: .375rem;
+  border: 1px solid transparent; background: transparent; color: inherit; cursor: pointer; font-size: .875rem;
+}
+.ote-btn:hover { border-color: rgb(127 127 127 / .45); }
+.ote-btn--on { background: #34495e; color: #fff; border-color: #2c3e50; }
+.ote-size {
+  min-height: 2.25rem; border-radius: .375rem; border: 1px solid rgb(127 127 127 / .45);
+  padding: .2rem .4rem; background: transparent; color: inherit;
+}
+.ote-page {
+  background: #fff; color: #111; min-height: 22rem; padding: 2rem 2.25rem;
+  font-family: "Golos Text", "Inter", sans-serif; font-size: 11pt; line-height: 1.5;
+}
+.ote-page .ProseMirror { outline: none; min-height: 18rem; }
+.ote-page .ProseMirror p { margin: 0 0 .5rem; min-height: 1.5em; }
+
+/* A field chip inside the page: the field's meaning in a soft pill. Warn = the field does not fill for this type. */
+.ote-chip {
+  display: inline-block; border-radius: 999px; padding: 0 .5rem; margin: 0 .05rem; font-size: .9em;
+  background: #e6ecf1; color: #2c3e50; border: 1px solid #9db4c8; white-space: nowrap; user-select: none;
+}
+.ote-chip--warn { background: #fef3c7; color: #78350f; border-color: #d97706; border-style: dashed; }
+
+/* The locked letterhead block above the page. */
+.ote-letterhead {
+  border: 1px solid rgb(127 127 127 / .35); border-radius: .5rem; padding: .75rem; display: grid; gap: .5rem;
+}
+.ote-letterhead__head { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: baseline; justify-content: space-between; }
+.ote-letterhead__head h2 { font-size: .9375rem; font-weight: 600; margin: 0; }
+.ote-letterhead--off { opacity: .45; }
+.ote-letterhead--off [data-letterhead-mock] { filter: grayscale(1); }
+
+/* The mock of the letterhead presets, on a sheet of A4 width (the logo widths are percentages of the sheet). */
+.lh-mock {
+  display: flex; gap: .75rem; align-items: center; background: #fff; color: #111; padding: .75rem 1rem;
+  border-radius: .25rem; border: 1px dashed rgb(127 127 127 / .5);
+}
+.lh-mock.lh-place-right { flex-direction: row-reverse; }
+.lh-mock.lh-place-top { flex-direction: column; align-items: stretch; }
+.lh-logo {
+  flex: 0 0 auto; min-height: 2.5rem; display: grid; place-items: center; border: 1px dashed #888;
+  background: #f1f5f9; color: #555; font-size: .75rem; border-radius: .25rem; max-width: 100%;
+}
+.lh-text { flex: 1 1 auto; min-width: 0; font-size: .8125rem; line-height: 1.35; }
+.lh-text p { margin: 0; }
+.lh-empty { color: #64748b; font-style: italic; }
+.lh-align-left .lh-text { text-align: left; }
+.lh-align-center .lh-text { text-align: center; }
+.lh-align-right .lh-text { text-align: right; }
+.lh-mock.lh-place-top.lh-align-center .lh-logo { margin: 0 auto; }
+.lh-mock.lh-place-top.lh-align-right .lh-logo { margin-left: auto; }
+.lh-mock.lh-rule { border-bottom: 2px solid #111; }
+.lh-mock.lh-place-logo_only .lh-text { display: none; }
+
+/* The side panel: field groups with native accordions. */
+.ote-panel {
+  display: grid; gap: .5rem; border: 1px solid rgb(127 127 127 / .35); border-radius: .5rem; padding: .75rem;
+  align-content: start;
+}
+.ote-panel h2 { font-size: .9375rem; font-weight: 600; margin: 0; }
+.ote-group { border-top: 1px solid rgb(127 127 127 / .25); padding-top: .4rem; }
+.ote-group summary { cursor: pointer; font-size: .875rem; font-weight: 500; padding: .2rem 0; }
+.ote-group__items { display: flex; flex-wrap: wrap; gap: .35rem; padding: .4rem 0 .2rem; }
+.ote-pick {
+  border-radius: 999px; padding: .15rem .55rem; font-size: .8125rem; cursor: pointer; text-align: left;
+  background: #e6ecf1; color: #2c3e50; border: 1px solid #9db4c8;
+}
+.ote-pick:hover:not(:disabled) { border-color: #2c3e50; }
+.ote-pick--other { background: transparent; color: inherit; border-style: dashed; border-color: rgb(127 127 127 / .5); }
+
+/* The preview panel: a PDF in an iframe under the employee picker. */
+.ote-preview {
+  border: 1px solid rgb(127 127 127 / .35); border-radius: .5rem; padding: .75rem; display: grid; gap: .5rem;
+}
+.ote-preview[hidden] { display: none; }
+.ote-preview__bar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; }
+.ote-preview__bar label { display: grid; gap: .25rem; font-size: .8125rem; }
+.ote-preview__bar select {
+  min-height: 2.25rem; min-width: 16rem; border-radius: .5rem; border: 1px solid rgb(127 127 127 / .45);
+  padding: .25rem .5rem; background: transparent; color: inherit;
+}
+.ote-preview__frame {
+  width: 100%; height: 70vh; border: 1px solid rgb(127 127 127 / .35); border-radius: .375rem; background: #fff;
+}
+
+/* Inline errors and the save status: under the page, never a browser alert. */
+.ote-errors { border-radius: .5rem; background: #fef2f2; color: #b91c1c; padding: .5rem .75rem; font-size: .875rem; }
+.ote-errors[hidden] { display: none; }
+.ote-errors ul { margin: 0; padding-left: 1.1rem; }
+
+/* The in-app confirm (window.hrConfirm in static/js/modal.js), drawn like the .hr-confirm* rules in input.css. The admin
+   does not load app.css, so the Tailwind classes modal.js also sets on the overlay do nothing here; this sheet draws
+   them. Only the classes modal.js builds are styled (no bare element selectors). The panel keeps its own white
+   background and dark text, so it reads the same on the admin's light and dark themes. */
+.hr-confirm {
+  position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center;
+  padding: 1rem; background: rgb(0 0 0 / .4);
+}
+.hr-confirm-panel {
+  width: 100%; max-width: 24rem; border-radius: .75rem; background: #fff; color: #0f172a;
+  padding: 1.25rem; box-shadow: 0 10px 30px rgb(0 0 0 / .25);
+}
+.hr-confirm-text { margin: 0; font-size: .875rem; color: #1e293b; line-height: 1.5; }
+.hr-confirm-row { margin-top: 1.25rem; display: flex; justify-content: flex-end; gap: .5rem; }
+.hr-confirm-no,
+.hr-confirm-yes {
+  border-radius: .5rem; padding: .5rem 1rem; font-size: .875rem; line-height: 1.25rem; cursor: pointer;
+  font-family: inherit;
+}
+.hr-confirm-no { border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+.hr-confirm-no:hover { background: #f8fafc; }
+.hr-confirm-yes { border: 1px solid #7c3aed; background: #7c3aed; color: #fff; }
+.hr-confirm-yes:hover { border-color: #6d28d9; background: #6d28d9; }
+.hr-confirm button:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .ote-page { padding: 1rem; }
+  .ote-actions { width: 100%; }
+  .ote-preview__bar select { min-width: 0; width: 100%; }
+}
+
+/* A numbered item counts up in the editor too (a condition may hide it in the printed order, so the printed
+   number can be lower), and a conditional paragraph carries a note under it. */
+.ote-page .ProseMirror { counter-reset: ote-item; }
+.ote-page .ProseMirror p[data-numbered]::before { counter-increment: ote-item; content: counter(ote-item) ". "; }
+.ote-page .ProseMirror p[data-show-if] { background: rgb(185 119 14 / .08); border-radius: .25rem; padding: .1rem .4rem; }
+.ote-page .ProseMirror p[data-show-if]::after {
+  content: "Зөвхөн «" attr(data-show-if-label) "» утгатай үед харагдана";
+  display: block; font-size: 10px; font-weight: 400; font-style: normal; color: #7a5a14; text-align: left;
+}
+.ote-showif {
+  min-height: 2.25rem; max-width: 16rem; border-radius: .375rem; border: 1px solid rgb(127 127 127 / .45);
+  padding: .2rem .4rem; background: transparent; color: inherit;
+}

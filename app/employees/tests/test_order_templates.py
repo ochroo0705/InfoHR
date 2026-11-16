@@ -1,11 +1,13 @@
 """The install's own order templates (D-053): upload check, sandbox, fallback to the bundled starter, admin page."""
 
+import importlib
 import io
 from pathlib import Path
 from typing import Any
 
 import pytest
 from accounts.models import User
+from django.contrib.auth.models import Permission
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
@@ -153,3 +155,114 @@ def test_only_the_admin_may_open_the_page(client: Client) -> None:
     ):
         response = client.get(url)
         assert response.status_code in (302, 403, 404) and b"ordertemplate" not in response.content.lower()
+
+
+def test_letterhead_on_is_true_without_a_row_or_file() -> None:
+    assert OrderTemplate.letterhead_on(OrderType.HIRED) is True  # no row yet
+    OrderTemplate.objects.create(order_type=OrderType.HIRED, show_letterhead=False)
+    assert OrderTemplate.letterhead_on(OrderType.HIRED) is True  # no file: the starter, which always has it
+
+
+def test_letterhead_new_row_defaults_to_on() -> None:
+    row = OrderTemplate.objects.create(order_type=OrderType.POSITION)
+    assert row.show_letterhead is True
+
+
+def test_letterhead_migration_data_step_turns_off_rows_with_a_file() -> None:
+    from django.apps import apps
+
+    migration = importlib.import_module("employees.migrations.0036_ordertemplate_show_letterhead")
+    upload(OrderType.HIRED, docx_with("Манай загвар"))
+    OrderTemplate.objects.get_or_create(order_type=OrderType.DEPARTMENT)
+    OrderTemplate.objects.update(show_letterhead=True)
+    migration.turn_off_for_uploaded(apps, None)
+    assert OrderTemplate.objects.get(order_type=OrderType.HIRED).show_letterhead is False
+    assert OrderTemplate.objects.get(order_type=OrderType.DEPARTMENT).show_letterhead is True
+
+
+def test_letterhead_on_reads_the_flag_for_an_uploaded_file() -> None:
+    upload(OrderType.DEPARTMENT, docx_with("Манай загвар"))
+    assert OrderTemplate.letterhead_on(OrderType.DEPARTMENT) is True
+    OrderTemplate.objects.filter(order_type=OrderType.DEPARTMENT).update(show_letterhead=False)
+    assert OrderTemplate.letterhead_on(OrderType.DEPARTMENT) is False
+
+
+def test_admin_change_page_has_the_letterhead_switch_even_for_a_starter_template(client: Client) -> None:
+    client.force_login(User.objects.create_superuser("tpl_admin", password="x-long-pass-123"))  # noqa: S106
+    row = OrderTemplate.objects.get_or_create(order_type=OrderType.HIRED.value)[0]  # no file: the starter
+
+    response = client.get(f"/admin/employees/ordertemplate/{row.pk}/change/")
+
+    assert response.status_code == 200
+    assert b'name="show_letterhead"' in response.content
+
+
+def test_admin_post_without_the_switch_stores_false_and_keeps_the_file(client: Client) -> None:
+    client.force_login(User.objects.create_superuser("tpl_admin2", password="x-long-pass-123"))  # noqa: S106
+    upload(OrderType.HIRED, docx_with("Манай загвар"))
+    row = OrderTemplate.objects.get(order_type=OrderType.HIRED.value)
+    stored_file = row.file.name
+
+    response = client.post(f"/admin/employees/ordertemplate/{row.pk}/change/", {})
+
+    assert response.status_code == 302
+    row.refresh_from_db()
+    assert row.show_letterhead is False
+    assert row.file.name == stored_file
+
+
+def test_view_only_user_cannot_change_the_letterhead_switch(client: Client) -> None:
+    viewer = User.objects.create_user("tpl_viewer", password="x-long-pass-123")  # noqa: S106
+    viewer.is_staff = True
+    viewer.save(update_fields=["is_staff"])
+    viewer.user_permissions.add(
+        Permission.objects.get(codename="view_ordertemplate", content_type__app_label="employees")
+    )
+    client.force_login(viewer)
+    row = OrderTemplate.objects.get_or_create(order_type=OrderType.HIRED.value)[0]
+
+    response = client.post(f"/admin/employees/ordertemplate/{row.pk}/change/", {})
+
+    assert response.status_code == 403
+    row.refresh_from_db()
+    assert row.show_letterhead is True
+
+
+def test_admin_untick_on_a_starter_row_saves_true_because_the_starter_always_prints_the_letterhead(
+    client: Client,
+) -> None:
+    client.force_login(User.objects.create_superuser("tpl_admin3", password="x-long-pass-123"))  # noqa: S106
+    row = OrderTemplate.objects.get_or_create(order_type=OrderType.HIRED.value)[0]  # no file: the starter
+
+    response = client.post(f"/admin/employees/ordertemplate/{row.pk}/change/", {})
+
+    assert response.status_code == 302
+    row.refresh_from_db()
+    assert not row.file
+    assert row.show_letterhead is True
+
+
+def test_admin_untick_with_a_new_docx_on_a_starter_row_keeps_the_unticked_switch(client: Client) -> None:
+    client.force_login(User.objects.create_superuser("tpl_admin4", password="x-long-pass-123"))  # noqa: S106
+    row = OrderTemplate.objects.get_or_create(order_type=OrderType.HIRED.value)[0]  # no file: the starter
+    good = SimpleUploadedFile("mine.docx", docx_with("{{ company_name }}"), content_type=order_docs.DOCX_TYPE)
+
+    response = client.post(f"/admin/employees/ordertemplate/{row.pk}/change/", {"file": good})
+
+    assert response.status_code == 302
+    row.refresh_from_db()
+    assert row.file
+    assert row.show_letterhead is False
+
+
+def test_admin_clear_with_an_untick_on_a_row_with_a_file_saves_true(client: Client) -> None:
+    client.force_login(User.objects.create_superuser("tpl_admin5", password="x-long-pass-123"))  # noqa: S106
+    upload(OrderType.HIRED, docx_with("Манай загвар"))
+    row = OrderTemplate.objects.get(order_type=OrderType.HIRED.value)
+
+    response = client.post(f"/admin/employees/ordertemplate/{row.pk}/change/", {"file-clear": "on"})
+
+    assert response.status_code == 302
+    row.refresh_from_db()
+    assert not row.file
+    assert row.show_letterhead is True

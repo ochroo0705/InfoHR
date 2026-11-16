@@ -288,6 +288,7 @@ class OrderTemplate(models.Model):
 
     order_type = models.IntegerField("Тушаалын төрөл", choices=OrderType.choices, unique=True)
     file = models.FileField("Загварын файл (.docx)", storage=order_storage, upload_to="templates/", blank=True)
+    show_letterhead = models.BooleanField("Бланк дээр гаргах", default=True)
     updated_at = models.DateTimeField("Шинэчилсэн", auto_now=True)
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
@@ -307,6 +308,15 @@ class OrderTemplate(models.Model):
         """One row per order type, so the admin lists all six even before anything is uploaded."""
         for order_type in OrderType.values:
             cls.objects.get_or_create(order_type=order_type)
+
+    @classmethod
+    def letterhead_on(cls, order_type: int) -> bool:
+        """Whether an order of this type is printed on the letterhead. No row or no file (the bundled starter)
+        always has it; an uploaded file has the stored switch."""
+        row = cls.objects.filter(order_type=order_type).first()
+        if row is None or not row.file:
+            return True
+        return bool(row.show_letterhead)
 
 
 class HrOrder(models.Model):
@@ -765,6 +775,18 @@ class DailySync(models.Model):
         return f"Last daily sync: {self.day}"
 
 
+# Letterhead presets (the company settings page). The logo width in mm per size; the height follows the picture.
+LETTERHEAD_LOGO_MM = {"small": 20, "medium": 30, "large": 45}
+LETTERHEAD_LOGO_PLACES = [
+    ("left", "Логоны зүүн талд, текст баруун талд"),
+    ("right", "Логоны баруун талд, текст зүүн талд"),
+    ("top", "Лого дээр, текст доор"),
+    ("logo_only", "Зөвхөн лого"),
+]
+LETTERHEAD_ALIGNS = [("left", "Зүүн"), ("center", "Голлуулах"), ("right", "Баруун")]
+LETTERHEAD_SIZES = [("small", "Жижиг"), ("medium", "Дунд"), ("large", "Том")]
+
+
 class CompanySettings(models.Model):
     """Single row (pk=1) of company details, edited in the admin: used by HR orders (print header, issued-by)."""
 
@@ -842,6 +864,41 @@ class CompanySettings(models.Model):
             "Асуулга хэрэглэгчийн өөрийн эрхийн хүрээнд ажиллана."
         ),
     )
+    # On by default: department, position, manager and base salary can be corrected from the reports (with a reason).
+    report_corrections = models.BooleanField(
+        "Тайлангаас засвар хийх",
+        default=True,
+        help_text="Тайлангийн хүснэгтээс хэлтэс, албан тушаал, удирдлага, цалинг засвараар (шалтгаантай) өөрчлөх.",
+    )
+
+    # Letterhead (бланк) at the top of HR order PDFs. The logo is stored beside the order files; the text lines and
+    # the presets are drawn by the PDF renderer, not kept in the .docx templates.
+    letterhead_logo = models.FileField(
+        "Бланкны лого",
+        storage=order_storage,
+        upload_to="letterhead/",
+        blank=True,
+        help_text="PNG эсвэл JPG, 2 МБ-аас ихгүй.",
+    )
+    letterhead_lines = models.TextField(
+        "Бланкны мөрүүд",
+        blank=True,
+        help_text=(
+            "Хаяг, утас, имэйл, регистрийн дугаар гэх мэт. Нэг мөрөнд нэг мэдээлэл. "
+            "{company_name} гэж бичвэл байгууллагын нэр, {director_name} гэж бичвэл захирлын нэр орно."
+        ),
+    )
+    letterhead_logo_place = models.CharField(
+        "Логоны байрлал", max_length=10, choices=LETTERHEAD_LOGO_PLACES, default="left"
+    )
+    letterhead_text_align = models.CharField(
+        "Текстийн байрлал", max_length=6, choices=LETTERHEAD_ALIGNS, default="left"
+    )
+    letterhead_logo_size = models.CharField("Логоны хэмжээ", max_length=6, choices=LETTERHEAD_SIZES, default="medium")
+    letterhead_rule = models.BooleanField("Бланкны доор зураас зурах", default=True)
+    letterhead_every_page = models.BooleanField(
+        "Хуудас бүрт давтах", default=False, help_text="Үгүй бол бланк зөвхөн эхний хуудсанд гарна."
+    )
 
     ORDER_FLAGS = {
         OrderType.HIRED.value: "order_hired",
@@ -873,6 +930,15 @@ class CompanySettings(models.Model):
     def requires_order(self, order_type: int) -> bool:
         """Whether a change of this order type goes through an HR order in this install."""
         return bool(getattr(self, self.ORDER_FLAGS[order_type]))
+
+    def letterhead_text(self) -> list[str]:
+        """The letterhead lines with the company and director names filled in; lines left empty are dropped."""
+        lines: list[str] = []
+        for raw in self.letterhead_lines.splitlines():
+            text = raw.replace("{company_name}", self.name).replace("{director_name}", self.director_name).strip()
+            if text:
+                lines.append(text)
+        return lines
 
 
 STAFF_IMPORT_DATE_FORMATS = [
@@ -935,6 +1001,7 @@ class StaffImportDraft(models.Model):
     duplicate_count = models.PositiveIntegerField("Давхардсан", default=0)
     rejected_count = models.PositiveIntegerField("Алдаатай", default=0)
     rejected_file = models.BinaryField("Алдаатай мөрийн файл", null=True, blank=True)
+    list_results = models.JSONField("Жагсаалтын хуудсын үр дүн", default=dict, blank=True)  # kind -> [added, refused]
     started_at = models.DateTimeField("Импорт эхэлсэн огноо", null=True, blank=True)
     finished_at = models.DateTimeField("Дууссан огноо", null=True, blank=True)
 

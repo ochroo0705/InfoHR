@@ -1,0 +1,46 @@
+# Draft. English from the model labels in app/macs/models.py (Department). Mongolian drafted from the same labels; check
+# the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per department (хэлтэс) of the organisation, every department listed. The row shows the department number and name, and HEADCOUNT: how many people in that department you may see who still work here."
+description_mn = "Байгууллагын хэлтэс бүрийн нэг мөр, бүх хэлтэс жагсаалтад орно. Мөрөнд хэлтсийн дугаар, нэр, ба HEADCOUNT харагдана: тухайн хэлтсийн, та харах эрхтэй, одоо ажиллаж буй хүний тоо."
+
+rules = [
+    # One row per department, and every department is listed, even one with no staff in scope.
+    # app/macs/models.py (Department)
+    "One row is one department. Every department is listed, also a department with no staff you may see (its HEADCOUNT is 0).",
+    # HEADCOUNT counts only people you may see who still work here, so it can be lower than the real size of the department.
+    # app/hr_sql/views.py (GOV_DEPARTMENTS statement: HEADCOUNT counts employees in GOV_SCOPE with WORKING = 1)
+    "HEADCOUNT is the number of people in this department who you may see and who still work here (WORKING = 1 in GOV_EMPLOYEES). It can be lower than the true size of the department, because people you may not see and people who have left are not counted. Do not report it as the full headcount of the department.",
+    # To list the people, use GOV_EMPLOYEES: its DEPARTMENT_NAME is the same name.
+    # app/hr_sql/views.py (GOV_EMPLOYEES statement)
+    "To list the people of a department, use GOV_EMPLOYEES and filter on DEPARTMENT_NAME; that list shows the same people you may see, including those who no longer work here.",
+    # There is no parent department column: the view is flat.
+    # app/macs/models.py (Department.parent_id_value is not in the view)
+    "The view is a flat list: it has no parent department column, so the department hierarchy cannot be read from it.",
+    # Join key: GOV_EMPLOYEES carries the department name only, not the number.
+    # app/hr_sql/views.py (GOV_EMPLOYEES statement: DEPARTMENT_NAME)
+    "Departments are linked to GOV_EMPLOYEES by DEPARTMENT_NAME, not by a number, because GOV_EMPLOYEES does not carry the department number.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "DEPARTMENT_ID"
+description = "Department number (internal id)"
+description_mn = "Хэлтсийн дугаар (дотоод)"
+label_mn = "Хэлтсийн дугаар"
+synonyms = ["id", "department number", "dep id"]
+
+[[columns]]
+name = "DEPARTMENT_NAME"
+description = "Name of the department"
+description_mn = "Хэлтсийн нэр"
+label_mn = "Хэлтэс"
+synonyms = ["department", "unit", "dept", "name"]
+
+[[columns]]
+name = "HEADCOUNT"
+description = "Number of people in this department you may see who still work here; can be lower than the true size (see the rules)"
+description_mn = "Тухайн хэлтэст харах эрхтэй, одоо ажиллаж буй хүний тоо; жинхэнэ хэмжээнээс бага байж болно (дүрмийг үз)"
+label_mn = "Ажилтны тоо"
+synonyms = ["headcount", "staff count", "number of staff", "size", "how many"]

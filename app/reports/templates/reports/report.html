@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ report.title }}{% endblock %}
+{# List page: full width (UI_RULES §4) #}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
 {% block content %}
 {# The whole block is the htmx target: filters, sort and grouping swap #report-page and keep the address in step (UI_RULES §4b). #}
 <div id="report-page">
@@ -44,6 +46,8 @@
         {% if report.picks_columns %}<button type="button" data-tool="columns" hx-get="{% url 'reports:columns' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="columns" %}Багана</button>{% endif %}
         {% if report.shows_count %}<button type="button" data-tool="rules" hx-get="{% url 'reports:rules' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="filter" %}Шүүлтүүр</button>{% endif %}
         {% if report.shows_count and layout != "chart" and layout != "pivot" %}<button type="button" data-tool="format" hx-get="{% url 'reports:format' report.key %}?{{ columns_query }}" hx-target="body" hx-swap="beforeend">{% include "reports/_tool_icon.html" with kind="format" %}Хэлбэр</button>{% endif %}
+        {# Icon only; grid_nav.js shows it when a table has an editable column, and sets aria-pressed (UI_RULES §4b). #}
+        <button type="button" data-edit-marks-toggle hidden aria-pressed="true" title="Засварлах боломжтой баганыг өнгөөр харуулах" aria-label="Засварлах боломжтой баганыг өнгөөр харуулах">{% include "reports/_tool_icon.html" with kind="pencil" %}</button>
       </div>
       <span class="text-xs text-slate-500">Тохируулах</span>
     </div>

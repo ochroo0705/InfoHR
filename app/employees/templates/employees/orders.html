@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Тушаалын бүртгэл{% endblock %}
+{# List page: full width (UI_RULES §4) #}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
 {% block content %}
 <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4">
   <h1 class="text-xl font-semibold">Тушаалын бүртгэл</h1>
@@ -20,6 +22,7 @@
 </div>
 <form id="order-filters" class="mt-4 mb-4 flex flex-wrap items-center gap-2 text-sm" hx-get="{% url 'employees:orders' %}" hx-target="#rows" hx-push-url="true" hx-trigger="input changed delay:300ms from:input[name=q], change from:select">
   <input type="search" name="q" value="{{ q }}" placeholder="Дугаар, ажилтны нэр, кодоор хайх" autocomplete="off" class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <input type="hidden" name="sort" id="order-sort" value="{{ sort }}">
   <select name="year" data-search="off" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх он</option>
     {% for y in years %}<option value="{{ y }}"{% if year == y %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
   <select name="order_type" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх төрөл</option>
@@ -32,6 +35,11 @@
 </form>
 <div id="rows" class="overflow-x-auto">{% include "employees/_order_register_rows.html" %}</div>
 <script>
+/* A header click swaps only #rows; keep the filter form's hidden sort in step with the table that is shown. */
+document.body.addEventListener("htmx:afterSettle", function () {
+  var table = document.querySelector("#rows table[data-sort]");
+  if (table) { document.getElementById("order-sort").value = table.getAttribute("data-sort"); }
+});
 ["input", "change"].forEach(function (name) {
   document.getElementById("order-filters").addEventListener(name, function () {
     var qs = new URLSearchParams(new FormData(this)).toString();

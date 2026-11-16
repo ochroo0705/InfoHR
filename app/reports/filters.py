@@ -102,6 +102,7 @@ SORTS = ("value", "valueasc")
 ORDERS = ("count",)
 _FOUR_DIGITS = re.compile(r"[0-9]{4}")
 _DAY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+MAX_SEARCH = 200  # characters of the report search («q»); a longer typed text is cut
 
 # Column, group and sort keys are short lowercase words. A sort key may start with "-" for descending order.
 # Sort takes up to MAX_SORT_KEYS comma-separated keys and group up to MAX_GROUP_KEYS.
@@ -163,6 +164,7 @@ class Filters:
     lyear: str = ""  # the timeline's year window as four digits, or "all" (no window); "" = this year (the default)
     lgroup: str = ""  # the timeline's grouping column key (a category column); "" = no grouping
     lval2: str = ""  # the pivot's second value, as lval ("count" or "col:agg"); "" = no second value
+    q: str = ""  # the report search: every word must appear in a shown column of the row (search_rows); "" = none
 
 
 def _keys(text: str, pattern: re.Pattern[str], limit: int) -> str:
@@ -237,6 +239,11 @@ def _month(value: str | None) -> str:
 def _choice(value: str | None, options: tuple[str, ...]) -> str:
     """The value when it is one of `options`, else "". Never raises."""
     return value if value in options else ""
+
+
+def _search(value: str | None) -> str:
+    """The report search as typed: stripped and cut to MAX_SEARCH characters. Never raises."""
+    return (value or "").strip()[:MAX_SEARCH].rstrip()
 
 
 def _week(value: str | None) -> str:
@@ -328,6 +335,7 @@ def parse_filters(get: QueryDict) -> Filters:
         lyear=_year(get.get("lyear")),
         lgroup=_layout_key(get.get("lgroup")),
         lval2=_layout_value(get.get("lval2")),
+        q=_search(get.get("q")),
     )
 
 
@@ -352,6 +360,8 @@ def to_query(f: Filters) -> str:
         params["position"] = f.position
     if f.gender:
         params["gender"] = f.gender
+    if f.q:
+        params["q"] = f.q
     for name, value in f.extra:
         params[name] = value
     if f.emptype is not None:
@@ -501,6 +511,8 @@ def describe(
             lines.append(f"Улирал: {f.quarter or this_quarter()}")
         elif key == "present_type" and f.present_type is not None:
             lines.append(f"Бэлгийн төрөл: {name_of(PresentType.objects, f.present_type) or '—'}")
+    if f.q:  # the search is not one of the report's filters: it is listed whenever it is set
+        lines.append("Хайлт: ашигласан" if for_log else f"Хайлт: {f.q}")
     lines.extend(describe_extra(f.extra))
     if f.rules:
         tree = rules_mod.parse_rules(f.rules)

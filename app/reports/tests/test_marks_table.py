@@ -28,7 +28,7 @@ AMBER_OVER_30 = '[{"c":"age","o":"gte","v":"30","k":"amber"}]'
 SALARY_RED = '[{"c":"salary","o":"gte","v":"800","k":"red"}]'
 PEOPLE = [("Бат", 25, 800), ("Дорж", 30, 900), ("Сараа", 41, 700), ("Номин", 18, 500)]
 HTMX = {"HX-Request": "true"}
-TABLE = re.compile(r'<div class="ptable">.*?</table>', re.DOTALL)
+TABLE = re.compile(r'<div class="ptable[^"]*">.*?</table>', re.DOTALL)
 CSS = Path(__file__).resolve().parents[2] / "static" / "css" / "app.css"
 
 

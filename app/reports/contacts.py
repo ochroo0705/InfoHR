@@ -36,6 +36,15 @@ def _rows(user: User, f: Filters) -> list[Contact]:
     return found
 
 
+def _person_id(c: Contact) -> int:
+    return c.person.row.employee.pk
+
+
+def _row_id(c: Contact) -> int:
+    """The contact row's id: the key the row editor saves by (reports.row_edit)."""
+    return c.item.pk
+
+
 def _type(c: Contact) -> str | None:
     kind: Any = c.item.contact_type
     name: str | None = kind.name
@@ -44,10 +53,31 @@ def _type(c: Contact) -> str | None:
 
 COLUMNS: tuple[Column, ...] = (
     *(on_person(c, _person) for c in PERSON_COLUMNS),
-    Column(key="type", label="Төрөл", value=_type),
-    Column(key="value", label="Утас, имэйл", value=lambda c: c.item.value),
-    Column(key="contact_name", label="Холбогдох хүн", value=lambda c: c.item.name),
-    Column(key="relative", label="Хамаарал", value=lambda c: c.item.relative),
+    Column(key="type", label="Төрөл", value=_type, row_kind="contact", row_key=_row_id, row_edit="contact_type"),
+    Column(
+        key="value",
+        label="Утас, имэйл",
+        value=lambda c: c.item.value,
+        row_kind="contact",
+        row_key=_row_id,
+        row_edit="value",
+    ),
+    Column(
+        key="contact_name",
+        label="Холбогдох хүн",
+        value=lambda c: c.item.name,
+        row_kind="contact",
+        row_key=_row_id,
+        row_edit="name",
+    ),
+    Column(
+        key="relative",
+        label="Хамаарал",
+        value=lambda c: c.item.relative,
+        row_kind="contact",
+        row_key=_row_id,
+        row_edit="relative",
+    ),
 )
 
 
@@ -65,6 +95,7 @@ REPORT = Report(
     rows=_rows,
     needs=NEEDS_PERSONAL,
     source=ContactRow,
+    edit_person=_person_id,
     group_options=("department", "type"),
     note=_note,
 )

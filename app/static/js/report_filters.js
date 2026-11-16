@@ -19,6 +19,7 @@
   }
 
   function holder(ctl) {
+    if (ctl.name === "q") return ctl;  // the search box sits in a wrapper for its icon; the box itself is lit
     var p = ctl.parentElement;
     return p && p.tagName !== "FORM" && p.closest("#report-filters") !== p && !p.hasAttribute("data-filter-wrap") ? p : ctl;
   }
@@ -34,6 +35,32 @@
     var clear = document.querySelector("[data-filters-clear]");
     if (clear) clear.hidden = !form.querySelector("[data-applied], [data-column-chip]");
   }
+
+  // The search box (name q) is replaced when the page swaps. If it had the focus, the swap gives the focus back, with
+  // the caret at the end and any text typed while the request ran (UI_RULES §4b «Pop-up scripts»). Only a swap of
+  // #report-page is watched, so another pop-up's swap never moves the focus.
+  var searchTyped = null;  // the live text of the search box when the page swap began, or null
+  document.addEventListener("htmx:beforeSwap", function (e) {
+    var a = document.activeElement;
+    var target = e.detail && e.detail.target;
+    searchTyped = null;
+    if (a && a.name === "q" && a.form && a.form.id === "report-filters" && target && target.id === "report-page") {
+      searchTyped = a.value;
+    }
+  });
+  document.addEventListener("htmx:afterSettle", function () {
+    if (searchTyped === null) return;
+    var typed = searchTyped;
+    searchTyped = null;
+    var box = document.querySelector('#report-filters input[name="q"]');
+    if (!box || (document.activeElement && document.activeElement !== document.body)) return;  // the user moved on
+    box.focus();
+    if (box.value !== typed) {
+      box.value = typed;
+      box.dispatchEvent(new Event("input", { bubbles: true }));  // asks for the page with the text typed meanwhile
+    }
+    box.setSelectionRange(box.value.length, box.value.length);
+  });
 
   document.addEventListener("change", sync);
   document.addEventListener("input", sync);

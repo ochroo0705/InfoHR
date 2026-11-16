@@ -952,3 +952,22 @@ def test_event_post_refuses_other_leaver_and_keeps_current_leaver(
     kept = hr_north.post(url, _transfer_post(report, job_values, position, ex))
     assert kept.status_code == 204
     assert Event.objects.filter(employee=report, type=EventType.TRANSFER).count() == 1
+
+
+def test_error_on_a_field_the_page_did_not_post_is_named_in_the_form_wide_line() -> None:
+    # A field the Ажил tab does not post (completed from the stored value) has no box on the page: its error is
+    # copied, with the field's label, to the form-wide error line so the save is never refused silently.
+    from django import forms
+    from django.http import QueryDict
+
+    class Two(forms.Form):
+        shown = forms.CharField(label="Харагдах")
+        hidden = forms.CharField(label="Регистрийн дугаар")
+
+    form = Two({"shown": "", "hidden": ""})
+    assert not form.is_valid()
+    views._surface_hidden_errors(form, QueryDict("shown="))  # type: ignore[arg-type]
+
+    line = form.non_field_errors()
+    assert any(e.startswith("Регистрийн дугаар: ") for e in line)
+    assert not any(e.startswith("Харагдах: ") for e in line)  # a posted field keeps its own box only

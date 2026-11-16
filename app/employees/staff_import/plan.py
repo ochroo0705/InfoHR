@@ -10,6 +10,11 @@ Value contract for `ParsedRow.values` (Task 8 consumes the rows whose status is 
     name (rows that share a name share the first spelling among the rows that end up new), and then uses the new id.
     Such a row has no `*_id` key for that field.
 - `work_conditions`: int 1 (Хэвийн), 2 (Хүнд) or 3 (Бусад).
+- Plain name lists (`NAMED_LISTS`: schedule, marital status, nationality, education, degree, social origin, housing,
+  car, clothing and shoe size, elected position) give `<key>_id`; an unknown name is an error.
+- Fixed choices (`blood_type` "O"/"A"/"B"/"AB", `employee_type`, `contract_type`), `military_service` ("yes"/"no"),
+  `has_disability` (bool), `prior_service_years` (int) and the dates `probation_end`, `contract_start`,
+  `contract_end` are stored as parsed by rows.py.
 - Salary-gated fields (`base_salary`, `bank_id`, `account_no`, `social_insurance_no`, `health_insurance_no`,
   `taxpayer_no`, `insured_category_id`) are absent when `allow_salary` is false. Their columns are not parsed at all.
 """
@@ -19,11 +24,30 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from accounts.models import User
-from macs.models import Bank, Branch, Country, Department, InsuredCategory, Position
+from django.db.models import Model
+from macs.models import (
+    AcademicDegree,
+    Bank,
+    Branch,
+    CarOwnership,
+    ClothesSize,
+    Country,
+    Department,
+    EducationLevel,
+    ElectedPosition,
+    HousingCondition,
+    InsuredCategory,
+    MaritalStatus,
+    Nationality,
+    Position,
+    Shift,
+    SocialOrigin,
+)
 
 from employees.access import branch_choices, branch_required, default_branch
 from employees.models import DepartmentExt, Employee, PositionExt, StaffImportDraft
 from employees.staff_import.fields import BY_KEY
+from employees.staff_import.lists import SheetPreview, build_list_previews
 from employees.staff_import.reader import read_rows
 from employees.staff_import.rows import ParsedRow, parse_row
 from employees.validators import normalize_register_no
@@ -45,6 +69,7 @@ class Preview:
     new_departments: list[str]
     new_positions: list[str]
     ignored_columns: list[str]
+    lists: dict[str, SheetPreview] = field(default_factory=dict)  # list kind -> checked rows of that list sheet
 
 
 def _key(text: str) -> str:
@@ -95,8 +120,33 @@ def _by_name(pairs: Iterable[tuple[int, str | None]]) -> dict[str, list[int]]:
     return index
 
 
+# Plain name lists the sheet may fill: field key -> (model, extra filter). The row gets `<key>_id`.
+# A name that is not in the list is an error; the import never adds to these lists.
+NAMED_LISTS: dict[str, tuple[type[Model], dict[str, str]]] = {
+    "work_schedule": (Shift, {}),
+    "marital_status": (MaritalStatus, {}),
+    "nationality": (Nationality, {}),
+    "education_level": (EducationLevel, {}),
+    "academic_degree": (AcademicDegree, {}),
+    "social_origin": (SocialOrigin, {}),
+    "housing_condition": (HousingCondition, {}),
+    "car_ownership": (CarOwnership, {}),
+    "clothing_size": (ClothesSize, {"size_type": "clothes"}),
+    "shoe_size": (ClothesSize, {"size_type": "shoes"}),
+    "elected_position": (ElectedPosition, {}),
+}
+
+
+def _named_lists() -> dict[str, _Catalogue]:
+    return {
+        key: _catalogue(model.objects.filter(**extra).values_list("pk", "name"))  # type: ignore[attr-defined]
+        for key, (model, extra) in NAMED_LISTS.items()
+    }
+
+
 @dataclass(frozen=True)
 class _Lookups:
+    lists: dict[str, _Catalogue]
     branches: _Catalogue
     branches_all: _Catalogue
     countries: _Catalogue
@@ -114,6 +164,7 @@ class _Lookups:
         if scope is not None:  # a branch-limited hirer's names come from their own list first
             listed = _catalogue(Branch.objects.filter(pk__in=scope.allowed).values_list("id", "name"))
         return cls(
+            lists=_named_lists(),
             branches=listed,
             branches_all=every,
             countries=_catalogue(Country.objects.values_list("id", "name"), Country.objects.values_list("id", "code")),
@@ -142,6 +193,12 @@ def _resolve_catalogue(row: ParsedRow, text_key: str, id_key: str, catalogue: _C
         row.errors.append(f"{BY_KEY[text_key].label} олдсонгүй: {text}")
     else:
         row.values[id_key] = pk
+
+
+def _check_contract_dates(row: ParsedRow) -> None:
+    start, end = row.values.get("contract_start"), row.values.get("contract_end")
+    if start is not None and end is not None and end < start:
+        row.errors.append(f"{BY_KEY['contract_end'].label} нь эхлэх огнооноос өмнө байна")
 
 
 def _resolve_work_conditions(row: ParsedRow) -> None:
@@ -231,6 +288,9 @@ def _resolve_lookups(row: ParsedRow, lookups: _Lookups, pending: list[tuple[Pars
     _resolve_catalogue(row, "bank", "bank_id", lookups.banks)
     _resolve_catalogue(row, "insured_category", "insured_category_id", lookups.insured)
     _resolve_work_conditions(row)
+    for key, catalogue in lookups.lists.items():
+        _resolve_catalogue(row, key, f"{key}_id", catalogue)
+    _check_contract_dates(row)
     _resolve_named(
         row,
         "department",
@@ -328,4 +388,5 @@ def build_preview(draft: StaffImportDraft, *, allow_salary: bool, user: User | N
         new_departments=list(new_names["department"].values()),
         new_positions=list(new_names["position"].values()),
         ignored_columns=ignored_columns,
+        lists=build_list_previews(bytes(draft.data), draft.sheet, draft.date_format, rows),
     )

@@ -1,5 +1,8 @@
 """The pop-up that explains the order template placeholders keeps in step with the placeholders themselves."""
 
+import json
+import re
+
 import pytest
 from django.test import Client
 from django.urls import reverse
@@ -42,3 +45,30 @@ def test_pop_up_shows_only_the_placeholders_of_its_order_type(admin_client: Clie
     page = lambda row: admin_client.get(reverse("admin:employees_ordertemplate_change", args=[row.pk])).content.decode()  # noqa: E731
     assert "{{ salary }}" in page(hired) and "{{ termination_reason }}" not in page(hired)
     assert "{{ termination_reason }}" in page(fired) and "{{ salary }}" not in page(fired)
+
+
+def test_every_placeholder_has_a_short_label() -> None:
+    assert set(order_docs.PLACEHOLDER_LABELS) == set(order_docs.PLACEHOLDERS)
+    for name, label in order_docs.PLACEHOLDER_LABELS.items():
+        assert label.strip(), name
+        assert len(label) <= 30, name
+
+
+def test_page_context_fields_all_carry_a_label(admin_client: Client) -> None:
+    OrderTemplate.ensure_all()
+    row = OrderTemplate.objects.get(order_type=OrderType.HIRED)
+    response = admin_client.get(reverse("admin:employees_ordertemplate_edit", args=[row.pk]))
+    items = [item for group in response.context["fields"] for item in group["items"]]
+    assert items
+    assert all(item["label"] for item in items)
+
+
+def test_editor_data_carries_the_short_label_of_employee_full_name(admin_client: Client) -> None:
+    OrderTemplate.ensure_all()
+    row = OrderTemplate.objects.get(order_type=OrderType.HIRED)
+    body = admin_client.get(reverse("admin:employees_ordertemplate_edit", args=[row.pk])).content.decode()
+    match = re.search(r'<script id="order-template-editor-data" type="application/json">(.*?)</script>', body, re.S)
+    assert match is not None
+    data = json.loads(match.group(1))
+    labels = {item["name"]: item["label"] for group in data["fields"] for item in group["items"]}
+    assert labels["employee_full_name"] == "Ажилтны нэр"

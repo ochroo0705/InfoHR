@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Урьдчилан харах{% endblock %}
+{# List page: full width (UI_RULES §4) #}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
 {% block content %}
 <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
   <h1 class="text-xl font-semibold">Урьдчилан харах</h1>
@@ -37,6 +39,18 @@
     {% if preview.new_positions %}<p>Шинээр үүсэх албан тушаал: {{ preview.new_positions|join:", " }}</p>{% endif %}
   </div>
   {% endif %}
+  {% if list_sheets %}
+  <div class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+    <p class="mb-1 font-medium">Нэмэлт жагсаалтын хуудас</p>
+    <ul class="space-y-1">
+      {% for sheet in list_sheets %}
+      <li>{{ sheet.title }}: {{ sheet.total }} мөр, нэмэгдэх {{ sheet.ok }}{% if sheet.refused %}, <span class="text-amber-700">алгасагдах {{ sheet.refused }}</span>{% endif %}
+        {% if sheet.notes %}<ul class="ml-4 list-disc text-xs text-slate-500">{% for note in sheet.notes %}<li>{{ note }}</li>{% endfor %}</ul>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   {% if ignored %}
   <p class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Цалин, даатгалтай холбоотой багана ({{ ignored|join:", " }}) таны эрхээр импортлогдохгүй. Алгасагдана.</p>
   {% endif %}
@@ -61,7 +75,7 @@
 
   <h2 class="sec-title mt-8">Мөрүүд</h2>
   {% if total_rows > 100 %}<p class="mb-2 text-xs text-slate-500">Эхний 100 мөрийг харуулж байна. Нийт {{ total_rows }} мөр.</p>{% endif %}
-  <div class="ptable overflow-x-auto">
+  <div class="ptable ptable-fit">
     <table class="w-full text-sm">
       <thead>
         <tr class="text-left text-slate-500">

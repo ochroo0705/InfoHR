@@ -1,0 +1,55 @@
+# Draft. English from the model labels in app/macs/models.py (EducRow, EduType). Mongolian drafted from the same labels;
+# check the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per education record of an employee you may see: the education type, the start date and the start year. Use it to answer questions about an employee's schooling. Many rows can belong to one person."
+description_mn = "Харах эрхтэй ажилтны боловсролын бүртгэл бүрийн нэг мөр: боловсролын төрөл, эхэлсэн огноо, эхэлсэн он. Нэг ажилтанд хэд хэдэн мөр байж болно."
+
+rules = [
+    # One row per education record, not per person: one person can have many rows.
+    # app/hr_sql/views.py (GOV_EDUCATION statement)
+    "One row per education record, so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # START_DATE can be empty; START_YEAR is then the only start information.
+    # app/macs/models.py (EducRow.startdate, EducRow.start_year)
+    "START_DATE can be empty. START_YEAR is the year the education started, and is filled for every row, so use it when START_DATE is empty.",
+    # EDUCATION_TYPE_NAME is empty when the record has no education type that can be found.
+    # app/hr_sql/views.py (GOV_EDUCATION statement, LEFT JOIN to the education type)
+    "EDUCATION_TYPE_NAME is the name of the education type. It is empty when the type is not recorded.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "EDUCATION_ID"
+description = "Education record number (internal id)"
+description_mn = "Боловсролын бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "EDUCATION_TYPE_NAME"
+description = "Education type name, for example secondary school or bachelor's degree (empty when not recorded)"
+description_mn = "Боловсролын төрөл (бүртгэгдээгүй бол хоосон)"
+label_mn = "Боловсролын төрөл"
+synonyms = ["education", "type", "school"]
+
+[[columns]]
+name = "START_DATE"
+description = "Date the education started (empty when not recorded)"
+description_mn = "Боловсрол эхэлсэн огноо (бүртгэгдээгүй бол хоосон)"
+label_mn = "Эхэлсэн огноо"
+synonyms = ["from", "start"]
+
+[[columns]]
+name = "START_YEAR"
+description = "Year the education started"
+description_mn = "Боловсрол эхэлсэн он"
+label_mn = "Эхэлсэн он"
+synonyms = ["year", "start year"]

@@ -1,0 +1,87 @@
+# Draft. English from the model labels in app/employees/models.py (Event, EventType). Mongolian drafted from the same
+# labels; check the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per HR change of an employee you may see: a transfer, promotion, contract change, leave, termination or rehire. Pay changes are not in this view. The row shows the change type, its effective date, its status and the leaving reason, if any. Cancelled changes are kept in the view and marked cancelled. Only users with the employee right (macs.view_employees) get this view."
+description_mn = "Харах эрхтэй ажилтны HR өөрчлөлт бүрийн нэг мөр: шилжүүлэг, дэвшүүлэг, гэрээний өөрчлөлт, чөлөө, ажлаас чөлөөлөлт, дахин ажилд авах. Цалингийн өөрчлөлт энд байхгүй. Мөрөнд өөрчлөлтийн төрөл, хүчинтэй огноо, төлөв, ажлаас гарсан шалтгаан (байвал) харагдана. Цуцлагдсан өөрчлөлт нь цуцлагдсан гэж тэмдэглэгдэн харагдана. Энэ хүснэгтийг зөвхөн ажилтны эрхтэй хэрэглэгч авна."
+
+rules = [
+    # One row per change (an event), not per person: one person can have many rows.
+    # app/employees/models.py (Event)
+    "One row is one HR change (an event). Count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # The change type words: the EventType labels.
+    # app/employees/models.py (EventType)
+    "EVENT_TYPE codes: transfer = moved to another unit (Шилжүүлэх); promotion = promoted (Дэвшүүлэх); demotion = demoted (Бууруулах); salary_change = salary changed (Цалин өөрчлөх); contract = contract renewed or changed (Гэрээ сунгах / өөрчлөх); leave_start = long leave started (Урт чөлөө эхлэх); leave_return = back from leave (Буцаж ирэх); termination = released from the job (Ажлаас чөлөөлөх); rehire = hired again (Дахин ажилд авах).",
+    # Pay changes are hidden here: the salary right gates them, and they are in GOV_SALARY.
+    # app/hr_sql/views.py (GOV_EVENTS statement: WHERE excludes EventType.SALARY_CHANGE)
+    "Pay changes (salary_change) are not in this view; see GOV_SALARY (salary right).",
+    # The status words: STATUS_NAME is computed in the view from the cancel and signature dates.
+    # app/hr_sql/views.py (GOV_EVENTS statement)
+    "STATUS_NAME codes: cancelled = the change was cancelled and no longer applies; awaiting_signature = waiting for the order to be signed, so not yet taken into effect; applied = the order is signed and the change is taken into effect.",
+    # A change that is applied but not yet started: compare the date with today.
+    # app/hr_sql/views.py (GOV_EVENTS statement: EFFECTIVE_DATE is the date the change starts)
+    "To tell a change that has not started yet from one in force, compare EFFECTIVE_DATE with today's date. A status of applied with an EFFECTIVE_DATE after today means the change is signed but not yet started.",
+    # The order itself is in GOV_ORDERS; the periods it produces are in GOV_JOB_HISTORY.
+    # app/hr_sql/views.py (GOV_ORDERS, GOV_JOB_HISTORY)
+    "Use GOV_ORDERS for the order number and the order date of a change, and GOV_JOB_HISTORY for the job periods the change produced.",
+    # The leaving reason name is filled only for a termination.
+    # app/employees/models.py (Event.fired_reason)
+    "FIRED_REASON_NAME is the leaving reason from the production list. It is filled only for a termination, and empty otherwise.",
+    # The planned return of a long leave.
+    # app/employees/models.py (Event.expected_return)
+    "EXPECTED_RETURN is the planned return date of a long leave, and is empty for other changes.",
+    # Free text and the internal links are not in this view and are never shown.
+    # app/hr_sql/views.py (GOV_EVENTS statement: no reason, note, cancel reason, creator, canceller, pension flag, proposal or times)
+    "The reason text, the free-text note, the cancel reason, the proposed change, who recorded or cancelled the change, the pension flag, and the creation and cancel times are not in this view and cannot be shown.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "EVENT_ID"
+description = "Change number (internal id)"
+description_mn = "Өөрчлөлтийн дугаар (дотоод)"
+label_mn = "Өөрчлөлтийн дугаар"
+synonyms = ["id", "event number"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "EVENT_TYPE"
+description = "Type of the change as a code: transfer, promotion, termination and so on (see the rules)"
+description_mn = "Өөрчлөлтийн төрөл, код: transfer, promotion, termination гэх мэт (дүрмийг үз)"
+label_mn = "Өөрчлөлтийн төрөл"
+synonyms = ["type", "change", "kind", "event type"]
+
+[[columns]]
+name = "EFFECTIVE_DATE"
+description = "Date the change takes effect"
+description_mn = "Өөрчлөлт хүчин төгөлдөр болох огноо"
+label_mn = "Хүчинтэй огноо"
+synonyms = ["effective", "date", "from", "start"]
+
+[[columns]]
+name = "FIRED_REASON_NAME"
+description = "Leaving reason from the production list; filled only for a termination"
+description_mn = "Ажлаас гарсан шалтгаан (бүртгэлийн жагсаалтаас); зөвхөн ажлаас чөлөөлөлтөд бөглөгдөнө"
+label_mn = "Ажлаас гарсан шалтгаан"
+synonyms = ["leaving reason", "fired reason", "termination reason"]
+
+[[columns]]
+name = "EXPECTED_RETURN"
+description = "Planned return date of a long leave; empty for other changes"
+description_mn = "Урт чөлөөнөөс буцах төлөвлөсөн огноо; бусад өөрчлөлтөд хоосон"
+label_mn = "Буцах төлөвлөсөн огноо"
+synonyms = ["return date", "expected return", "back"]
+
+[[columns]]
+name = "STATUS_NAME"
+description = "Status of the change as a word: cancelled, awaiting_signature or applied (see the rules)"
+description_mn = "Өөрчлөлтийн төлөв, үгээр: cancelled, awaiting_signature эсвэл applied (дүрмийг үз)"
+label_mn = "Төлөв"
+synonyms = ["status", "state"]

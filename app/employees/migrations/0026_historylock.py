@@ -4,21 +4,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('employees', '0025_period_to_start_end'),
+        ("employees", "0025_period_to_start_end"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='HistoryLock',
+            name="HistoryLock",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('employee_id', models.IntegerField(unique=True)),
-                ('counter', models.IntegerField(default=0)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("employee_id", models.IntegerField(unique=True)),
+                ("counter", models.IntegerField(default=0)),
             ],
             options={
-                'default_permissions': (),
+                "default_permissions": (),
             },
         ),
     ]

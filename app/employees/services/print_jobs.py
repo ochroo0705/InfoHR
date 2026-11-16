@@ -128,7 +128,9 @@ def start(user: User, ids: Sequence[int]) -> str:
     if getattr(settings, "PRINT_JOBS_INLINE", False):
         run(token, user.pk, list(ids))
     else:
-        threading.Thread(target=_run_in_thread, args=(token, user.pk, list(ids)), daemon=True, name=f"print-{token[:6]}").start()
+        threading.Thread(
+            target=_run_in_thread, args=(token, user.pk, list(ids)), daemon=True, name=f"print-{token[:6]}"
+        ).start()
     return token
 
 

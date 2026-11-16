@@ -17,9 +17,9 @@
 --   If another name is wanted, change it here and in the environment variable.
 --
 -- WHAT IS GRANTED
---   1. SELECT on the six governed views: GOV_EMPLOYEES, GOV_CHILDREN, GOV_LEAVE, GOV_ORDERS, GOV_SALARY and
---      GOV_LOANS. Firebird 3 runs a view with the rights of the view's owner (the administrator who installed
---      it), so this login needs no right on the MACS or IHR_ tables behind them.
+--   1. SELECT on the governed views listed in the GRANT lines below. Firebird 3 runs a view with the rights of the
+--      view's owner (the administrator who installed it), so this login needs no right on the MACS or IHR_ tables
+--      behind them.
 --   2. SELECT, INSERT, DELETE on the scope table GOV_SCOPE. The host fills it per query and it empties at each commit.
 --
 -- WHAT IS NEVER GRANTED
@@ -35,6 +35,17 @@ GRANT SELECT ON GOV_LEAVE TO MACS_GOV_RT;
 GRANT SELECT ON GOV_ORDERS TO MACS_GOV_RT;
 GRANT SELECT ON GOV_SALARY TO MACS_GOV_RT;
 GRANT SELECT ON GOV_LOANS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_EDUCATION TO MACS_GOV_RT;
+GRANT SELECT ON GOV_QUALIFICATIONS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_CERTIFICATES TO MACS_GOV_RT;
+GRANT SELECT ON GOV_AWARDS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_GIFTS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_JOB_HISTORY TO MACS_GOV_RT;
+GRANT SELECT ON GOV_EVENTS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_ENTITLEMENTS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_LEAVE_REQUESTS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_DEPARTMENTS TO MACS_GOV_RT;
+GRANT SELECT ON GOV_POSITIONS TO MACS_GOV_RT;
 GRANT SELECT, INSERT, DELETE ON GOV_SCOPE TO MACS_GOV_RT;
 
 COMMIT;

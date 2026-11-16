@@ -1,0 +1,93 @@
+# Draft. English from the model labels in app/macs/models.py (CertificateRow and SpecEduType). Mongolian drafted from the
+# same labels; check the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per special education or certificate record of an employee you may see: the certificate type, the organisation, the certificate number and date, the end date, the profession, the special profession and the year. Use it to answer questions about an employee's certificates and special education. Many rows can belong to one person."
+description_mn = "Харах эрхтэй ажилтны тусгай боловсрол, сертификатын бүртгэл бүрийн нэг мөр: сертификатын төрөл, байгууллага, гэрчилгээний дугаар ба огноо, дуусах огноо, мэргэжил, тусгай мэргэжил, он. Нэг ажилтанд хэд хэдэн мөр байж болно."
+
+rules = [
+    # One row per certificate or special education record, not per person: one person can have many rows.
+    # app/hr_sql/views.py (GOV_CERTIFICATES statement)
+    "One row per certificate or special education record, so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # CERTIFICATE_TYPE_NAME is empty when the record has no type that can be found.
+    # app/hr_sql/views.py (GOV_CERTIFICATES statement, LEFT JOIN to the special education type)
+    "CERTIFICATE_TYPE_NAME is the name of the special education type. It is empty when the type is not recorded.",
+    # ORGANISATION is the name of the organisation that issued the certificate; CERTIFICATE_NUMBER and CERTIFICATE_DATE can be empty.
+    # app/macs/models.py (CertificateRow.org_edu, CertificateRow.certify_number, CertificateRow.certify_date)
+    "ORGANISATION is the organisation that issued the certificate. CERTIFICATE_NUMBER and CERTIFICATE_DATE can be empty when they are not recorded.",
+    # END_DATE, PROFESSION and SPECIAL_PROFESSION are optional; CERTIFICATE_YEAR is always filled.
+    # app/macs/models.py (CertificateRow.end_date, CertificateRow.profession, CertificateRow.spec_profession, CertificateRow.certify_year)
+    "END_DATE, PROFESSION and SPECIAL_PROFESSION can be empty. CERTIFICATE_YEAR is always filled, so use it when CERTIFICATE_DATE is empty.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "CERTIFICATE_ID"
+description = "Certificate record number (internal id)"
+description_mn = "Сертификатын бүртгэлийн дугаар (дотоод)"
+label_mn = "Бүртгэлийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "CERTIFICATE_TYPE_NAME"
+description = "Special education or certificate type name (empty when not recorded)"
+description_mn = "Тусгай боловсрол, сертификатын төрөл (бүртгэгдээгүй бол хоосон)"
+label_mn = "Сертификатын төрөл"
+synonyms = ["certificate", "type", "special education"]
+
+[[columns]]
+name = "ORGANISATION"
+description = "Name of the organisation that issued the certificate"
+description_mn = "Сертификат олгосон байгууллагын нэр"
+label_mn = "Байгууллагын нэр"
+synonyms = ["organization", "issuer", "institution"]
+
+[[columns]]
+name = "CERTIFICATE_NUMBER"
+description = "Certificate number (empty when not recorded)"
+description_mn = "Гэрчилгээний дугаар (бүртгэгдээгүй бол хоосон)"
+label_mn = "Гэрчилгээний дугаар"
+synonyms = ["certificate no", "number"]
+
+[[columns]]
+name = "CERTIFICATE_DATE"
+description = "Date the certificate was issued (empty when not recorded)"
+description_mn = "Гэрчилгээ олгосон огноо (бүртгэгдээгүй бол хоосон)"
+label_mn = "Олгосон огноо"
+synonyms = ["issued", "date", "certified"]
+
+[[columns]]
+name = "END_DATE"
+description = "Date the certificate or special education ended (empty when not recorded)"
+description_mn = "Гэрчилгээ, тусгай боловсрол дууссан огноо (бүртгэгдээгүй бол хоосон)"
+label_mn = "Дууссан огноо"
+synonyms = ["to", "end", "finish", "expiry"]
+
+[[columns]]
+name = "PROFESSION"
+description = "Profession named on the certificate (empty when not recorded)"
+description_mn = "Гэрчилгээнд заасан мэргэжил (бүртгэгдээгүй бол хоосон)"
+label_mn = "Мэргэжил"
+synonyms = ["profession", "job", "occupation"]
+
+[[columns]]
+name = "SPECIAL_PROFESSION"
+description = "Special profession named on the certificate (empty when not recorded)"
+description_mn = "Гэрчилгээнд заасан тусгай мэргэжил (бүртгэгдээгүй бол хоосон)"
+label_mn = "Тусгай мэргэжил"
+synonyms = ["special profession", "specialty", "speciality"]
+
+[[columns]]
+name = "CERTIFICATE_YEAR"
+description = "Year of the certificate"
+description_mn = "Гэрчилгээний он"
+label_mn = "Гэрчилгээний он"
+synonyms = ["year"]

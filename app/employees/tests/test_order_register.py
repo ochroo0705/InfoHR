@@ -11,6 +11,7 @@ from macs.models import Command, Employee
 
 from employees.models import CompanySettings, HrOrder, OrderState, OrderType
 from employees.services import macs_writes
+from employees.services.order_register import register_page, register_rows
 
 from .conftest import link_login
 from .test_views import login_as
@@ -147,3 +148,83 @@ def test_order_year_shows_on_the_work_tab_and_other_orders(hr: Client, hired: Em
     make_order(hired, "7", date(2026, 2, 3))  # no change behind it: listed under «Бусад тушаал»
     body = hr.get(reverse("employees:detail", args=[hired.pk])).content.decode()
     assert "№ 7 / 2026" in body
+
+
+def _numbers(sort: str) -> list[str]:
+    user = User.objects.get(username="hr1")
+    return [
+        r.number for r in register_rows(user, year=None, order_type=None, department_id=None, state=None, sort=sort)
+    ]
+
+
+def test_register_sort_by_date_oldest_first_and_default_newest_first(hr: Client, hired: Employee) -> None:
+    HrOrder.objects.filter(employee=hired).delete()
+    make_order(hired, "1", date(2026, 1, 1))
+    make_order(hired, "2", date(2026, 3, 1))
+    assert _numbers("date") == ["1", "2"]
+    assert _numbers("-date") == ["2", "1"]
+    assert _numbers("bogus") == ["2", "1"]  # an unknown value is the default
+    user = User.objects.get(username="hr1")
+    page, more = register_page(
+        user, year=None, order_type=None, department_id=None, state=None, offset=0, size=1, sort="date"
+    )
+    assert [r.number for r in page] == ["1"] and more
+
+
+def test_register_sort_by_employee_name_ascending(hr: Client, hired: Employee, actor: User) -> None:
+    HrOrder.objects.filter(employee=hired).delete()
+    other = macs_writes.create_employee(
+        {"family_name": "Ааа", "given_name": "Дорж", "register_no": "УБ55667788"}, {}, code="E10", by=actor
+    )
+    make_order(hired, "1", date(2026, 1, 1))
+    make_order(other, "2", date(2026, 1, 2))
+    user = User.objects.get(username="hr1")
+    names = [
+        r.employee_name
+        for r in register_rows(user, year=None, order_type=None, department_id=None, state=None, sort="employee")
+    ]
+    assert len(set(names)) == 2 and names == sorted(names)
+    desc = [
+        r.employee_name
+        for r in register_rows(user, year=None, order_type=None, department_id=None, state=None, sort="-employee")
+    ]
+    assert desc == names[::-1]
+
+
+def test_orders_page_sort_marks_the_active_header(hr: Client, hired: Employee) -> None:
+    HrOrder.objects.filter(employee=hired).delete()
+    make_order(hired, "1", date(2026, 1, 1))
+    resp = hr.get("/employees/orders/", {"sort": "number"})
+    assert resp.status_code == 200
+    assert 'aria-sort="ascending"' in resp.content.decode()
+    default = hr.get("/employees/orders/", {"sort": "bogus"}).content.decode()
+    assert 'aria-sort="descending"' in default  # the date column, newest first
+
+
+@pytest.mark.parametrize("sort", ["number", "-number", "employee", "-employee", "date", "-date"])
+def test_register_batches_join_up_to_the_whole_register_in_every_sort(
+    hr: Client, hired: Employee, actor: User, sort: str
+) -> None:
+    # «Цааш харуулах» batches must neither drop nor repeat a row, whatever the column: mixed-case and Cyrillic
+    # names, an empty number and equal numbers included.
+    HrOrder.objects.filter(employee=hired).delete()
+    other = macs_writes.create_employee(
+        {"family_name": "өлзий", "given_name": "Бат", "register_no": "УБ55667789"}, {}, code="E11", by=actor
+    )
+    for i, (who, number) in enumerate([(hired, "10"), (other, "2"), (hired, ""), (other, "2"), (hired, "b7")]):
+        make_order(who, number, date(2026, 1, 1 + i))
+    user = User.objects.get(username="hr1")
+    filters: dict[str, Any] = {"year": None, "order_type": None, "department_id": None, "state": None, "sort": sort}
+    whole = register_rows(user, **filters)
+    joined, offset, more = [], 0, True
+    while more:
+        batch, more = register_page(user, **filters, offset=offset, size=2)
+        joined += batch
+        offset += 2
+    assert [(r.order_id, r.command_id) for r in joined] == [(r.order_id, r.command_id) for r in whole]
+
+def test_number_sort_reads_digits_as_numbers_and_ignores_case() -> None:
+    from employees.services.order_register import _natural
+
+    numbers = ["10/2026", "2/2026", "Б/9", "б/10", ""]
+    assert sorted(numbers, key=_natural) == ["", "2/2026", "10/2026", "Б/9", "б/10"]

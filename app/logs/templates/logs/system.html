@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Системийн бүртгэл{% endblock %}
+{# List page: full width (UI_RULES §4) #}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
 {% block content %}
 <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
   {% include "logs/_tabs.html" with current="system" %}

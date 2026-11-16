@@ -17,87 +17,94 @@ UPDATE employees_salaryrecord SET period = daterange(start_date, end_date, '[)')
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('employees', '0024_firebird_reserved_columns'),
-        ('macs', '0025_department_parent'),
+        ("employees", "0024_firebird_reserved_columns"),
+        ("macs", "0025_department_parent"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='jobrecord',
-            name='start_date',
-            field=models.DateField(null=True, verbose_name='Эхлэх огноо'),
+            model_name="jobrecord",
+            name="start_date",
+            field=models.DateField(null=True, verbose_name="Эхлэх огноо"),
         ),
         migrations.AddField(
-            model_name='jobrecord',
-            name='end_date',
-            field=models.DateField(blank=True, null=True, verbose_name='Дуусах огноо'),
+            model_name="jobrecord",
+            name="end_date",
+            field=models.DateField(blank=True, null=True, verbose_name="Дуусах огноо"),
         ),
         migrations.AddField(
-            model_name='salaryrecord',
-            name='start_date',
-            field=models.DateField(null=True, verbose_name='Эхлэх огноо'),
+            model_name="salaryrecord",
+            name="start_date",
+            field=models.DateField(null=True, verbose_name="Эхлэх огноо"),
         ),
         migrations.AddField(
-            model_name='salaryrecord',
-            name='end_date',
-            field=models.DateField(blank=True, null=True, verbose_name='Дуусах огноо'),
+            model_name="salaryrecord",
+            name="end_date",
+            field=models.DateField(blank=True, null=True, verbose_name="Дуусах огноо"),
         ),
         migrations.AlterModelOptions(
-            name='jobrecord',
-            options={'ordering': ['employee', '-start_date'], 'verbose_name': 'Ажлын түүх', 'verbose_name_plural': 'Ажлын түүх'},
+            name="jobrecord",
+            options={
+                "ordering": ["employee", "-start_date"],
+                "verbose_name": "Ажлын түүх",
+                "verbose_name_plural": "Ажлын түүх",
+            },
         ),
         migrations.AlterModelOptions(
-            name='salaryrecord',
-            options={'ordering': ['employee', '-start_date'], 'verbose_name': 'Цалингийн түүх', 'verbose_name_plural': 'Цалингийн түүх'},
+            name="salaryrecord",
+            options={
+                "ordering": ["employee", "-start_date"],
+                "verbose_name": "Цалингийн түүх",
+                "verbose_name_plural": "Цалингийн түүх",
+            },
         ),
         # Makes the old column nullable so that reversing the RemoveField below can re-add it before the data
         # is rebuilt from the dates.
         migrations.AlterField(
-            model_name='jobrecord',
-            name='period',
-            field=DateRangeField(null=True, verbose_name='Хугацаа'),
+            model_name="jobrecord",
+            name="period",
+            field=DateRangeField(null=True, verbose_name="Хугацаа"),
         ),
         migrations.AlterField(
-            model_name='salaryrecord',
-            name='period',
-            field=DateRangeField(null=True, verbose_name='Хугацаа'),
+            model_name="salaryrecord",
+            name="period",
+            field=DateRangeField(null=True, verbose_name="Хугацаа"),
         ),
         migrations.RunSQL(sql=COPY_TO_DATES, reverse_sql=COPY_TO_RANGE),
         migrations.RemoveConstraint(
-            model_name='jobrecord',
-            name='job_record_no_overlap',
+            model_name="jobrecord",
+            name="job_record_no_overlap",
         ),
         migrations.RemoveConstraint(
-            model_name='salaryrecord',
-            name='salary_record_no_overlap',
+            model_name="salaryrecord",
+            name="salary_record_no_overlap",
         ),
         migrations.RemoveField(
-            model_name='jobrecord',
-            name='period',
+            model_name="jobrecord",
+            name="period",
         ),
         migrations.RemoveField(
-            model_name='salaryrecord',
-            name='period',
+            model_name="salaryrecord",
+            name="period",
         ),
         migrations.AlterField(
-            model_name='jobrecord',
-            name='start_date',
-            field=models.DateField(verbose_name='Эхлэх огноо'),
+            model_name="jobrecord",
+            name="start_date",
+            field=models.DateField(verbose_name="Эхлэх огноо"),
         ),
         migrations.AlterField(
-            model_name='salaryrecord',
-            name='start_date',
-            field=models.DateField(verbose_name='Эхлэх огноо'),
+            model_name="salaryrecord",
+            name="start_date",
+            field=models.DateField(verbose_name="Эхлэх огноо"),
         ),
         migrations.AddConstraint(
-            model_name='jobrecord',
-            constraint=models.UniqueConstraint(fields=('employee', 'start_date'), name='job_record_one_start'),
+            model_name="jobrecord",
+            constraint=models.UniqueConstraint(fields=("employee", "start_date"), name="job_record_one_start"),
         ),
         migrations.AddConstraint(
-            model_name='salaryrecord',
-            constraint=models.UniqueConstraint(fields=('employee', 'start_date'), name='salary_record_one_start'),
+            model_name="salaryrecord",
+            constraint=models.UniqueConstraint(fields=("employee", "start_date"), name="salary_record_one_start"),
         ),
     ]

@@ -1,0 +1,3 @@
+{% load hr %}
+{# The inline editor of one employee field in a report cell (reports.cell_edit, decision D-080). Context: form (the EmployeeForm), field (its bound field), loaded (the snapshot posted back after a failed save; empty = the form's own), error (the message of a failed save). The form posts to the same address; the JS swaps the cell. #}
+<form data-cell-form method="post" action="" class="flex flex-col gap-1">{% csrf_token %}<input type="hidden" name="loaded" value="{% if loaded %}{{ loaded }}{% else %}{{ form|loaded_snapshot }}{% endif %}">{{ field }}{% if error %}<p class="text-xs text-red-700" data-cell-error>{{ error }}</p>{% endif %}</form>

@@ -8,8 +8,9 @@
 
   const PREFIX = "hr.reportQuery.";
   const REPORT_PATH = /^\/reports\/([^/]+)\/$/;
-  // The day and the calendar month are dated: a setup that keeps them would open an old page weeks later.
-  const DATED_PARAMS = ["as_of", "lmonth", "lweek"];
+  // The day, the calendar month and the search are not remembered. The day and month are dated: a setup that keeps them
+  // would open an old page weeks later. The search would hide rows on the next visit, with no sign of why (UI_RULES §4b).
+  const NOT_REMEMBERED = ["as_of", "lmonth", "lweek", "q"];
 
   // ---- Pure helpers (no DOM) ----
 
@@ -20,10 +21,10 @@
     return PREFIX + "u" + userId + "." + m[1];
   }
 
-  // True for a dated parameter, also when its name is percent-encoded (the server decodes it). A name that cannot be
-  // decoded is treated as not remembered.
+  // True for a parameter that is not remembered, also when its name is percent-encoded (the server decodes it). A name
+  // that cannot be decoded is treated as not remembered.
   function isDated(name) {
-    try { return DATED_PARAMS.indexOf(decodeURIComponent(name)) !== -1; } catch (e) { return true; }
+    try { return NOT_REMEMBERED.indexOf(decodeURIComponent(name)) !== -1; } catch (e) { return true; }
   }
 
   // The query to remember: the dated parameters dropped, the rest kept as they were written (not re-encoded).

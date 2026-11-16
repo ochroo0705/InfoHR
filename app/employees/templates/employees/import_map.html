@@ -1,5 +1,8 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Баганы холбоо{% endblock %}
+{# List page: full width (UI_RULES §4) #}
+{% block main_width %}max-w-none px-4 sm:px-6{% endblock %}
 {% block content %}
 <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
   <h1 class="text-xl font-semibold">Баганы холбоо</h1>
@@ -38,7 +41,14 @@
   <input type="hidden" name="ai_cols" value="{{ ai_cols }}">
   <section>
     <h2 class="sec-title mb-3">Баганууд</h2>
-    <div class="ptable overflow-x-auto">
+    {% if ai_pending %}
+    <p id="ai-status" role="status" aria-live="polite" data-url="{% url 'employees:import_map' draft.pk %}?ai=1" class="mb-3 flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-900">
+      <svg data-ai-spinner aria-hidden="true" class="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round"/></svg>
+      <span data-ai-text>AI үлдсэн баганыг тааруулж байна… Хүлээх шаардлагагүй, гараар холбож болно.</span>
+    </p>
+    <script src="{% static 'js/import_map.js' %}" defer></script>
+    {% endif %}
+    <div class="ptable ptable-fit">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-slate-500">

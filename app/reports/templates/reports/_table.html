@@ -1,7 +1,7 @@
 {% load hr %}
 {# tailwind: bg-red-50 text-red-700 bg-amber-50 text-amber-800 bg-green-50 text-green-700 bg-blue-50 text-blue-700 bg-slate-100 text-slate-600 sticky z-10 w-[12rem] min-w-[12rem] max-w-[12rem] truncate overflow-x-auto #}
-<div class="ptable">
-  <table>
+<div class="ptable ptable-fit">
+  <table data-grid data-bulk-url="{% url 'reports:cells_bulk' %}" tabindex="0" aria-label="Хүснэгт: сумаар шилжинэ">
     <thead>
       <tr>
         {% if selectable %}<th class="{{ check_css }}"{% if check_style %} style="{{ check_style }}"{% endif %}><input type="checkbox" data-select-all autocomplete="off" aria-label="Бүгдийг сонгох"></th>{% endif %}

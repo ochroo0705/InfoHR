@@ -33,6 +33,9 @@ EMPLOYEE_TEXT_KEYS = (
     "social_insurance_no",
     "health_insurance_no",
     "taxpayer_no",
+    "clan_name",
+    "phone2",
+    "contract_no",
 )
 MAX_LENGTH: dict[str, int | None] = {
     key: getattr(Employee._meta.get_field(key), "max_length", None) for key in EMPLOYEE_TEXT_KEYS
@@ -41,7 +44,58 @@ MAX_LENGTH: dict[str, int | None] = {
 # A default never fills these: a default identity or birth date would be the same for every row,
 # and a default birth date or gender would beat the derivation from the register number.
 NO_DEFAULT_KEYS = ("register_no", "passport_no", "birth_date", "gender")
-PHONE_KEYS = ("work_phone", "private_phone")
+PHONE_KEYS = ("work_phone", "private_phone", "phone2")
+MAX_YEARS = 80
+YES_NO = {"тийм": True, "yes": True, "y": True, "1": True, "үгүй": False, "no": False, "n": False, "0": False}
+# Fixed-choice columns: key -> (accepted text -> stored value, hint shown when the text is not one of them).
+CHOICES: dict[str, tuple[dict[str, str], str]] = {
+    "blood_type": (
+        {
+            "o": "O",
+            "i": "O",
+            "1": "O",
+            "i (o)": "O",
+            "а": "A",
+            "a": "A",
+            "ii": "A",
+            "2": "A",
+            "ii (a)": "A",
+            "b": "B",
+            "iii": "B",
+            "3": "B",
+            "iii (b)": "B",
+            "ab": "AB",
+            "iv": "AB",
+            "4": "AB",
+            "iv (ab)": "AB",
+        },
+        "O, A, B, AB эсвэл I, II, III, IV",
+    ),
+    "employee_type": (
+        {
+            "үндсэн, бүтэн цаг": "full_time",
+            "үндсэн": "full_time",
+            "бүтэн цаг": "full_time",
+            "full_time": "full_time",
+            "хагас цаг": "part_time",
+            "part_time": "part_time",
+            "гэрээт": "contract",
+            "contract": "contract",
+            "дадлагжигч": "intern",
+            "intern": "intern",
+        },
+        "Үндсэн, Хагас цаг, Гэрээт эсвэл Дадлагжигч",
+    ),
+    "contract_type": (
+        {
+            "хугацаагүй": "open_ended",
+            "open_ended": "open_ended",
+            "хугацаатай": "fixed_term",
+            "fixed_term": "fixed_term",
+        },
+        "Хугацаагүй эсвэл Хугацаатай",
+    ),
+}
 PHONE_TEXT = re.compile(r"[0-9+\- ]+")
 EMAIL_TEXT = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 # Money: comma groups (1,000,000), space or apostrophe groups (1 000 000), or plain digits; an optional dot decimal.
@@ -195,10 +249,41 @@ def _gender(field: ImportField, raw: object, errors: list[str]) -> str | None:
     return code
 
 
+def _int_years(field: ImportField, raw: object, errors: list[str]) -> int | None:
+    text = _as_text(raw)
+    if not text.isascii() or not text.isdecimal() or int(text) > MAX_YEARS:
+        errors.append(f"{field.label} буруу байна (0-ээс {MAX_YEARS} хүртэлх бүхэл тоо)")
+        return None
+    return int(text)
+
+
+def _yes_no(field: ImportField, raw: object, errors: list[str]) -> bool | None:
+    if isinstance(raw, bool):
+        return raw
+    answer = YES_NO.get(_as_text(raw).lower())
+    if answer is None:
+        errors.append(f"{field.label} буруу байна (Тийм эсвэл Үгүй)")
+    return answer
+
+
+def _choice(field: ImportField, raw: object, errors: list[str]) -> str | None:
+    accepted, hint = CHOICES[field.key]
+    code = accepted.get(" ".join(_as_text(raw).lower().split()))
+    if code is None:
+        errors.append(f"{field.label} буруу байна ({hint})")
+    return code
+
+
 def _parse_value(field: ImportField, raw: object, date_format: str, errors: list[str]) -> Any:
-    if isinstance(raw, bool) and field.kind not in ("date", "money"):
+    if isinstance(raw, bool) and field.kind not in ("date", "money", "yesno"):
         errors.append(f"{field.label} буруу байна")
         return None
+    if field.kind == "int":
+        return _int_years(field, raw, errors)
+    if field.kind == "yesno":
+        return _yes_no(field, raw, errors)
+    if field.key in CHOICES:
+        return _choice(field, raw, errors)
     if field.key == "register_no":
         return _register_no(field, raw, errors)
     if field.key == "passport_no":

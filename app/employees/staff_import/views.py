@@ -11,7 +11,7 @@ from accounts.roles import ADMIN
 from django import forms
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -21,6 +21,7 @@ from macs.models import Country, Department, Position
 from employees import access
 from employees.forms import StyledForm
 from employees.models import STAFF_IMPORT_DATE_FORMATS, StaffImportDraft, StaffImportSettings
+from employees.services.personal_writes import TITLES
 from employees.staff_import import ai_match, matching, plan, reader, run, template
 from employees.staff_import.fields import BY_KEY, FIELDS
 from employees.staff_import.rows import DATE_FORMATS
@@ -197,6 +198,7 @@ def _render_map(
     errors: list[str] | None = None,
     missing: list[str] | None = None,
     ai_suggested: dict[str, str] | None = None,
+    ai_pending: bool = False,
 ) -> HttpResponse:
     user = _user(request)
     allow_salary = access.can_manage_salary(user)
@@ -228,6 +230,7 @@ def _render_map(
         "errors": errors or [],
         "missing": missing or [],
         "allow_salary": allow_salary,
+        "ai_pending": ai_pending,
         "ai_cols": ",".join(f"{column['index']}:{column['key']}" for column in columns if column["ai"]),
         **_choices(user),
     }
@@ -253,16 +256,16 @@ def import_map(request: HttpRequest, pk: Any) -> HttpResponse:
 
     allow_salary = access.can_manage_salary(user)
     settings_row = StaffImportSettings.get()
-    ai_suggested: dict[str, str] = {}
+    if request.GET.get("ai") == "1":  # asked by the page after it showed: the AI's guesses, as JSON
+        return _ai_suggestions(draft, headings, settings_row, allow_salary)
+    ai_pending = False
     if draft.mapping:  # the mapping was saved before: show what was saved
         mapping = dict(draft.mapping)
         defaults = dict(draft.defaults)
         date_format = draft.date_format
-    else:  # first visit: guess the columns from the headings and the last import, then ask the AI for the rest
+    else:  # first visit: guess the columns from the headings and the last import; the AI is asked after the page shows
         mapping = matching.auto_match(headings, remembered=settings_row.mapping, allow_salary=allow_salary)
-        suggested = ai_match.suggest_columns(headings, mapping, allow_salary=allow_salary)
-        mapping = {**mapping, **suggested}
-        ai_suggested = suggested
+        ai_pending = ai_match.will_ask(headings, mapping, allow_salary=allow_salary)
         defaults = {key: value for key, value in settings_row.defaults.items() if key != "start"}
         date_format = settings_row.date_format
     start = _iso(str(draft.defaults.get("start", "")), draft.date_format) if draft.mapping else ""
@@ -276,8 +279,20 @@ def import_map(request: HttpRequest, pk: Any) -> HttpResponse:
         date_format=date_format,
         sheet=draft.sheet,
         header_rows=draft.header_rows,
-        ai_suggested=ai_suggested,
+        ai_pending=ai_pending,
     )
+
+
+def _ai_suggestions(
+    draft: StaffImportDraft, headings: list[str], settings_row: StaffImportSettings, allow_salary: bool
+) -> JsonResponse:
+    """The AI's column guesses for a first visit, for the columns the plain matcher left empty. After a mapping was
+    saved the AI is not asked again. The slow call happens here, so the page itself never waits for it."""
+    if draft.mapping:
+        return JsonResponse({"suggestions": {}})
+    mapping = matching.auto_match(headings, remembered=settings_row.mapping, allow_salary=allow_salary)
+    suggested = ai_match.suggest_columns(headings, mapping, allow_salary=allow_salary)
+    return JsonResponse({"suggestions": suggested})
 
 
 def _reread(request: HttpRequest, draft: StaffImportDraft, headings: list[str]) -> HttpResponse:
@@ -461,8 +476,23 @@ def import_preview(request: HttpRequest, pk: Any) -> HttpResponse:
         "error": PREVIEW_ERRORS.get(request.GET.get("err", ""), ""),
         "ignored": ignored,
         "allow_salary": allow_salary,
+        "list_sheets": [
+            {
+                "title": sheet.sheet.title,
+                "total": len(sheet.rows),
+                "ok": sheet.ok,
+                "refused": sheet.refused,
+                "notes": _list_notes(sheet.rows),
+            }
+            for sheet in preview.lists.values()
+        ],
     }
     return render(request, "employees/import_preview.html", context)
+
+
+def _list_notes(rows: list[Any]) -> list[str]:
+    """Up to five «row N: reason» lines of the refused rows of one list sheet."""
+    return [f"Мөр {row.number}: {'; '.join(row.errors)}" for row in rows if row.status != "ok"][:5]
 
 
 def _back_to_preview(draft: StaffImportDraft, code: str) -> HttpResponse:
@@ -507,20 +537,35 @@ def import_result(request: HttpRequest, pk: Any) -> HttpResponse:
         return redirect("employees:import_map", pk=draft.pk)
     if draft.state == "running":
         return redirect("employees:import_preview", pk=draft.pk)
-    return render(request, "employees/import_result.html", {"draft": draft})
+    list_results = [
+        {"title": TITLES[kind], "added": counts[0], "refused": counts[1]}
+        for kind, counts in (draft.list_results or {}).items()
+        if kind in TITLES
+    ]
+    context = {
+        "draft": draft,
+        "list_results": list_results,
+        "list_refused": sum(item["refused"] for item in list_results),
+    }
+    return render(request, "employees/import_result.html", context)
 
 
 @login_required
 @require_GET
 def import_rejected(request: HttpRequest, pk: Any) -> HttpResponse:
     draft = _draft(request, pk)
-    if draft.state != "imported" or not draft.rejected_file:
+    if draft.state != "imported" or not draft.rejected_file:  # also holds refused list rows, which rejected_count omits
         raise Http404
     response = HttpResponse(bytes(draft.rejected_file), content_type=XLSX)
     # An ASCII name for old clients, and the Mongolian name for the rest (RFC 5987).
     disposition = f"attachment; filename=\"rejected-rows.xlsx\"; filename*=UTF-8''{quote(REJECTED_NAME)}"
     response["Content-Disposition"] = disposition
-    record_export(request, "staff_import_rejected_download", "Алдаатай мөрүүд", rows=draft.rejected_count)
+    record_export(
+        request,
+        "staff_import_rejected_download",
+        "Алдаатай мөрүүд",
+        rows=draft.rejected_count + sum(c[1] for c in (draft.list_results or {}).values()),
+    )
     return response
 
 

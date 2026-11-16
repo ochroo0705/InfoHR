@@ -203,10 +203,10 @@ def test_defaults_never_fill_register_or_passport() -> None:
 
 
 def test_unknown_default_key_is_ignored() -> None:
-    row = _parse(defaults={"nationality": "Монгол"})
+    row = _parse(defaults={"favourite_colour": "Цэнхэр"})
 
     assert row.errors == []
-    assert "nationality" not in row.values
+    assert "favourite_colour" not in row.values
 
 
 def test_salary_text_with_spaces_becomes_decimal() -> None:

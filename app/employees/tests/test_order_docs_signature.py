@@ -2,6 +2,7 @@
 the blank line (on paper) or the token (for the on-screen signing step) in that place."""
 
 import io
+import re
 
 import pytest
 from accounts.models import User
@@ -26,9 +27,11 @@ def test_every_starter_puts_the_signature_on_the_director_line(order_type: Order
     """The marker sits in the director's line itself («<marker> /<director>/»), not in a line of its own, so the
     picture lands on that line."""
     texts = [p.text for p in Document(str(order_docs.starter_path(order_type))).paragraphs]
-    marked = [text for text in texts if "{{signature}}" in text]
+    # the editor writes `{{ signature }}` with spaces, the older starters without: both are the same tag
+    marker = re.compile(r"\{\{\s*signature\s*\}\}")
+    marked = [marker.sub("{{signature}}", text) for text in texts if marker.search(text)]
     assert marked == ["{{signature}} /{{ issued_by }}/"]
-    assert "{{signature}}" not in texts  # no paragraph is the marker alone
+    assert not any(marker.fullmatch(text) for text in texts)  # no paragraph is the marker alone
 
 
 def test_render_leaves_the_blank_line_on_the_director_line_by_default(hired: Employee, actor: User) -> None:

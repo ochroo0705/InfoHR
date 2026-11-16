@@ -83,6 +83,7 @@ COLUMNS: tuple[Column, ...] = (
         label="Хүйс",
         value=lambda x: x.person.row.employee.get_gender_display(),
         needs="macs.view_personal",
+        edit="gender",
     ),
 )
 

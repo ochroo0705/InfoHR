@@ -1,0 +1,65 @@
+# Draft. English from the model labels in app/macs/models.py (Entitlement, LeaveTypeRow). Mongolian drafted from the same
+# labels; check the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
+
+description = "One row per leave entitlement of an employee you may see: a grant of leave days for a period, or a negative deduction. Use it for the leave days an employee is due. The free-text comment is not here."
+description_mn = "Харах эрхтэй ажилтны ээлжийн амралтын эрх бүрийн нэг мөр: тодорхой хугацаанд олгосон амралтын хоног, эсвэл хасалт (сөрөг хоног). Ажилтны амралтын үлдэгдэлд ашиглана. Тайлбар энд байхгүй."
+
+rules = [
+    # One row per grant, not per person: one person can have many rows.
+    # app/macs/models.py (Entitlement); app/hr_sql/views.py (GOV_ENTITLEMENTS statement)
+    "One row per leave entitlement (a grant of leave days for a period), so count people with COUNT(DISTINCT EMP_ID), not COUNT(*).",
+    # A negative DAYS is a deduction, not a grant.
+    # app/macs/models.py (Entitlement.ent_days: negative values allowed)
+    "A negative DAYS is a deduction (for example days taken back). Add up DAYS to get the days granted.",
+    # The leave balance: the sum of DAYS here minus the approved leave days in GOV_LEAVE of the same leave type.
+    # app/hr_sql/views.py (GOV_ENTITLEMENTS and GOV_LEAVE statements); STATUS_NAME is set in GOV_LEAVE
+    "The leave balance of a person and a leave type is the sum of DAYS here minus the sum of DAYS of the approved rows of GOV_LEAVE (STATUS_NAME = 'approved') of the same LEAVE_TYPE_NAME.",
+    # The free-text comment is not in the view.
+    # app/macs/models.py (Entitlement.comment); app/hr_sql/views.py (GOV_ENTITLEMENTS statement)
+    "The free-text comment of an entitlement is not in the view.",
+    "Join to GOV_EMPLOYEES on EMP_ID.",
+]
+reviewed_by = ""
+reviewed_on = ""
+
+[[columns]]
+name = "ENTITLEMENT_ID"
+description = "Entitlement record number (internal id)"
+description_mn = "Амралтын эрхийн бүртгэлийн дугаар (дотоод)"
+label_mn = "Эрхийн дугаар"
+synonyms = ["id"]
+
+[[columns]]
+name = "EMP_ID"
+description = "Employee number (links to GOV_EMPLOYEES)"
+description_mn = "Ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
+label_mn = "Ажилтны дугаар"
+synonyms = ["employee", "staff"]
+
+[[columns]]
+name = "LEAVE_TYPE_NAME"
+description = "Leave type name, for example annual leave"
+description_mn = "Амралтын төрөл"
+label_mn = "Амралтын төрөл"
+synonyms = ["type", "leave type"]
+
+[[columns]]
+name = "START_DATE"
+description = "First day of the period the entitlement covers"
+description_mn = "Эрх эхлэх огноо"
+label_mn = "Эхлэх огноо"
+synonyms = ["from", "start"]
+
+[[columns]]
+name = "END_DATE"
+description = "Last day of the period the entitlement covers"
+description_mn = "Эрх дуусах огноо"
+label_mn = "Дуусах огноо"
+synonyms = ["to", "end"]
+
+[[columns]]
+name = "DAYS"
+description = "Leave days granted for the period; negative means a deduction"
+description_mn = "Олгосон амралтын хоног; сөрөг бол хасалт"
+label_mn = "Хоног"
+synonyms = ["days", "entitlement", "balance"]

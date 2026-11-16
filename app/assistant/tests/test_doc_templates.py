@@ -67,6 +67,19 @@ def test_an_order_entry_for_each_type_and_the_uploaded_file_is_noticed() -> None
     assert "өөрийн оруулсан" in hired.note
 
 
+def test_an_order_entry_names_the_in_page_editor_the_letterhead_and_the_word_upload() -> None:
+    root = _root()
+    OrderTemplate.ensure_all()
+    hired = next(e for e in allowed_entries(root, TODAY) if e.key == f"order.template.{OrderType.HIRED.value}")
+    text = " ".join(hired.steps)
+    assert "«Засах»" in text
+    assert "«Урьдчилан харах»" in text
+    assert "«Бланк харуулах»" in text
+    assert "«Анхдагч загварт буцаах»" in text
+    assert "«Word болгон татах»" in text
+    assert ".docx" in text
+
+
 def test_a_user_without_the_template_rights_gets_none(role_user: Callable[[str], User]) -> None:
     ChecklistTemplate.objects.create(kind=ChecklistKind.OFFBOARDING, name="Хаалттай загвар")
     for kind in ("hr", "accountant", "staff", "none"):

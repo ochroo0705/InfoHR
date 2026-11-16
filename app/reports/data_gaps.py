@@ -80,12 +80,14 @@ def rows(user: User, f: Filters) -> list[GapRow]:
 
 
 def _from_staff(col: Column) -> Column:
-    """A staff-list column read from the staff row inside a gap row: the same value and link."""
+    """A staff-list column read from the staff row inside a gap row: the same value, link and corrected record."""
     href = col.href
+    record = col.correct_record
     return replace(
         col,
         value=lambda r: col.value(r.staff),
         href=(lambda r: href(r.staff)) if href is not None else None,
+        correct_record=(lambda r: record(r.staff)) if record is not None else None,
     )
 
 
@@ -93,11 +95,13 @@ def _filled_pct(r: GapRow) -> int:
     return round((r.checked - len(r.missing)) * 100 / r.checked)
 
 
+_DEFAULT_KEYS: tuple[str, ...] = ("code", "name", "department", "position", "missing_count", "filled_pct", "missing")
+_BASE_STAFF_KEYS: tuple[str, ...] = ("code", "name", "department", "position")
+
 COLUMNS: tuple[Column, ...] = (
-    _from_staff(_STAFF_COLUMNS["code"]),
-    _from_staff(_STAFF_COLUMNS["name"]),
-    _from_staff(_STAFF_COLUMNS["department"]),
-    _from_staff(_STAFF_COLUMNS["position"]),
+    *(_from_staff(_STAFF_COLUMNS[key]) for key in _BASE_STAFF_KEYS),
+    # the checked columns that edit a field (register number, phones, e-mail…), so a gap can be fixed from the report
+    *(_from_staff(_STAFF_COLUMNS[key]) for key in CHECKED if _STAFF_COLUMNS[key].edit and key not in _BASE_STAFF_KEYS),
     Column(key="missing_count", label="Дутуу талбар", value=lambda r: len(r.missing), numeric=True, kind="number"),
     Column(key="filled_pct", label="Бүрдэл, %", value=_filled_pct, numeric=True, kind="number"),
     Column(key="missing", label="Дутуу мэдээлэл", value=lambda r: "; ".join(r.missing)),
@@ -116,11 +120,12 @@ REPORT = Report(
     title="Дутуу мэдээлэл",
     filters=("state", "as_of", "branch", "department"),
     columns=COLUMNS,
-    default_columns=tuple(c.key for c in COLUMNS),
+    default_columns=_DEFAULT_KEYS,
     rows=rows,
     needs=("macs.view_employees",),
     source=Employee,
     group_options=("department", "position"),
+    picks_columns=True,
     person=lambda r: r.staff.row.employee.pk,
     photo=lambda r: r.staff.row.employee,
     note=_note,

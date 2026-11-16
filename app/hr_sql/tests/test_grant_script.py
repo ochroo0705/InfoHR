@@ -67,7 +67,7 @@ def test_script_grants_nothing_else() -> None:
         assert match.group("user").upper() == "MACS_GOV_RT", statement
 
 
-def test_script_header_names_all_six_views() -> None:
+def test_script_header_does_not_name_a_fixed_count() -> None:
     header = "\n".join(line for line in SCRIPT.read_text(encoding="utf-8").splitlines() if line.startswith("--"))
-    assert "two governed views" not in header
-    assert "six governed views" in header
+    assert "governed views listed in the GRANT lines" in header
+    assert re.search(r"\bsix\b", header, re.IGNORECASE) is None

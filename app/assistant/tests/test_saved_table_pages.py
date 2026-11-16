@@ -107,6 +107,71 @@ def test_empty_list_says_so(db: None, client: Client, role_user: Callable[[str],
     assert "Хадгалсан хүснэгт бүртгэгдээгүй" in html
 
 
+def _list(client: Client, query: str) -> str:
+    return client.get(reverse("assistant:saved_list") + query).content.decode()
+
+
+def test_list_filters_by_visibility(
+    db: None, client: Client, role_user: Callable[[str], User], gate, host: FakeHost
+) -> None:
+    ann, ben = role_user("staff"), role_user("staff")
+    _saved(ben, "Хамтын жагсаалт", "shared")
+    _saved(ann, "Аннын хувийн", "private")
+    client.force_login(ann)
+
+    shared = _list(client, "?visibility=shared")
+    private = _list(client, "?visibility=private")
+
+    assert "Хамтын жагсаалт" in shared and "Аннын хувийн" not in shared
+    assert "Аннын хувийн" in private and "Хамтын жагсаалт" not in private
+
+
+def test_list_ignores_an_unknown_visibility(
+    db: None, client: Client, role_user: Callable[[str], User], gate, host: FakeHost
+) -> None:
+    ann = role_user("staff")
+    _saved(ann, "Нэг", "shared")
+    _saved(ann, "Хоёр", "private")
+    client.force_login(ann)
+
+    html = _list(client, "?visibility=bogus")
+
+    assert "Нэг" in html and "Хоёр" in html
+
+
+def test_list_search_needs_every_word_in_name_or_author(
+    db: None, client: Client, role_user: Callable[[str], User], gate, host: FakeHost
+) -> None:
+    ann, ben = role_user("staff"), role_user("staff")
+    ben.first_name, ben.last_name = "Бат", "Дорж"
+    ben.save()
+    _saved(ann, "Цалингийн нэгтгэл")
+    _saved(ann, "Чөлөөний жагсаалт")
+    _saved(ben, "Тоо бүртгэл")
+    client.force_login(ann)
+
+    by_name = _list(client, "?q=цалин нэгтгэл")
+    by_author = _list(client, "?q=Дорж")
+    one_word_missing = _list(client, "?q=цалин хоосон")
+
+    assert "Цалингийн нэгтгэл" in by_name and "Чөлөөний жагсаалт" not in by_name
+    assert "Тоо бүртгэл" in by_author and "Цалингийн нэгтгэл" not in by_author
+    assert "Олдсонгүй" in one_word_missing
+
+
+def test_list_search_never_reveals_another_users_private_table(
+    db: None, client: Client, role_user: Callable[[str], User], gate, host: FakeHost
+) -> None:
+    ann, ben = role_user("staff"), role_user("staff")
+    _saved(ben, "Бенийн нууц", "private")
+    client.force_login(ann)
+
+    html = _list(client, "?q=нууц&visibility=private")
+
+    assert "Бенийн нууц" not in html
+    assert "Олдсонгүй" in html
+
+
 def test_closed_gate_gives_404_on_every_saved_address(
     db: None, client: Client, role_user: Callable[[str], User], gate, host: FakeHost, monkeypatch: pytest.MonkeyPatch
 ) -> None:

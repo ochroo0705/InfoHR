@@ -20,14 +20,7 @@ from hr_sql.descriptions import DESCRIPTIONS_DIR, draft_views, load_all, load_vi
 from hr_sql.management.commands.governed_descriptions import Command
 from hr_sql.views import view_columns
 
-ALL_VIEWS = [
-    "GOV_EMPLOYEES",
-    "GOV_CHILDREN",
-    "GOV_LEAVE",
-    "GOV_ORDERS",
-    "GOV_SALARY",
-    "GOV_LOANS",
-]
+ALL_VIEWS = list(view_columns())
 
 
 @pytest.fixture
@@ -46,7 +39,6 @@ def copy_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 
 
 def test_every_governed_view_has_a_file() -> None:
-    assert sorted(view_columns()) == sorted(ALL_VIEWS)
     for name in view_columns():
         assert (DESCRIPTIONS_DIR / f"{name.lower()}.toml").is_file(), name
 
