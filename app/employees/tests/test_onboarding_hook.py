@@ -11,6 +11,7 @@ from django.test import Client
 from django.utils import timezone
 from macs.models import FiredReason
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import events
 from employees.tests.helpers import record_signed, sign_event
@@ -86,12 +87,13 @@ def _terminate(employee: Employee, actor: User, day: date) -> None:
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
 
 
 def _rehire(employee: Employee, actor: User, day: date) -> None:
-    record_signed(employee, type="rehire", effective=day, changes={}, salary=None, reason="", note="", by=actor)
+    record_signed(employee, type="rehire", effective=day, changes={}, salary=None, reason="", note="", by=actor, order_number=next_order_number())
 
 
 def test_rehire_starts_new_checklist_after_completed_one(
@@ -143,7 +145,8 @@ def test_cancelling_a_scheduled_rehire_cancels_its_onboarding(
     _terminate(hired, actor, date(2026, 3, 1))
     future = timezone.localdate() + timedelta(days=30)
     rehire = record_signed(
-        hired, type="rehire", effective=future, changes={}, salary=None, reason="", note="", by=actor
+        hired, type="rehire", effective=future, changes={}, salary=None, reason="", note="", by=actor,
+        order_number=next_order_number(),
     )
     (checklist,) = _onboarding(hired)
     assert checklist.state == ChecklistState.OPEN and checklist.anchor_day == future
@@ -161,7 +164,8 @@ def test_cancelling_a_waiting_rehire_leaves_other_onboarding_alone(
     _terminate(hired, actor, date(2026, 3, 1))
     Checklist.objects.filter(pk=other.pk).update(state=ChecklistState.OPEN)
     rehire = events.record(
-        hired, type="rehire", effective=date(2026, 5, 1), changes={}, salary=None, reason="", note="", by=actor
+        hired, type="rehire", effective=date(2026, 5, 1), changes={}, salary=None, reason="", note="", by=actor,
+        order_number=next_order_number(),
     )
     assert rehire.applied_at is None  # waiting for its order: it started no checklist
     events.cancel(rehire, reason="Буцсан", by=actor)
@@ -174,7 +178,8 @@ def test_waiting_rehire_starts_only_when_applied(
 ) -> None:
     _terminate(hired, actor, date(2026, 3, 1))
     rehire = events.record(
-        hired, type="rehire", effective=date(2026, 5, 1), changes={}, salary=None, reason="", note="", by=actor
+        hired, type="rehire", effective=date(2026, 5, 1), changes={}, salary=None, reason="", note="", by=actor,
+        order_number=next_order_number(),
     )
     assert rehire.applied_at is None  # a rehire waits for its signed order
     assert _onboarding(hired) == []
@@ -187,7 +192,8 @@ def test_open_onboarding_never_blocks_events(hired: Employee, actor: User, onboa
     onboarding.start_for_hire(hired, start_date=date(2026, 1, 5), employee_type="full_time", by=actor)
     day = timezone.localdate() - timedelta(days=1)
     event = record_signed(
-        hired, type="leave_start", effective=day, changes={}, salary=None, reason="unpaid", note="", by=actor
+        hired, type="leave_start", effective=day, changes={}, salary=None, reason="unpaid", note="", by=actor,
+        order_number=next_order_number(),
     )
     assert event.applied_at is not None
     _terminate(hired, actor, day + timedelta(days=1))  # no gate for a termination either

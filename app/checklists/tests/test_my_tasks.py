@@ -11,6 +11,7 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from employees import attention
+from employees.tests.helpers import next_order_number
 from employees.models import JobRecord
 from employees.services import history
 from employees.tests.conftest import hire_values, link_login
@@ -41,7 +42,8 @@ def _staff_login(name: str) -> User:
 def manager(hired: Employee, actor: User, job_values: dict[str, Any]) -> User:
     """A staff member with a login who is the direct manager of the leaver `hired`."""
     manager_emp = history.hire(
-        hire_values("УБ99000011"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor
+        hire_values("УБ99000011"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     login = _staff_login("line_manager_my_page")
     link_login(manager_emp, login)
@@ -105,7 +107,8 @@ def test_user_without_tasks_sees_neither_section_nor_item(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     plain_emp = history.hire(
-        hire_values("УБ99000012"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor
+        hire_values("УБ99000012"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     plain = _staff_login("plain_no_tasks")
     link_login(plain_emp, plain)

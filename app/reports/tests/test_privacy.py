@@ -11,6 +11,7 @@ import openpyxl
 import pytest
 from accounts.models import User
 from django.test import Client
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 
@@ -184,7 +185,8 @@ def staff(actor: User, job_values: dict[str, Any]) -> list[Employee]:
                 start=date(2026, 1, 5),
                 job=job,
                 salary=Decimal("2500000"),
-                by=actor,
+                by=actor,
+                order_number=next_order_number(),
             )
         )
     return people

@@ -51,6 +51,7 @@ from macs.models import (
 )
 
 from employees import access
+from employees.tests.helpers import next_order_number
 from employees.forms import BIRTH_FIELDS
 from employees.models import PERSONAL_FIELDS, ActivityEntry, Employee
 from employees.services import history, personal_rows
@@ -680,7 +681,7 @@ def test_address_city_refetch_still_works(client: Client, hired: Employee, lists
 def test_address_shared_id_other_employee_untouched(
     client: Client, hired: Employee, lists: dict[str, Any], actor: User, job_values: dict[str, Any]
 ) -> None:
-    other = history.hire(hire_values("УБ99112234"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    other = history.hire(hire_values("УБ99112234"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     with connection.cursor() as cur:  # the production key is (address_id, employee_ident): the same id may repeat
         for employee, street in ((hired, "Нэг"), (other, "Хоёр")):
             cur.execute(
@@ -992,6 +993,7 @@ def test_personal_tab_query_count_with_one_waiting_change(
         reason="",
         note="",
         by=user,
+        order_number=next_order_number(),
     )
     with CaptureQueriesContext(connection) as after:
         assert client.get(f"/employees/{hired.pk}/").status_code == 200

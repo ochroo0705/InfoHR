@@ -35,13 +35,14 @@ from employees.models import (
     HrOrder,
     JobRecord,
     OrderState,
+    OrderType,
     Position,
     SalaryRecord,
 )
 from employees.services import events, history, macs_writes
 
 from .conftest import hire_values, link_login, named, set_ext
-from .helpers import record_signed
+from .helpers import next_order_number, record_signed
 from .test_today import frozen_today  # noqa: F401 (the pinned clock every test in this file runs on)
 
 # F811: the pinned clock fixture is imported, then requested as a parameter, which is how pytest uses it.
@@ -70,9 +71,10 @@ def _hire(
 ) -> Employee:
     values = {**hire_values(register_no), "family_name": family, "given_name": given}
     start = date(timezone.localdate().year, 1, 1)  # this year, so the reports' whole-year period includes the hire
-    extra: dict[str, Any] = {}
+    # Every hire is numbered (D-083): the given order number, else a fresh one.
+    extra: dict[str, Any] = {"order_number": order or next_order_number()}
     if order:
-        extra = {"order_number": order, "order_date": start, "order_summary": "Ажилд авах"}
+        extra |= {"order_date": start, "order_summary": "Ажилд авах"}
     employee = history.hire(values, {}, start=start, job=dict(job), salary=None, by=actor, **extra)
     Employee.objects.filter(pk=employee.pk).update(branch_id=branch.pk)
     return employee
@@ -103,6 +105,7 @@ def _waiting_promotion(employee: Employee, actor: User, position: Position) -> E
         salary=None,
         reason="",
         note="",
+        order_number=next_order_number(),
         by=actor,
     )
     assert ev.applied_at is None
@@ -298,31 +301,25 @@ def test_today_counts_and_lists_only_scoped_people(
     assert OUT_FAMILY not in response.content.decode()
 
 
-# --- orders waiting for a number: the Today tile and the attention item ---
+# --- old pending order rows: no Today tile and no attention item (D-083) ---
 
 
-def test_pending_orders_tile_and_attention_are_scoped(
+def test_no_pending_order_tile_or_item_in_any_branch(
     hr_north: Client, actor: User, job_values: dict[str, Any], south: Branch, people: tuple[Employee, Employee]
 ) -> None:
     inside, _ = people
-    pend_out = _hire(actor, job_values, south, "УБ00000044", PEND_OUT_FAMILY, PEND_OUT_GIVEN)  # no order number
-    assert HrOrder.objects.get(employee=inside).state == OrderState.PENDING
-    assert HrOrder.objects.get(employee=pend_out).state == OrderState.PENDING
+    _hire(actor, job_values, south, "УБ00000044", PEND_OUT_FAMILY, PEND_OUT_GIVEN)  # no order number
+    HrOrder.objects.create(employee=inside, is_hire=True, order_type=OrderType.HIRED, state=OrderState.PENDING)
 
     everyone = _client(_user_in(roles.HR, "hr_all_pending")).get(reverse("employees:today"))
-    assert everyone.context["pending_orders"] == 2
-    assert 'data-tile="orders">2<' in everyone.content.decode()
-    assert len([a for a in everyone.context["attention"] if a.kind == "order_number"]) == 2
+    assert "pending_orders" not in everyone.context
+    assert 'data-tile="orders"' not in everyone.content.decode()
+    assert not [a for a in everyone.context["attention"] if a.kind == "order_number"]
 
     response = hr_north.get(reverse("employees:today"))
     assert response.status_code == 200
-    assert response.context["pending_orders"] == 1
-    body = response.content.decode()
-    assert 'data-tile="orders">1<' in body
-    assert PEND_OUT_FAMILY not in body
-    assert f"/employees/{pend_out.pk}/" not in body
-    numbered = [a for a in response.context["attention"] if a.kind == "order_number"]
-    assert [a.employee.pk for a in numbered] == [inside.pk]
+    assert 'data-tile="orders"' not in response.content.decode()
+    assert not [a for a in response.context["attention"] if a.kind == "order_number"]
 
 
 # --- command palette ---
@@ -404,6 +401,7 @@ def test_attention_more_hides_outside_items(
 
 def _hire_post(job: dict[str, Any], department: Department, register_no: str, family: str) -> dict[str, str]:
     return {
+        "order-number": next_order_number(),
         "family_name": family,
         "given_name": "Ажилтан",
         "register_no": register_no,
@@ -574,6 +572,7 @@ def _transfer_post(
         "manager": str(manager.pk),
         "reason": "",
         "note": "",
+        "order-number": next_order_number(),
     }
 
 
@@ -861,6 +860,7 @@ def _terminate(employee: Employee, actor: User) -> None:
         salary=None,
         reason="",
         note="",
+        order_number=next_order_number(),
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
     )

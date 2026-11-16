@@ -192,7 +192,6 @@ def today_page(request: HttpRequest) -> HttpResponse:
         "today": today,
         "headcount": headcount,
         "away": facts.away_on(user, rows, today),
-        "pending_orders": facts.pending_orders(user, rows),
         "can_manage": access.can_manage(user),
         "away_strip": strip,
         "away_cells": away_cells(strip, headcount),
@@ -766,7 +765,7 @@ def employee_add(request: HttpRequest) -> HttpResponse:
         contact.initial.update(selfform_review.contact_initial(submission))
     # An install that keeps hire orders on paper (CompanySettings, D-052) gets no order fields and no order.
     hire_order = orders.requires_order(OrderType.HIRED.value)
-    order_form = OrderFieldsForm(request.POST or None, prefix="order") if hire_order else None
+    order_form = OrderFieldsForm(request.POST or None, prefix="order", required=True) if hire_order else None
     if gone:
         person.add_error(None, CANDIDATE_GONE)
         return _hire_form(
@@ -1880,7 +1879,7 @@ def order_edit(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
         raise Http404  # signed and cancelled orders are final
     suggested = ""
     if request.method == "POST":
-        form = OrderFieldsForm(request.POST, required=True)
+        form = OrderFieldsForm(request.POST, required=True, date_required=True)
         if form.is_valid():
             data = form.cleaned_data
             try:
@@ -1900,6 +1899,7 @@ def order_edit(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
         suggested = "" if order.number else orders.suggest_number(date.today())
         form = OrderFieldsForm(
             required=True,
+            date_required=True,
             initial={
                 "number": order.number or suggested,
                 "date": order.date,
@@ -2269,6 +2269,8 @@ def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[st
         paging = {"offset": batch.offset, "next_query": batch.next_query}
     else:
         rows = order_register.register_rows(user, **filters)
+    # Every new order is numbered (D-083), so the state filter has no «Дугаар оруулаагүй» choice.
+    states = [(k, v) for k, v in OrderState.choices if k != OrderState.PENDING]
     return {
         **paging,
         "can_manage": access.can_manage(_user(request)),
@@ -2281,7 +2283,7 @@ def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[st
         "department": department,
         "state": state,
         "types": OrderType.choices,
-        "states": [*OrderState.choices, (order_register.LEGACY, "MACS")],
+        "states": [*states, (order_register.LEGACY, "MACS")],
         "departments": Department.objects.exclude(ext__active=False),
         "years": list(range(today.year, today.year - 12, -1)),
         "querystring": request.GET.urlencode(),

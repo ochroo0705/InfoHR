@@ -4,6 +4,7 @@ import pytest
 from django.test import Client
 from macs.models import Country
 
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, Department, Employee, Position
 
 from .conftest import link_login, named
@@ -38,6 +39,7 @@ def test_end_to_end_flow(client: Client) -> None:
             "employee_type": "full_time",
             "status": "active",
             "contract_type": "open_ended",
+            "order-number": next_order_number(),
             "base_salary": "2500000",
             "family-TOTAL_FORMS": "0",
             "family-INITIAL_FORMS": "0",

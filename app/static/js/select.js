@@ -427,6 +427,8 @@
       return;
     }
     if (select.multiple || select.size > 1 || select.classList.contains("dp-select")) return;
+    // Admin autocomplete (select2) already replaces the select with its own picker.
+    if (select.classList.contains("admin-autocomplete") || select.classList.contains("select2-hidden-accessible")) return;
     if (coarse && !select.hasAttribute("data-add-url")) return;
     select._selReady = true;
     if (isCombo(select)) { combo(select); return; }

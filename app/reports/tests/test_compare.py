@@ -6,6 +6,7 @@ import pytest
 from accounts.models import User
 from django.test import Client
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.tests.helpers import record_signed
@@ -26,7 +27,9 @@ PERIOD = Filters(date_from=FROM, date_to=TO)
 
 def _hire(actor: User, job: dict[str, Any], register_no: str, family: str, start: date, **job_changes: Any) -> Employee:
     values = {**hire_values(register_no), "family_name": family, "given_name": "Бат"}
-    return history.hire(values, {}, start=start, job={**job, **job_changes}, salary=None, by=actor)
+    return history.hire(
+        values, {}, start=start, job={**job, **job_changes}, salary=None, by=actor, order_number=next_order_number()
+    )
 
 
 @pytest.fixture
@@ -53,6 +56,7 @@ def people(actor: User, job_values: dict[str, Any]) -> dict[str, Employee]:
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     transfer(people["D"], to="Борлуулалт", on=date(2026, 2, 1), by=actor)
     record_signed(
@@ -64,6 +68,7 @@ def people(actor: User, job_values: dict[str, Any]) -> dict[str, Employee]:
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     return people
 

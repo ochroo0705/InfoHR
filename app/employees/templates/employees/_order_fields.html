@@ -1,6 +1,6 @@
-{# Order number, date, text and issuer embedded in a form (prefix "order"). All optional: empty = the order waits for its number. #}
+{# Order number, date, text and issuer embedded in a form (prefix "order"). The number is required where the form marks it (the hire form: `fields.number.required`, shown with *). On a change form only the service knows whether the change needs an order, so the heading says the number is required for those changes. A blank date is the change's effective date (the hire date on the hire). #}
 <div class="space-y-2 md:col-span-2">
-  <h3 class="border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал <span class="font-normal text-slate-500">· дугаарыг дараа нь оруулж болно</span></h3>
+  <h3 class="border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал <span class="font-normal text-slate-500">· {% if order_form.fields.number.required %}дугаар заавал{% else %}тушаал шаардлагатай өөрчлөлтөд дугаар заавал{% endif %}{% if not order_form.fields.date.required %}, огноо хоосон бол өөрчлөлтийн огноо{% endif %}</span></h3>
   {% for e in order_form.non_field_errors %}<p class="rounded bg-red-50 p-2 text-sm text-red-700">{{ e }}</p>{% endfor %}
   <div class="grid gap-3 md:grid-cols-2">{% for field in order_form %}
     <label class="block text-sm {% if field.name == 'summary' %}md:col-span-2{% endif %}">{{ field.label }}{% if field.field.required %} *{% endif %}

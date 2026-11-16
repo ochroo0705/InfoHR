@@ -1,5 +1,6 @@
 """Test helpers for changes that wait for a signed order (signed-order plan, Task 4)."""
 
+import itertools
 from typing import Any
 
 from accounts.models import User
@@ -31,8 +32,18 @@ def sign_event(event: Event, by: User | None = None) -> Event:
     return event
 
 
+_order_numbers = itertools.count(5000)
+
+
+def next_order_number() -> str:
+    """A plain-digit order number for a test hire or change: D-083 needs a number on every order, and the counter keeps
+    them unique within the test run (high start, so they do not clash with the literal numbers the tests use)."""
+    return str(next(_order_numbers))
+
+
 def record_signed(employee: Employee, **record_kwargs: Any) -> Event:
     """Record a change through `events.record`, then sign its order when the change waits for one."""
+    record_kwargs.setdefault("order_number", next_order_number())
     event = events.record(employee, **record_kwargs)
     if event.applied_at is None:
         return sign_event(event, by=record_kwargs.get("by"))

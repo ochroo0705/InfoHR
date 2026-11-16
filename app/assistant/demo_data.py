@@ -167,6 +167,7 @@ def _person(index: int, code: int, slot: int, day: date, by: User) -> None:
         job=job,
         salary=None if index % 9 == 4 else Decimal(1_200_000 + (index % 12) * 150_000),
         by=by,
+        order_number=f"Д/{index + 1}",
     )
     if unmodelled:
         # The old rows' way: the job and the employee row hold the code; no service copies flags for it.
@@ -296,6 +297,7 @@ def _large_person(spec: dict[str, Any], by: User) -> None:
         job=job,
         salary=spec["salary"],
         by=by,
+        order_number=f"Ж/{spec['index'] + 1}",
     )
     flags = macs_writes.EMPTYPE_FLAGS[code]
     macs_writes.update_employee_columns(

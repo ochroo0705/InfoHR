@@ -15,6 +15,7 @@ from assistant.sqlask import (
     ask_refine_sql_reply,
     ask_sql,
     ask_sql_reply,
+    fold_like,
 )
 
 CATALOGUE = "GOV_CHILDREN: one row per child. Columns: EMP_ID (employee id), CHILD_NAME, BIRTH_DATE."
@@ -211,5 +212,62 @@ def test_reply_sentence_asks_for_sql_and_labels() -> None:
     system, _, _ = provider.calls[0]
     assert (
         'Reply with only one JSON object: {"sql": "<the query>", "labels": '
-        '[{"column": "<name>", "label": "<Mongolian heading>"}]}.' in system
+        '[{"column": "<name>", "label": "<Mongolian heading>"}], "group_by": "<column or empty>"}.' in system
     )
+
+
+def test_reply_group_by_is_read_upper_cased() -> None:
+    provider = FakeProvider({"sql": SQL, "group_by": " department_name "})
+
+    assert ask_sql_reply(provider, CATALOGUE, QUESTION, TODAY).group_by == "DEPARTMENT_NAME"
+
+
+@pytest.mark.parametrize("value", [None, 3, ["X"]])
+def test_reply_group_by_that_is_not_text_is_empty(value: object) -> None:
+    provider = FakeProvider({"sql": SQL, "group_by": value})
+
+    assert ask_sql_reply(provider, CATALOGUE, QUESTION, TODAY).group_by == ""
+
+
+def test_system_text_has_the_group_rules() -> None:
+    provider = FakeProvider({"sql": SQL})
+    ask_sql(provider, CATALOGUE, QUESTION, TODAY)
+    system, _, _ = provider.calls[0]
+    assert 'Rules for "group_by"' in system
+    assert "«Хэлтсээр нь ажилтнуудыг гарга»" in system
+
+
+def test_fold_like_makes_like_ignore_case() -> None:
+    sql = "SELECT A FROM V WHERE NOT EXISTS (SELECT 1 FROM L WHERE L.T LIKE '%ээлж%' AND L.X = 1)"
+
+    folded = fold_like(sql)
+
+    assert "UPPER(L.T) LIKE UPPER('%ээлж%')" in folded
+    assert "NOT EXISTS" in folded
+
+
+def test_fold_like_folds_not_like() -> None:
+    assert "UPPER(A) NOT LIKE UPPER('%x%')" in fold_like("SELECT A FROM V WHERE A NOT LIKE '%x%'")
+
+
+def test_fold_like_leaves_sql_with_a_backslash_alone() -> None:
+    sql = r"SELECT A FROM V WHERE A LIKE '%x\_y%' ESCAPE '\'"
+
+    assert fold_like(sql) == sql
+
+
+def test_fold_like_leaves_a_folded_like_alone() -> None:
+    sql = "SELECT A FROM V WHERE UPPER(A) LIKE UPPER('%x%')"
+
+    assert fold_like(sql) == sql
+
+
+@pytest.mark.parametrize("sql", ["SELECT A FROM V", "SELECT LIKE FROM ((("])
+def test_fold_like_returns_other_sql_unchanged(sql: str) -> None:
+    assert fold_like(sql) == sql
+
+
+def test_reply_sql_is_folded() -> None:
+    provider = FakeProvider({"sql": "SELECT A FROM V WHERE A LIKE '%б%'"})
+
+    assert "UPPER(A) LIKE UPPER('%б%')" in ask_sql_reply(provider, CATALOGUE, QUESTION, TODAY).sql

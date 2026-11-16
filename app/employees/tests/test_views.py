@@ -21,6 +21,7 @@ from macs.models import (
     SocialOrigin,
 )
 
+from employees.tests.helpers import next_order_number
 from employees.forms import EmployeeForm
 from employees.models import Department, Employee, EmployeeExt
 from employees.services import history, macs_writes, records
@@ -54,6 +55,7 @@ def test_list_shows_active_hides_left(client: Client, hired: Employee, actor: Us
         job={**{f: getattr(hired.job_records.get(), f) for f in fields}, "status": "active"},
         salary=None,
         by=actor,
+        order_number=next_order_number(),
     )
     history.change_job(
         other, effective=date(2025, 6, 1), changes={"status": "left"}, change_type="correction", note="", by=actor
@@ -100,6 +102,7 @@ def test_grid_applies_state_filter(client: Client, hired: Employee, actor: User)
         job={**{f: getattr(hired.job_records.get(), f) for f in fields}, "status": "active"},
         salary=None,
         by=actor,
+        order_number=next_order_number(),
     )
     history.change_job(
         other, effective=date(2025, 6, 1), changes={"status": "left"}, change_type="correction", note="", by=actor
@@ -118,7 +121,8 @@ def test_future_hire_listed_as_upcoming(client: Client, actor: User, job_values:
         start=timezone.localdate() + timedelta(days=5),
         job=job_values,
         salary=Decimal("1"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     login_as(client, "HR")
     body = client.get("/employees/?view=table").content.decode()
@@ -390,8 +394,9 @@ def test_hr_saves_work_and_personal_fields(client: Client, hired: Employee) -> N
     assert response.status_code == 303 and response["Location"] == f"/employees/{hired.pk}/#personal"
     hired.refresh_from_db()
     assert hired.work_schedule_id == named(Shift, "08:00-17:00").pk and hired.ext.prior_service_months == 3
-    work = hired.activity.get(kind="changed", personal=False)
-    personal = hired.activity.get(kind="changed", personal=True)
+    # the hire now registers its order at once, and that writes its own "changed" line: take the field change only
+    work = hired.activity.get(kind="changed", personal=False, order__isnull=True)
+    personal = hired.activity.get(kind="changed", personal=True, order__isnull=True)
     assert [c["field"] for c in work.changes] == ["Ажлын цагийн хуваарь"]
     assert [c["field"] for c in personal.changes] == ["Өмнөх ажилласан сар"]
 
@@ -465,7 +470,8 @@ def test_set_salary_refused_when_salary_exists(client: Client, hired: Employee) 
 
 def _other_employee(actor: User, job_values: dict[str, Any]) -> Employee:
     return history.hire(
-        hire_values("УБ00000002"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor
+        hire_values("УБ00000002"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor,
+        order_number=next_order_number(),
     )
 
 
@@ -516,7 +522,7 @@ def test_history_error_shown_as_form_error(client: Client, hired: Employee, monk
 
 
 def test_accountant_sets_first_salary(client: Client, actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(hire_values("УБ00000002"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values("УБ00000002"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     login_as(client, "Accountant")
     url = f"/employees/{emp.pk}/salary/set/"
     assert "Цалин тогтоох" in client.get(f"/employees/{emp.pk}/").content.decode()
@@ -537,6 +543,7 @@ def add_payload(job_values: dict[str, Any], **extra: str) -> dict[str, str]:
         "start": "2026-02-01", "position": str(job_values["position"].pk),
         "department": str(job_values["department"].pk),
         "employee_type": "full_time", "status": "active", "contract_type": "open_ended",
+        "order-number": next_order_number(),
     }  # fmt: skip
     data.update(extra)
     return data
@@ -866,7 +873,7 @@ def _second_department_employee(hired: Employee, actor: User) -> Employee:
         "department": Department.objects.create(name="Борлуулалт"),
         "status": "active",
     }
-    return history.hire(hire_values("УБ00000003"), {}, start=date(2025, 1, 1), job=job, salary=None, by=actor)
+    return history.hire(hire_values("УБ00000003"), {}, start=date(2025, 1, 1), job=job, salary=None, by=actor, order_number=next_order_number())
 
 
 def test_group_table_shows_department_headings_with_counts(client: Client, hired: Employee, actor: User) -> None:

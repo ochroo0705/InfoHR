@@ -58,6 +58,7 @@ from employees.services.events import ALLOWED_FIELDS, REASON_CHOICES, SALARY_TYP
 from employees.services.history import job_on
 from employees.services.orders import ISSUED_BY_MAX as ORDER_ISSUED_BY_MAX
 from employees.services.orders import NUMBER_MAX as ORDER_NUMBER_MAX
+from employees.services.orders import NUMBER_REQUIRED
 from employees.services.orders import SUMMARY_MAX as ORDER_SUMMARY_MAX
 from employees.services.personal_writes import COMPLAINT_KINDS, COMPLAINT_TYPES, PAY_TYPES, TR_TYPES
 from employees.validators import normalize_register_no, validate_register_no
@@ -556,8 +557,11 @@ class CancelEventForm(StyledForm):
 
 
 class OrderFieldsForm(StyledForm):
-    """Number, date, text and issuer of an order. Embedded (prefix "order") in the change and hire forms, where
-    all of it may stay empty (the order then waits for its number); `required=True` is the edit pop-up."""
+    """Number, date, text and issuer of an order. Embedded (prefix "order") in the change and hire forms, and the edit
+    pop-up. `required=True` (the hire form and the edit pop-up) makes the number required. `date_required=True` (the
+    edit pop-up only) makes the date required too. The change form cannot know whether its change needs an order before
+    it is saved, so there the service refuses a blank number when one is needed. Elsewhere a blank date is the
+    effective date of the change (or the hire date)."""
 
     has_suggest = True  # templates put the «Санал болгох» button beside the number
 
@@ -566,10 +570,14 @@ class OrderFieldsForm(StyledForm):
     summary = forms.CharField(label="Агуулга", max_length=ORDER_SUMMARY_MAX, required=False)
     issued_by = forms.CharField(label="Гаргасан", max_length=ORDER_ISSUED_BY_MAX, required=False)
 
-    def __init__(self, *args: Any, required: bool = False, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, required: bool = False, date_required: bool = False, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        if required:
-            self.fields["number"].required = self.fields["date"].required = True
+        if required:  # the number (D-083)
+            self.fields["number"].required = True
+            self.fields["number"].error_messages["required"] = NUMBER_REQUIRED
+        if date_required:  # the edit pop-up: a registered order always has its date
+            self.fields["date"].required = True
+            self.fields["date"].error_messages["required"] = "Тушаалын огноог оруулна уу."
         for name in ("number", "summary", "issued_by"):
             self.fields[name].error_messages["max_length"] = MAX_LENGTH_MESSAGE
         self.fields["issued_by"].help_text = ""

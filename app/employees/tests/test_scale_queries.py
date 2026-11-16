@@ -19,6 +19,7 @@ from leave.models import LeaveSettings, LeaveTypeExt
 from leave.services import ledger, records
 from macs.models import LeaveTypeRow
 
+from employees.tests.helpers import next_order_number
 from employees.models import Department, Employee, Position
 from employees.services import history, macs_writes
 
@@ -67,7 +68,7 @@ def _staff(by: User) -> None:
             "first_hire_date": start,
             "work_conditions": 1,
         }
-        history.hire(values, {}, start=start, job=job, salary=Decimal("2500000"), by=by)
+        history.hire(values, {}, start=start, job=job, salary=Decimal("2500000"), by=by, order_number=next_order_number())
 
 
 def test_busy_pages_use_a_fixed_number_of_queries() -> None:

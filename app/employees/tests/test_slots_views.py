@@ -12,6 +12,7 @@ from django.urls import reverse
 from macs.models import Branch, NazgRow, Position
 
 from employees import palette, views_slots
+from employees.tests.helpers import next_order_number
 from employees.models import CompanySettings, Employee
 from employees.services import history, slots
 
@@ -48,7 +49,7 @@ def _hire(
 ) -> Employee:
     values = {**hire_values(f"УБ9922{n:04d}"), "branch": branch}
     job = {**job_values, **({"emptype": 5} if contract else {})}
-    return history.hire(values, {}, start=start, job=job, salary=Decimal("1"), by=actor)
+    return history.hire(values, {}, start=start, job=job, salary=Decimal("1"), by=actor, order_number=next_order_number())
 
 
 def _form(pos: Position, br: Branch, /, **extra: Any) -> dict[str, Any]:

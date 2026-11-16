@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from accounts.models import User
+from employees.tests.helpers import next_order_number
 from employees.models import ContractType, Department, Employee, EmployeeType, Position
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values
@@ -33,7 +34,7 @@ def _hire(actor: User, job_values: dict[str, Any], employee_type: EmployeeType, 
             contract_type=ContractType.FIXED_TERM, contract_start=date(2025, 3, 1), contract_end=date(2027, 2, 28)
         )
     values = {**hire_values(register_no), "first_hire_date": date(2025, 3, 1)}
-    return history.hire(values, {}, start=date(2025, 3, 1), job=job, salary=None, by=actor)
+    return history.hire(values, {}, start=date(2025, 3, 1), job=job, salary=None, by=actor, order_number=next_order_number())
 
 
 def test_staff_gets_the_automatic_grant_and_an_intern_does_not(

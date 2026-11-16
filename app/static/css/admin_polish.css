@@ -198,3 +198,31 @@ main .submit-row:not(#login-form *) {
     transition: none;
   }
 }
+
+/* Dropdown list (static/js/select.js, loaded in the admin via UNFOLD SCRIPTS).
+   Same look as input.css's .sel-* rules, in plain CSS because app.css is not loaded here. */
+.sel-popup { position: fixed; z-index: 1000; max-width: min(28rem, calc(100vw - 8px)); padding: .375rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; box-shadow: 0 12px 32px rgb(15 23 42 / .16), 0 2px 6px rgb(15 23 42 / .06); font-size: .875rem; color: #1e293b; }
+.sel-popup:focus { outline: none; }
+.sel-combo { padding-right: 2rem !important; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23334155' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") no-repeat right .625rem center / 1rem 1rem; }
+/* The box copies the select's Unfold classes, whose background rules would tile the arrow: pin it. */
+.sel-combo { background-repeat: no-repeat !important; background-position: right .625rem center !important; background-size: 1rem 1rem !important; }
+.sel-combo:disabled { opacity: .6; }
+.sel-search { display: block; width: 100%; margin-bottom: .375rem; padding: .375rem .625rem; border: 1px solid #cbd5e1; border-radius: .5rem; font-size: .875rem; }
+.sel-list { max-height: 16rem; overflow-y: auto; }
+.sel-item { display: flex; align-items: center; width: 100%; padding: .4375rem .625rem .4375rem 1.75rem; border-radius: .5rem; text-align: left; white-space: nowrap; cursor: pointer; position: relative; background: none; border: 0; color: inherit; font: inherit; }
+.sel-item[hidden], .sel-empty[hidden] { display: none; }
+.sel-item.sel-blank { color: #64748b; }
+.sel-active { background: #f1f5f9; color: #0f172a; }
+.sel-selected { font-weight: 600; background: var(--ap-tint-checked); color: var(--ap-primary); }
+.sel-selected.sel-active { box-shadow: inset 0 0 0 2px var(--ap-primary); }
+.sel-selected::before { content: "✓"; position: absolute; left: .625rem; }
+.sel-add { color: var(--ap-primary); font-weight: 500; }
+.sel-note { display: block; margin-top: .25rem; font-size: .75rem; color: #64748b; }
+.sel-note.sel-error { color: #dc2626; }
+.sel-item:disabled { color: #cbd5e1; cursor: not-allowed; }
+.sel-empty { padding: .5rem .625rem; color: #94a3b8; }
+html.dark .sel-popup { background: #1f2937; border-color: #374151; color: #e5e7eb; }
+html.dark .sel-search { background: #111827; border-color: #4b5563; color: #e5e7eb; }
+html.dark .sel-active { background: #374151; color: #fff; }
+html.dark .sel-item:disabled { color: #6b7280; }
+html.dark .sel-combo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23bdc6c8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); }

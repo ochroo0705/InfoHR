@@ -17,6 +17,7 @@ from leave.models import LeaveTypeExt
 from macs.models import LeaveAssign, LeaveTypeRow, LegalHoliday
 
 from employees import views_me
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, JobRecord
 from employees.scope import team_ids
 from employees.services import history
@@ -46,12 +47,12 @@ def sick() -> LeaveTypeRow:
 @pytest.fixture
 def boss(actor: User, job_values: dict[str, Any]) -> Employee:
     values = hire_values("УБ99000010") | {"given_name": "Батаа"}
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
 
 
 def _hire(actor: User, job_values: dict[str, Any], register_no: str, given: str, manager: Employee | None) -> Employee:
     values = hire_values(register_no) | {"given_name": given}
-    emp = history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor)
+    emp = history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
     if manager is not None:
         JobRecord.objects.filter(employee=emp).update(manager=manager)
     return emp

@@ -9,6 +9,7 @@ from django.db import connection
 from macs.dialect import is_firebird
 from macs.models import City, District
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.services import personal_writes as pw
@@ -165,6 +166,7 @@ def test_hire_with_address_fills_customer_address(
         salary=None,
         by=actor,
         address=_address(place, "Төв"),
+        order_number=next_order_number(),
     )
     assert _rows(employee)[0]["address"] == "Төв"
 

@@ -9,6 +9,7 @@ numbers include the real per-person cost. Usage:
 """
 
 import random
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -92,6 +93,7 @@ class Command(BaseCommand):
                 },
                 {},
                 start=start,
+                order_number=f"Х{uuid.uuid4().hex[:8]}",
                 address={"city_id": city.pk, "district_id": district.pk, "street": f"{rng.randint(1, 99)}-р хороо"}
                 if city and district
                 else None,

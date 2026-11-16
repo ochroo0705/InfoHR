@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 from accounts.models import User
+from employees.tests.helpers import next_order_number
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values
 
@@ -44,7 +45,8 @@ def _employee(given: str) -> None:
         start=date(2026, 1, 5),
         job=job,
         salary=Decimal("2500000"),
-        by=User.objects.create_user(f"learn_{next(_REGISTER)}"),
+        by=User.objects.create_user(f"learn_{next(_REGISTER)}"),
+        order_number=next_order_number(),
     )
 
 

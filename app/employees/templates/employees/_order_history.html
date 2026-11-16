@@ -7,7 +7,7 @@
       <li class="relative pb-4 pl-4 text-sm last:pb-1">
         <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-surface bg-violet-500"></span>
         <div class="flex items-baseline gap-2">
-          <span class="truncate font-medium">{{ e.by.get_full_name|default:e.by.username|default:"Систем" }}</span>
+          <span class="truncate font-medium">{% if e.by %}{{ e.by.get_full_name|default:e.by.username }}{% else %}Систем{% endif %}</span>
           <span class="ml-auto shrink-0 text-xs text-slate-400">{{ e.at|date:"Y-m-d H:i" }}</span>
         </div>
         <p class="mt-0.5 text-slate-700">{{ e.message }}</p>

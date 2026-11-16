@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from accounts.models import User
 
+from employees.tests.helpers import next_order_number
 from employees.models import ContractType, EmployeeType, JobRecord, contract_errors
 from employees.services import events, history
 from employees.services.events import EventError
@@ -44,7 +45,7 @@ def test_job_row_clean_refuses_an_open_ended_intern(job_values: dict[str, Any]) 
 
 
 def test_intern_is_hired_with_no_salary_and_gets_the_fixed_term_code(actor: User, job_values: dict[str, Any]) -> None:
-    intern = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=_intern_job(job_values), salary=None, by=actor)
+    intern = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=_intern_job(job_values), salary=None, by=actor, order_number=next_order_number())
     job = history.job_on(intern, date(2026, 1, 5))
     assert job is not None and job.employee_type == EmployeeType.INTERN
     assert job.emptype == 5  # the MACS code for a fixed-term contract: no new code in the MACS tables
@@ -53,7 +54,7 @@ def test_intern_is_hired_with_no_salary_and_gets_the_fixed_term_code(actor: User
 
 
 def test_contract_change_turns_an_intern_into_staff(actor: User, job_values: dict[str, Any]) -> None:
-    intern = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=_intern_job(job_values), salary=None, by=actor)
+    intern = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=_intern_job(job_values), salary=None, by=actor, order_number=next_order_number())
     record_signed(
         intern,
         type="contract",
@@ -63,13 +64,14 @@ def test_contract_change_turns_an_intern_into_staff(actor: User, job_values: dic
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     job = history.job_on(intern, date(2026, 4, 6))
     assert job is not None and job.employee_type == EmployeeType.FULL_TIME and job.contract_end is None
 
 
 def test_a_contract_change_cannot_make_an_open_ended_intern(actor: User, job_values: dict[str, Any]) -> None:
-    staff = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor)
+    staff = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
     with pytest.raises(EventError) as caught:
         events.record(
             staff,
@@ -80,5 +82,6 @@ def test_a_contract_change_cannot_make_an_open_ended_intern(actor: User, job_val
             reason="",
             note="",
             by=actor,
+            order_number=next_order_number(),
         )
     assert "contract_type" in caught.value.errors

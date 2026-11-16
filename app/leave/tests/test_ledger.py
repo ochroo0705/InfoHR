@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 from accounts.models import User
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from macs.models import Entitlement, LeaveTypeRow
 
@@ -276,7 +277,8 @@ def test_leaver_gets_no_grant_for_year_after_leaving(actor: User, annual: LeaveT
         reason="",
         fired_reason=FiredReason.objects.get_or_create(name="Өөрийн хүсэлтээр")[0],
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     _switch(True)
     ledger.ensure_grants(e, date(2026, 10, 14))

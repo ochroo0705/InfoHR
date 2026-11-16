@@ -13,6 +13,7 @@ from leave.models import LeaveSettings, LeaveTypeExt
 from leave.services import ledger
 from macs.models import LeaveTypeRow
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, ensure_ext
 from employees.services import history, macs_writes
 
@@ -76,6 +77,7 @@ def test_rail_manager_shows_the_name_not_the_code(client: Client, actor: User, j
         job={**job_values, "manager": boss},
         salary=Decimal("2500000"),
         by=actor,
+        order_number=next_order_number(),
     )
     emp = Employee.objects.get(register_no="УБ55667788")
     login_as(client, "HR")

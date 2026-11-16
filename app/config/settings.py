@@ -308,6 +308,7 @@ UNFOLD = {
         lambda request: static("js/admin_row_click.js"),  # whole list row opens the record
         lambda request: static("js/admin_tab_errors.js"),  # a form with errors opens the tab that holds the first one
         lambda request: static("js/money.js"),  # money boxes group digits by commas as typed (UI_RULES §2b)
+        lambda request: static("js/select.js"),  # our dropdown on every admin select too (UI_RULES §2)
     ],
     "SIDEBAR": {
         "show_search": False,

@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from macs.models import FiredReason
 
+from employees.tests.helpers import next_order_number
 from employees.forms import EventForm
 from employees.models import Employee, Event, Position
 from employees.services import events
@@ -96,7 +97,7 @@ def test_unknown_type_404(client: Client, hired: Employee) -> None:
 
 def test_post_promotion_schedules(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
-    response = client.post(url(hired, "promotion"), promote_data(hired))
+    response = client.post(url(hired, "promotion"), promote_data(hired, **{"order-number": next_order_number()}))
     assert response.status_code == 204 and response["HX-Refresh"] == "true"
     assert Event.objects.get().type == "promotion"
     body = client.get(f"/employees/{hired.pk}/").content.decode()
@@ -108,7 +109,7 @@ def test_post_termination_and_leave(client: Client, hired: Employee) -> None:
     data = {"effective": "2026-03-01", "reason": "maternity", "note": ""}
     assert client.post(url(hired, "leave_start"), data).status_code == 204
     data = {"effective": tomorrow_plus(), "fired_reason": named(FiredReason, "Өөрийн хүсэлтээр").pk, "note": ""}
-    assert client.post(url(hired, "termination"), data).status_code == 204
+    assert client.post(url(hired, "termination"), {**data, "order-number": next_order_number()}).status_code == 204
     assert Event.objects.count() == 2
 
 
@@ -121,7 +122,8 @@ def test_post_salary_change_by_accountant(client: Client, hired: Employee) -> No
 
 def test_hr_posting_salary_is_ignored(client: Client, hired: Employee) -> None:
     login_as(client, "HR")
-    assert client.post(url(hired, "promotion"), promote_data(hired, salary="9000000")).status_code == 204
+    data = promote_data(hired, salary="9000000", **{"order-number": next_order_number()})
+    assert client.post(url(hired, "promotion"), data).status_code == 204
     assert not hired.salary_records.filter(base_salary=Decimal("9000000")).exists()
 
 
@@ -201,7 +203,8 @@ def test_accountant_sees_cancel_and_badge_on_salary_row(client: Client, hired: E
         salary=Decimal("3100000"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     login_as(client, "Accountant", "acc")
     body = client.get(f"/employees/{hired.pk}/").content.decode()
@@ -219,7 +222,8 @@ def test_header_hides_scheduled_salary_change_without_view_salary(client: Client
         salary=Decimal("3100000"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     schedule(hired, actor)
     login_as(client, "HR")
@@ -240,7 +244,8 @@ def test_cancel_of_effective_event_is_404(client: Client, hired: Employee, actor
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     login_as(client, "HR")
     assert client.get(f"/employees/{hired.pk}/event/{event.pk}/cancel/").status_code == 404
@@ -268,7 +273,7 @@ def test_unchanged_prefilled_salary_creates_no_salary_record(client: Client, hir
         client.post(url(hired, "salary_change"), {"effective": tomorrow_plus(), "salary": "2500000"}).status_code == 200
     )
     login_as(client, "Admin", "adm")
-    data = promote_data(hired, salary="2500000")
+    data = promote_data(hired, salary="2500000", **{"order-number": next_order_number()})
     assert client.post(url(hired, "promotion"), data).status_code == 204
     assert hired.salary_records.count() == 1
 
@@ -288,7 +293,8 @@ def test_menu_matches_current_state(client: Client, hired: Employee, actor: User
         reason="",
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     body = client.get(page).content.decode()
     assert "/event/rehire/" in body and "/event/transfer/" not in body and "/event/termination/" not in body
@@ -372,7 +378,8 @@ def test_past_waiting_change_is_not_the_next_event(client: Client, hired: Employ
     lead = Position.objects.create(name="Ахлах нягтлан")
     event = events.record(
         hired, type="promotion", effective=past, changes={"position": lead}, salary=None,
-        reason="", note="", by=actor,
+        reason="", note="", by=actor,
+        order_number=next_order_number(),
     )  # fmt: skip
     assert event.applied_at is None
     body = client.get(f"/employees/{hired.pk}/").content.decode()

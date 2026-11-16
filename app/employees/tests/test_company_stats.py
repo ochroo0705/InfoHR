@@ -9,6 +9,7 @@ from django.contrib.auth.models import Group
 from macs.models import FiredReason
 
 from employees import company_stats, today
+from employees.tests.helpers import next_order_number
 from employees.listing import Row, employee_rows
 from employees.models import Employee, EmployeeExt
 from employees.services import history, macs_writes
@@ -36,7 +37,9 @@ def _rows() -> list[Row]:
 
 def _hire(actor: User, jobs: dict[str, Any], on: date, **job: Any) -> Employee:
     values = {**hire_values(f"УБ{next(_numbers)}"), "first_hire_date": on}
-    return history.hire(values, {}, start=on, job={**jobs, **job}, salary=Decimal("1500000"), by=actor)
+    return history.hire(
+        values, {}, start=on, job={**jobs, **job}, salary=Decimal("1500000"), by=actor, order_number=next_order_number()
+    )
 
 
 def _terminate(emp: Employee, on: date, actor: User) -> None:
@@ -49,7 +52,8 @@ def _terminate(emp: Employee, on: date, actor: User) -> None:
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
 
 

@@ -12,7 +12,7 @@
 <div data-shortcuts class="mb-4 flex flex-wrap items-center gap-2">
   {% if can_manage %}<a href="{% url 'employees:add' %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Ажилтан нэмэх</a>{% endif %}
   {% if perms.leave.record_leave %}<button type="button" hx-get="{% url 'leave:add' %}" hx-target="body" hx-swap="beforeend" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Чөлөө бүртгэх</button>{% endif %}
-  {% if can_manage %}<a href="{% url 'employees:orders' %}" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm">Тушаал{% if pending_orders %} <span class="rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-800" data-tile="orders">{{ pending_orders }}</span>{% endif %}</a>{% endif %}
+  {% if can_manage %}<a href="{% url 'employees:orders' %}" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm">Тушаал</a>{% endif %}
   <button type="button" data-palette-open class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Хайх <kbd class="rounded border border-slate-300 px-1.5 text-xs text-slate-500">Ctrl K</kbd></button>
 </div>
 

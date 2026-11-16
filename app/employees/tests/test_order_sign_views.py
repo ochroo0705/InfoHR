@@ -17,6 +17,7 @@ from django.test import Client
 from macs.models import Branch
 from PIL import Image
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, HrOrder, OrderSigning, OrderState, OrderTemplate, SavedSignature
 from employees.services import events, history, macs_writes, order_docs, order_signing, orders
 from employees.services.order_signing import SIGN_NEEDS_SALARY, save_signature
@@ -68,7 +69,8 @@ def _registered_transfer(emp: Employee, actor: User, number: str = "21", day: da
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     order = HrOrder.objects.get(event=event)
     orders.register(order, number=number, date=day, summary="", issued_by="", by=actor)
@@ -260,7 +262,7 @@ def test_my_signature_delete_with_next_redirects_back_to_the_pop_up(hired: Emplo
 # --- the order pop-up's signing block ----------------------------------------------------------------------------
 
 
-def test_order_pop_up_shows_the_sign_button_only_for_a_signer_on_a_registered_order(
+def test_order_pop_up_shows_the_sign_button_only_for_a_signer_on_a_registered_order_and_not_on_a_legacy_pending_one(
     hired: Employee, actor: User, signer_client: tuple[Client, User]
 ) -> None:
     order = _registered_transfer(hired, actor)
@@ -268,7 +270,9 @@ def test_order_pop_up_shows_the_sign_button_only_for_a_signer_on_a_registered_or
     assert sign_url(hired, order) in client.get(f"/employees/{hired.pk}/order/{order.pk}/detail/").content.decode()
     plain, _ = _client_for("HR", "hr_plain")
     assert sign_url(hired, order) not in plain.get(f"/employees/{hired.pk}/order/{order.pk}/detail/").content.decode()
-    pending = HrOrder.objects.get(employee=hired, is_hire=True)  # not registered yet
+    pending = HrOrder.objects.get(employee=hired, is_hire=True)
+    HrOrder.objects.filter(pk=pending.pk).update(state="pending")  # a legacy order from before D-083
+    pending.refresh_from_db()
     assert pending.state == OrderState.PENDING
     body = client.get(f"/employees/{hired.pk}/order/{pending.pk}/detail/").content.decode()
     assert sign_url(hired, pending) not in body
@@ -411,7 +415,7 @@ def test_order_of_another_employee_in_the_url_is_404_and_signs_nothing(
     hired: Employee, actor: User, job_values: dict[str, Any], signer_client: tuple[Client, User]
 ) -> None:
     order = _registered_transfer(hired, actor)
-    other = history.hire(hire_values("УБ99112244"), {}, start=DAY, job=job_values, salary=Decimal("2500000"), by=actor)
+    other = history.hire(hire_values("УБ99112244"), {}, start=DAY, job=job_values, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
     client, user = signer_client
     assert client.get(sign_url(other, order)).status_code == 404
     posted = client.post(sign_url(other, order), {"mode": "drawn", "signature": _data_url()})

@@ -19,7 +19,7 @@ from employees.listing import employee_rows
 from employees.models import Employee, Event, HrOrder, Position
 from employees.services import events, history, macs_writes
 from employees.tests.conftest import hire_values, named
-from employees.tests.helpers import record_signed
+from employees.tests.helpers import next_order_number, record_signed
 from employees.tests.test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -57,6 +57,7 @@ def _kwargs(actor: User, effective: date, salary: Decimal | None = None) -> dict
         "reason": "",
         "note": "",
         "by": actor,
+        "order_number": next_order_number(),
     }
 
 
@@ -83,7 +84,7 @@ def test_work_tab_lists_the_waiting_change_with_its_chip_date_and_cancel(
     assert ev.get_type_display() in body
     assert (today + timedelta(days=20)).isoformat() in body
     assert CHIP in body
-    assert "дугаар хүлээгдэж байна" in body
+    assert "дугаар хүлээгдэж байна" not in body  # D-083: the waiting order already has its number
     assert reverse("employees:event_cancel", args=[hired.pk, ev.pk]) in body
     # The waiting order is listed once: in the block (its pop-up link). Not in the «Бусад тушаал» panel.
     order = HrOrder.objects.get(event=ev)
@@ -146,6 +147,7 @@ def test_order_pop_up_shows_what_a_contract_change_changes(
         salary=None,
         reason="",
         note="",
+        order_number=next_order_number(),
         by=actor,
     )
     order = HrOrder.objects.get(event=ev)
@@ -211,7 +213,13 @@ def test_both_headings_show_distinct_when_both_kinds_exist(
 ) -> None:
     _waiting(hired, actor, today - timedelta(days=2))
     other = history.hire(
-        hire_values("УБ99112234"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor
+        hire_values("УБ99112234"),
+        {},
+        start=date(2026, 1, 5),
+        job=job_values,
+        salary=Decimal("2500000"),
+        order_number=next_order_number(),
+        by=actor,
     )
     _waiting(other, actor, today + timedelta(days=5))  # the second employee's change is not yet due
     body = _today_page(hr)
@@ -232,7 +240,7 @@ def test_attention_waiting_item_is_added_and_other_items_stay(hired: Employee, a
     after = _texts(hr_user, today)
     waiting = [t for t in after if "гарын үсэг хүлээж байна" in t]
     assert len(waiting) == 1 and waiting[0].endswith(OVERDUE)
-    # The waiting order also raises the existing "order number missing" item; everything else is unchanged.
+    # Everything except the waiting item itself is unchanged.
     others = [t for t in after if t not in waiting and ORDER_NUMBER not in t]
     assert others == [t for t in before if ORDER_NUMBER not in t]
 
@@ -247,6 +255,7 @@ def test_attention_includes_a_waiting_rehire_of_a_left_employee(hired: Employee,
         salary=None,
         reason="",
         note="",
+        order_number=next_order_number(),
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
     )
@@ -258,6 +267,7 @@ def test_attention_includes_a_waiting_rehire_of_a_left_employee(hired: Employee,
         salary=None,
         reason="",
         note="",
+        order_number=next_order_number(),
         by=actor,
     )
     assert rehire.applied_at is None

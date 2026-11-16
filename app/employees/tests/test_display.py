@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 from accounts.models import User
 
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, Employee, EmployeeExt, JobRecord
 from employees.services import events, records
 from employees.services.display import shown
@@ -28,7 +29,8 @@ def test_event_log_shows_status_labels(hired: Employee, actor: User) -> None:
         salary=None,
         reason="unpaid",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     change = ActivityEntry.objects.filter(employee=hired).latest("id").changes[0]
     assert (change["old"], change["new"]) == ("Ажиллаж байгаа", "Урт хугацааны чөлөөтэй")

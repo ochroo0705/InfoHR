@@ -18,7 +18,6 @@ from employees.models import (
     Employee,
     EmployeeType,
     Event,
-    HrOrder,
     JobRecord,
     OrderType,
     Position,
@@ -29,7 +28,6 @@ from employees.named_lock import Lock, LockBusy
 from employees.scope import manager_error
 from employees.services import macs_writes, orders, personal_writes
 from employees.services.display import shown
-from employees.services.orders import OrderError
 
 # PostgreSQL advisory key of the hire lock. hire() takes it through named_lock.take(Lock.HIRE), which uses this
 # same number on PostgreSQL; kept defined because other code may import it.
@@ -167,27 +165,20 @@ def hire(
     macs_writes.record_movement(employee, "in", start)
     history_id = macs_writes.snapshot_history(employee, start)
     if with_order:
-        order = orders.create_for_change(
+        # The number is required (D-083); a blank order date is the hire date. The order is linked to its history row
+        # when it is created.
+        orders.create_for_change(
             employee=employee,
             event=None,
             is_hire=True,
             order_type=OrderType.HIRED.value,
-            number="",
-            date=None,
-            summary="",
-            issued_by="",
+            number=order_number,
+            date=order_date if order_date is not None else start,
+            summary=order_summary,
+            issued_by=order_issued_by,
             by=by,
+            history_id=history_id,
         )
-        HrOrder.objects.filter(pk=order.pk).update(history_id=history_id)
-        if order_number.strip() or order_date is not None:  # registered after the history row is linked to it
-            order.refresh_from_db()
-            if not order_number.strip() or order_date is None:
-                raise OrderError(
-                    {"number" if not order_number.strip() else "date": "Дугаар болон огноог хамт оруулна уу."}
-                )
-            orders.register(
-                order, number=order_number, date=order_date, summary=order_summary, issued_by=order_issued_by, by=by
-            )
     # The optional first address and emergency contact (production rows) belong to this hire: a refused one
     # raises PersonalConflict and the whole hire rolls back.
     if address is not None:

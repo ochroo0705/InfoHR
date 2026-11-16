@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl
 from accounts.models import User
 from checklists.models import ChecklistTemplate
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, EventType
 from employees.services import events, history, macs_writes
 from employees.tests.conftest import hire_values
@@ -67,7 +68,7 @@ def hire_one(actor: User, *, salary: Decimal | None = Decimal("2500000"), depart
         "status": "active",
         "contract_type": "open_ended",
     }
-    return history.hire(hire_values(f"УБ{n:08d}"), {}, start=date(2026, 1, 5), job=job, salary=salary, by=actor)
+    return history.hire(hire_values(f"УБ{n:08d}"), {}, start=date(2026, 1, 5), job=job, salary=salary, by=actor, order_number=next_order_number())
 
 
 def on_long_leave(actor: User, person: Employee) -> None:
@@ -80,7 +81,8 @@ def on_long_leave(actor: User, person: Employee) -> None:
         salary=None,
         reason="unpaid",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
 
 
@@ -98,7 +100,8 @@ def left(actor: User, person: Employee) -> None:
         reason="",
         note="",
         by=actor,
-        fired_reason=reason,
+        fired_reason=reason,
+        order_number=next_order_number(),
     )
 
 
@@ -113,7 +116,8 @@ def scheduled_transfer(actor: User, person: Employee) -> None:
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
 
 
@@ -127,7 +131,8 @@ def scheduled_salary_change(actor: User, person: Employee) -> None:
         salary=Decimal("2700000"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
 
 

@@ -17,7 +17,7 @@ def test_order_needs_event_or_hire(hired: Employee) -> None:
         HrOrder.objects.create(employee=hired, order_type=OrderType.HIRED, is_hire=False, event=None)
     assert OrderState.PENDING.label == "Дугаар оруулаагүй"
     order = HrOrder.objects.create(employee=hired, order_type=OrderType.HIRED, is_hire=True)
-    assert order.state == OrderState.PENDING
+    assert order.state == OrderState.REGISTERED  # D-083: a new order is never pending
 
 
 def test_command_mirror_reads_production_row(hired: Employee) -> None:

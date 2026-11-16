@@ -13,6 +13,7 @@ from django.contrib.auth.models import Group, Permission
 from macs.models import Branch, NazgRow, Position
 
 from employees import slot_kind
+from employees.tests.helpers import next_order_number
 from employees.models import CompanySettings, Employee
 from employees.services import history, slots
 
@@ -56,7 +57,7 @@ def _hire(
     values = {**hire_values(f"УБ9911{n:04d}"), "branch": branch}
     # The contract flag follows the job's emptype (5 = contract), as everywhere in the hire path.
     job = {**job_values, "status": status, **({"emptype": 5} if contract else {})}
-    return history.hire(values, {}, start=start, job=job, salary=Decimal("1"), by=actor)
+    return history.hire(values, {}, start=start, job=job, salary=Decimal("1"), by=actor, order_number=next_order_number())
 
 
 def _gate(position: Position, branch: Branch | None, actor: User, *, reason: str = "", contract: bool = False) -> None:

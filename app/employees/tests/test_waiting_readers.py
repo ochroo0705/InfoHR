@@ -15,6 +15,7 @@ from leave.services import entitlement as leave_entitlement
 from macs.models import ContactRow, ContactType, FiredReason
 
 from employees import attention, history_range
+from employees.tests.helpers import next_order_number
 from employees.listing import employee_rows, row_for
 from employees.models import Employee, JobRecord, JobStatus
 from employees.services import events, history, macs_writes
@@ -66,7 +67,8 @@ def _waiting_termination(emp: Employee, actor: User, effective: date) -> None:
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, REASON),
+        fired_reason=named(FiredReason, REASON),
+        order_number=next_order_number(),
     )
     assert ev.applied_at is None
 
@@ -106,7 +108,8 @@ def test_applied_past_termination_is_seen_by_flags(emp: Employee, actor: User, t
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, REASON),
+        fired_reason=named(FiredReason, REASON),
+        order_number=next_order_number(),
     )
     left_view = JobRecord(employee=emp, status=JobStatus.LEFT)
     flags = macs_writes._flags(emp, left_view, today)
@@ -125,7 +128,8 @@ def test_waiting_future_transfer_not_in_scheduled_attention(
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert ev.applied_at is None
     assert not [t for t in _attention_texts(hr_user, today) if t.startswith("Төлөвлөсөн")]
@@ -143,7 +147,8 @@ def test_applied_future_transfer_is_in_scheduled_attention(
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert ev.applied_at is not None
     expected = f"Төлөвлөсөн: {ev.get_type_display()} {ev.effective:%Y-%m-%d}"
@@ -160,7 +165,8 @@ def test_waiting_future_transfer_is_the_next_change(emp: Employee, actor: User, 
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     nxt = _next_event(emp, True, today)
     assert nxt is not None and nxt.applied_at is None
@@ -177,7 +183,8 @@ def test_waiting_rehire_does_not_count_as_rehire(emp: Employee, actor: User) -> 
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, REASON),
+        fired_reason=named(FiredReason, REASON),
+        order_number=next_order_number(),
     )
     rehire = events.record(
         emp,
@@ -187,7 +194,8 @@ def test_waiting_rehire_does_not_count_as_rehire(emp: Employee, actor: User) -> 
         salary=Decimal("3100000"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert rehire.applied_at is None
     assert leave_entitlement.employment_start(emp) == emp.first_hire_date
@@ -204,7 +212,8 @@ def test_work_tab_history_has_no_row_for_waiting_change(emp: Employee, actor: Us
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert waiting.applied_at is None
     jobs = list(
@@ -226,7 +235,8 @@ def test_signed_change_has_its_work_tab_row(emp: Employee, actor: User, today: d
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert signed.applied_at is not None
     jobs = list(

@@ -8,6 +8,7 @@ import pytest
 from accounts.models import AccessScope, User
 from django.test import Client
 from django.urls import reverse
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.tests.conftest import _no_offboarding_templates, hire_values  # noqa: F401 (autouse)
@@ -177,7 +178,7 @@ def _hire_named(given: str, family: str, branch_id: int | None = None) -> Employ
         "contract_type": "open_ended",
     }
     values = {**hire_values(f"УБ{next(_VIEW_REGISTER):08d}"), "given_name": given, "family_name": family}
-    person = history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=None, by=actor)
+    person = history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=None, by=actor, order_number=next_order_number())
     if branch_id is not None:
         Employee.objects.filter(pk=person.pk).update(branch_id=branch_id)
     return person

@@ -12,6 +12,7 @@ from recruitment.models import Candidate, Stage
 from recruitment.services import pipeline
 from recruitment.tests.conftest import make_vacancy
 
+from employees.tests.helpers import next_order_number
 from employees.models import CompanySettings, Employee
 from employees.services import events, history
 from employees.services.events import EventError
@@ -151,6 +152,7 @@ def _left(actor: User, job_values: dict[str, Any], branch: Branch | None, regist
         job=job_values,
         salary=Decimal("1"),
         by=actor,
+        order_number=next_order_number(),
     )
     record_signed(
         employee,
@@ -161,12 +163,14 @@ def _left(actor: User, job_values: dict[str, Any], branch: Branch | None, regist
         reason="",
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     return employee
 
 
 def _rehire(employee: Employee, actor: User, position: Position, **kw: Any) -> Any:
+    kw.setdefault("order_number", next_order_number())
     return events.record(
         employee,
         type="rehire",

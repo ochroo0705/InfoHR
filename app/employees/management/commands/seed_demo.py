@@ -7,6 +7,7 @@ separate demo database: `python scripts/demo.py reset` (see that script).
 Demo logins (one per role) all use DEMO_PASSWORD below.
 """
 
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -475,6 +476,7 @@ class Command(BaseCommand):
                 },
                 {k: _when(v, today) for k, v in p.get("ext", {}).items()},
                 start=start,
+                order_number=f"Д/{uuid.uuid4().hex[:7]}",
                 address={
                     "city_id": ulaanbaatar.pk,
                     "district_id": districts[ADDRESS_DISTRICT[p["address"].split(",", 1)[0]]].pk,

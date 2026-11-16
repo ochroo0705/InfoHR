@@ -1,3 +1,4 @@
+import itertools
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -27,7 +28,12 @@ def actor(db: None) -> User:
     return User.objects.create_superuser("leave_actor", password="x-long-pass-123")  # noqa: S106
 
 
-def make_employee(by: User, *, hired: date, register_no: str = "УБ99112233", prior_months: int = 0) -> Employee:
+_order_numbers = itertools.count(7000)  # D-083: every hire is numbered; plain digits, unique within the test run
+
+
+def make_employee(
+    by: User, *, hired: date, register_no: str = "УБ99112233", prior_months: int = 0, order_number: str = ""
+) -> Employee:
     job: dict[str, Any] = {
         "position": Position.objects.filter(name="Нягтлан").first() or macs_writes.save_position("Нягтлан"),
         "department": Department.objects.filter(name="Санхүү").first() or macs_writes.save_department("Санхүү"),
@@ -53,6 +59,7 @@ def make_employee(by: User, *, hired: date, register_no: str = "УБ99112233", p
         job=job,
         salary=Decimal("2500000"),
         by=by,
+        order_number=order_number or str(next(_order_numbers)),
     )
 
 

@@ -7,6 +7,7 @@ import pytest
 from accounts.models import User
 from macs.models import FiredReason
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, Event, HrOrder, OrderState, ensure_ext
 from employees.services import history, macs_writes
 from employees.services.movements import changes
@@ -41,6 +42,7 @@ def transfer(employee: Employee, to: str, on: date, by: User) -> Event:
         reason="",
         note="",
         by=by,
+        order_number=next_order_number(),
     )
 
 
@@ -54,6 +56,7 @@ def left_employee(actor: User, job_values: dict[str, Any]) -> Employee:
         job=job_values,
         salary=Decimal("1500000"),
         by=actor,
+        order_number=next_order_number(),
     )
     record_signed(
         emp,
@@ -65,6 +68,7 @@ def left_employee(actor: User, job_values: dict[str, Any]) -> Employee:
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     return emp
 

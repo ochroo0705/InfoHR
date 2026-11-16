@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.contrib.auth.models import Permission
+from employees.tests.helpers import next_order_number
 from employees.services import history, macs_writes
 from macs.models import Department, Employee, Position
 from pytest_django.fixtures import SettingsWrapper
@@ -51,7 +52,7 @@ def _hire(by: User, family: str, register_no: str) -> Employee:
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=by)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=by, order_number=next_order_number())
 
 
 def make_manager(by: User, username: str, register_no: str) -> tuple[User, Employee]:

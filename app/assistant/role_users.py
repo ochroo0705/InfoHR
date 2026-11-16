@@ -50,7 +50,15 @@ def hire_staff_member(actor: User) -> Employee:
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor)
+    return history.hire(
+        values,
+        {},
+        start=date(2026, 1, 5),
+        job=job,
+        salary=Decimal("2500000"),
+        by=actor,
+        order_number=f"Р/{uuid.uuid4().hex[:7]}",
+    )
 
 
 def make_role_user(actor: User, kind: str, username: str) -> User:

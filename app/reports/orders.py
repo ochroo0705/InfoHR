@@ -78,11 +78,11 @@ REPORT = Report(
     note=_note,
     layouts=("board", "calendar", "cards", "chart", "pivot"),
     # the state texts in flow order (Decision 7). Source: state_label = OrderState.get_state_display()
-    # (employees/models.py OrderState: pending «Дугаар оруулаагүй», registered «Бүртгэсэн», signed «Гарын үсэгтэй»,
-    # cancelled «Цуцалсан»), and the old program's rows read «MACS» (employees/services/order_register.py _legacy)
+    # (employees/models.py OrderState: registered «Бүртгэсэн», signed «Гарын үсэгтэй», cancelled «Цуцалсан»),
+    # and the old program's rows read «MACS» (employees/services/order_register.py _legacy). No pending lane: every
+    # new order is numbered (D-083); an old pending row, if any, sorts after the listed lanes.
     lane_orders={
         "state": (
-            OrderState.PENDING.label,
             OrderState.REGISTERED.label,
             OrderState.SIGNED.label,
             "MACS",

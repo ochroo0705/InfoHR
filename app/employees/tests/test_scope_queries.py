@@ -18,6 +18,7 @@ from django.urls import reverse
 from macs.models import Branch
 
 from employees import access
+from employees.tests.helpers import next_order_number
 from employees.models import Department, Employee
 from employees.services import history, macs_writes
 
@@ -56,7 +57,7 @@ def _hire(
     register_no = f"УБ{n:08d}"
     values = {**hire_values(register_no), "family_name": "Батын", "given_name": f"Ажилтан{n}"}
     job = {**job_values, "department": department, "manager": manager}
-    employee = history.hire(values, {}, start=START, job=job, salary=None, by=actor)
+    employee = history.hire(values, {}, start=START, job=job, salary=None, by=actor, order_number=next_order_number())
     Employee.objects.filter(pk=employee.pk).update(branch_id=branch.pk, department_id=department.pk)
     return employee
 

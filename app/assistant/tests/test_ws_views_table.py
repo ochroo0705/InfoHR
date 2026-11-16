@@ -612,3 +612,45 @@ def test_model_labels_show_in_the_table_header(db: None, client: Client, role_us
 
     assert "Ажилтны тоо" in html
     assert ">ACTIVE_COUNT<" not in html  # the header shows the heading, not the alias
+
+
+def test_grouped_table_shows_rows_under_group_headings(
+    db: None, client: Client, role_user, gate, host: FakeHost
+) -> None:
+    user = role_user("staff")
+    tab = _tab(user, settings=json.dumps({"group_by": "NAME"}))
+    client.force_login(user)
+
+    html = _pane(client, _url(tab))
+
+    assert html.count("data-ws-group-toggle") == 3  # one heading per value; the empty value gets its own
+    assert html.count("data-ws-row") == 3  # every row is still shown
+    assert "Тодорхойгүй" in html
+    assert 'data-ws-group-label="' in html
+    assert "ORDER BY NAME ASC" in host.page_sql()
+    assert "Нийт 3 мөр" in html
+
+
+def test_ungrouped_table_has_no_group_headings(db: None, client: Client, role_user, gate, host: FakeHost) -> None:
+    user = role_user("staff")
+    tab = _tab(user)
+    client.force_login(user)
+
+    html = _pane(client, _url(tab))
+
+    assert "data-ws-group-toggle" not in html
+
+
+def test_one_group_holding_every_row_shows_a_plain_table(
+    db: None, client: Client, role_user, gate, host: FakeHost, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user = role_user("staff")
+    tab = _tab(user, settings=json.dumps({"group_by": "NAME"}))
+    host.rows = [(1, "Bat"), (2, "Bat"), (3, "Bat")]
+    monkeypatch.setattr(ws_run, "run_group_counts", lambda *args, **kwargs: {"Bat": 3})
+    client.force_login(user)
+
+    html = _pane(client, _url(tab))
+
+    assert "data-ws-group-toggle" not in html
+    assert html.count("data-ws-row") == 3

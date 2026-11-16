@@ -5,7 +5,7 @@ import pytest
 from accounts.models import User
 from django.test import Client
 
-from employees.models import Employee, EventType, HrOrder, OrderState
+from employees.models import Employee, Event, EventType, HrOrder, OrderState
 from employees.services import events
 
 from .test_event_views import promote_data, url
@@ -31,9 +31,10 @@ def test_change_rows_carry_their_orders_and_open_the_pop_up(hr: Client, hired: E
     assert "Бусад тушаал" not in body  # nothing is left over
 
 
-def test_a_change_without_a_number_shows_that_it_waits(hr: Client, hired: Employee) -> None:  # noqa: F811
-    hr.post(url(hired, "promotion"), promote_data(hired))
-    assert "дугаар хүлээгдэж байна" in page(hr, hired)
+def test_a_change_without_a_number_is_refused(hr: Client, hired: Employee) -> None:  # noqa: F811
+    response = hr.post(url(hired, "promotion"), promote_data(hired))
+    assert response.status_code == 200  # the form comes back with the error: D-083 needs a number
+    assert not Event.objects.filter(employee=hired, type=EventType.PROMOTION).exists()
 
 
 def test_cancelled_change_stays_as_a_struck_through_row_and_orders_leave_no_leftover(

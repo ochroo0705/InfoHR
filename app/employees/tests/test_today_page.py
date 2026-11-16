@@ -18,6 +18,7 @@ from macs.models import Branch, ContactRow, ContactType, FiredReason, LeaveTypeR
 
 from employees import access, attention, views
 from employees import today as today_facts
+from employees.tests.helpers import next_order_number
 from employees.listing import employee_rows
 from employees.models import Employee
 from employees.services import history, macs_writes
@@ -50,6 +51,7 @@ def _scheduled_transfer(employee: Employee, actor: User) -> None:
     record_signed(
         employee, type="transfer", effective=TODAY + timedelta(days=3), changes={"department": dept},
         salary=None, reason="", note="", by=actor,
+        order_number=next_order_number(),
     )  # fmt: skip
 
 
@@ -111,6 +113,7 @@ def test_company_block_is_labelled_for_a_limited_scope_user(
     second = history.hire(
         hire_values("УБ99112234") | {"given_name": "Бат"}, {}, start=date(2026, 1, 5), job=job_values,
         salary=Decimal("2500000"), by=actor,
+        order_number=next_order_number(),
     )  # fmt: skip
     north, south = Branch.objects.create(name="Хойд"), Branch.objects.create(name="Өмнөд")
     Employee.objects.filter(pk=hired.pk).update(branch_id=north.pk)
@@ -214,6 +217,7 @@ def _hire_many(n: int, start: int, actor: User, job_values: dict[str, object]) -
             job=job_values,
             salary=Decimal("2500000"),
             by=actor,
+            order_number=next_order_number(),
         )  # fmt: skip
         for i in range(n)
     ]
@@ -340,6 +344,7 @@ def _person(given: str, register_no: str, actor: User, job_values: dict[str, obj
     return history.hire(
         hire_values(register_no) | {"given_name": given},
         {}, start=date(2024, 3, 1), job=job_values, salary=Decimal("2500000"), by=actor,
+        order_number=next_order_number(),
     )  # fmt: skip
 
 

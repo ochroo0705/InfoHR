@@ -10,6 +10,7 @@ from django.urls import reverse
 from macs.models import Employee as MacsEmployee
 from macs.models import FiredReason
 
+from employees.tests.helpers import next_order_number
 from employees.models import CompanySettings, Employee, Event, HrOrder, JobStatus, OrderType
 from employees.services import events, history, macs_writes
 
@@ -37,6 +38,7 @@ def promote(employee: Employee, actor: User) -> Event:
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
 
 
@@ -66,6 +68,7 @@ def test_other_types_still_wait_for_their_order(hired: Employee, actor: User) ->
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     assert ev.applied_at is None
     assert HrOrder.objects.filter(event=ev).exists()
@@ -83,6 +86,7 @@ def test_termination_with_its_order_off_applies_at_once(hired: Employee, actor: 
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     assert ev.applied_at is not None and not HrOrder.objects.filter(event=ev).exists()
     job = history.job_on(hired, DAY)

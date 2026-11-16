@@ -45,6 +45,7 @@ from django.db import transaction
 from django.test import Client
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, HrOrder
 from employees.selfform.service import create_invitation
 from employees.services import events, history, macs_writes, orders
@@ -547,7 +548,13 @@ def _first_pk(qs: Any) -> int:
 
 def _hire(actor: User, number: int, salary: Decimal | None, job: dict[str, Any]) -> Subject:
     employee = history.hire(
-        hire_values(f"УБ9912000{number}"), {}, start=date(2026, 1, 5), job=job, salary=salary, by=actor
+        hire_values(f"УБ9912000{number}"),
+        {},
+        start=date(2026, 1, 5),
+        job=job,
+        salary=salary,
+        by=actor,
+        order_number=f"Г/{number}",
     )
     return Subject(employee, HrOrder.objects.get(employee=employee, is_hire=True).pk)
 
@@ -582,6 +589,7 @@ def scenario(db: None) -> Scenario:
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     view = SavedView.objects.create(report="staff-list", name="guard view", author=actor)
     return Scenario(

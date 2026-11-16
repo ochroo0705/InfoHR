@@ -12,6 +12,7 @@ from django.utils import timezone
 from macs.models import FiredReason
 
 from employees import history_range
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, Employee, Event, ensure_ext
 from employees.services import events, history, macs_writes
 
@@ -80,7 +81,8 @@ def test_salary_change_on_legacy_creates_starting_records_then_the_change(
         salary=Decimal("2000000"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     opening = emp.salary_records.get(change_type="opening")
     assert opening.base_salary == Decimal("1800000") and opening.period.upper == TODAY
@@ -103,7 +105,8 @@ def test_transfer_on_legacy_starts_then_transfers(actor: User, job_values: dict[
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     records = list(emp.job_records.order_by(*history_range.ORDER))
     assert [r.change_type for r in records] == ["opening", "transfer"]
@@ -123,7 +126,8 @@ def test_long_leave_legacy_keeps_taken_leave_and_leave_type(actor: User, job_val
         salary=Decimal("2000000"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     emp.refresh_from_db()
     assert emp.taken_leave == 1 and emp.leave_type == 2
@@ -141,7 +145,8 @@ def test_left_legacy_keeps_fired_reason_and_died(actor: User, job_values: dict[s
         salary=Decimal("2000000"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     emp.refresh_from_db()
     assert emp.fired_reason_id == reason.pk and emp.died == "yes" and emp.emptype == 3
@@ -198,7 +203,8 @@ def test_unmodelled_macs_emptype_survives_the_first_event(
 ) -> None:
     emp = _legacy(actor, job_values, emptype=emptype, status=status, wagetest=wagetest)
     events.record(
-        emp, type="salary_change", effective=TODAY, changes={}, salary=Decimal("2000000"), reason="", note="", by=actor
+        emp, type="salary_change", effective=TODAY, changes={}, salary=Decimal("2000000"), reason="", note="", by=actor,
+        order_number=next_order_number(),
     )
     emp.refresh_from_db()
     assert (emp.emptype, emp.status, emp.wagetest) == (emptype, status, wagetest)

@@ -5,6 +5,7 @@ import pytest
 from accounts.models import User
 from macs.models import Branch, Command, EmployeeHistory
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, Event, HrOrder, OrderState, OrderType, Position
 from employees.services import events, macs_writes
 from employees.tests.test_events import rec
@@ -51,11 +52,11 @@ def order_for(
     if event is None and "history_id" not in kw:
         values["history_id"] = existing.values_list("history_id", flat=True).first()
     values.update(kw)
-    if event is not None and existing.exists():
-        # The change's own order is updated in place: its activity lines point at it, so it cannot be deleted.
+    if existing.exists():
+        # Orders are never deleted (D-083: activity lines point at them). The change's order, or the hire's order,
+        # is updated in place.
         existing.update(**values)
-        return HrOrder.objects.get(event=event)
-    existing.delete()
+        return HrOrder.objects.get(pk=existing.values_list("pk", flat=True).first())
     return HrOrder.objects.create(**values)
 
 
@@ -76,10 +77,11 @@ def test_command_row_fields(hired: Employee, actor: User, lead: Position) -> Non
     assert (cmd.number, cmd.date, cmd.order_type) == ("123", D1, OrderType.POSITION)
     assert cmd.path is None  # spec §6: Info HR files are never exposed to the old MACS share
     assert (cmd.summary, cmd.issued_by, cmd.employee_id) == ("Албан тушаал", "Б.Бат", hired.pk)
-    # a second write updates the same row
+    # a second write updates the same row (the hire's own command row is counted too)
+    before = Command.objects.filter(employee=hired).count()
     order.number = "124"
     macs_writes.write_order(order)
-    assert Command.objects.filter(employee=hired).count() == 1
+    assert Command.objects.filter(employee=hired).count() == before
     assert Command.objects.get(pk=order.command_id or 0).number == "124"
 
 
@@ -135,15 +137,18 @@ def test_pointer_null_when_none_left(hired: Employee) -> None:
     assert (emp.command_id_value, emp.move_type) == (None, None)
 
 
-def test_changes_without_order_are_ignored(hired: Employee, actor: User, lead: Position) -> None:
+def test_change_registered_at_record_moves_pointer(hired: Employee, actor: User, lead: Position) -> None:
     hire = order_for(hired, number="1", history_id=macs_writes.snapshot_history(hired, HIRE_DAY))
     macs_writes.write_order(hire)
-    # Recorded but not signed: its order is only pending, so it must not move the command row.
-    events.record(
-        hired, type="promotion", effective=D1, changes={"position": lead}, salary=None, reason="", note="", by=actor
+    # A promotion needs an order (D-083), so it is registered at once and written to production: it is the latest order.
+    ev = events.record(
+        hired, type="promotion", effective=D1, changes={"position": lead}, salary=None, reason="", note="", by=actor,
+        order_number=next_order_number(),
     )
+    change = HrOrder.objects.get(event=ev)
+    assert change.state == OrderState.REGISTERED and change.command_id is not None
     macs_writes.point_employee_to_latest_order(hired)
-    assert reload(hired).command_id_value == hire.command_id
+    assert reload(hired).command_id_value == change.command_id
 
 
 def test_number_later_updates_old_snapshot_not_pointer_if_newer_order_exists(

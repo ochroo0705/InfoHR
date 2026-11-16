@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from employees import access, listing
 from employees import today as today_facts
+from employees.tests.helpers import next_order_number
 from employees.listing import employee_rows
 from employees.models import PERSONAL_FIELDS, Employee, EmployeeExt
 from employees.services import history, macs_writes
@@ -54,7 +55,8 @@ def test_staff_list_and_today_agree_on_working_count(
         start=today + timedelta(days=5),
         job=job_values,
         salary=Decimal("1000000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     dashboard_rows = employee_rows(access.visible_employees(hr_user).filter(ext__isnull=False), today)
     assert today_facts.headcount(dashboard_rows) == len(rows(hr_user, Filters())) == 1
@@ -291,7 +293,8 @@ def test_future_as_of_leaves_out_a_job_that_starts_later(
         start=today + timedelta(days=60),
         job=job_values,
         salary=Decimal("1000000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert later.pk not in _listed(hr_user, Filters(as_of=today + timedelta(days=30)))
     assert later.pk in _listed(hr_user, Filters(as_of=today + timedelta(days=90)))
@@ -376,7 +379,8 @@ def test_salary_range_matches_column(
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("1000000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     legacy_pay = legacy(actor, job_values)  # no HR salary history: the MACS salary (1,800,000) is shown
     f = Filters(extra=(("salary_from", "1500000"),))

@@ -10,6 +10,7 @@ from accounts.models import User
 from django.contrib.auth.models import Group, Permission
 from django.test import Client
 from django.urls import reverse
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, ensure_ext
 from employees.services import history, macs_writes
 
@@ -54,7 +55,7 @@ def _hire(actor: User, family: str, given: str, register_no: str) -> Employee:
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
 
 
 @pytest.fixture

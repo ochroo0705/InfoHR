@@ -218,7 +218,8 @@ def _window(sql: str, page: int | None) -> str:
 def wrap_sql(base_sql: str, columns: tuple[str, ...], spec: Spec, *, page: int | None = None) -> str:
     """One SELECT over the saved query. ``columns`` are the base result's column names; ``page`` is 0-based.
 
-    ``spec.group_by`` is ignored here: grouping is rendered only by ``group_sql``.
+    With ``spec.group_by`` the rows stay one per row of the saved query (the table shows them under a heading per
+    group): the group column is always selected and ordered first, so each group's rows come together.
     With a page and no sort, rows are ordered by the first usable column so that pages do not overlap."""
     _check_page(page)
     usable = _usable_or_raise(columns)
@@ -227,6 +228,9 @@ def wrap_sql(base_sql: str, columns: tuple[str, ...], spec: Spec, *, page: int |
         selected = tuple(dict.fromkeys(_resolve(name, usable) for name in spec.columns))
     else:
         selected = usable
+    group = _resolve(spec.group_by, usable) if spec.group_by else ""
+    if group and group not in selected:
+        selected = (group, *selected)
 
     conditions = _conditions(spec, usable)
     orders = _orders(spec, usable)
@@ -236,6 +240,8 @@ def wrap_sql(base_sql: str, columns: tuple[str, ...], spec: Spec, *, page: int |
         if page is not None and usable[0] not in (order.rsplit(" ", 1)[0] for order in orders):
             # A tie-breaker, so that pages do not overlap when the order is not unique.
             orders.append(f"{usable[0]} ASC")
+    if group:
+        orders = [f"{group} ASC"] + [order for order in orders if order.rsplit(" ", 1)[0] != group]
 
     sql = f"SELECT {', '.join(selected)} {_from_base(base_sql)}" + _where(conditions)
     if orders:
@@ -244,23 +250,16 @@ def wrap_sql(base_sql: str, columns: tuple[str, ...], spec: Spec, *, page: int |
 
 
 def count_sql(base_sql: str, columns: tuple[str, ...], spec: Spec) -> str:
-    """One row: ``N``. Without ``spec.group_by`` it is the number of rows of the saved query that pass the filters.
-    With ``spec.group_by`` it is the number of groups that those rows fall into (the total of a grouped view).
-    Columns and sort are ignored."""
+    """One row: ``N``, the number of rows of the saved query that pass the filters (a grouped table shows every row,
+    so its total is the same). Columns, sort and group are ignored."""
     usable = _usable_or_raise(columns)
     conditions = _conditions(spec, usable)
-    if spec.group_by:
-        group = _resolve(spec.group_by, usable)
-        if group == COUNT_NAME:
-            raise SpecError(f"A column named {COUNT_NAME} cannot be grouped; the count uses that name.")
-        grouped = f"SELECT {group} {_from_base(base_sql)}" + _where(conditions) + f" GROUP BY {group}"
-        return f"SELECT COUNT(*) AS {COUNT_NAME} FROM ({grouped}) AS ws_groups"
     return f"SELECT COUNT(*) AS {COUNT_NAME} {_from_base(base_sql)}" + _where(conditions)
 
 
 def group_sql(base_sql: str, columns: tuple[str, ...], spec: Spec, *, page: int | None = None) -> str:
-    """Rows of ``<group_by>, N``: how many filtered rows fall in each value of the group column, biggest first.
-    Ordered by N descending, then the group column. Columns and sort are ignored."""
+    """Rows of ``<group_by>, N``: how many filtered rows fall in each value of the group column (the count shown on
+    each group heading). Ordered by N descending, then the group column. Columns and sort are ignored."""
     _check_page(page)
     usable = _usable_or_raise(columns)
     if not spec.group_by:
@@ -343,3 +342,42 @@ def spec_from_json(text: str, columns: tuple[str, ...]) -> Spec:
     if group_by == COUNT_NAME:  # the count uses that name, so it cannot be grouped (group_sql refuses it)
         group_by = ""
     return Spec(columns=selected, filters=tuple(filters), sort=tuple(sort), group_by=group_by)
+
+
+def checked_group(base_sql: str, columns: Iterable[str], wanted: str) -> str:
+    """The group column the model asked for, when it is safe to show the rows under it; "" otherwise.
+
+    Kept only when it is a usable column of the result (not the count name) and the query's outermost SELECT is not
+    a count per that column (a GROUP BY on that column alone): such a result already has one row per group, so
+    headings over it would only repeat each row. A GROUP BY by person (the "since when" pattern) still keeps it."""
+    if not wanted:
+        return ""
+    usable = usable_columns(columns)
+    try:
+        group = _resolve(wanted, usable)
+    except SpecError:
+        return ""
+    if group == COUNT_NAME:
+        return ""
+    try:
+        tree = sqlglot.parse_one(base_sql.strip().rstrip(";").strip(), read=Firebird)
+    except (sqlglot.errors.SqlglotError, ValueError, TypeError, RecursionError):
+        return group
+    grouped = tree.args.get("group") if isinstance(tree, exp.Select) else None
+    if grouped is None:
+        return group
+    terms = grouped.expressions
+    aliases = {
+        projection.this.sql(dialect=Firebird): projection.alias.upper()
+        for projection in (tree.expressions if isinstance(tree, exp.Select) else [])
+        if isinstance(projection, exp.Alias)
+    }
+
+    def names_group(term: exp.Expression) -> bool:
+        if isinstance(term, exp.Column) and term.name.upper() == group:
+            return True
+        return aliases.get(term.sql(dialect=Firebird)) == group
+
+    if len(terms) == 1 and names_group(terms[0]):
+        return ""
+    return group

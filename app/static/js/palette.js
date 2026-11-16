@@ -152,13 +152,13 @@
     if (store) store.setOpen(open);
   }
 
-  // The quick results always show (the recents with an empty box) and keep their own cap, so the thread stays visible
-  // while typing: the results sit above it and the thread takes the remaining room. Typing only enables the send button.
+  // With an empty box the recents keep their own cap above the thread. While the user types, the quick results take
+  // the whole panel (the thread is hidden) until they ask; asking clears the box, which brings the thread back.
   function syncMode() {
     var typed = input.value.trim() !== "";
-    thread.hidden = false;
-    results.classList.remove("flex-1");
-    results.style.maxHeight = "";
+    thread.hidden = typed;
+    results.classList.toggle("flex-1", typed);
+    results.style.maxHeight = typed ? "none" : "";
     if (sendBtn) sendBtn.disabled = !typed || !askOn;
     autosize();
   }

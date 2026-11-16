@@ -3,6 +3,7 @@ the permission check. A refused signing writes nothing: no file, no row, and the
 
 import hashlib
 import io
+import itertools
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -66,7 +67,11 @@ def _grant(user: User, codename: str, app_label: str = "accounts") -> None:
     user.user_permissions.add(Permission.objects.get(codename=codename, content_type__app_label=app_label))
 
 
+_numbers = itertools.count(1)
+
+
 def _transfer(employee: Employee, actor: User, day: date, department: str) -> Event:
+    # An order needs its number when it is created (D-083): each test change gets a unique one.
     return events.record(
         employee,
         type="transfer",
@@ -76,12 +81,16 @@ def _transfer(employee: Employee, actor: User, day: date, department: str) -> Ev
         reason="",
         note="",
         by=actor,
+        order_number=f"Т/{next(_numbers)}",
+        order_date=day,
     )
 
 
 def _register_today(order: HrOrder, actor: User) -> HrOrder:
-    today = timezone.localdate()
-    orders.register(order, number=orders.suggest_number(today), date=today, summary="", issued_by="", by=actor)
+    """Only a legacy pending order needs a number; a new one is registered when it is created."""
+    if order.state == OrderState.PENDING:
+        today = timezone.localdate()
+        orders.register(order, number=orders.suggest_number(today), date=today, summary="", issued_by="", by=actor)
     order.refresh_from_db()
     return order
 
@@ -204,6 +213,8 @@ def test_prior_scan_makes_signing_refused_with_one_file_and_one_row(signer: User
 def test_pending_order_cannot_be_signed(signer: User, hired: Employee) -> None:
     event = _transfer(hired, signer, DAY, "Инженер")
     order = HrOrder.objects.get(event=event)
+    HrOrder.objects.filter(pk=order.pk).update(state=OrderState.PENDING)  # a legacy pending row (none is made now)
+    order.refresh_from_db()
     assert order.state == OrderState.PENDING
     with pytest.raises(OrderError):
         sign_order(order, by=signer, png=_png(), method=OrderSigning.Method.DRAWN)
@@ -225,13 +236,12 @@ def test_hire_order_needs_salary_right_and_writes_nothing(signer: User, hired: E
         event=None,
         is_hire=True,
         order_type=OrderType.HIRED,
-        number="",
-        date=None,
+        number="Э/9",
+        date=timezone.localdate(),
         summary="",
         issued_by="",
         by=signer,
     )
-    _register_today(hire_order, signer)
     files_before = _stored_files()
     with pytest.raises(OrderError) as refused:
         sign_order(hire_order, by=signer, png=_png(), method=OrderSigning.Method.DRAWN)

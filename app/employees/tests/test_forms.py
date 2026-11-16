@@ -87,7 +87,14 @@ def test_editing_other_employee_to_existing_number_is_refused(
     hired: Employee, actor: User, job_values: dict[str, Any]
 ) -> None:
     other = history.hire(
-        hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor
+        hire_values("УБ11223344"),
+        {},
+        start=date(2026, 1, 5),
+        job=job_values,
+        salary=Decimal("1"),
+        by=actor,
+        order_number="Э/2",
+        order_date=date(2026, 1, 5),
     )
     form = EmployeeForm({**BASE, "register_no": "уб 99112233"}, employee=other)
     assert not form.is_valid() and "register_no" in form.errors
@@ -98,7 +105,14 @@ def test_unchanged_register_no_kept_when_another_row_shares_it(
     hired: Employee, actor: User, job_values: dict[str, Any]
 ) -> None:
     other = history.hire(
-        hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor
+        hire_values("УБ11223344"),
+        {},
+        start=date(2026, 1, 5),
+        job=job_values,
+        salary=Decimal("1"),
+        by=actor,
+        order_number="Э/3",
+        order_date=date(2026, 1, 5),
     )
     Employee.objects.filter(pk=other.pk).update(register_no="УБ99112233")  # old MACS duplicate
     form = EmployeeForm({**BASE, "work_phone": "88112233"}, employee=hired)
@@ -109,7 +123,16 @@ def test_unchanged_register_no_kept_when_another_row_shares_it(
 def test_changing_register_no_to_another_rows_number_is_refused(
     hired: Employee, actor: User, job_values: dict[str, Any]
 ) -> None:
-    history.hire(hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor)
+    history.hire(
+        hire_values("УБ11223344"),
+        {},
+        start=date(2026, 1, 5),
+        job=job_values,
+        salary=Decimal("1"),
+        by=actor,
+        order_number="Э/4",
+        order_date=date(2026, 1, 5),
+    )
     form = EmployeeForm({**BASE, "register_no": "уб 11223344"}, employee=hired)
     assert not form.is_valid()
     assert form.errors["register_no"] == ["Энэ регистрийн дугаартай ажилтан аль хэдийн бүртгэлтэй."]

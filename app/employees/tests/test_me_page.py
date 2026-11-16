@@ -20,6 +20,7 @@ from leave.services import requests as request_service
 from macs.models import LeaveAssign, LeaveTypeRow
 
 from employees import attention
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, JobRecord
 from employees.services import history
 from employees.tests.conftest import hire_values, link_login
@@ -67,7 +68,8 @@ def staff_employee(actor: User, job_values: dict[str, Any]) -> Employee:
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("1500000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
 
 

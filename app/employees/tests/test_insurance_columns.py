@@ -8,6 +8,7 @@ from django.test import Client
 from leave.services import entitlement
 from macs.models import InsuredCategory
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes, records
 
@@ -47,7 +48,7 @@ def test_salary_form_saves_to_employee_row_and_logs(client: Client, hired: Emplo
 
 
 def test_hire_stores_insurance_columns(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(hire_values("УБ55667788"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values("УБ55667788"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     records.update_salary_insurance(emp, {"social_insurance_no": "НД-H", "taxpayer_no": "T-H"}, actor)
     emp = Employee.objects.get(pk=emp.pk)
     assert emp.social_insurance_no == "НД-H" and emp.taxpayer_no == "T-H"
@@ -62,7 +63,7 @@ def test_legacy_production_values_show_on_detail(client: Client, hired: Employee
 
 
 def test_disability_column_drives_leave_entitlement(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(hire_values("УБ55667799"), {}, start=date(2024, 3, 1), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values("УБ55667799"), {}, start=date(2024, 3, 1), job=job_values, salary=None, by=actor, order_number=next_order_number())
     records.update_salary_insurance(emp, {"has_disability": True}, actor)
     emp = Employee.objects.get(pk=emp.pk)
     assert "хөгжлийн бэрхшээлтэй" in entitlement.entitled(emp, date(2026, 3, 1)).breakdown
@@ -75,7 +76,8 @@ def test_probation_months_on_hire_update_and_clear(actor: User, job_values: dict
         start=date(2026, 1, 5),
         job=job_values,
         salary=None,
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert Employee.objects.get(pk=emp.pk).probation_months == 3  # 90 days, about 3 months
     records.update_employee(emp, {"probation_end": date(2026, 7, 5)}, actor)
@@ -99,6 +101,7 @@ def test_probation_counts_from_current_hire_not_first_hire_date(actor: User, job
         start=date(2026, 1, 5),
         job=job_values,
         salary=None,
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert Employee.objects.get(pk=emp.pk).probation_months == 3

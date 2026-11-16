@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from accounts.models import User
+from employees.tests.helpers import next_order_number
 from employees.models import Event
 from employees.services import history, macs_writes
 from macs.models import Employee, FiredReason
@@ -39,7 +40,7 @@ def hired(actor: User, job_values: dict[str, Any]) -> Employee:
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
 
 
 @pytest.fixture

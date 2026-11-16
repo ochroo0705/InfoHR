@@ -22,6 +22,7 @@ django.setup()
 from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from employees import history_range
+from employees.tests.helpers import next_order_number
 from employees.models import ContractType, Employee, EmployeeType, JobRecord, JobStatus, SalaryRecord
 from employees.services import history, macs_writes
 from employees.services.history import HistoryError
@@ -62,7 +63,8 @@ def job():
 
 def hire(label, n):
     return history.hire(
-        hire_values(label, n), {}, start=START, job=job(), salary=Decimal("1500000.00"), by=by
+        hire_values(label, n), {}, start=START, job=job(), salary=Decimal("1500000.00"), by=by,
+        order_number=next_order_number(),
     )
 
 

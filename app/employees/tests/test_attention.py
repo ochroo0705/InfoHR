@@ -23,7 +23,7 @@ from employees.models import Employee, EmployeeExt, SetupItem
 from employees.services import events, history
 
 from .conftest import hire_values, link_login, named, set_account, set_ext
-from .helpers import record_signed
+from .helpers import next_order_number, record_signed
 from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -69,7 +69,7 @@ def emp(hired: Employee) -> Employee:
     set_contact(hired, present=True)
     hired.save()
     set_account(hired, "123")
-    hired.hr_orders.update(state="registered")  # the hire order's pending-number reminder is tested on its own
+    hired.hr_orders.update(state="registered")
     return hired
 
 
@@ -122,7 +122,15 @@ def test_employee_role_empty(emp: Employee) -> None:
 
 def test_left_excluded_and_sorted(emp: Employee, actor: User, job_values: dict[str, Any]) -> None:
     set_account(emp, "")
-    other = history.hire(hire_values("УБ00000002"), {}, start=date(2025, 1, 1), job=job_values, salary=None, by=actor)
+    other = history.hire(
+        hire_values("УБ00000002"),
+        {},
+        start=date(2025, 1, 1),
+        job=job_values,
+        salary=None,
+        order_number=next_order_number(),
+        by=actor,
+    )
     other.family_name = "Аавын"
     other.save()
     admin = User.objects.create_superuser("root", password="x-long-pass-123")  # noqa: S106
@@ -167,11 +175,12 @@ def test_missing_salary_insurance_row_flags_bank_for_accountant(emp: Employee) -
 def test_scheduled_termination_and_near_event_shown(emp: Employee, actor: User) -> None:
     events.record(
         emp, type="contract", effective=TODAY + timedelta(days=7), changes={"contract_no": "CN-NEW"},
-        salary=None, reason="", note="", by=actor,
+        salary=None, reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     record_signed(
         emp, type="termination", effective=TODAY + timedelta(days=20), changes={}, salary=None,
-        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
+        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", order_number=next_order_number(),
+        by=actor,
     )  # fmt: skip
     got = texts(user_in("HR"))
     assert f"Гарах: {_fmt(TODAY + timedelta(days=20))}" in got
@@ -181,11 +190,11 @@ def test_scheduled_termination_and_near_event_shown(emp: Employee, actor: User) 
 def test_day_14_shown_and_today_not_shown(emp: Employee, actor: User) -> None:
     events.record(
         emp, type="contract", effective=TODAY, changes={"contract_no": "CN-0"},
-        salary=None, reason="", note="", by=actor,
+        salary=None, reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     events.record(
         emp, type="contract", effective=TODAY + timedelta(days=14), changes={"contract_no": "CN-14"},
-        salary=None, reason="", note="", by=actor,
+        salary=None, reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     assert f"Төлөвлөсөн: Гэрээ сунгах / өөрчлөх {_fmt(TODAY + timedelta(days=14))}" in texts(user_in("HR"))
     assert not any(_fmt(TODAY) in t and t.startswith("Төлөвлөсөн") for t in texts(user_in("HR", "u2")))
@@ -194,7 +203,7 @@ def test_day_14_shown_and_today_not_shown(emp: Employee, actor: User) -> None:
 def test_far_future_non_termination_not_shown(emp: Employee, actor: User) -> None:
     events.record(
         emp, type="contract", effective=TODAY + timedelta(days=15), changes={"contract_no": "CN-FAR"},
-        salary=None, reason="", note="", by=actor,
+        salary=None, reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     assert not any(t.startswith("Төлөвлөсөн") for t in texts(user_in("HR")))
 
@@ -203,7 +212,8 @@ def test_cancelled_event_ignored(emp: Employee, actor: User) -> None:
     real_today = timezone.localdate()  # events.cancel only accepts scheduled events, judged on the real clock
     ev = events.record(
         emp, type="termination", effective=real_today + timedelta(days=5), changes={}, salary=None,
-        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
+        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", order_number=next_order_number(),
+        by=actor,
     )  # fmt: skip
     events.cancel(ev, reason="алдсан", by=actor)
     assert not any(t.startswith("Гарах") for t in texts(user_in("HR"), real_today))
@@ -212,7 +222,7 @@ def test_cancelled_event_ignored(emp: Employee, actor: User) -> None:
 def test_salary_change_hidden_from_hr(emp: Employee, actor: User) -> None:
     events.record(
         emp, type="salary_change", effective=TODAY + timedelta(days=5), changes={},
-        salary=Decimal("3000000"), reason="", note="", by=actor,
+        salary=Decimal("3000000"), reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     text = f"Төлөвлөсөн: Цалин өөрчлөх {_fmt(TODAY + timedelta(days=5))}"
     assert text not in texts(user_in("HR"))
@@ -239,6 +249,7 @@ def test_expected_return_from_leave(emp: Employee, delta: int, text: str | None)
         salary=None,
         reason="unpaid",
         note="",
+        order_number=next_order_number(),
         by=actor,
         expected_return=back,
     )
@@ -252,7 +263,15 @@ def test_most_urgent_first_and_rest_folded(
     today = timezone.localdate()
     emp.job_records.update(contract_end=today - timedelta(days=10))
     for i in range(12):  # new hires without an emergency contact: one "missing" item each at least
-        history.hire(hire_values(f"УБ991122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+        history.hire(
+            hire_values(f"УБ991122{i:02d}"),
+            {},
+            start=date(2026, 1, 5),
+            job=job_values,
+            salary=None,
+            order_number=next_order_number(),
+            by=actor,
+        )
     hr = user_in("HR", "hr1")
     found = attention.items(hr, employee_rows(Employee.objects.all(), today), today)
     assert found[0].employee == emp and "дууссан" in found[0].text
@@ -266,7 +285,8 @@ def test_most_urgent_first_and_rest_folded(
     emergency = next(g for g in groups if g.kind == "emergency")
     assert not emergency.dated and len(emergency.items) >= 12
     assert "Гэрээ дууссан" in html and f"Яаралтай үед холбогдох хүн дутуу · {len(emergency.items)}" in html
-    assert f"Бүгдийг харах ({len(emergency.items) - attention.GROUP_LIMIT}) →" in html  # past three wait behind it
+    # A missing-data group loads its people on demand, a page at a time (gap markup, not the «Бүгдийг харах» button).
+    assert f'?kind=emergency&urgency={emergency.urgency}&all=1"' in html
     # Chips are for the overdue and due-soon groups; missing-data groups are one-line rows in the closed gap section.
     queued = [g for g in groups if not g.dated and g.urgency != attention.MISSING]
     assert html.count("data-chip") == attention.GROUP_LIMIT * sum(
@@ -277,10 +297,18 @@ def test_most_urgent_first_and_rest_folded(
 
 def _many_without_contact(actor: User, job_values: dict[str, Any], count: int) -> None:
     for i in range(count):
-        history.hire(hire_values(f"УБ771122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+        history.hire(
+            hire_values(f"УБ771122{i:02d}"),
+            {},
+            start=date(2026, 1, 5),
+            job=job_values,
+            salary=None,
+            order_number=next_order_number(),
+            by=actor,
+        )
 
 
-def test_a_group_shows_three_items_and_loads_the_rest_on_request(
+def test_a_gap_group_loads_its_people_a_page_at_a_time_on_request(
     client: Client, emp: Employee, actor: User, job_values: dict[str, Any]
 ) -> None:
     _many_without_contact(actor, job_values, 14)
@@ -289,18 +317,24 @@ def test_a_group_shows_three_items_and_loads_the_rest_on_request(
     hr = User.objects.get(username="viewer")
     groups = attention.group(attention.items(hr, employee_rows(Employee.objects.all(), today), today))
     emergency = next(g for g in groups if g.kind == "emergency")
-    assert len(emergency.items) > attention.GROUP_LIMIT
+    total = len(emergency.items)
+    assert total > attention.GAP_PAGE
     page = client.get(reverse("employees:today")).content.decode()
-    assert f"Бүгдийг харах ({len(emergency.items) - attention.GROUP_LIMIT}) →" in page
-    more = client.get(reverse("employees:attention_more"), {"kind": "emergency", "urgency": str(emergency.urgency)})
-    assert more.status_code == 200 and more["Cache-Control"] == "no-store"
-    body = more.content.decode()
-    assert body.count("group/chip") == len(emergency.items) - attention.GROUP_LIMIT
-    rest = emergency.items[attention.GROUP_LIMIT :]
-    assert all(f'href="/employees/{a.employee.pk}/' in body for a in rest if a.employee)
-    assert not any(
-        f'href="/employees/{a.employee.pk}/' in body for a in emergency.items[: attention.GROUP_LIMIT] if a.employee
+    assert 'data-attention-gap data-kind="emergency"' in page
+    assert f'?kind=emergency&urgency={emergency.urgency}&all=1"' in page
+    params = {"kind": "emergency", "urgency": str(emergency.urgency), "all": "1"}
+    first = client.get(reverse("employees:attention_more"), params)
+    assert first.status_code == 200 and first["Cache-Control"] == "no-store"
+    body = first.content.decode()
+    assert body.count("group/chip") == attention.GAP_PAGE
+    assert f"+ {total - attention.GAP_PAGE} бусад →" in body  # the rest wait behind this button
+    assert all(
+        f'href="/employees/{a.employee.pk}/' in body for a in emergency.items[: attention.GAP_PAGE] if a.employee
     )
+    rest = client.get(reverse("employees:attention_more"), params | {"offset": str(attention.GAP_PAGE)})
+    tail = rest.content.decode()
+    assert tail.count("group/chip") == total - attention.GAP_PAGE
+    assert "бусад →" not in tail  # the last page: nothing left behind it
 
 
 def test_a_dated_group_loads_the_rest_as_lines(
@@ -309,7 +343,13 @@ def test_a_dated_group_loads_the_rest_as_lines(
     today = timezone.localdate()
     for i in range(12):
         person = history.hire(
-            hire_values(f"УБ661122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor
+            hire_values(f"УБ661122{i:02d}"),
+            {},
+            start=date(2026, 1, 5),
+            job=job_values,
+            salary=None,
+            order_number=next_order_number(),
+            by=actor,
         )
         person.job_records.update(contract_end=today + timedelta(days=5 + i))
     login_as(client, "HR")
@@ -330,7 +370,13 @@ def _attention_group_tags(html: str) -> list[str]:
 def _contract_people(actor: User, job_values: dict[str, Any], ends: list[date]) -> None:
     for i, end in enumerate(ends):
         person = history.hire(
-            hire_values(f"УБ551122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor
+            hire_values(f"УБ551122{i:02d}"),
+            {},
+            start=date(2026, 1, 5),
+            job=job_values,
+            salary=None,
+            order_number=next_order_number(),
+            by=actor,
         )
         person.job_records.update(contract_end=end)
 
@@ -383,7 +429,8 @@ def test_scheduled_changes_still_show_on_the_page(client: Client, emp: Employee,
     real_today = timezone.localdate()
     record_signed(
         emp, type="termination", effective=real_today + timedelta(days=6), changes={}, salary=None,
-        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
+        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", order_number=next_order_number(),
+        by=actor,
     )  # fmt: skip
     login_as(client, "HR")
     html = client.get(reverse("employees:today")).content.decode()
@@ -400,7 +447,15 @@ def test_attention_more_needs_login_and_a_real_group(client: Client, emp: Employ
 def test_dismiss_all_in_group(client: Client, emp: Employee, actor: User, job_values: dict[str, Any]) -> None:
     today = timezone.localdate()
     for i in range(2):
-        history.hire(hire_values(f"УБ881122{i:02d}"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+        history.hire(
+            hire_values(f"УБ881122{i:02d}"),
+            {},
+            start=date(2026, 1, 5),
+            job=job_values,
+            salary=None,
+            order_number=next_order_number(),
+            by=actor,
+        )
     hr = login_as(client, "HR")
     found = attention.items(hr, employee_rows(Employee.objects.all(), today), today)
     keys = [a.key for a in found if a.kind == "emergency"]
@@ -411,7 +466,17 @@ def test_dismiss_all_in_group(client: Client, emp: Employee, actor: User, job_va
 
 
 def _scheduled_leave(emp: Employee, actor: User, start: date) -> None:
-    events.record(emp, type="leave_start", effective=start, changes={}, salary=None, reason="unpaid", note="", by=actor)
+    events.record(
+        emp,
+        type="leave_start",
+        effective=start,
+        changes={},
+        salary=None,
+        reason="unpaid",
+        note="",
+        order_number=next_order_number(),
+        by=actor,
+    )
 
 
 def test_dismiss_hides_for_that_user_only_and_can_be_restored(
@@ -494,11 +559,12 @@ def test_attention_silent_when_not_configured(emp: Employee, annual_type: LeaveT
 def test_future_rehire_does_not_break_leave_item(emp: Employee, actor: User) -> None:
     record_signed(
         emp, type="termination", effective=date(2026, 3, 1), changes={}, salary=None,
-        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
+        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", order_number=next_order_number(),
+        by=actor,
     )  # fmt: skip
     record_signed(
         emp, type="rehire", effective=TODAY + timedelta(days=30), changes={}, salary=None,
-        reason="", note="", by=actor,
+        reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     rows = employee_rows(Employee.objects.all(), TODAY)
     found = attention.items(user_in("HR"), rows, TODAY)
@@ -536,14 +602,13 @@ def _pending(emp: Employee) -> list[str]:
     return [t for t in texts(user_in("HR")) if "тушаалын дугаар оруулаагүй" in t]
 
 
-def test_pending_order_listed(emp: Employee) -> None:
-    from employees.models import HrOrder, OrderState, OrderType
+def test_pending_order_not_listed(emp: Employee) -> None:
+    from employees.models import OrderState
 
-    emp.hr_orders.all().delete()
-    HrOrder.objects.create(employee=emp, is_hire=True, order_type=OrderType.HIRED, state=OrderState.PENDING)
-    assert _pending(emp) == ["Ажилд орсон тушаалын дугаар оруулаагүй"]
+    emp.hr_orders.update(state=OrderState.PENDING)  # an old-data row waiting for its number
+    assert _pending(emp) == []  # D-083: no «дугаар оруулаагүй» item any more
     items = attention.items(user_in("HR", "u2"), employee_rows(Employee.objects.all(), TODAY), TODAY)
-    assert next(a for a in items if a.kind == "order_number").urgency == attention.DUE
+    assert not [a for a in items if a.kind == "order_number"]
 
 
 def test_registered_order_not_listed(emp: Employee) -> None:
@@ -589,7 +654,7 @@ def _expired(emp: Employee, emptype: int, **extra: Any) -> None:
     job.save()
 
 
-NEW_KINDS = {"order_number", "probation_ended", "contract_ended"}
+NEW_KINDS = {"probation_ended", "contract_ended"}
 
 
 def _kinds(user: User) -> set[str]:
@@ -673,6 +738,7 @@ def test_planned_return_only_for_long_leave_rows(emp: Employee) -> None:
         salary=None,
         reason="unpaid",
         note="",
+        order_number=next_order_number(),
         by=actor,
         expected_return=back,
     )
@@ -687,23 +753,25 @@ def test_dated_events_applied_waiting_cancelled_and_salary(emp: Employee, actor:
     ids = [emp.pk]
     events.record(  # before the window: recorded first, later changes must not precede it
         emp, type="contract", effective=today - timedelta(days=1), changes={"contract_no": "C0"},
-        salary=None, reason="", note="", by=actor,
+        salary=None, reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     on_day = events.record(
-        emp, type="contract", effective=today, changes={"contract_no": "C1"}, salary=None, reason="", note="", by=actor
+        emp, type="contract", effective=today, changes={"contract_no": "C1"}, salary=None, reason="", note="",
+        order_number=next_order_number(), by=actor
     )  # fmt: skip
     salary = events.record(
         emp, type="salary_change", effective=today + timedelta(days=2), changes={},
-        salary=Decimal("3000000"), reason="", note="", by=actor,
+        salary=Decimal("3000000"), reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     cancelled = events.record(
         emp, type="contract", effective=today + timedelta(days=5), changes={"contract_no": "CX"},
-        salary=None, reason="", note="", by=actor,
+        salary=None, reason="", note="", order_number=next_order_number(), by=actor,
     )  # fmt: skip
     events.cancel(cancelled, reason="алдсан", by=actor)
     waiting = events.record(
         emp, type="termination", effective=today + timedelta(days=6), changes={}, salary=None,
-        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", by=actor,
+        reason="", fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"), note="", order_number=next_order_number(),
+        by=actor,
     )  # fmt: skip
 
     def pks(can_salary: bool, **kwargs: Any) -> set[int]:
@@ -733,7 +801,15 @@ def _approval_on_with_waiting_request(
 ) -> None:
     """Direct-manager approval is on, and one request of `emp` waits for the employee linked to `boss_user`."""
     LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": True})
-    boss = history.hire(hire_values("УБ00000002"), {}, start=date(2025, 1, 1), job=job, salary=None, by=actor)
+    boss = history.hire(
+        hire_values("УБ00000002"),
+        {},
+        start=date(2025, 1, 1),
+        job=job,
+        salary=None,
+        order_number=next_order_number(),
+        by=actor,
+    )
     link_login(boss, boss_user)
     job_row = emp.job_records.get()
     job_row.manager = boss
@@ -794,10 +870,9 @@ def test_tiers_empty() -> None:
 # --- Task 2: group destinations («Бүгдийг нээх →») ---
 
 
-def test_group_url_orders() -> None:
-    # The orders register takes ?state=, so the link opens the pending orders only (brief Task 2, Step 3).
-    g = attention.Group("order_number", attention.DUE, "x", [])
-    assert g.url == reverse("employees:orders") + "?state=pending"
+def test_group_url_orders_has_no_link() -> None:
+    # The order item is gone (D-083), so no group leads to a pending-orders list.
+    assert "order_number" not in attention.GROUP_URLS
 
 
 def test_group_url_unknown_is_empty() -> None:
@@ -805,16 +880,14 @@ def test_group_url_unknown_is_empty() -> None:
     assert g.url == ""
 
 
-def test_order_group_markup_links_to_pending_orders(client: Client, emp: Employee) -> None:
-    from employees.models import HrOrder, OrderState, OrderType
+def test_pending_order_gives_no_open_all_link_on_today(client: Client, emp: Employee) -> None:
+    from employees.models import OrderState
 
-    emp.hr_orders.all().delete()
-    HrOrder.objects.create(employee=emp, is_hire=True, order_type=OrderType.HIRED, state=OrderState.PENDING)
+    emp.hr_orders.update(state=OrderState.PENDING)  # an old-data row waiting for its number
     login_as(client, "HR")
     html = client.get(reverse("employees:today")).content.decode()
-    want_href = f'href="{reverse("employees:orders")}?state=pending"'
-    assert want_href in html
-    assert "Бүгдийг нээх →" in html
+    assert "?state=pending" not in html
+    assert "дугаар оруулаагүй" not in html
 
 
 def test_group_without_url_renders_no_open_all_link(client: Client, emp: Employee) -> None:
@@ -834,6 +907,7 @@ def _bank_gap_people(actor: User, job_values: dict[str, Any], count: int) -> lis
             start=date(2026, 1, 5),
             job=job_values,
             salary=None,
+            order_number=next_order_number(),
             by=actor,
         )  # fmt: skip
         for i in range(count)

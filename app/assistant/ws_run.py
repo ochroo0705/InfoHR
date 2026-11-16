@@ -65,9 +65,8 @@ def _too_far(page: object) -> bool:
 
 
 def _rows_sql(base_sql: str, columns: tuple[str, ...], spec: Spec, page: int | None) -> str:
-    """Grouped rows when the spec groups, otherwise the filtered and sorted rows. Shared by the page and the export."""
-    if spec.group_by:
-        return group_sql(base_sql, columns, spec, page=page)
+    """The filtered and sorted rows (grouped ones come together under their group column). Shared by the page and the
+    export."""
     return wrap_sql(base_sql, columns, spec, page=page)
 
 
@@ -156,3 +155,30 @@ def run_export(
     except SpecError as error:
         return RunResult(status="refused", reason=str(error)), False
     return _run(user, sql, Limits(max_rows=EXPORT_MAX_ROWS, timeout_s=EXPORT_TIMEOUT_S), governed)
+
+
+MAX_GROUPS = 1000  # the most group headings counted for one table; a group past this shows no count
+
+
+def run_group_counts(
+    user: object, base_sql: str, columns: tuple[str, ...], spec: Spec, host: Host | None = None
+) -> dict[object, int]:
+    """{group value: how many filtered rows it has} for the spec's group column; {} when the spec does not group or
+    the run is not ok. Never raises on a bad spec."""
+    if not spec.group_by:
+        return {}
+    governed = _host(host)
+    if _blocked(user, governed) is not None:
+        return {}
+    try:
+        sql = group_sql(base_sql, columns, spec)
+    except SpecError:
+        return {}
+    result, _cut = _run(user, sql, Limits(max_rows=MAX_GROUPS), governed)
+    if result.status != "ok":
+        return {}
+    counts: dict[object, int] = {}
+    for row in result.rows:
+        if len(row) >= 2 and isinstance(row[1], (int, Decimal)) and not isinstance(row[1], bool):
+            counts[row[0]] = int(row[1])
+    return counts

@@ -131,7 +131,7 @@ def test_leave_requests_board_starts_with_pending(
 
 
 def test_orders_board_lane_order(hr_user: User, hired: Any, actor: User, job_values: dict[str, Any]) -> None:
-    HrOrder.objects.filter(employee=hired, is_hire=True).update(number="12", date=date(2026, 1, 5), state="pending")
+    HrOrder.objects.filter(employee=hired, is_hire=True).update(number="12", date=date(2026, 1, 5), state="registered")
     other = history.hire(
         {**hire_values("УБ99112255"), "family_name": "Дорж", "given_name": "Бат"},
         {},
@@ -139,13 +139,15 @@ def test_orders_board_lane_order(hr_user: User, hired: Any, actor: User, job_val
         job=job_values,
         salary=None,
         by=actor,
+        order_number="11",
+        order_date=date(2026, 1, 5),
     )
     HrOrder.objects.filter(employee=other, is_hire=True).update(number="13", date=date(2026, 1, 6), state="signed")
     filters = Filters(date_from=date(2026, 1, 1), date_to=date(2026, 1, 31), layout="board", lby="state")
     table = build_table(ORDERS_REPORT, hr_user, filters)
     board = layouts_mod.build_board(table, table.spec, [], TODAY)
-    # alphabetically «Гарын» comes before «Дугаар»; the declared flow puts the draft (no number yet) first
-    assert [lane.label for lane in board.lanes] == ["Дугаар оруулаагүй", "Гарын үсэгтэй"]
+    # the declared flow puts «Бүртгэсэн» first, then «Гарын үсэгтэй»; no «Дугаар оруулаагүй» lane (D-083)
+    assert [lane.label for lane in board.lanes] == ["Бүртгэсэн", "Гарын үсэгтэй"]
 
 
 # ---- the page: the «Эрэмбэ» select of the layout bar -------------------------------------------------------------

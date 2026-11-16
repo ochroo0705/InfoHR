@@ -75,16 +75,29 @@
   }
 
   // The column names without the tick column and without the sort arrow.
+  // A grouped table shows the group value once, on its heading row; a copy puts it back as the first column.
   function headerNames(t) {
-    return Array.from(t.querySelectorAll("thead th"))
+    const names = Array.from(t.querySelectorAll("thead th"))
       .slice(1)
       .map((th) => th.textContent.replace(/\s*[↑↓]\s*$/, ""));
+    return t.dataset.wsGroupLabel ? [t.dataset.wsGroupLabel, ...names] : names;
   }
 
   function cellTexts(row) {
-    return Array.from(row.querySelectorAll("td"))
+    const texts = Array.from(row.querySelectorAll("td"))
       .slice(1)
       .map((td) => td.textContent);
+    const body = row.closest("tbody[data-ws-group]");
+    return body ? [body.dataset.wsGroup, ...texts] : texts;
+  }
+
+  // Fold or unfold one group: its data rows are hidden, the heading row stays.
+  function setGroupOpen(body, open) {
+    const toggle = body.querySelector("[data-ws-group-toggle]");
+    if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    body.querySelectorAll("tr:not(.ws-group-row)").forEach((r) => {
+      r.hidden = !open;
+    });
   }
 
   function showMessage(text, isError) {
@@ -268,6 +281,18 @@
   });
 
   document.addEventListener("click", (e) => {
+    const toggle = e.target.closest && e.target.closest("[data-ws-group-toggle]");
+    if (toggle) {
+      const body = toggle.closest("tbody[data-ws-group]");
+      if (body) setGroupOpen(body, toggle.getAttribute("aria-expanded") !== "true");
+      return;
+    }
+    const every = e.target.closest && e.target.closest("[data-ws-groups]");
+    if (every) {
+      const open = every.dataset.wsGroups === "open";
+      document.querySelectorAll("#ws-table-pane tbody[data-ws-group]").forEach((b) => setGroupOpen(b, open));
+      return;
+    }
     const b = bar();
     const target = e.target instanceof Element ? e.target : null;
     if (!b || !target || !target.closest("[data-ws-bar]")) return;

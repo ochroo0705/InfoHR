@@ -8,6 +8,7 @@ from django.utils import timezone
 from macs.models import FiredReason
 
 from employees import access
+from employees.tests.helpers import next_order_number
 from employees.forms import EventForm
 from employees.models import ActivityEntry, Department, Employee, Event, EventType, JobRecord, Position, SalaryRecord
 from employees.services import events, history
@@ -333,7 +334,8 @@ def test_salary_failure_rolls_back_job_part(
         salary=Decimal("3"),
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     counts = (Event.objects.count(), JobRecord.objects.count(), SalaryRecord.objects.count())
     with pytest.raises(OrderError) as exc:

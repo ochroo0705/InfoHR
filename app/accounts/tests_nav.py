@@ -133,7 +133,9 @@ def test_recruitment_link_shows_for_hr_and_hiring_managers_only() -> None:
         "status": "active",
         "contract_type": "open_ended",
     }
-    employee = history.hire(hire_values("УБ99887766"), {}, start=date(2026, 1, 5), job=job, salary=None, by=hr)
+    employee = history.hire(
+        hire_values("УБ99887766"), {}, start=date(2026, 1, 5), job=job, salary=None, by=hr, order_number="Э/8"
+    )
     employee.ext.user = stranger
     employee.ext.save()
     assert "recruitment" not in _shape(_nav(stranger, own_record=True))

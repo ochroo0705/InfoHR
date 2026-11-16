@@ -17,6 +17,7 @@ from django.contrib.auth.models import Group, Permission
 from django.template.loader import render_to_string
 from django.test import Client
 from django.urls import reverse
+from employees.tests.helpers import next_order_number
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values
 
@@ -91,6 +92,7 @@ def _employee(given: str) -> None:
         job=job,
         salary=Decimal("2500000"),
         by=User.objects.create_user(f"verify_actor_{next(_COUNTER)}", password=PASSWORD),
+        order_number=next_order_number(),
     )
 
 

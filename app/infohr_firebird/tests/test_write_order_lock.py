@@ -22,6 +22,7 @@ django.setup()
 from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from employees import history_range
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, OrderType
 from employees.services import orders
 from employees.services.orders import OrderError
@@ -36,6 +37,7 @@ def register_b(number):
     return orders.create_for_change(
         employee=emp, event=None, is_hire=True, order_type=OrderType.HIRED,
         number=number, date=DATE, summary="Т10", issued_by="Т10", by=by,
+        order_number=next_order_number(),
     )
 """
 

@@ -37,6 +37,12 @@ def registered_hire(emp: Employee, actor: User) -> HrOrder:
     return orders.register(order, number="15", date=date(2026, 1, 5), summary="Ажилд авав", issued_by="", by=actor)
 
 
+def legacy_pending_hire(emp: Employee) -> HrOrder:
+    """The hire order turned into a legacy pending row (old data): pending, with no number."""
+    HrOrder.objects.filter(employee=emp, is_hire=True).update(state=OrderState.PENDING, number="", number_key="")
+    return HrOrder.objects.get(employee=emp, is_hire=True)
+
+
 def edit_url(emp: Employee, order: HrOrder, tail: str = "") -> str:
     return f"/employees/{emp.pk}/order/{order.pk}/{tail}"
 
@@ -48,9 +54,11 @@ def test_event_form_with_number_registers(hr: Client, hired: Employee) -> None:
     assert (order.state, order.number, order.summary) == (OrderState.REGISTERED, "77", "Дэвшүүлэв")
 
 
-def test_event_form_without_number_is_pending(hr: Client, hired: Employee) -> None:
-    assert hr.post(url(hired, "promotion"), promote_data(hired)).status_code == 204
-    assert order_of(hired).state == OrderState.PENDING
+def test_event_form_without_number_is_refused(hr: Client, hired: Employee) -> None:
+    # D-083: a change that needs an order cannot be saved without its number (no pending order is created).
+    response = hr.post(url(hired, "promotion"), promote_data(hired))
+    assert response.status_code == 200 and "Тушаалын дугаар заавал" in response.content.decode()
+    assert not HrOrder.objects.filter(event__isnull=False).exists()
 
 
 def test_event_form_shows_order_fields_and_default_issuer(hr: Client, hired: Employee, settings: Any) -> None:
@@ -61,10 +69,25 @@ def test_event_form_shows_order_fields_and_default_issuer(hr: Client, hired: Emp
 
 
 def test_event_form_bad_order_number_shows_error(hr: Client, hired: Employee) -> None:
-    data = promote_data(hired, **{"order-number": "77", "order-date": ""})
+    # "1" is the hire order's number (set by the hired fixture) and is already used in this year: refused.
+    data = promote_data(hired, **{"order-number": "1", "order-date": ""})
     response = hr.post(url(hired, "promotion"), data)
-    assert response.status_code == 200 and "Дугаар болон огноог хамт" in response.content.decode()
+    assert response.status_code == 200 and "аль хэдийн ашиглагдсан" in response.content.decode()
     assert not HrOrder.objects.filter(event__isnull=False).exists()
+
+
+def test_edit_popup_refuses_blank_order_date(hr: Client, hired: Employee, actor: User) -> None:
+    order = registered_hire(hired, actor)  # the edit pop-up keeps the date required (the change form does not)
+    response = hr.post(edit_url(hired, order), {"number": "21", "date": "", "summary": "", "issued_by": ""})
+    assert response.status_code == 200 and "Тушаалын огноог оруулна уу" in response.content.decode()
+    order.refresh_from_db()
+    assert order.number == "15"  # the refused edit changed nothing
+
+
+def test_event_form_blank_order_date_is_the_effective_date(hr: Client, hired: Employee) -> None:
+    data = promote_data(hired, **{"order-number": "77", "order-date": ""})
+    assert hr.post(url(hired, "promotion"), data).status_code == 204
+    assert str(order_of(hired).date) == str(data["effective"])  # the form posts the date as text
 
 
 def test_hire_form_creates_order(hr: Client, place: dict[str, Any]) -> None:  # noqa: F811
@@ -75,9 +98,10 @@ def test_hire_form_creates_order(hr: Client, place: dict[str, Any]) -> None:  # 
     assert Command.objects.filter(number="5").exists()
 
 
-def test_hire_form_without_number_is_pending(hr: Client, place: dict[str, Any]) -> None:  # noqa: F811
-    assert hr.post("/employees/new/", hire_post(place)).status_code == 302
-    assert HrOrder.objects.get(is_hire=True).state == OrderState.PENDING
+def test_hire_form_without_number_is_refused(hr: Client, place: dict[str, Any]) -> None:  # noqa: F811
+    response = hr.post("/employees/new/", hire_post(place, **{"order-number": ""}))  # D-083: no pending hire order is created
+    assert response.status_code == 200 and "Тушаалын дугаар заавал" in response.content.decode()
+    assert not HrOrder.objects.filter(is_hire=True).exists()
 
 
 def test_edit_registered_order(hr: Client, hired: Employee, actor: User) -> None:
@@ -99,7 +123,7 @@ def test_edit_pending_order_registers_it(hr: Client, hired: Employee) -> None:
 
 def test_edit_duplicate_number_shows_error(hr: Client, hired: Employee, actor: User) -> None:
     registered_hire(hired, actor)
-    hr.post(url(hired, "promotion"), promote_data(hired))
+    hr.post(url(hired, "promotion"), promote_data(hired, **{"order-number": "16", "order-date": ""}))
     order = order_of(hired)
     data = {"number": "15", "date": "2026-01-20", "summary": "", "issued_by": ""}
     response = hr.post(edit_url(hired, order), data)
@@ -141,8 +165,8 @@ def test_upload_rejects_big_file(hr: Client, hired: Employee, actor: User, setti
     assert order.state == OrderState.REGISTERED
 
 
-def test_upload_pending_order_refused(hr: Client, hired: Employee) -> None:
-    order = HrOrder.objects.get(employee=hired, is_hire=True)
+def test_upload_legacy_pending_order_refused(hr: Client, hired: Employee) -> None:
+    order = legacy_pending_hire(hired)
     response = hr.post(edit_url(hired, order, "upload/"), {"file": SimpleUploadedFile("a.pdf", PDF)})
     assert response.status_code == 200
     order.refresh_from_db()
@@ -195,7 +219,8 @@ def test_employee_page_lists_orders(hr: Client, hired: Employee, actor: User) ->
     assert "A-9" in body
 
 
-def test_employee_page_pending_order_says_number_pending(hr: Client, hired: Employee) -> None:
+def test_employee_page_legacy_pending_order_says_number_pending(hr: Client, hired: Employee) -> None:
+    legacy_pending_hire(hired)
     assert "Дугаар оруулаагүй" in hr.get(f"/employees/{hired.pk}/").content.decode()
 
 
@@ -219,6 +244,15 @@ def test_cancel_form_requires_number_for_signed(hr: Client, hired: Employee, act
     assert (order.state, order.cancel_order_no) == (OrderState.CANCELLED, "78")
 
 
+def test_order_heading_says_when_the_number_is_required(hr: Client, hired: Employee) -> None:
+    # The hire form always needs the number; a change form needs it only for changes that need an order (D-083).
+    hire = hr.get("/employees/new/").content.decode()
+    assert "· дугаар заавал" in hire and "шаардлагатай өөрчлөлтөд" not in hire
+    change = hr.get(url(hired, "promotion")).content.decode()
+    assert "тушаал шаардлагатай өөрчлөлтөд дугаар заавал" in change
+    assert "дараа нь" not in hire and "дараа нь" not in change
+
+
 def test_order_fields_length_error_is_mongolian() -> None:
     from employees.forms import OrderFieldsForm
 
@@ -237,7 +271,7 @@ def test_cancel_signed_missing_number_names_the_field() -> None:
 
 
 def test_suggest_number_is_highest_plain_number_of_the_year_plus_one(hired: Employee, actor: User) -> None:
-    assert orders.suggest_number(date(2026, 3, 1)) == "1"
+    assert orders.suggest_number(date(2026, 3, 1)) == "2"  # the hired fixture's order is "1"
     order = HrOrder.objects.get(employee=hired, is_hire=True)
     orders.register(order, number="12", date=date(2026, 1, 5), summary="", issued_by="", by=actor)
     assert orders.suggest_number(date(2026, 3, 1)) == "13"
@@ -252,12 +286,12 @@ def test_suggest_number_ignores_lettered_numbers_and_never_guesses_for_letters_o
     assert orders.suggest_number(date(2026, 3, 1)) == ""
 
 
-def test_order_edit_prefills_a_suggested_number_only_for_a_pending_order(
+def test_order_edit_prefills_a_suggested_number_only_for_a_legacy_pending_order(
     hr: Client, hired: Employee, actor: User
 ) -> None:
-    order = HrOrder.objects.get(employee=hired, is_hire=True)
+    order = legacy_pending_hire(hired)  # the order's number is blank, but its production row still says "1": "2" is next
     body = hr.get(edit_url(hired, order)).content.decode()
-    assert 'value="1"' in body and "автоматаар санал болгосон" in body
+    assert 'value="2"' in body and "автоматаар санал болгосон" in body
     orders.register(order, number="7", date=date.today(), summary="", issued_by="", by=actor)
     body = hr.get(edit_url(hired, order)).content.decode()
     assert 'value="7"' in body and "автоматаар санал болгосон" not in body

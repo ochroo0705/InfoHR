@@ -8,6 +8,7 @@ from accounts.models import User
 from django.contrib.auth.models import Group
 from django.http import QueryDict
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, ActivityKind, CompanySettings, Employee, JobRecord
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values
@@ -105,7 +106,8 @@ def test_setting_off_turns_corrections_off(hired: Employee) -> None:
 
 def test_job_record_of_another_employee_is_not_found(hired: Employee, actor: User, job_values: dict[str, Any]) -> None:
     other = history.hire(
-        hire_values("УБ99112234"), {}, start=timezone.localdate(), job=job_values, salary=None, by=actor
+        hire_values("УБ99112234"), {}, start=timezone.localdate(), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     other_record = _job(other)
     assert corrections.record_for(hired, "department", other_record.pk) is None

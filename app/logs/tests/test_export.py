@@ -13,6 +13,7 @@ from django.contrib.auth.models import Group, Permission
 from django.http import QueryDict
 from django.test import Client
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, ActivityKind, Employee
 from employees.services import history, macs_writes
 
@@ -66,7 +67,7 @@ def _hire(actor: User, family: str, given: str, register_no: str) -> Employee:
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
 
 
 def _entry(employee: Employee, message: str, **fields: Any) -> ActivityEntry:

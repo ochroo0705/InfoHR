@@ -9,6 +9,7 @@ from django.db.models.query import QuerySet
 from django.db.models.signals import post_delete, post_save
 
 from employees import history_range
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, HrOrder, JobRecord, SalaryRecord
 from employees.services import events, history, macs_writes, orders
 from employees.services import setup as setup_service
@@ -128,7 +129,8 @@ def test_events_take_the_history_lock_before_the_employee_row(
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert_lock_first("events.record")
 
@@ -145,7 +147,8 @@ def test_events_take_the_history_lock_before_the_employee_row(
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     calls.clear()
     events.cancel(cancelled, reason="Буруу бүртгэсэн", by=actor)
@@ -160,7 +163,8 @@ def test_events_take_the_history_lock_before_the_employee_row(
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     order = orders.register(
         HrOrder.objects.get(event=waiting),
@@ -204,7 +208,8 @@ def test_every_history_writer_takes_the_lock(
         # hire: the Employee row itself is created before the lock (it has no history yet); the history rows
         # must come after the lock.
         employee = history.hire(
-            hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor
+            hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor,
+            order_number=next_order_number(),
         )
         assert events.count("lock") >= 1
         assert events.index("lock") < events.index("row")

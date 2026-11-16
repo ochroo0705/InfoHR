@@ -178,6 +178,12 @@ LATER_MIGRATIONS = {
         "0007_order_signing",
         "0008_companysettings_soon_days",
         "0009_companysettings_governed_sql",
+        "0010_staffimportdraft_list_results",
+        "0011_letterhead_company_fields",
+        "0012_ordertemplate_show_letterhead",
+        "0013_companysettings_report_corrections",
+        "0014_order_state_default",  # D-083: an order is registered by default
+        "0015_number_pending_orders",  # D-083: pending orders numbered once, none left
     ],
     "accounts": ["0004_sign_orders"],
     "assistant": ["0003_helpquestion_tokens", "0004_governed_sql_log", "0005_verifiedquery"],
@@ -221,6 +227,12 @@ def test_firebird_sets_have_the_second_migrations() -> None:
         "0007_order_signing",
         "0008_companysettings_soon_days",
         "0009_companysettings_governed_sql",
+        "0010_staffimportdraft_list_results",
+        "0011_letterhead_company_fields",
+        "0012_ordertemplate_show_letterhead",
+        "0013_companysettings_report_corrections",
+        "0014_order_state_default",
+        "0015_number_pending_orders",
     ]
     assert data["names"]["checklists"] == ["0001_initial", "0002_emulated_unique", "0003_seed"]
     assert data["names"]["assistant"] == [

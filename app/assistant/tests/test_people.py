@@ -5,6 +5,7 @@ import pytest
 from accounts import roles
 from accounts.models import AccessScope, User
 from django.contrib.auth.models import Group
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.tests.conftest import _no_offboarding_templates, hire_values  # noqa: F401 (autouse)
@@ -40,7 +41,7 @@ def _person(actor: User, given: str, family: str = "Тест", position: str = "
         "contract_type": "open_ended",
     }
     values = {**hire_values(f"УБ{next(_REGISTER):08d}"), "given_name": given, "family_name": family}
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=None, by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=None, by=actor, order_number=next_order_number())
 
 
 def _pks(user: User, text: str) -> list[int]:

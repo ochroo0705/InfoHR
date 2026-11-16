@@ -1,14 +1,17 @@
 """Register search (order number, employee name or code) and the order detail pop-up."""
 
 from datetime import date
+from typing import Any
 
 import pytest
+from accounts.models import User
 from django.test import Client
 from macs.models import Command, Employee
 
 from employees.models import HrOrder, OrderState, OrderType
+from employees.services import history
 
-from .conftest import link_login
+from .conftest import hire_values, link_login
 from .test_order_register import make_order
 from .test_views import login_as
 
@@ -29,8 +32,17 @@ def numbers(client: Client, **query: str) -> list[str]:
 
 
 @pytest.fixture
-def three(hired: Employee) -> Employee:
-    HrOrder.objects.filter(employee=hired).delete()
+def three(actor: User, job_values: dict[str, Any]) -> Employee:
+    # hired without an order: orders are never deleted (D-083), so the fixture must not create one to delete
+    hired = history.hire(
+        hire_values("УБ99112244"),
+        {},
+        start=date(2026, 1, 5),
+        job=job_values,
+        salary=None,
+        by=actor,
+        with_order=False,
+    )
     make_order(hired, "181", date(2026, 3, 1))
     make_order(hired, "182", date(2026, 3, 2))
     make_order(hired, "А/7", date(2026, 3, 3))

@@ -5,6 +5,7 @@ from decimal import Decimal
 import pytest
 from accounts.models import User
 from django.contrib.auth.models import Group
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.tests.conftest import _no_offboarding_templates, hire_values, link_login  # noqa: F401 (autouse)
@@ -51,7 +52,7 @@ def _person(actor: User, salary: Decimal | None = Decimal("2500000"), manager: E
         "manager": manager,
     }
     values = {**hire_values(f"УБ{next(_REGISTER):08d}"), "given_name": "Номин", "family_name": "Тест"}
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=salary, by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=salary, by=actor, order_number=next_order_number())
 
 
 def test_hr_reads_private_phone(actor: User) -> None:

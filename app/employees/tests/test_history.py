@@ -7,6 +7,7 @@ from accounts.models import User
 from django.db import IntegrityError
 
 from employees import history_range
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, Employee, Event, JobRecord, Position, SalaryRecord
 from employees.services import history
 from employees.services.history import HistoryError
@@ -26,7 +27,7 @@ def test_hire_creates_open_periods_and_log(hired: Employee) -> None:
 
 
 def test_hire_without_salary(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     assert not SalaryRecord.objects.filter(employee=emp).exists()
 
 
@@ -80,7 +81,7 @@ def test_job_on_and_salary_on(hired: Employee, actor: User) -> None:
 
 
 def test_change_salary_creates_first_period(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     record = history.change_salary(
         emp, effective=date(2026, 1, 5), amount=Decimal("1800000"), change_type="hire", note="", by=actor
     )
@@ -109,13 +110,14 @@ def test_salary_correction_log_is_sensitive(hired: Employee, actor: User) -> Non
 def test_failure_rolls_back_everything(actor: User, job_values: dict[str, Any]) -> None:
     job_values["position"] = Position(name="unsaved")  # not saved -> insert fails
     with pytest.raises((ValueError, IntegrityError)):
-        history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+        history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     assert not Employee.objects.exists() and not ActivityEntry.objects.exists()
 
 
 def test_future_hire_has_no_current_job(actor: User, job_values: dict[str, Any]) -> None:
     emp = history.hire(
-        hire_values(), {}, start=date.today() + timedelta(days=10), job=job_values, salary=None, by=actor
+        hire_values(), {}, start=date.today() + timedelta(days=10), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     assert history.job_on(emp, date.today()) is None
     emp.refresh_from_db()
@@ -252,7 +254,7 @@ def test_undo_merges_job_and_salary_back(hired: Employee, actor: User) -> None:
 
 
 def test_undo_first_salary_period_deletes_it(actor: User, job_values: dict[str, Any]) -> None:
-    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     event = _event(emp, date(2026, 3, 1))
     record = history.change_salary(
         emp,

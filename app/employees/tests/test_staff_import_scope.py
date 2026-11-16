@@ -16,6 +16,7 @@ from django.urls import reverse
 from macs.models import Branch
 from openpyxl import Workbook
 
+from employees.tests.helpers import next_order_number
 from employees.forms import EmployeeForm
 from employees.models import Employee, StaffImportDraft
 from employees.services import history
@@ -92,7 +93,7 @@ def scoped_user(name: str, *branches: Branch, role: str | None = None) -> User:
 
 def hired_at(branch: Branch, register_no: str, actor: User, job: dict[str, Any]) -> Employee:
     values = {**hire_values(register_no), "family_name": "Гантулга", "given_name": "Болд"}
-    employee = history.hire(values, {}, start=date(2026, 1, 5), job=dict(job), salary=None, by=actor)
+    employee = history.hire(values, {}, start=date(2026, 1, 5), job=dict(job), salary=None, by=actor, order_number=next_order_number())
     Employee.objects.filter(pk=employee.pk).update(branch_id=branch.pk)
     return Employee.objects.get(pk=employee.pk)
 

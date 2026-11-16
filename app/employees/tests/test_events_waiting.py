@@ -1,6 +1,7 @@
 """A change that needs an HR order waits for its signature: nothing is written until the order is signed (signed-order
 plan, Task 4). A change with no order applies at once, as before."""
 
+import itertools
 import json
 from datetime import date, timedelta
 from decimal import Decimal
@@ -36,6 +37,12 @@ pytestmark = pytest.mark.django_db
 
 DAY = date(2026, 3, 1)
 LATER = date(2026, 4, 1)
+_numbers = itertools.count(1)
+
+
+def next_number() -> str:
+    """A unique order number for a test change: an order needs its number when it is created (D-083)."""
+    return f"Т/{next(_numbers)}"
 
 
 def job_at(employee: Employee, day: date) -> JobRecord:
@@ -64,6 +71,8 @@ def test_transfer_waits_and_writes_no_history(hired: Employee, actor: User) -> N
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     hired.refresh_from_db()
     assert old_id is not None
@@ -73,7 +82,7 @@ def test_transfer_waits_and_writes_no_history(hired: Employee, actor: User) -> N
     assert Movement.objects.filter(employee=hired).count() == moves_before
     assert ev.applied_at is None
     assert ev.status(timezone.localdate()) == "awaiting_signature"
-    assert HrOrder.objects.get(event=ev).state == OrderState.PENDING
+    assert HrOrder.objects.get(event=ev).state == OrderState.REGISTERED  # numbered when created; waits for the scan
 
 
 def test_salary_only_applies_immediately(hired: Employee, actor: User) -> None:
@@ -86,6 +95,8 @@ def test_salary_only_applies_immediately(hired: Employee, actor: User) -> None:
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is not None
     assert salary_at(hired, DAY).base_salary == Decimal("3000000")
@@ -103,6 +114,8 @@ def test_leave_start_applies_immediately(hired: Employee, actor: User) -> None:
         note="",
         by=actor,
         expected_return=LATER,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is not None
     assert job_at(hired, DAY).status == JobStatus.LONG_LEAVE
@@ -121,6 +134,8 @@ def test_apply_waiting_uses_own_date(hired: Employee, actor: User) -> None:
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is None
     ev = sign_event(ev, by=actor)
@@ -143,6 +158,8 @@ def test_apply_waiting_inserts_before_later_salary_change(hired: Employee, actor
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     later = events.record(
         hired,
@@ -153,6 +170,8 @@ def test_apply_waiting_inserts_before_later_salary_change(hired: Employee, actor
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=LATER,
     )
     assert later.applied_at is not None
     assert waiting.applied_at is None
@@ -177,6 +196,8 @@ def test_apply_waiting_refused_for_later_change_while_earlier_waits(hired: Emplo
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     late = events.record(
         hired,
@@ -187,6 +208,8 @@ def test_apply_waiting_refused_for_later_change_while_earlier_waits(hired: Emplo
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=LATER,
     )
     before = _write_counts(hired)
     with pytest.raises(EventError) as refused:
@@ -212,6 +235,8 @@ def test_pension_flag_set_only_after_apply(hired: Employee, actor: User) -> None
         note="",
         by=actor,
         pension=True,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is None
     assert not EmployeeExt.objects.filter(employee=hired, is_pensioner=True).exists()
@@ -231,6 +256,8 @@ def test_waiting_salary_with_transfer_waits_together(hired: Employee, actor: Use
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is None
     assert ev.proposed is not None and ev.proposed["salary"] == "3000000"
@@ -251,6 +278,8 @@ def test_no_order_event_has_applied_at_set(hired: Employee, actor: User) -> None
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.proposed is None
     assert ev.applied_at is not None
@@ -299,6 +328,8 @@ def test_waiting_termination_applies_on_signing(hired: Employee, actor: User) ->
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is None
     assert job_at(hired, DAY).status == JobStatus.ACTIVE
@@ -322,6 +353,8 @@ def test_waiting_rehire_applies_on_signing(hired: Employee, actor: User) -> None
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_number(),
+        order_date=DAY,
     )
     rehire = events.record(
         hired,
@@ -332,6 +365,8 @@ def test_waiting_rehire_applies_on_signing(hired: Employee, actor: User) -> None
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=LATER,
     )
     assert rehire.applied_at is None
     assert rehire.proposed is not None and rehire.proposed["job"]["emptype"] == 5
@@ -389,6 +424,8 @@ def test_snapshot_at_signing_carries_new_placement(hired: Employee, actor: User)
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     sign_event(ev, by=actor)
     history_id = EventProdRow.objects.get(event=ev).history_id
@@ -410,6 +447,8 @@ def test_signed_termination_puts_fired_reason_on_employee(hired: Employee, actor
         note="",
         by=actor,
         fired_reason=reason,
+        order_number=next_number(),
+        order_date=DAY,
     )
     sign_event(ev, by=actor)
     hired.refresh_from_db()
@@ -430,6 +469,8 @@ def test_signed_death_termination_sets_died_on_employee(hired: Employee, actor: 
         note="",
         by=actor,
         fired_reason=died,
+        order_number=next_number(),
+        order_date=DAY,
     )
     sign_event(ev, by=actor)
     hired.refresh_from_db()
@@ -448,6 +489,8 @@ def test_cancel_waiting_pension_keeps_pensioner_flag_set_elsewhere(hired: Employ
         note="",
         by=actor,
         pension=True,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is None
     ext = ensure_ext(hired)

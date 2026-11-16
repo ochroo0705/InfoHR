@@ -15,6 +15,7 @@ import threading
 import django
 django.setup()
 from django.db import connection, transaction
+from employees.tests.helpers import next_order_number
 from employees.models import StaffImportDraft
 from employees.staff_import import run
 
@@ -158,7 +159,8 @@ oy = history.hire(
     start=START,
     job=job,
     salary=Decimal("1500000.00"),
-    by=hr,
+    by=hr,
+    order_number=next_order_number(),
 )
 ensure_ext(oy)
 oy_hits = [h.employee.pk for h in palette.find_people(hr, "олзий", TODAY)[0]]
@@ -179,7 +181,8 @@ low = history.hire(
     start=START,
     job=job,
     salary=Decimal("1500000.00"),
-    by=hr,
+    by=hr,
+    order_number=next_order_number(),
 )
 ensure_ext(low)
 low_hits = [h.employee.pk for h in palette.find_people(hr, "олзий", TODAY)[0]]
@@ -196,7 +199,7 @@ for n in range(12):
         "work_conditions": 1,
         "branch_id": br,
     }
-    emp = history.hire(values, {}, start=START, job=job, salary=Decimal("1500000.00"), by=hr)
+    emp = history.hire(values, {}, start=START, job=job, salary=Decimal("1500000.00"), by=hr, order_number=next_order_number())
     ensure_ext(emp)
 hits, total = palette.find_people(hr, "бат", TODAY, limit=8)
 none_hits, none_total = palette.find_people(hr, "zzqx", TODAY)

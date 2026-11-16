@@ -1,3 +1,4 @@
+import itertools
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -57,16 +58,28 @@ def test_salary_change_has_no_order(hired: Employee, actor: User) -> None:
     assert not HrOrder.objects.filter(event__isnull=False).exists()
 
 
-def test_hire_creates_pending_order(hired: Employee) -> None:
+def test_hire_creates_registered_order(hired: Employee) -> None:
     order = HrOrder.objects.get(employee=hired, is_hire=True)
-    assert order.state == OrderState.PENDING and order.order_type == OrderType.HIRED
+    assert order.state == OrderState.REGISTERED and order.number == "1" and order.order_type == OrderType.HIRED
     assert order.history_id is not None and EmployeeHistory.objects.filter(pk=order.history_id).exists()
-    assert order.command_id is None
+    assert order.command_id is not None  # registered at once, so its production row is written
+
+
+_numbers = itertools.count(1)
 
 
 def rec(employee: Employee, actor: User, type: str, effective: date, **kw: Any) -> Event:
-    """Record a change and leave its order pending: these tests register and sign the order themselves."""
-    args: dict[str, Any] = {"changes": {}, "salary": None, "reason": "", "note": "", "by": actor} | kw
+    """Record a change. An order needs its number when it is created (D-083), so each change gets a unique one unless
+    the test gives its own; the order is then registered, and these tests re-register or sign it themselves."""
+    args: dict[str, Any] = {
+        "changes": {},
+        "salary": None,
+        "reason": "",
+        "note": "",
+        "by": actor,
+        "order_number": f"Т/{next(_numbers)}",
+        "order_date": effective,
+    } | kw
     return events.record(employee, type=type, effective=effective, **args)
 
 
@@ -83,9 +96,17 @@ def event_order(hired: Employee, actor: User, lead: Position, **kw: Any) -> HrOr
     return promo(hired, actor, lead, **kw).order
 
 
-def test_event_creates_pending_order(hired: Employee, actor: User, lead: Position) -> None:
-    order = event_order(hired, actor, lead)
-    assert order.state == OrderState.PENDING and order.order_type == OrderType.POSITION and order.number == ""
+def test_event_without_number_is_refused(hired: Employee, actor: User, lead: Position) -> None:
+    before = HrOrder.objects.count()
+    with pytest.raises(EventError) as exc:
+        rec(hired, actor, "promotion", DAY, changes={"position": lead}, order_number="", order_date=DAY)
+    assert exc.value.errors["order_number"] == "Тушаалын дугаар заавал"
+    assert HrOrder.objects.count() == before  # no pending order row
+
+
+def test_event_creates_registered_order(hired: Employee, actor: User, lead: Position) -> None:
+    order = event_order(hired, actor, lead, order_number="Б/0", order_date=DAY)
+    assert order.state == OrderState.REGISTERED and order.order_type == OrderType.POSITION and order.number == "Б/0"
 
 
 def test_register_sets_registered_and_writes_command(hired: Employee, actor: User, lead: Position) -> None:
@@ -96,9 +117,10 @@ def test_register_sets_registered_and_writes_command(hired: Employee, actor: Use
     assert (cmd.number, cmd.order_type, cmd.date) == ("А/54", 3, DAY)
     hired.refresh_from_db()
     assert hired.command_id_value == cmd.pk and hired.move_type == 3
-    # editing again updates the same production row
+    # editing again updates the same production row (the hire has its own row too)
+    row_id = order.command_id
     order = orders.register(order, number="А/55", date=DAY, summary="Дахин", issued_by="Захирал", by=actor)
-    assert Command.objects.filter(employee=hired).count() == 1
+    assert order.command_id == row_id and Command.objects.filter(pk=row_id).count() == 1
     assert Command.objects.get(pk=order.command_id or 0).number == "А/55"
 
 
@@ -169,6 +191,8 @@ def test_signed_is_locked(hired: Employee, actor: User, lead: Position) -> None:
 
 def test_attach_needs_registered(hired: Employee, actor: User, lead: Position) -> None:
     order = event_order(hired, actor, lead)
+    HrOrder.objects.filter(pk=order.pk).update(state=OrderState.PENDING)  # a legacy pending row (no new one is made)
+    order.refresh_from_db()
     with pytest.raises(OrderError):
         orders.attach_signed_file(order, SimpleUploadedFile("a.pdf", b"%PDF"), by=actor)
 
@@ -242,7 +266,7 @@ def test_date_required(hired: Employee, actor: User, lead: Position) -> None:
         orders.register(order, number="А/61", date=None, summary="", issued_by="", by=actor)  # type: ignore[arg-type]
     assert "date" in exc.value.errors
     order.refresh_from_db()
-    assert order.state == OrderState.PENDING
+    assert order.state == OrderState.REGISTERED and order.number != "А/61"  # the refused edit changed nothing
     with pytest.raises(OrderError):
         orders.create_for_change(
             employee=hired,
@@ -278,7 +302,7 @@ def test_reregister_own_number_ok(hired: Employee, actor: User, lead: Position) 
     assert reg(order, actor, "а/64").state == OrderState.REGISTERED
 
 
-def test_cancel_pending_needs_no_cancel_number(hired: Employee, actor: User, lead: Position) -> None:
+def test_cancel_unsigned_needs_no_cancel_number(hired: Employee, actor: User, lead: Position) -> None:
     event = promo(hired, actor, lead, day=future())
     events.cancel(event, reason="Буруу", by=actor)
     order = HrOrder.objects.get(event=event)

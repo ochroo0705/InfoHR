@@ -80,7 +80,16 @@ def duplicate_start_refused(trigger: str) -> AbstractContextManager[Any]:
 
 @pytest.fixture
 def hired(actor: User, job_values: dict[str, Any]) -> Employee:
-    return history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor)
+    return history.hire(
+        hire_values(),
+        {},
+        start=date(2026, 1, 5),
+        job=job_values,
+        salary=Decimal("2500000"),
+        by=actor,
+        order_number="1",
+        order_date=date(2026, 1, 5),
+    )
 
 
 def _ext(employee: Employee) -> EmployeeExt:

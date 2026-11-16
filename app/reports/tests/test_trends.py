@@ -9,6 +9,7 @@ import pytest
 from accounts.models import User
 from django.test import Client
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.tests.helpers import record_signed
@@ -57,17 +58,21 @@ def history_2026(actor: Any, job_values: dict[str, Any]) -> dict[str, Employee]:
     terminated on 15 March 2026."""
     people = {
         "P1": history.hire(
-            hire_values("УБ70000011"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor
+            hire_values("УБ70000011"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor,
+            order_number=next_order_number(),
         ),
         "P2": history.hire(
-            hire_values("УБ70000012"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor
+            hire_values("УБ70000012"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor,
+            order_number=next_order_number(),
         ),
         "P3": history.hire(
-            hire_values("УБ70000013"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor
+            hire_values("УБ70000013"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor,
+            order_number=next_order_number(),
         ),
     }
     people["P4"] = history.hire(
-        hire_values("УБ70000014"), {}, start=date(2026, 2, 10), job=job_values, salary=None, by=actor
+        hire_values("УБ70000014"), {}, start=date(2026, 2, 10), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     record_signed(
         people["P3"],
@@ -79,6 +84,7 @@ def history_2026(actor: Any, job_values: dict[str, Any]) -> dict[str, Employee]:
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     return people
 
@@ -107,6 +113,7 @@ def test_turnover_is_none_when_the_average_is_zero(hr_user: User, job_values: di
         job={**job_values, "department": marketing},
         salary=None,
         by=actor,
+        order_number=next_order_number(),
     )
     got = rows(hr_user, Filters(date_from=date(2026, 1, 1), date_to=date(2026, 2, 28)))
     assert got[0] == MonthRow(month="2026-01", headcount=0, hired=0, left=0, net=0, turnover=None)
@@ -123,6 +130,7 @@ def test_department_filter_counts_only_that_department(
         job={**job_values, "department": marketing},
         salary=None,
         by=actor,
+        order_number=next_order_number(),
     )
     got = rows(hr_user, Filters(date_from=date(2026, 1, 1), date_to=date(2026, 3, 31), department=marketing.pk))
     # only the one Marketing hire on 20 Feb: 1 working on 28 Feb and 31 Mar; the others are in Санхүү
@@ -192,16 +200,19 @@ def test_hire_on_the_first_and_leaving_on_the_last_day_count_in_their_month(
     # a hire on 1 Feb and a termination on 28 Feb both count in February; one on 31 Mar counts in March
     before = {
         "stays": history.hire(
-            hire_values("УБ70000031"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor
+            hire_values("УБ70000031"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor,
+            order_number=next_order_number(),
         ),
         "feb_leaver": history.hire(
-            hire_values("УБ70000032"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor
+            hire_values("УБ70000032"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor,
+            order_number=next_order_number(),
         ),
         "mar_leaver": history.hire(
-            hire_values("УБ70000033"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor
+            hire_values("УБ70000033"), {}, start=date(2025, 6, 1), job=job_values, salary=None, by=actor,
+            order_number=next_order_number(),
         ),
     }
-    history.hire(hire_values("УБ70000034"), {}, start=date(2026, 2, 1), job=job_values, salary=None, by=actor)
+    history.hire(hire_values("УБ70000034"), {}, start=date(2026, 2, 1), job=job_values, salary=None, by=actor, order_number=next_order_number())
     for name, on in (("feb_leaver", date(2026, 2, 28)), ("mar_leaver", date(2026, 3, 31))):
         record_signed(
             before[name],
@@ -213,6 +224,7 @@ def test_hire_on_the_first_and_leaving_on_the_last_day_count_in_their_month(
             note="",
             by=actor,
             fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+            order_number=next_order_number(),
         )
     got = rows(hr_user, JAN_MAR)
     assert [(r.month, r.hired, r.left) for r in got] == [
@@ -231,6 +243,7 @@ def test_a_change_after_today_is_not_counted(hr_user: User, job_values: dict[str
         job=job_values,
         salary=None,
         by=actor,
+        order_number=next_order_number(),
     )
     got = rows(hr_user, Filters(date_from=date(today.year, 1, 1), date_to=today + timedelta(days=1)))
     assert got and got[-1].month == f"{today:%Y-%m}"  # the period's last month ends today, not tomorrow

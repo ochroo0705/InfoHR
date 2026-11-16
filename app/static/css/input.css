@@ -335,6 +335,8 @@
   .ws-cards tbody td { display: flex; justify-content: space-between; gap: .75rem; padding: .125rem 0 !important; border: 0; text-align: right; overflow-wrap: anywhere; }
   .ws-cards tbody td[data-label]::before { content: attr(data-label); flex: none; max-width: 45%; font-size: var(--text-xs); line-height: 1.5; color: var(--color-slate-600); text-align: left; overflow-wrap: normal; }
   .ws-cards tbody td.ws-pick { justify-content: flex-start; }
+  .ws-cards tbody tr.ws-group-row { border: 0; padding: .75rem 0 .25rem; background: transparent; }
+  .ws-cards tbody tr.ws-group-row th { display: block; padding: 0; }
 }
 @media (max-width: 639px) {
   #ws-table-pane button, #ws-table-pane summary, #ws-table-pane select, #ws-table-pane input[type="text"],
@@ -708,3 +710,8 @@ table[data-grid] td.is-popped > form.cell-pop.pop-left { left: auto; right: -1px
 table[data-grid] td.is-popped > form.cell-pop.pop-up { top: auto; bottom: -1px; }
 table[data-grid] td.is-popped > form.cell-pop :is(select, input[type="text"], input:not([type])) { width: 100%; }
 @media print { table[data-grid] td.is-popped > form.cell-pop { position: static; box-shadow: none; } }
+
+/* Grouped workspace table: one heading row per group (the group value, its row count), folding its rows. */
+#ws-table-pane tr.ws-group-row th { background: var(--color-slate-100); padding: .5rem .75rem; font-weight: 600; text-align: left; color: var(--color-slate-800); }
+#ws-table-pane tr.ws-group-row button[aria-expanded="false"] .ws-group-caret { display: inline-block; transform: rotate(-90deg); }
+#ws-table-pane tbody[data-ws-group] tr:not(.ws-group-row) td:nth-child(2) { padding-left: 1.75rem; }

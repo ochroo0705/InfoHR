@@ -8,6 +8,7 @@ from accounts.models import User
 from django.contrib.admin.sites import site
 from django.test import Client, RequestFactory
 
+from employees.tests.helpers import next_order_number
 from employees.forms import OrderFieldsForm
 from employees.models import CompanySettings, HrOrder
 from employees.services import history, orders
@@ -46,7 +47,7 @@ def test_director_name_fits_issued_by() -> None:
 
 def test_register_blank_issued_by_takes_director(actor: User, job_values: dict[str, Any]) -> None:
     _company(director="Б. Батболд")
-    employee = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    employee = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     order = HrOrder.objects.get(employee=employee)
     orders.register(order, number="Т-1", date=date(2026, 1, 5), summary="", issued_by="", by=actor)
     order.refresh_from_db()

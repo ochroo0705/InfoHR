@@ -15,7 +15,7 @@ from employees.models import CompanySettings, Employee, HrOrder, OrderState, Ord
 from employees.services import order_docs, orders
 
 from .conftest import link_login
-from .helpers import sign_event
+from .helpers import next_order_number, sign_event
 from .test_event_views import promote_data, url
 from .test_views import login_as
 
@@ -50,11 +50,11 @@ def test_mn_date_carries_its_own_ending() -> None:
     assert order_docs.mn_date(None) == order_docs.BLANK_DATE
 
 
-def test_hire_context_of_a_pending_order(hired: Employee, actor: User) -> None:
+def test_hire_context_of_a_registered_order(hired: Employee, actor: User) -> None:
     ctx = order_docs.build_context(hire_order(hired), actor)
     assert ctx["position"] == "Нягтлан" and ctx["department"] == "Санхүү"
     assert ctx["effective_date"] == "2026 оны нэгдүгээр сарын 5-ны"
-    assert ctx["order_number"] == order_docs.BLANK_NUMBER and ctx["order_date"].startswith(order_docs.BLANK_DATE)
+    assert ctx["order_number"] == "1" and ctx["order_date"].startswith("2026 оны нэгдүгээр сарын 5-ны")
     assert ctx["order_summary"] == "Ажилд томилох тухай"
     assert ctx["salary"] == ""  # this user may not see salary
 
@@ -76,7 +76,8 @@ def test_registered_order_uses_its_own_number_date_and_issuer(hired: Employee, a
 
 
 def test_position_change_context_has_old_and_new(hr: Client, hired: Employee, actor: User) -> None:
-    assert hr.post(url(hired, "promotion"), promote_data(hired)).status_code == 204
+    data = promote_data(hired, **{"order-number": next_order_number()})
+    assert hr.post(url(hired, "promotion"), data).status_code == 204
     sign_event(hired.events.get(), by=actor)  # the old and new positions are read from the applied rows
     order = HrOrder.objects.get(employee=hired, event__isnull=False)
     ctx = order_docs.build_context(order, actor)
@@ -152,7 +153,7 @@ def test_pdf_download_and_its_rules(hr: Client, client: Client, hired: Employee,
     pdf_url = f"/employees/{hired.pk}/order/{order.pk}/document/pdf/"
     response = hr.get(pdf_url)
     assert response.status_code == 200 and response["Content-Type"] == order_docs.PDF_TYPE
-    assert 'filename="tushaal-id' in response["Content-Disposition"] and ".pdf" in response["Content-Disposition"]
+    assert 'filename="tushaal-1.pdf"' in response["Content-Disposition"] and ".pdf" in response["Content-Disposition"]
     assert b"".join(response.streaming_content).startswith(b"%PDF-")  # type: ignore[attr-defined]
     fonts = settings.ORDER_PDF_FONT_SETS
     settings.ORDER_PDF_FONT_SETS = []  # no usable font

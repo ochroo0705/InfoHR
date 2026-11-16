@@ -11,6 +11,7 @@ from django.core.management import call_command
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
 
+from employees.tests.helpers import next_order_number
 from employees.forms import EmployeeForm
 from employees.images import JPEG_SIGNATURE, MAX_SIDE, MAX_UPLOAD_BYTES, photo_bytes, shrink_photo, thumbnail_url
 from employees.models import Employee
@@ -229,7 +230,8 @@ def test_attach_photo_digests_hashes_lowest_id_photo(hired: Employee, actor: Any
     from employees.services import history
 
     no_photo = history.hire(
-        hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor
+        hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("1"), by=actor,
+        order_number=next_order_number(),
     )
     first = _jpeg_bytes((30, 30))
     EmployeePhoto.objects.create(employee=hired, data=first)  # created first, so the lower id

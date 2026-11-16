@@ -10,6 +10,7 @@ from django.utils import timezone
 from macs.models import FiredReason
 
 from employees import history_range
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, EmployeeExt, ensure_ext
 from employees.services import events, history, macs_writes
 from employees.tests.helpers import record_signed
@@ -31,7 +32,7 @@ def _prod(emp: Employee) -> Employee:
 
 
 def _hire(actor: User, job_values: dict[str, Any], **ext: Any) -> Employee:
-    return history.hire(hire_values(), ext, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    return history.hire(hire_values(), ext, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
 
 
 def test_probation_does_not_end_by_date(actor: User, job_values: dict[str, Any]) -> None:
@@ -43,7 +44,7 @@ def test_probation_does_not_end_by_date(actor: User, job_values: dict[str, Any])
 def test_hire_with_probation_is_9_else_1(actor: User, job_values: dict[str, Any]) -> None:
     emp = _hire(actor, job_values, probation_end=TODAY + timedelta(days=30))
     assert emp.job_records.get().emptype == 9
-    other = history.hire(hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    other = history.hire(hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     assert other.job_records.get().emptype == 1 and _prod(other).emptype == 1
 
 
@@ -134,7 +135,7 @@ def test_rehire_after_pension_termination(actor: User, job_values: dict[str, Any
 
 def test_fixed_term_hire_is_5(actor: User, job_values: dict[str, Any]) -> None:
     job = job_values | {"contract_type": "fixed_term", "contract_end": date(2027, 1, 5)}
-    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job, salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job, salary=None, by=actor, order_number=next_order_number())
     assert emp.job_records.get().emptype == 5 and _prod(emp).emptype == 5
 
 

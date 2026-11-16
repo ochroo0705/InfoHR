@@ -13,6 +13,7 @@ from macs.models import FiredReason
 from employees import attention
 from employees.listing import employee_rows
 from employees.models import Employee, Event, EventType
+from employees.tests.helpers import next_order_number
 
 from .conftest import named
 from .test_views import login_as
@@ -77,7 +78,7 @@ def test_termination_save_still_allowed_when_unset(client: Client, hired: Employ
     reason = named(FiredReason, "Өөрийн хүсэлтээр")
     response = client.post(
         url(hired, "termination"),
-        {"effective": date(2026, 10, 20).isoformat(), "fired_reason": reason.pk, "note": ""},
+        {"effective": date(2026, 10, 20).isoformat(), "fired_reason": reason.pk, "note": "", "order-number": next_order_number()},
     )
     assert response.status_code == 204  # _done(): saved
     assert Event.objects.filter(employee=hired, type=EventType.TERMINATION).exists()

@@ -6,6 +6,7 @@ import pytest
 from accounts.models import User
 
 from employees import history_range
+from employees.tests.helpers import next_order_number
 from employees.models import ChangeType, Employee, JobRecord, Position, SalaryRecord
 from employees.services import history, macs_writes
 from employees.services.history import HistoryError
@@ -19,7 +20,7 @@ SPLIT_MESSAGE = "Энэ өдрөөс эхэлсэн хугацаа аль хэд
 
 def _hire_from_jan_first(actor: User, job_values: dict[str, Any]) -> Employee:
     """Record A: hired 2026-01-01 in department D1 (Санхүү) with position P1 (Нягтлан)."""
-    return history.hire(hire_values(), {}, start=date(2026, 1, 1), job=job_values, salary=None, by=actor)
+    return history.hire(hire_values(), {}, start=date(2026, 1, 1), job=job_values, salary=None, by=actor, order_number=next_order_number())
 
 
 def _periods(model: type[JobRecord] | type[SalaryRecord], employee: Employee) -> list[tuple[date, date | None]]:
@@ -199,10 +200,12 @@ def test_insert_in_last_open_period_matches_change_job(actor: User, job_values: 
     """With no later records, insert_job gives the same result as change_job: the old period is closed at
     `effective` and the new record is open-ended."""
     via_change = history.hire(
-        hire_values("УБ11111111"), {}, start=date(2026, 1, 1), job=job_values, salary=None, by=actor
+        hire_values("УБ11111111"), {}, start=date(2026, 1, 1), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     via_insert = history.hire(
-        hire_values("УБ22222222"), {}, start=date(2026, 1, 1), job=job_values, salary=None, by=actor
+        hire_values("УБ22222222"), {}, start=date(2026, 1, 1), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     lead = Position.objects.create(name="Ахлах нягтлан")
     history.change_job(

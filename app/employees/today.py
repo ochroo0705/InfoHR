@@ -8,7 +8,7 @@ from accounts.models import User
 
 from employees import access
 from employees.listing import WORKING_STATES, Row, is_working
-from employees.models import EmployeeExt, HrOrder, OrderState
+from employees.models import EmployeeExt
 
 UPCOMING_DAYS = 30
 WINDOW_DAYS = 14  # the who's-away strip: today and the 13 days after
@@ -61,14 +61,6 @@ def away_on_day(user: User, rows: list[Row], day: date) -> list[Away]:
 def away_on(user: User, rows: list[Row], today: date) -> list[Away]:
     """Employees with a recorded leave that covers `today`. Empty without the leave right."""
     return away_on_day(user, rows, today)
-
-
-def pending_orders(user: User, rows: list[Row]) -> int | None:
-    """Orders still waiting for a number; None when the user does not handle orders (no tile)."""
-    if not access.can_manage(user):
-        return None
-    ids = [r.employee.pk for r in rows if r.state != "left"]
-    return HrOrder.objects.filter(employee_id__in=ids, state=OrderState.PENDING).count()
 
 
 def open_vacancies(user: User) -> int | None:

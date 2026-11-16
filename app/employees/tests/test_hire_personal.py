@@ -10,6 +10,7 @@ from django.urls import reverse
 from macs.models import AddressRow, City, ContactRow, ContactType, District
 
 from employees import history_range, named_lock
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, Department, Employee, Position
 from employees.named_lock import LockBusy
 from employees.services import history
@@ -54,6 +55,7 @@ def hire_post(place: dict[str, Any], **extra: str) -> dict[str, str]:
         "employee_type": "full_time",
         "status": "active",
         "contract_type": "open_ended",
+        "order-number": next_order_number(),
         **extra,
     }
 
@@ -74,7 +76,8 @@ def test_hire_writes_first_address_and_contact(actor: Any, job_values: dict[str,
         salary=None,
         by=actor,
         address=address,
-        contact=contact,
+        contact=contact,
+        order_number=next_order_number(),
     )
     row = AddressRow.objects.get(employee=employee)
     assert (row.city_id, row.district_id, row.street) == (place["city"].pk, place["district"].pk, "Peace ave 1")
@@ -84,7 +87,7 @@ def test_hire_writes_first_address_and_contact(actor: Any, job_values: dict[str,
 
 
 def test_hire_without_address_ok(actor: Any, job_values: dict[str, Any]) -> None:
-    employee = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    employee = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     assert not AddressRow.objects.filter(employee=employee).exists()
     assert not ContactRow.objects.filter(employee=employee).exists()
 
@@ -104,7 +107,8 @@ def test_hire_personal_conflict_rolls_back_the_hire(
             job=job_values,
             salary=None,
             by=actor,
-            address={"city_id": place["city"].pk, "district_id": place["district"].pk, "street": None},
+            address={"city_id": place["city"].pk, "district_id": place["district"].pk, "street": None},
+            order_number=next_order_number(),
         )
     assert not Employee.objects.exists()
 

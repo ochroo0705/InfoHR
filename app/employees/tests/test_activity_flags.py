@@ -23,6 +23,7 @@ from leave.services.records import Draft
 from macs.models import AcademicDegree, Bank, City, District, EducationLevel, FamilyRelation, LeaveTypeRow
 
 from employees import views as employee_views
+from employees.tests.helpers import next_order_number
 from employees.forms import EmployeeForm
 from employees.models import PERSONAL_FIELDS, PERSONAL_LOG_FIELDS, ActivityEntry, Employee
 from employees.services import events, history, logins, macs_writes, records, setup
@@ -59,7 +60,7 @@ def _since(last_id: int) -> list[ActivityEntry]:
 
 
 def _hire(actor: User, job_values: dict[str, Any], register_no: str, salary: Decimal | None) -> Employee:
-    return history.hire(hire_values(register_no), {}, start=date(2026, 1, 5), job=job_values, salary=salary, by=actor)
+    return history.hire(hire_values(register_no), {}, start=date(2026, 1, 5), job=job_values, salary=salary, by=actor, order_number=next_order_number())
 
 
 # --- salary-bearing flows -------------------------------------------------------------------------------------------
@@ -83,6 +84,7 @@ def flow_salary_change(actor: User, job_values: dict[str, Any]) -> list[Activity
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     return _since(mark)
 
@@ -99,6 +101,7 @@ def flow_cancel_salary_change(actor: User, job_values: dict[str, Any]) -> list[A
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     mark = _last_id()
     events.cancel(event, reason="Алдаа гарсан", by=actor)
@@ -127,6 +130,7 @@ def flow_promotion_with_salary(actor: User, job_values: dict[str, Any]) -> list[
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     return _since(mark)
 

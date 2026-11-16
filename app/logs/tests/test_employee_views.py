@@ -10,6 +10,7 @@ from config import batching
 from django.contrib.auth.models import Group
 from django.test import Client
 from django.urls import reverse
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, ActivityKind, Employee, HrOrder, OrderState, OrderType
 from employees.services import history, macs_writes
 
@@ -56,7 +57,7 @@ def _hire(actor: User, family: str, given: str, register_no: str) -> Employee:
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
 
 
 @pytest.fixture
@@ -202,7 +203,9 @@ def test_only_an_entry_with_an_order_opens_the_order_pop_up(hr: User, own: Emplo
     body = _client(hr).get(URL).content.decode()
     url = reverse("employees:order_detail", args=[own.pk, order.pk])
     assert f'hx-get="{url}"' in body  # the row with the order opens its pop-up
-    assert body.count("/order/") == 1  # the entry without an order carries no such link
+    # Every entry with an order links to its pop-up. The hires made by `_hire` now write an order entry too (D-083),
+    # so count the order-linked entries rather than assuming one. The entry without an order carries no such link.
+    assert body.count("/order/") == ActivityEntry.objects.filter(order__isnull=False).count()
 
 
 def test_oldest_param_orders_rows_and_selects_option(hr: User, own: Employee) -> None:

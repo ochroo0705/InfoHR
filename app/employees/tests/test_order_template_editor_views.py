@@ -430,6 +430,7 @@ def test_preview_creates_nothing(admin_client: Client, hired: Employee) -> None:
         SystemLogEntry.objects.count(),
         row_of(FIRED).updated_at,
     )
+    numbered = list(HrOrder.objects.filter(number__gt="").values_list("pk", flat=True))
     payload = preview_body([field_para("order_number"), text_para("x")], employee_id=hired.pk)
 
     assert preview(admin_client, FIRED, payload).status_code == 200
@@ -441,7 +442,7 @@ def test_preview_creates_nothing(admin_client: Client, hired: Employee) -> None:
         row_of(FIRED).updated_at,
     )
     assert after == before
-    assert not HrOrder.objects.filter(number__gt="").exists()
+    assert list(HrOrder.objects.filter(number__gt="").values_list("pk", flat=True)) == numbered  # only the setup's order
     assert not row_of(FIRED).file
 
 

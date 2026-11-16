@@ -7,6 +7,7 @@ from django.contrib.auth.models import Group
 from macs.models import Branch, Department, FiredReason
 
 from employees import access, history_range
+from employees.tests.helpers import next_order_number
 from employees.forms import JobCorrectionForm
 from employees.models import Employee, Event, JobRecord, JobStatus
 from employees.scope import LOOP_MESSAGE, SELF_MANAGER_MESSAGE, creates_loop, department_ids, restriction, team_ids
@@ -24,7 +25,7 @@ DAY = date(2026, 3, 1)
 
 def _person(actor: User, job_values: dict[str, Any], register_no: str, manager: Employee | None = None) -> Employee:
     job = {**job_values, "manager": manager}
-    return history.hire(hire_values(register_no), {}, start=date(2026, 1, 5), job=job, salary=None, by=actor)
+    return history.hire(hire_values(register_no), {}, start=date(2026, 1, 5), job=job, salary=None, by=actor, order_number=next_order_number())
 
 
 def _set_manager(employee: Employee, manager: Employee | None) -> None:
@@ -61,7 +62,8 @@ def test_team_includes_employee_who_left(actor: User, job_values: dict[str, Any]
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     after = date(2026, 4, 1)
     assert JobRecord.objects.get(history_range.on(after), employee=b).status == JobStatus.LEFT
@@ -323,7 +325,8 @@ def _transfer_manager(employee: Employee, actor: User, manager: Employee | None)
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
 
 
@@ -387,7 +390,8 @@ def test_valid_manager_still_works(actor: User, job_values: dict[str, Any]) -> N
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert history.job_on(other, DAY) is not None
     assert history.job_on(other, DAY).manager == lead  # type: ignore[union-attr]
@@ -424,7 +428,8 @@ def test_former_report_still_refused_as_manager_of_old_manager(actor: User, job_
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     day_after = date(2026, 3, 2)
     assert creates_loop(a.pk, b.pk, day_after) is True
@@ -438,7 +443,8 @@ def test_former_report_still_refused_as_manager_of_old_manager(actor: User, job_
             salary=None,
             reason="",
             note="",
-            by=actor,
+            by=actor,
+            order_number=next_order_number(),
         )
     assert exc.value.errors == {"manager": LOOP_MESSAGE}
     assert JobRecord.objects.count() == jobs and Event.objects.count() == events_before

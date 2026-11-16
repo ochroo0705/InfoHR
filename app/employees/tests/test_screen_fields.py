@@ -9,6 +9,7 @@ from accounts.models import User
 from django.test import Client
 from macs.models import BirthPlace, City, District, Office, Section
 
+from employees.tests.helpers import next_order_number
 from employees.forms import EmployeeForm
 from employees.models import Employee
 from employees.services import history, macs_writes
@@ -58,7 +59,7 @@ def test_edit_saves_screen_fields_to_employee_row(client: Client, hired: Employe
 def test_hire_writes_job_figure_default_and_birth_place(
     client: Client, actor: User, place: tuple[City, District]
 ) -> None:
-    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=_job(), salary=None, by=actor)
+    emp = history.hire(hire_values(), {}, start=date(2026, 1, 5), job=_job(), salary=None, by=actor, order_number=next_order_number())
     assert Employee.objects.get(pk=emp.pk).job_figure == "Main"  # production default, written on insert
     city, district = place
     from employees.services import records

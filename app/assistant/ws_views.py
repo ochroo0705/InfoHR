@@ -34,7 +34,7 @@ from assistant import sqlanswer, ws_run
 from assistant.models import HelpQuestion, SavedTable, VerifiedQuery, WorkspaceTab, WorkspaceVersion
 from assistant.providers import get_provider
 from assistant.ws_excel import ascii_stem, file_stem, plain_title, ws_excel_bytes, ws_tsv_text
-from assistant.ws_labels import COUNT_LABEL, display_names, view_labels
+from assistant.ws_labels import display_names, view_labels
 from assistant.ws_limits import EXPORT_MAX_ROWS, EXPORT_TIMEOUT_S, MAX_PAGE, MAX_TABS, PAGE_SIZE
 from assistant.ws_service import (
     PROVIDER_LINE,
@@ -359,8 +359,9 @@ def _shown(names: dict[str, str], column: str) -> str:
 
 
 def _header_texts(columns: tuple[str, ...], names: dict[str, str], grouped: bool) -> list[str]:
-    """The header line of a result (print, Excel, copy): labels, and «Тоо» for the count column of a grouped table."""
-    return [COUNT_LABEL if grouped and name.upper() == COUNT_NAME else _shown(names, name) for name in columns]
+    """The header line of a result (print, Excel, copy): the column labels. A grouped table exports flat rows, sorted
+    by the group column, so `grouped` changes nothing; it is kept for the callers."""
+    return [_shown(names, name) for name in columns]
 
 
 def _filter_label(item: Filter, names: dict[str, str]) -> str:
@@ -541,18 +542,19 @@ def _table_context(request: HttpRequest, user: User, source: _Source) -> dict[st
         WorkspaceVersion.objects.filter(pk=version.pk).update(settings=text)
     total = ws_run.run_count(user, version.sql, columns, spec)
 
-    grouped = bool(spec.group_by)
+    group = spec.group_by
+    group_index = next((i for i, name in enumerate(result.columns) if name.upper() == group), -1) if group else -1
     sort_now = dict(spec.sort)
     headers = []
-    for name in result.columns:
+    for index, name in enumerate(result.columns):
         upper = name.upper()
-        sortable = upper in usable and not grouped
+        sortable = upper in usable and index != group_index
         current = sort_now.get(upper, "") if sortable else ""
         next_direction = "desc" if current == "asc" else "asc"
         headers.append(
             {
                 "name": name,
-                "label": COUNT_LABEL if grouped and upper == COUNT_NAME else _shown(names, name),
+                "label": _shown(names, name),
                 "sort_url": _table_url(source, replace(spec, sort=((upper, next_direction),))) if sortable else "",
                 "mark": {"asc": "↑", "desc": "↓"}.get(current, ""),
                 "aria_sort": {"asc": "ascending", "desc": "descending"}.get(current, ""),
@@ -565,6 +567,16 @@ def _table_context(request: HttpRequest, user: User, source: _Source) -> dict[st
     for index, header in enumerate(headers):
         header["numeric"] = any(index < len(row) and row[index]["numeric"] for row in shown)
         header["after_number"] = index > 0 and bool(headers[index - 1]["numeric"])
+    sections = _sections(user, version.sql, columns, spec, result.rows, shown, group_index) if group_index >= 0 else []
+    if len(sections) == 1 and sections[0]["count"] == total:
+        # Every row is in one group (a list filtered to one department): a heading would only repeat that value.
+        sections, group_index = [], -1
+    if group_index >= 0:  # the group column is the section heading, not a column of every row
+        headers = headers[:group_index] + headers[group_index + 1 :]
+        for section in sections:
+            section["rows"] = [row[:group_index] + row[group_index + 1 :] for row in section["rows"]]
+        if headers:
+            headers[0]["after_number"] = False
     first = page * PAGE_SIZE + 1 if shown else 0
     last = page * PAGE_SIZE + len(shown)
     if total is not None:
@@ -577,15 +589,45 @@ def _table_context(request: HttpRequest, user: User, source: _Source) -> dict[st
         "status_line": "",
         "headers": headers,
         "rows": shown,
+        "sections": sections,
+        "group_label": _shown(names, group) if sections else "",
         "cut": False,
         "total": total,
-        "unit": "бүлэг" if grouped else "мөр",
+        "unit": "мөр",
         "first": first,
         "last": last,
         "paging": True,
         "prev_url": _table_url(source, spec, page - 1) if page > 0 else "",
         "next_url": _table_url(source, spec, page + 1) if has_next else "",
     }
+
+
+EMPTY_GROUP_TEXT = "Тодорхойгүй"  # the heading of the group whose value is empty
+
+
+def _sections(
+    user: User,
+    sql: str,
+    columns: tuple[str, ...],
+    spec: Spec,
+    raw_rows: tuple[tuple[object, ...], ...],
+    shown: list[list[dict[str, object]]],
+    group_index: int,
+) -> list[dict[str, object]]:
+    """The page's rows split into groups, in order: [{"title", "count", "rows"}]. Rows arrive ordered by the group
+    column (wrap_sql), so a group is a run of equal values. The count is the group's whole size over every page (one
+    grouped count query); None when it could not be counted. A group cut by the page edge keeps its whole count."""
+    counts = ws_run.run_group_counts(user, sql, columns, spec)
+    sections: list[dict[str, object]] = []
+    previous: object = object()
+    for raw, cells in zip(raw_rows, shown, strict=True):
+        value = raw[group_index]
+        if not sections or value != previous:
+            title = str(cells[group_index]["text"]).strip() or EMPTY_GROUP_TEXT
+            sections.append({"title": title, "count": counts.get(value), "rows": []})
+            previous = value
+        sections[-1]["rows"].append(cells)  # type: ignore[union-attr]
+    return sections
 
 
 @login_required

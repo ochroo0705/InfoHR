@@ -11,6 +11,7 @@ import pytest
 from accounts.models import User
 from django.http import QueryDict
 from django.test import Client
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 
@@ -55,6 +56,7 @@ def staff(actor: User, job_values: dict[str, Any]) -> list[Employee]:
                 job=job,
                 salary=Decimal("2500000"),
                 by=actor,
+                order_number=next_order_number(),
             )
         )
     return people
@@ -161,6 +163,7 @@ def test_summary_label_starting_with_equals_is_text(
         job=job,
         salary=Decimal("2500000"),
         by=actor,
+        order_number=next_order_number(),
     )
     login_as(client, "HR")
     resp = client.get(f"{EXCEL}?layout=chart&lby=department")

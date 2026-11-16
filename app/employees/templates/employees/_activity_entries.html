@@ -6,7 +6,7 @@
     <li class="relative pb-4 pl-4 text-sm last:pb-1">
       <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-surface {% if e.kind == 'correction' %}bg-amber-500{% elif e.kind == 'history' %}bg-violet-500{% elif e.kind == 'note' %}bg-sky-500{% elif e.kind == 'created' or e.kind == 'added' %}bg-emerald-500{% elif e.kind == 'deleted' or e.kind == 'cancelled' %}bg-red-400{% else %}bg-slate-400{% endif %}"></span>
       <div class="flex items-baseline gap-2">
-        <span class="truncate font-medium">{{ e.by.get_full_name|default:e.by.username|default:"Систем" }}</span>
+        <span class="truncate font-medium">{% if e.by %}{{ e.by.get_full_name|default:e.by.username }}{% else %}Систем{% endif %}</span>
         <span class="shrink-0 rounded px-1.5 py-0.5 text-xs {% if e.kind == 'correction' %}bg-amber-50 text-amber-700{% elif e.kind == 'history' %}bg-violet-50 text-violet-700{% elif e.kind == 'note' %}bg-sky-50 text-sky-700{% elif e.kind == 'created' or e.kind == 'added' %}bg-emerald-50 text-emerald-700{% elif e.kind == 'deleted' or e.kind == 'cancelled' %}bg-red-50 text-red-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ e.get_kind_display }}</span>
         <span class="ml-auto shrink-0 text-xs text-slate-400">{{ e.at|date:"H:i" }}</span>
       </div>

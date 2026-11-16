@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from accounts.models import User
 from django.test import Client
+from employees.tests.helpers import next_order_number
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values
 
@@ -40,7 +41,7 @@ def staff(hired: Any, actor: User, job_values: dict[str, Any]) -> None:
     """A second person in another department, hired in February, so the staff-based reports and their layouts have
     rows (the sweep would otherwise only run the builders on empty tables)."""
     other = {**job_values, "department": macs_writes.save_department("Борлуулалт")}
-    history.hire(hire_values("УБ99112255"), {}, start=date(2026, 2, 3), job=other, salary=Decimal("1800000"), by=actor)
+    history.hire(hire_values("УБ99112255"), {}, start=date(2026, 2, 3), job=other, salary=Decimal("1800000"), by=actor, order_number=next_order_number())
 
 
 @pytest.mark.parametrize("key", sorted(REPORTS))

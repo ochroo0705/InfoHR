@@ -10,6 +10,7 @@ import pytest
 from accounts.models import User
 from macs.models import FiredReason
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, EmployeeExt, Event, EventType, HrOrder, JobRecord, LeaveKind, OrderType, Position
 from employees.services import events, history, macs_writes, orders
 from employees.tests.conftest import hire_values, named
@@ -100,7 +101,7 @@ def test_leave_start_needs_no_order(hired: Employee, actor: User) -> None:
 
 
 def test_manager_only_needs_no_order(hired: Employee, actor: User, job_values: dict[str, Any]) -> None:
-    boss = history.hire(hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor)
+    boss = history.hire(hire_values("УБ11223344"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor, order_number=next_order_number())
     _check(hired, actor, EventType.TRANSFER, DAY, None, changes={"manager": boss})
 
 
@@ -125,7 +126,8 @@ def test_change_inside_left_period_uses_proposed_event(hired: Employee, actor: U
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert predicted == HrOrder.objects.get(event=event).order_type == OrderType.TYPE_CHANGED
 

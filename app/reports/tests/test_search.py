@@ -13,6 +13,7 @@ from accounts.models import User
 from django.http import QueryDict
 from django.test import Client
 from django.urls import reverse
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values
@@ -139,10 +140,11 @@ def two_people(actor: User, job_values: dict[str, Any]) -> tuple[Employee, Emplo
         job=job_values,
         salary=Decimal("2500000"),
         by=actor,
+        order_number=next_order_number(),
     )
     sales = {**job_values, "department": macs_writes.save_department("Борлуулалт")}
     second_values = {**hire_values(register_no="УБ55500011"), "family_name": "Дорж", "given_name": "Болд"}
-    second = history.hire(second_values, {}, start=date(2026, 1, 5), job=sales, salary=Decimal("1800000"), by=actor)
+    second = history.hire(second_values, {}, start=date(2026, 1, 5), job=sales, salary=Decimal("1800000"), by=actor, order_number=next_order_number())
     return first, second
 
 

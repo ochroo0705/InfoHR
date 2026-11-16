@@ -60,6 +60,7 @@ def test_a_changes_order_is_not_cancelled_on_its_own(hr: Client, hired: Employee
 
 def test_only_a_registered_order_can_be_cancelled(hr: Client, hired: Employee, actor: User) -> None:
     pending = HrOrder.objects.get(employee=hired, is_hire=True)
+    HrOrder.objects.filter(pk=pending.pk).update(state=OrderState.PENDING)  # a legacy row: new orders never are
     with pytest.raises(orders.OrderError):
         orders.cancel_order(pending, reason="x", by=actor)  # never issued
     _, signed = promoted(hr, hired, actor)
@@ -89,6 +90,7 @@ def test_cancel_form_asks_only_for_a_reason_and_saves(hr: Client, hired: Employe
 
 def test_cancel_view_rules(client: Client, hired: Employee, actor: User) -> None:
     pending = HrOrder.objects.get(employee=hired, is_hire=True)
+    HrOrder.objects.filter(pk=pending.pk).update(state=OrderState.PENDING)  # a legacy row: new orders never are
     assert client.get(cancel_url(hired, pending)).status_code == 302
     link_login(hired, login_as(client, "Employee", "me"))
     assert client.get(cancel_url(hired, pending)).status_code == 403

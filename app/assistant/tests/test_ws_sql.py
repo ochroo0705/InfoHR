@@ -9,6 +9,7 @@ from assistant.ws_sql import (
     Spec,
     SpecError,
     base_orders,
+    checked_group,
     count_sql,
     group_sql,
     spec_from_json,
@@ -152,20 +153,16 @@ def test_count_sql_checked_ok() -> None:
     assert "GROUP BY" not in checked.sql
 
 
-def test_count_sql_with_group_by_counts_groups_and_checks() -> None:
+def test_count_sql_with_group_by_counts_rows() -> None:
+    """A grouped table shows every row under its heading, so its total is the row count."""
     spec = Spec(filters=(Filter("LATE_DAYS", "gt", "1"),), group_by="DEPARTMENT")
 
     checked = check_sql(count_sql(BASE, COLS, spec), CATALOGUE)
 
     assert "COUNT(*)" in checked.sql
-    assert "GROUP BY DEPARTMENT" in checked.sql
-    assert "ws_groups" in checked.sql
+    assert "GROUP BY" not in checked.sql
     assert "LATE_DAYS > 1" in checked.sql
-
-
-def test_count_sql_group_by_refuses_count_column() -> None:
-    with pytest.raises(SpecError, match="cannot be grouped"):
-        count_sql(BASE, ("N", "DEPARTMENT", "LATE_DAYS"), Spec(group_by="N"))
+    assert count_sql(BASE, COLS, spec) == count_sql(BASE, COLS, Spec(filters=spec.filters))
 
 
 def test_group_sql_checked_ok() -> None:
@@ -233,10 +230,59 @@ def test_paging_without_sort_orders_by_first_column() -> None:
     assert "FIRST 100 SKIP 200" in checked.sql
 
 
-def test_wrap_ignores_group_by() -> None:
-    plain = wrap_sql(BASE, COLS, Spec())
+def test_wrap_with_group_by_orders_by_group_first() -> None:
+    sql = wrap_sql(BASE, COLS, Spec(group_by="DEPARTMENT", sort=(("LATE_DAYS", "desc"),)), page=0)
 
-    assert wrap_sql(BASE, COLS, Spec(group_by="DEPARTMENT")) == plain
+    checked = check_sql(sql, CATALOGUE)
+    assert "ORDER BY DEPARTMENT ASC, LATE_DAYS DESC" in checked.sql
+    assert "GROUP BY" not in checked.sql
+
+
+def test_wrap_with_group_by_keeps_group_column_when_columns_chosen() -> None:
+    sql = wrap_sql(BASE, COLS, Spec(columns=("LATE_DAYS",), group_by="DEPARTMENT"))
+
+    assert sql.startswith("SELECT DEPARTMENT, LATE_DAYS FROM")
+
+
+def test_wrap_with_group_by_drops_a_second_order_on_the_group() -> None:
+    sql = wrap_sql(BASE, COLS, Spec(group_by="DEPARTMENT", sort=(("DEPARTMENT", "desc"),)))
+
+    assert sql.endswith("ORDER BY DEPARTMENT ASC")
+
+
+def test_checked_group_keeps_a_result_column() -> None:
+    sql = "SELECT DEPARTMENT, LATE_DAYS FROM GOV_ATTENDANCE ORDER BY DEPARTMENT"
+
+    assert checked_group(sql, COLS, "department") == "DEPARTMENT"
+
+
+@pytest.mark.parametrize("wanted", ["", "NOPE", "N"])
+def test_checked_group_drops_unknown_or_count_columns(wanted: str) -> None:
+    assert checked_group("SELECT DEPARTMENT, N FROM X", ("DEPARTMENT", "N"), wanted) == ""
+
+
+def test_checked_group_drops_a_count_per_that_column() -> None:
+    sql = "SELECT DEPARTMENT, COUNT(*) AS N FROM GOV_ATTENDANCE GROUP BY DEPARTMENT"
+
+    assert checked_group(sql, ("DEPARTMENT", "N"), "DEPARTMENT") == ""
+
+
+def test_checked_group_drops_a_count_per_a_coalesced_alias() -> None:
+    sql = (
+        "SELECT COALESCE(DEPARTMENT, 'x') AS DEPARTMENT, COUNT(*) AS N FROM GOV_ATTENDANCE "
+        "GROUP BY COALESCE(DEPARTMENT, 'x')"
+    )
+
+    assert checked_group(sql, ("DEPARTMENT", "N"), "DEPARTMENT") == ""
+
+
+def test_checked_group_keeps_a_group_by_per_person() -> None:
+    sql = (
+        "SELECT E.DEPARTMENT_NAME, E.FIRST_NAME FROM GOV_EMPLOYEES AS E GROUP BY E.EMP_ID, E.DEPARTMENT_NAME, "
+        "E.FIRST_NAME"
+    )
+
+    assert checked_group(sql, ("DEPARTMENT_NAME", "FIRST_NAME"), "DEPARTMENT_NAME") == "DEPARTMENT_NAME"
 
 
 @pytest.mark.parametrize("value", ["1E+999999999", "-1E+999999999", "1E-999999999", "-1E-999999999"])

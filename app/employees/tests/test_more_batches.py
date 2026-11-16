@@ -14,10 +14,10 @@ from django.test.utils import CaptureQueriesContext
 from macs.models import Command, Employee
 
 from employees import views
-from employees.models import ActivityEntry, ActivityKind, HrOrder
+from employees.models import ActivityEntry, ActivityKind
 from employees.services import order_register
 
-from .test_order_register import make_order
+from .test_order_register import bare, make_order
 from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -42,10 +42,9 @@ def _next_query(body: str, url: str) -> dict[str, list[str]]:
 
 
 @pytest.fixture
-def orders(hired: Employee) -> None:
-    HrOrder.objects.filter(employee=hired).delete()
+def orders(bare: Employee) -> None:
     for n in range(ORDERS):
-        make_order(hired, f"{100 + n}", date(2026, 3, 1 + n))
+        make_order(bare, f"{100 + n}", date(2026, 3, 1 + n))
 
 
 def _numbers(body: str) -> list[str]:
@@ -70,8 +69,7 @@ def test_register_loads_in_batches_and_the_print_view_shows_everything(
     assert len(_numbers(printed)) == ORDERS  # the print view is never batched
 
 
-def test_register_empty_text_only_on_the_first_batch(hr: Client, hired: Employee) -> None:
-    HrOrder.objects.filter(employee=hired).delete()
+def test_register_empty_text_only_on_the_first_batch(hr: Client, bare: Employee) -> None:
     assert "Тушаал олдсонгүй" in hr.get("/employees/orders/").content.decode()
     assert "Тушаал олдсонгүй" not in hr.get("/employees/orders/?offset=999", headers=HTMX).content.decode()
 
@@ -118,13 +116,12 @@ def _filters(**more: Any) -> dict[str, Any]:
     return {"year": None, "order_type": None, "department_id": None, "state": None, **more}
 
 
-def test_register_batches_merge_both_sources_like_the_full_list(hr: Client, hired: Employee) -> None:
+def test_register_batches_merge_both_sources_like_the_full_list(hr: Client, bare: Employee) -> None:
     """Info HR orders and MACS orders interleave by date; walking the batches gives exactly the full list."""
-    HrOrder.objects.filter(employee=hired).delete()
     for n in range(5):
-        make_order(hired, f"{200 + n}", date(2026, 3, 2 * n + 1))
-        Command.objects.create(employee_id=hired.pk, number=f"L{n}", date=date(2026, 3, 2 * n + 2), summary="x")
-    Command.objects.create(employee_id=hired.pk, number="L-same", date=date(2026, 3, 1), summary="x")  # tie with 200
+        make_order(bare, f"{200 + n}", date(2026, 3, 2 * n + 1))
+        Command.objects.create(employee_id=bare.pk, number=f"L{n}", date=date(2026, 3, 2 * n + 2), summary="x")
+    Command.objects.create(employee_id=bare.pk, number="L-same", date=date(2026, 3, 1), summary="x")  # tie with 200
     user = User.objects.get(username="hr1")
     full = [r.number for r in order_register.register_rows(user, **_filters())]
     assert len(full) == 11 and full[:2] == ["L4", "204"]
@@ -139,17 +136,16 @@ def test_register_batches_merge_both_sources_like_the_full_list(hr: Client, hire
         assert walked == full, size
 
 
-def test_register_page_filters_in_the_database_like_the_full_list(hr: Client, hired: Employee) -> None:
-    HrOrder.objects.filter(employee=hired).delete()
-    make_order(hired, "301", date(2025, 1, 5))
-    make_order(hired, "302", date(2026, 1, 5))
-    Command.objects.create(employee_id=hired.pk, number="L-301", date=date(2026, 2, 2), summary="x")
+def test_register_page_filters_in_the_database_like_the_full_list(hr: Client, bare: Employee) -> None:
+    make_order(bare, "301", date(2025, 1, 5))
+    make_order(bare, "302", date(2026, 1, 5))
+    Command.objects.create(employee_id=bare.pk, number="L-301", date=date(2026, 2, 2), summary="x")
     user = User.objects.get(username="hr1")
     for extra in (
         {"year": 2026},
         {"state": "legacy"},
         {"q": "301"},
-        {"q": hired.code or "", "year": 2025},
+        {"q": bare.code or "", "year": 2025},
         {"q": "zz"},
     ):
         full = [r.number for r in order_register.register_rows(user, **_filters(**extra))]
@@ -157,11 +153,10 @@ def test_register_page_filters_in_the_database_like_the_full_list(hr: Client, hi
         assert [r.number for r in page] == full and not more, extra
 
 
-def test_register_page_reads_only_a_batch_from_the_database(hr: Client, hired: Employee) -> None:
-    HrOrder.objects.filter(employee=hired).delete()
+def test_register_page_reads_only_a_batch_from_the_database(hr: Client, bare: Employee) -> None:
     for n in range(20):
-        make_order(hired, f"{400 + n}", date(2026, 3, 1 + n))
-        Command.objects.create(employee_id=hired.pk, number=f"M{n}", date=date(2026, 4, 1 + n), summary="x")
+        make_order(bare, f"{400 + n}", date(2026, 3, 1 + n))
+        Command.objects.create(employee_id=bare.pk, number=f"M{n}", date=date(2026, 4, 1 + n), summary="x")
     user = User.objects.get(username="hr1")
     with CaptureQueriesContext(connection) as queries:
         rows, more = order_register.register_page(user, **_filters(), offset=0, size=3)

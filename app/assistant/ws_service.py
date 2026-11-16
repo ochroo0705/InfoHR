@@ -24,6 +24,8 @@ from sqlcore.runner import Host, Refused, run_question
 from sqlcore.tools import describe_text
 
 from assistant import sqlanswer
+from assistant.knownvalues import asker_line, known_values
+from assistant.likeprobe import missing_like
 from assistant.models import HelpQuestion, Outcome, WorkspaceMessage, WorkspaceTab, WorkspaceVersion
 from assistant.providers import Provider
 from assistant.sqlanswer import (
@@ -38,7 +40,7 @@ from assistant.sqlask import SqlReply, ask_refine_sql_reply, ask_sql_reply
 from assistant.verified import examples_for
 from assistant.ws_limits import MAX_TABS, MAX_VERSIONS
 from assistant.ws_run import base_columns, run_count
-from assistant.ws_sql import Spec, spec_from_json
+from assistant.ws_sql import Spec, checked_group, spec_from_json, spec_to_json
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +175,6 @@ def close(tab: WorkspaceTab) -> None:
 REFINED_TEXT = "Хүснэгтийг шинэчиллээ."  # the assistant's line after a refinement that worked, when no count is known
 UNDONE_TEXT = "Өмнөх хувилбар руу буцлаа."  # the assistant's line after an undo, when no count is known
 ROW_UNIT = "мөр"
-GROUP_UNIT = "бүлэг"
 # Reasons are English (log and result). Each one that the viewer can be told about has a Mongolian stored line.
 CHANGED_REASON = "The table changed while you were asking."
 TAB_GONE_REASON = "The table was closed while you were asking."
@@ -214,15 +215,15 @@ def undone_line(total: int | None, unit: str = ROW_UNIT) -> str:
 
 
 def _total(user: object, sql: str, governed: Host, settings: str = "") -> tuple[int | None, str]:
-    """How many rows (or groups, when the saved settings group) the saved SQL gives the viewer, and the unit word.
-    The count is None when it cannot be run; a line is then written without a number. Never raises."""
+    """How many rows the saved SQL gives the viewer under the saved filters, and the unit word. A grouped table shows
+    every row, so it counts rows too. The count is None when it cannot be run; a line is then written without a
+    number. Never raises."""
     try:
         base = base_columns(user, sql, host=governed)
         if base.status != "ok":
             return None, ROW_UNIT
         spec = spec_from_json(settings, base.columns)
-        unit = GROUP_UNIT if spec.group_by else ROW_UNIT
-        return run_count(user, sql, base.columns, spec, host=governed), unit
+        return run_count(user, sql, base.columns, spec, host=governed), ROW_UNIT
     except Exception as error:
         logger.warning("workspace count failed (%s)", type(error).__name__)
         return None, ROW_UNIT
@@ -275,6 +276,7 @@ def _finish(
     ok_line: str = REFINED_TEXT,
     total: int | None = None,
     labels: str = "",
+    settings: str = "",
 ) -> RefineResult:
     """Store the new version when ok, then the assistant's line: one transaction under the tab's row lock.
 
@@ -292,7 +294,7 @@ def _finish(
             if latest != base_pk:
                 status, reason = "refused", CHANGED_REASON
             else:
-                version = add_version(tab, text, sql, labels=labels)
+                version = add_version(tab, text, sql, settings=settings, labels=labels)
                 title = WorkspaceTab.objects.values_list("title", flat=True).get(pk=tab.pk)
                 if first_build and title == DEFAULT_TITLE:
                     rename(tab, text)
@@ -314,11 +316,12 @@ def _give_up(tab: WorkspaceTab, text: str, base_pk: int | None) -> RefineResult:
         return RefineResult(status="refused", reason=ERROR_REASON, version=None)
 
 
-def _attempts(user: object, governed: Host, ask: Callable[[str], SqlReply]) -> tuple[str, str, str, str]:
+def _attempts(user: object, governed: Host, ask: Callable[[str], SqlReply]) -> tuple[str, str, str, str, str]:
     """Ask the model for SQL and validate it with run_question (one row allowed), at most MAX_ATTEMPTS times.
 
     `ask` takes the refusal text of the previous attempt ("" the first time). Returns (status, reason, checked sql,
-    labels): the labels are the model's column headings as JSON text, kept only for the attempt that worked ("" else).
+    labels, group): the labels are the model's column headings as JSON text, and group the column the table shows its
+    rows under (checked_group), both kept only for the attempt that worked ("" else).
     A provider failure or an empty reply stops at once; only a checker or run refusal is fed back.
     """
     refusal = ""
@@ -328,15 +331,21 @@ def _attempts(user: object, governed: Host, ask: Callable[[str], SqlReply]) -> t
         except Exception as error:
             # Only the exception type is logged: its message can carry keys or payloads. Never shown to the viewer.
             logger.warning("refine_tab: provider call failed (%s)", type(error).__name__)
-            return "refused", PROVIDER_REASON, "", ""
+            return "refused", PROVIDER_REASON, "", "", ""
         if not reply.sql.strip():
-            return "refused", NOT_ANSWERABLE_REASON, "", ""
+            return "refused", NOT_ANSWERABLE_REASON, "", "", ""
         outcome = run_question(governed, user, reply.sql, Limits(max_rows=1))
         if isinstance(outcome, Refused):
             refusal = outcome.reason
             continue
-        return "ok", "", outcome.query.sql, json.dumps(reply.labels, ensure_ascii=False)
-    return "refused", refusal or NOT_ANSWERABLE_REASON, "", ""
+        if _attempt + 1 < MAX_ATTEMPTS:  # one more try when a LIKE matches nothing (likeprobe.py); never blocks
+            missed = missing_like(governed, user, outcome.query.sql)
+            if missed:
+                refusal = missed
+                continue
+        group = checked_group(outcome.query.sql, tuple(outcome.result.columns), reply.group_by)
+        return "ok", "", outcome.query.sql, json.dumps(reply.labels, ensure_ascii=False), group
+    return "refused", refusal or NOT_ANSWERABLE_REASON, "", "", ""
 
 
 def _carried_labels(old: str, new: str) -> str:
@@ -410,11 +419,11 @@ def _turn(
     catalogue = governed.catalogue_for(user)
     if not catalogue.views:
         return _finish(tab, text, "unavailable", NO_VIEWS_REASON, "", base_pk, first_build=False)
-    catalogue_text = describe_text(catalogue)
+    catalogue_text = describe_text(catalogue) + known_values(governed, user, catalogue) + asker_line(user)
 
     if current is None:
         examples = examples_for(catalogue, text)
-        status, reason, sql, labels = _attempts(
+        status, reason, sql, labels, group = _attempts(
             user,
             governed,
             lambda refusal: ask_sql_reply(provider, catalogue_text, text, day, refusal=refusal, examples=examples),
@@ -431,6 +440,7 @@ def _turn(
             ok_line=refined_line(None, after),
             total=after,
             labels=labels,
+            settings=_group_settings(group),
         )
 
     base = base_columns(user, current.sql, host=governed)
@@ -439,11 +449,12 @@ def _turn(
     if base.status != "ok":
         return _finish(tab, text, base.status, base.reason, "", base_pk, first_build=False)
     columns = base.columns
-    status, reason, sql, labels = _attempts(
+    current_group = spec_from_json(current.settings, columns).group_by
+    status, reason, sql, labels, group = _attempts(
         user,
         governed,
         lambda refusal: ask_refine_sql_reply(
-            provider, catalogue_text, current.sql, columns, history, text, day, refusal=refusal
+            provider, catalogue_text, current.sql, columns, history, text, day, refusal=refusal, group=current_group
         ),
     )
     before = after = None
@@ -465,4 +476,10 @@ def _turn(
         ok_line=refined_line(before, after),
         total=after,
         labels=labels,
+        settings=_group_settings(group),
     )
+
+
+def _group_settings(group: str) -> str:
+    """The saved settings of a new version: the model's checked group column, or "" (no tool applied)."""
+    return spec_to_json(Spec(group_by=group)) if group else ""

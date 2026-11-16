@@ -7,6 +7,7 @@ from accounts.models import User
 from django.utils import timezone
 from macs.models import FiredReason
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, HrOrder
 from employees.services import events, macs_writes, order_docs
 
@@ -37,6 +38,7 @@ def test_waiting_termination_draft_shows_the_employee_type_it_gets_on_signing(
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
         pension=pension,
+        order_number=next_order_number(),
     )
     order = HrOrder.objects.get(event=event)
     waiting = order_docs.build_context(order, actor)
@@ -59,6 +61,7 @@ def test_waiting_transfer_draft_shows_the_new_department(hired: Employee, actor:
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     assert event.applied_at is None
     order = HrOrder.objects.get(event=event)
@@ -80,6 +83,7 @@ def test_draft_after_signing_equals_the_applied_context(hired: Employee, actor: 
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     order = HrOrder.objects.get(event=event)
     waiting = order_docs.build_context(order, actor)

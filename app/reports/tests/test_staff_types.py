@@ -6,6 +6,7 @@ import pytest
 from accounts.models import User
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, JobRecord
 from employees.services import history
 from employees.tests.conftest import hire_values, named
@@ -79,7 +80,8 @@ def _pension_exit(actor: User, job_values: dict[str, Any], register_no: str) -> 
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("1500000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     record_signed(
         pensioner,
@@ -91,7 +93,8 @@ def _pension_exit(actor: User, job_values: dict[str, Any], register_no: str) -> 
         note="",
         by=actor,
         pension=True,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     return pensioner
 

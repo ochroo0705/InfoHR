@@ -9,6 +9,7 @@ from accounts.models import User
 from django.contrib.auth.models import Group
 from django.http import QueryDict
 from employees import access
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, ActivityKind, Employee, ensure_ext
 from employees.services import history, macs_writes
 
@@ -63,7 +64,7 @@ def _hire(actor: User, job_values: dict[str, Any], register_no: str, family: str
         "first_hire_date": date(2026, 1, 5),
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=date(2026, 1, 5), job=dict(job_values), salary=Decimal("2500000"), by=actor)
+    return history.hire(values, {}, start=date(2026, 1, 5), job=dict(job_values), salary=Decimal("2500000"), by=actor, order_number=next_order_number())
 
 
 def _link_login(employee: Employee, user: User) -> None:

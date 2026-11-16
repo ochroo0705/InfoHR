@@ -70,6 +70,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.management.color import no_style
 from django.db import connection, transaction
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, HrOrder, OrderType
 from employees.services import macs_writes, orders as order_services, personal_writes
 from leave.models import GrantKind
@@ -243,7 +244,8 @@ for model in macs_models:
 managed_reset = len(ops.sequence_reset_sql(no_style(), [apps.get_model("accounts", "User")]))
 try:
     order_services.create_for_change(employee=emps[1], event=None, is_hire=True, order_type=OrderType.HIRED,
-                                     number="Т10-R", date=dt.date(2026, 2, 9), summary="Т10", issued_by="Т10", by=by)
+                                     number="Т10-R", date=dt.date(2026, 2, 9), summary="Т10", issued_by="Т10", by=by,
+                                     order_number=next_order_number(),)
     registration_error = None
 except Exception as exc:
     registration_error = f"{type(exc).__name__}: {exc}"

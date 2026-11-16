@@ -851,7 +851,7 @@ def preview_pdf(
         order_type=int(order_type),
         is_hire=int(order_type) == OrderType.HIRED,  # a hire's salary is shown on it, as on the real order
         date=timezone.localdate(),
-        state=OrderState.PENDING,
+        state=OrderState.REGISTERED,  # render_order does not read the state; never PENDING (D-083)
     )
     word = Document(io.BytesIO(render_order(order, user, template=content)))
     pdf = _new_pdf(word)

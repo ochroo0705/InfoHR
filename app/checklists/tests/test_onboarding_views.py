@@ -12,6 +12,7 @@ from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import EmployeeExt, JobRecord
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values, link_login
@@ -115,7 +116,8 @@ def test_manager_owner_sees_onboarding_task_with_kind_on_my_page_and_mine_and_ti
     client: Client, hired: Employee, actor: User, job_values: dict[str, Any]
 ) -> None:
     manager_emp = history.hire(
-        hire_values("УБ99000012"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor
+        hire_values("УБ99000012"), {}, start=date(2026, 1, 5), job=job_values, salary=None, by=actor,
+        order_number=next_order_number(),
     )
     login = _member(roles.EMPLOYEE, "mgr_onboarding")
     link_login(manager_emp, login)

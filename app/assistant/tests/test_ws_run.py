@@ -84,14 +84,31 @@ def test_run_page_returns_rows() -> None:
     assert "FIRST 100" in query.sql  # the checker renders the page window in Firebird dialect
 
 
-def test_run_page_uses_group_sql_when_grouping() -> None:
-    host = FakeHost(CATALOGUE, ("DEPARTMENT", "N"), [("IT", 2)])
+def test_run_page_keeps_rows_ordered_by_group_when_grouping() -> None:
+    host = FakeHost(CATALOGUE, COLS, [("IT", "A", 2)])
 
     result = ws_run.run_page(ASKER, BASE, COLS, Spec(group_by="DEPARTMENT"), 0, host=host)
 
     assert result.status == "ok"
-    assert result.columns == ("DEPARTMENT", "N")
+    sent = host.execute_calls[0][1].sql
+    assert "GROUP BY" not in sent
+    assert "ORDER BY DEPARTMENT ASC" in sent
+
+
+def test_run_group_counts_reads_value_and_count() -> None:
+    host = FakeHost(CATALOGUE, ("DEPARTMENT", "N"), [("IT", 2), ("HR", 1)])
+
+    counts = ws_run.run_group_counts(ASKER, BASE, COLS, Spec(group_by="DEPARTMENT"), host=host)
+
+    assert counts == {"IT": 2, "HR": 1}
     assert "GROUP BY DEPARTMENT" in host.execute_calls[0][1].sql
+
+
+def test_run_group_counts_is_empty_without_a_group() -> None:
+    host = FakeHost(CATALOGUE, ("DEPARTMENT", "N"), [("IT", 2)])
+
+    assert ws_run.run_group_counts(ASKER, BASE, COLS, Spec(), host=host) == {}
+    assert host.execute_calls == []
 
 
 def test_run_count_reads_n() -> None:
@@ -107,15 +124,14 @@ def test_run_count_reads_n() -> None:
     assert "SELECT NAME, DEPARTMENT, LATE_DAYS FROM GOV_EMPLOYEES" in sent
 
 
-def test_run_count_with_group_by_counts_groups() -> None:
-    host = FakeHost(CATALOGUE, ("N",), [(2,)])
+def test_run_count_with_group_by_counts_rows() -> None:
+    host = FakeHost(CATALOGUE, ("N",), [(5,)])
 
     count = ws_run.run_count(ASKER, BASE, COLS, Spec(group_by="DEPARTMENT"), host=host)
 
-    assert count == 2
+    assert count == 5
     sent = host.execute_calls[0][1].sql
-    assert "GROUP BY DEPARTMENT" in sent
-    assert "ws_groups" in sent
+    assert "GROUP BY" not in sent
     assert "COUNT(*)" in sent
 
 

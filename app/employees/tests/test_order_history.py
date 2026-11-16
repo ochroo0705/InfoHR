@@ -34,16 +34,18 @@ def history(order: HrOrder) -> list[ActivityEntry]:
     return list(order.activity.order_by("id"))
 
 
-def test_a_pending_order_has_no_history_yet(hired: Employee) -> None:
-    assert history(hire_order(hired)) == []  # the hire/change entry of the activity drawer already says it was made
+def test_a_hire_order_has_its_hire_entry_from_the_start(hired: Employee, actor: User) -> None:
+    # D-083: the hire order is registered at hire time, so its one entry is the registration the hire made
+    entries = history(hire_order(hired))
+    assert len(entries) == 1 and "бүртгэсэн" in entries[0].message and entries[0].by == actor
 
 
 def test_registering_and_editing_are_logged_with_who_and_what_changed(hired: Employee, actor: User) -> None:
     order = hire_order(hired)
     orders.register(order, number="12", date=date(2026, 1, 5), summary="Томилов", issued_by="Б. Дорж", by=actor)
-    registered = history(order)[-1]
-    assert "бүртгэсэн" in registered.message and registered.by == actor
-    assert {"field": "Дугаар", "old": "", "new": "12"} in registered.changes
+    edited = history(order)[-1]  # the hire already registered it, so this is an edit
+    assert "засварласан" in edited.message and edited.by == actor
+    assert {"field": "Дугаар", "old": "1", "new": "12"} in edited.changes
     orders.register(order, number="13", date=date(2026, 1, 5), summary="Томилов", issued_by="Б. Дорж", by=actor)
     edited = history(order)[-1]
     assert "засварласан" in edited.message and edited.changes == [{"field": "Дугаар", "old": "12", "new": "13"}]

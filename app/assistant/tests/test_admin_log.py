@@ -13,6 +13,7 @@ from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from employees.tests.helpers import next_order_number
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values
 
@@ -52,7 +53,8 @@ def _employee(given: str) -> None:
         start=date(2026, 1, 5),
         job=job,
         salary=Decimal("2500000"),
-        by=User.objects.create_user(f"log_actor_{next(_COUNTER)}"),
+        by=User.objects.create_user(f"log_actor_{next(_COUNTER)}"),
+        order_number=next_order_number(),
     )
 
 

@@ -13,6 +13,7 @@ from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from employees import listing
+from employees.tests.helpers import next_order_number
 from employees.models import Department, Employee, JobRecord, JobStatus
 from employees.services import history, macs_writes
 from macs.models import LeaveAssign, LeaveTypeRow
@@ -51,7 +52,7 @@ def _hire(by: User, i: int, position: Any, department: Any) -> Employee:
         "first_hire_date": start,
         "work_conditions": 1,
     }
-    return history.hire(values, {}, start=start, job=job, salary=Decimal("2500000"), by=by)
+    return history.hire(values, {}, start=start, job=job, salary=Decimal("2500000"), by=by, order_number=next_order_number())
 
 
 @pytest.fixture

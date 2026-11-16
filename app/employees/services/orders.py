@@ -31,6 +31,7 @@ NUMBER_MAX = 10
 SUMMARY_MAX = 50
 ISSUED_BY_MAX = 25
 SIGNED_CANCEL_NEEDS_NUMBER = "Гарын үсэгтэй тушаалыг цуцлахад цуцлах шинэ тушаалын дугаар заавал."
+NUMBER_REQUIRED = "Тушаалын дугаар заавал"  # D-083: an order is never created without its number
 
 
 class OrderError(Exception):
@@ -221,7 +222,13 @@ def _validate(number: str, date: datetime.date | None, summary: str, issued_by: 
 
 
 def _apply(
-    order: HrOrder, number: str, date: datetime.date | None, summary: str, issued_by: str, by: User | None
+    order: HrOrder,
+    number: str,
+    date: datetime.date | None,
+    summary: str,
+    issued_by: str,
+    by: User | None,
+    created: bool = False,
 ) -> HrOrder:
     number, summary = number.strip(), summary.strip()
     issued_by = issued_by.strip() or CompanySettings.get().director_name[:ISSUED_BY_MAX]
@@ -238,7 +245,7 @@ def _apply(
     order.save()
     macs_writes.write_order(order)
     after = {"Дугаар": number, "Огноо": str(date or ""), "Агуулга": summary, "Гаргасан": issued_by}
-    if was_pending:
+    if created or was_pending:  # a new order is logged as registered, whatever its starting state
         _log(order, by, "бүртгэсэн", [{"field": k, "old": "", "new": v} for k, v in after.items() if v])
     elif changes := [{"field": k, "old": before[k], "new": v} for k, v in after.items() if before[k] != v]:
         _log(order, by, "засварласан", changes)
@@ -258,17 +265,26 @@ def create_for_change(
     summary: str,
     issued_by: str,
     by: User | None,
+    history_id: int | None = None,
 ) -> HrOrder:
-    """A new order for a change (or the hire): registered when a number and date are given, else pending."""
+    """A new order for a change (or the hire), registered at once (D-083: never pending). Only the number is required;
+    a blank date is the change's effective date (the hire's date is passed by its caller). `history_id` links a
+    hire's order to its history row before the order is written."""
     number = number.strip()
-    if (number or date is not None) and (not number or date is None):  # both or neither, before anything is saved
-        raise OrderError({"number" if not number else "date": "Дугаар болон огноог хамт оруулна уу."})
+    if not number:
+        raise OrderError({"number": NUMBER_REQUIRED})
+    if date is None and event is not None:
+        date = event.effective  # the order date defaults to the change's effective date
     order = HrOrder.objects.create(
-        employee=employee, event=event, is_hire=is_hire, order_type=order_type, created_by=by
+        employee=employee,
+        event=event,
+        is_hire=is_hire,
+        order_type=order_type,
+        state=OrderState.REGISTERED,
+        created_by=by,
+        history_id=history_id,
     )
-    if number and date is not None:
-        return _apply(order, number, date, summary, issued_by, by)
-    return order
+    return _apply(order, number, date, summary, issued_by, by, created=True)
 
 
 @transaction.atomic
@@ -313,10 +329,10 @@ def _attach_signed_file_locked(order: HrOrder, upload: UploadedFile, *, by: User
     order.file.save(upload.name or "order", upload, save=False)
     order.state = OrderState.SIGNED
     order.save()
-    if order.command_id:
-        # The change was applied just now, so its production row exists only from here: link it to this order
-        # (idempotent; also re-points the employee to this order).
-        macs_writes.write_order(order)
+    # write_order inserts the MACS command row when the order has none (a legacy order numbered by the data migration,
+    # which cannot write production), else updates it; it also links the history row and re-points the employee to this
+    # order. The change was applied just now, so its production row exists only from here (idempotent).
+    macs_writes.write_order(order)
     _log(order, by, message)
     return order
 

@@ -11,6 +11,7 @@ from django.contrib.auth.models import Group
 from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, Event, ensure_ext
 from employees.services import history, macs_writes
 from employees.tests.conftest import (  # noqa: F401 (fixtures; _no_offboarding_templates is autouse)
@@ -80,7 +81,8 @@ def transfer(employee: Employee, to: str, on: date, by: User) -> Event:
         salary=None,
         reason="",
         note="",
-        by=by,
+        by=by,
+        order_number=next_order_number(),
     )
 
 
@@ -93,7 +95,8 @@ def left_employee(actor: User, job_values: dict[str, Any]) -> Employee:  # noqa:
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("1500000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     record_signed(
         emp,
@@ -104,7 +107,8 @@ def left_employee(actor: User, job_values: dict[str, Any]) -> Employee:  # noqa:
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     return emp
 

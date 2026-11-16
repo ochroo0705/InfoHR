@@ -8,6 +8,7 @@ import pytest
 from accounts.models import User
 from django import forms
 from django.contrib.auth.models import Group
+from employees.tests.helpers import next_order_number
 from employees.forms import EmployeeForm
 from employees.models import ActivityEntry, Employee
 from employees.services import history
@@ -35,7 +36,8 @@ def second(actor: User, job_values: dict[str, Any]) -> Employee:
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("2500000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
 
 

@@ -22,6 +22,7 @@ from employees.models import Employee
 from employees.services import history
 
 from .conftest import hire_values, link_login
+from .helpers import next_order_number
 from .test_views import login_as
 
 pytestmark = pytest.mark.django_db
@@ -54,19 +55,9 @@ def test_today_page_shows_tiles_and_empty_states(client: Client, hired: Employee
     body = client.get(reverse("employees:today")).content.decode()
     assert 'data-tile="headcount">1<' in body
     assert 'data-tile="away">0<' in body
-    assert 'data-tile="orders"' in body  # HR handles orders
+    assert 'data-tile="orders"' not in body  # no order badge: every order is numbered (D-083)
     assert "Өнөөдөр чөлөөтэй хүн алга." in body
     assert 'class="card-soft' in body
-
-
-def test_orders_tile_hidden_without_the_manage_right(hired: Employee) -> None:
-    assert today.pending_orders(_user("Accountant", "acc"), _rows()) is None
-
-
-def test_pending_orders_counts_unnumbered_orders(hired: Employee) -> None:
-    assert today.pending_orders(_user("HR", "hr1"), _rows()) == hired.hr_orders.filter(state="pending").count()
-    hired.hr_orders.update(state="registered")
-    assert today.pending_orders(_user("HR", "hr2"), _rows()) == 0
 
 
 def test_headcount_skips_people_who_left(hired: Employee) -> None:
@@ -159,7 +150,15 @@ def _old_leave(employee: Employee, leave_type: LeaveTypeRow, start: date, end: d
 
 def _second_employee(actor: User, job_values: dict[str, object]) -> Employee:
     values = hire_values("УБ99112234") | {"given_name": "Бат"}
-    return history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor)
+    return history.hire(
+        values,
+        {},
+        start=date(2026, 1, 5),
+        job=job_values,
+        salary=Decimal("2500000"),
+        order_number=next_order_number(),
+        by=actor,
+    )
 
 
 def _strip(rows: list[Row] | None = None, day: date = TODAY) -> today.AwayStrip:

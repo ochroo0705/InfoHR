@@ -23,6 +23,8 @@ from sqlcore.explain import Explanation, explain, tidy_result
 from sqlcore.runner import Answered, Host, Refused, run_question
 from sqlcore.tools import describe_text
 
+from assistant.knownvalues import asker_line, known_values
+from assistant.likeprobe import missing_like
 from assistant.providers import Provider
 from assistant.sqlask import ask_sql_reply
 from assistant.verified import examples_for
@@ -99,7 +101,7 @@ def sql_answer(user: User, text: str, day: date, provider: Provider, host: Host 
     catalogue = governed.catalogue_for(user)
     if not catalogue.views:
         return _empty("unavailable", NO_VIEWS_REASON)
-    catalogue_text = describe_text(catalogue)
+    catalogue_text = describe_text(catalogue) + known_values(governed, user, catalogue) + asker_line(user)
     # Only approved examples whose views the asker's own catalogue covers (assistant/verified.py).
     examples = examples_for(catalogue, text)
 
@@ -116,5 +118,10 @@ def sql_answer(user: User, text: str, day: date, provider: Provider, host: Host 
         if isinstance(outcome, Refused):
             refusal = outcome.reason
             continue
+        if _attempt + 1 < MAX_ATTEMPTS:  # one more try when a LIKE matches nothing (likeprobe.py); never blocks
+            missed = missing_like(governed, user, sql)
+            if missed:
+                refusal = missed
+                continue
         return _answered(outcome, catalogue, reply.labels)
     return _empty("refused", refusal)

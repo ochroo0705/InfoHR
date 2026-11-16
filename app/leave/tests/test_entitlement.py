@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 from accounts.models import User
+from employees.tests.helpers import next_order_number
 from employees.services import events
 
 from leave.models import AnnualLeaveRule
@@ -57,7 +58,8 @@ def test_childcare_leave_is_not_service(actor: User) -> None:
         salary=None,
         reason="childcare",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     events.record(
         e,
@@ -67,7 +69,8 @@ def test_childcare_leave_is_not_service(actor: User) -> None:
         salary=None,
         reason="",
         note="",
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     assert entitlement.service_months(e, date(2026, 3, 1)) == 72 - 12  # 6 years minus 1 year childcare
 

@@ -4,13 +4,14 @@ Everything goes through the production services (events, orders, slots, recruitm
 requests), never straight into the tables, so the demo shows what the screens really produce. Dates are relative to
 today, so «upcoming», «overdue» and «birthday this week» stay true whenever the demo is rebuilt.
 
-What it adds on top of seed_demo's people: branches, budget slots (free, full, over-used, missing), signed, registered
-and pending orders, events (transfer, promotion, long leave, termination with the offboarding checklist, pension,
+What it adds on top of seed_demo's people: branches, budget slots (free, full, over-used, missing), signed and
+registered orders, events (transfer, promotion, long leave, termination with the offboarding checklist, pension,
 contract change, scheduled, waiting for a signature, cancelled), recruitment (vacancies and candidates in every stage),
 extra logins (auditor, branch-scoped HR, forced password change, inactive), an onboarding checklist and more leave
 request states.
 """
 
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -58,10 +59,6 @@ def run(ctx: Ctx) -> None:
 def _sign(event: Event, by: User) -> Event:
     """Give the event's order a number, date and signed scan, which applies the change that waited for it."""
     order = HrOrder.objects.filter(event=event).first()
-    today = timezone.localdate()
-    if order is not None and order.state == OrderState.PENDING:
-        orders.register(order, number=orders.suggest_number(today), date=today, summary="", issued_by="Захирал", by=by)
-        order.refresh_from_db()
     if order is not None and order.state == OrderState.REGISTERED:
         scan = SimpleUploadedFile("order.pdf", b"%PDF-1.4 demo order", content_type="application/pdf")
         orders.attach_signed_file(order, scan, by=by)
@@ -73,7 +70,16 @@ def _sign(event: Event, by: User) -> Event:
 
 
 def _record(emp: Employee, by: User, **kwargs: Any) -> Event:
-    values: dict[str, Any] = {"changes": {}, "salary": None, "reason": "", "note": "", "by": by, **kwargs}
+    # An order needs its number when it is created (D-083): a unique one unless the scenario gives its own.
+    values: dict[str, Any] = {
+        "changes": {},
+        "salary": None,
+        "reason": "",
+        "note": "",
+        "by": by,
+        "order_number": f"Ц/{uuid.uuid4().hex[:7]}",
+        **kwargs,
+    }
     return events.record(emp, **values)
 
 
@@ -125,19 +131,16 @@ def _model(name: str) -> Any:
     return getattr(models, name)
 
 
-# ---- hire orders: signed, registered, pending ----
+# ---- hire orders: signed and registered ----
 
 
 def _hire_orders(ctx: Ctx) -> None:
-    hr, today = ctx["hr"], ctx["today"]
+    hr = ctx["hr"]
     hires = list(HrOrder.objects.filter(is_hire=True).select_related("employee").order_by("pk"))
+    # Each hire order got its number and was registered when the hire was made (D-083): the older ones get a signed
+    # scan, the newest five stay registered but not yet signed.
     for i, order in enumerate(hires):
-        if i >= len(hires) - 3:
-            continue  # the newest three stay without a number (pending)
-        day = min(ctx["starts"].get(order.employee_id, today), today)
-        orders.register(order, number=orders.suggest_number(day), date=day, summary="", issued_by="Захирал", by=hr)
-        if i < len(hires) - 5:  # the rest are registered but not yet signed
-            order.refresh_from_db()
+        if i < len(hires) - 5:
             scan = SimpleUploadedFile("hire-order.pdf", b"%PDF-1.4 demo hire order", content_type="application/pdf")
             orders.attach_signed_file(order, scan, by=hr)
 
@@ -178,12 +181,8 @@ def _events(ctx: Ctx) -> None:
     # Scheduled (in the future, no order needed) and waiting for a signature (order registered, no scan yet).
     _record(p["Номин"], accountant, type=EventType.SALARY_CHANGE, effective=today + day(days=45),
             salary=Decimal("2900000"), note="Жилийн нэмэгдэл")  # fmt: skip
-    waiting = _record(p["Ганзориг"], hr, type=EventType.PROMOTION, effective=today + day(days=10),
+    _record(p["Ганзориг"], hr, type=EventType.PROMOTION, effective=today + day(days=10),
                       changes={"position": pos["Програм хөгжүүлэгч"]}, note="Багт шилжүүлэх")  # fmt: skip
-    order = HrOrder.objects.filter(event=waiting).first()
-    if order is not None:
-        orders.register(order, number=orders.suggest_number(today), date=today, summary="Албан тушаал дэвшүүлэх",
-                        issued_by="Захирал", by=hr)  # fmt: skip
 
     # A change recorded and then cancelled.
     cancelled = _record(p["Ариунаа"], hr, type=EventType.SALARY_CHANGE, effective=today + day(days=30),

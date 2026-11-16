@@ -46,7 +46,8 @@ def test_events_orders_and_checklists() -> None:
     assert ("leave_start", True, False) in events
     assert ("promotion", False, False) in events  # waits for its signed order
     assert ("salary_change", True, True) in events  # cancelled
-    assert {"pending", "registered", "signed"} <= set(HrOrder.objects.values_list("state", flat=True))
+    assert {"registered", "signed"} <= set(HrOrder.objects.values_list("state", flat=True))
+    assert "pending" not in set(HrOrder.objects.values_list("state", flat=True))  # D-083: every order is numbered
     if (
         ChecklistTemplate.objects.exists()
     ):  # the starter templates come from migrations; the test database may lack them

@@ -6,6 +6,7 @@ from accounts.models import User
 from django.contrib.auth.models import Group
 from django.test import Client
 from django.utils import timezone
+from employees.tests.helpers import next_order_number
 from employees.models import ActivityEntry, Employee, Event
 from employees.services import events
 from macs.models import FiredReason
@@ -29,10 +30,17 @@ def _url(employee: Employee) -> str:
 
 def _data(fired_reason: FiredReason, **extra: Any) -> dict[str, Any]:
     day = timezone.localdate() + timedelta(days=30)
-    return {"effective": day.isoformat(), "fired_reason": fired_reason.pk, "note": "", **extra}
+    return {
+        "effective": day.isoformat(),
+        "fired_reason": fired_reason.pk,
+        "note": "",
+        "order-number": next_order_number(),  # D-083: a termination needs its order number
+        **extra,
+    }
 
 
 def _record(employee: Employee, actor: User, fired_reason: FiredReason, **kw: Any) -> Event:
+    kw.setdefault("order_number", next_order_number())
     return events.record(
         employee,
         type="termination",

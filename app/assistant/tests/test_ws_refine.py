@@ -439,3 +439,36 @@ def test_refine_stores_the_labels_of_the_attempt_that_worked(db: None, role_user
     assert result.status == "ok"
     assert json.loads(result.version.labels) == {"ID": "Дугаар", "DEPT": "Хэлтэс"}
     assert json.loads(tab.current().labels) == {"ID": "Дугаар", "DEPT": "Хэлтэс"}
+
+
+def test_refine_keeps_the_models_group_column(db: None, role_user) -> None:
+    user = role_user("staff")
+    tab = _tab_with_version(user)
+    provider = FakeProvider({"sql": NEW_SQL, "group_by": "name"})
+
+    result = ws_service.refine_tab(user, tab, "Нэрээр нь бүлэглэ", DAY, provider, host=FakeHost())
+
+    assert result.status == "ok"
+    assert json.loads(result.version.settings)["group_by"] == "NAME"
+
+
+def test_refine_drops_a_group_column_the_result_lacks(db: None, role_user) -> None:
+    user = role_user("staff")
+    tab = _tab_with_version(user)
+    provider = FakeProvider({"sql": NEW_SQL, "group_by": "NOPE"})
+
+    result = ws_service.refine_tab(user, tab, "Бүлэглэ", DAY, provider, host=FakeHost())
+
+    assert result.status == "ok"
+    assert result.version.settings == ""
+
+
+def test_refine_tells_the_model_the_current_group(db: None, role_user) -> None:
+    user = role_user("staff")
+    tab = ws_service.new_tab(user, title="Ажилтнууд")
+    ws_service.add_version(tab, "Ажилтнууд", SQL, settings=json.dumps({"group_by": "NAME"}))
+    provider = FakeProvider({"sql": NEW_SQL})
+
+    ws_service.refine_tab(user, tab, "Хэлтсийг нэм", DAY, provider, host=FakeHost())
+
+    assert "<group>\nNAME\n</group>" in provider.calls[0][1]

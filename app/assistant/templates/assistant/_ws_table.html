@@ -1,6 +1,6 @@
 {% comment %}The table pane of the workspace page (ws_table in ws_views.py). A status line (refused, off, no views), a note on
 columns no tool can use, the tools (UI_RULES 4b / 4d: the filter form, then captioned joined groups «Тохируулах», «Бүлэглэх»,
-«Гаргах» and the reset icon) and chips while the tools apply, the selection bar, the table in the report frame (.ptable,
+«Гаргах» and the reset icon) and chips while the tools apply, the selection bar, the table in the report frame (.ptable; a grouped table has one tbody per group with a heading row that folds it,
 page scroll, picked rows tinted by workspace.js), paging only when there is more than one page. A column shows its Mongolian label when it has one (ws_labels.py); form values and addresses keep the column
 name, which is also the header's tooltip. Every control is a real link or form to the table address; htmx swaps the pane when the script runs, and without
 it the link opens the whole page with the table in it. Cell values and headers are escaped by Django: nothing here is
@@ -124,9 +124,16 @@ marked safe. Rows are drawn 100 at a time.{% endcomment %}
       <button type="button" data-ws-cancel class="rounded-lg px-3 py-1.5 hover:underline">Болих</button>
     </div>
   </div>
+  {% if sections|length > 1 %}
+  <div class="flex items-center gap-3 text-xs">
+    <span class="text-slate-500">{{ group_label }}-аар бүлэглэсэн</span>
+    <button type="button" data-ws-groups="close" class="text-violet-700 hover:underline">Бүгдийг хураах</button>
+    <button type="button" data-ws-groups="open" class="text-violet-700 hover:underline">Бүгдийг дэлгэх</button>
+  </div>
+  {% endif %}
   <label class="flex items-center gap-2 px-1 py-2 md:hidden"><input type="checkbox" data-ws-all class="h-5 w-5"> Бүгдийг сонгох</label>
   <div class="ptable ptable-fit ws-cards">
-    <table data-ws-table data-grid tabindex="0" aria-label="Хүснэгт: сумаар шилжинэ">
+    <table data-ws-table data-grid tabindex="0" aria-label="Хүснэгт: сумаар шилжинэ"{% if sections %} data-ws-group-label="{{ group_label }}"{% endif %}>
       <thead>
         <tr>
           <th scope="col" class="w-10"><input type="checkbox" data-ws-all aria-label="Харагдаж буй мөрийг бүгдийг сонгох"></th>
@@ -137,6 +144,25 @@ marked safe. Rows are drawn 100 at a time.{% endcomment %}
         {% endfor %}
         </tr>
       </thead>
+      {% if sections %}
+      {% for section in sections %}
+      <tbody data-ws-group="{{ section.title }}">
+        <tr class="ws-group-row">
+          <th scope="rowgroup" colspan="{{ headers|length|add:1 }}">
+            <button type="button" data-ws-group-toggle aria-expanded="true" class="inline-flex items-center gap-2 text-left"><span aria-hidden="true" class="ws-group-caret">▾</span><span>{{ section.title }}</span>{% if section.count is not None %}<span class="font-normal text-slate-500">{{ section.count }} мөр</span>{% endif %}</button>
+          </th>
+        </tr>
+      {% for row in section.rows %}
+        <tr>
+          <td class="ws-pick"><input type="checkbox" data-ws-row class="h-5 w-5 md:h-4 md:w-4" aria-label="{% if row.0.text %}Мөр сонгох: {{ row.0.text }}{% else %}Мөр сонгох{% endif %}"></td>
+        {% for cell in row %}
+          <td{% if cell.label %} data-label="{{ cell.label }}"{% endif %}{% if cell.numeric %} class="text-right tabular-nums"{% elif cell.after_number %} class="pl-6"{% endif %}>{{ cell.text }}</td>
+        {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+      {% endfor %}
+      {% else %}
       <tbody>
       {% for row in rows %}
         <tr>
@@ -149,6 +175,7 @@ marked safe. Rows are drawn 100 at a time.{% endcomment %}
         <tr><td colspan="{{ headers|length|add:1 }}" class="py-6 text-center text-slate-500">Олдсонгүй</td></tr>
       {% endfor %}
       </tbody>
+      {% endif %}
     </table>
   </div>
   {% endif %}

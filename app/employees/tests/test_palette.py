@@ -20,6 +20,7 @@ from reports.models import SavedView
 from reports.registry import REPORTS, can_open
 
 from employees import listing, palette
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, EmployeeExt, HrOrder, OrderState, OrderType, ensure_ext
 from employees.services import history, macs_writes
 from employees.templatetags.palette_extras import hl
@@ -46,7 +47,7 @@ def listed(hired: Employee) -> Employee:
 
 def _hire(actor: User, job_values: dict[str, Any], register_no: str, family: str, given: str) -> Employee:
     values = hire_values(register_no) | {"family_name": family, "given_name": given}
-    emp = history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor)
+    emp = history.hire(values, {}, start=date(2026, 1, 5), job=job_values, salary=Decimal("2500000"), by=actor, order_number=next_order_number())
     ensure_ext(emp)
     return emp
 
@@ -332,7 +333,8 @@ def test_people_only_include_employees_hr_has_touched(actor: User, job_values: d
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("2500000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     EmployeeExt.objects.filter(employee=emp).delete()  # history.hire writes the HR row; drop it to model "not touched"
     hr = _user("HR", "pal_hr11")
@@ -363,7 +365,8 @@ def test_people_mark_leavers(listed: Employee, actor: User, job_values: dict[str
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     hr = _user("HR", "pal_hr9")
     (gone,) = palette.people(hr, "Цэвэг", TODAY)
@@ -389,7 +392,8 @@ def test_people_do_not_match_phone_or_register_no(actor: User, job_values: dict[
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("2500000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     ensure_ext(emp)
     emp.refresh_from_db()
@@ -569,7 +573,8 @@ def test_palette_marks_leavers(client: Client, actor: User, job_values: dict[str
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     client.force_login(_user("HR", "pal_v3"))
     response = client.get(reverse("employees:palette"), {"q": "Цэвэг"})
@@ -757,7 +762,8 @@ def test_no_person_actions_for_a_left_person(actor: User, job_values: dict[str, 
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     hr = _user("HR", "pal_pa6")
     (hit,) = palette.people(hr, "Цэвэг", TODAY)
@@ -799,7 +805,8 @@ def test_palette_shows_no_person_actions_for_a_left_person(
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     client.force_login(_user("HR", "pal_pa9"))
     body = client.get(reverse("employees:palette"), {"q": "Цэвэг"}).content.decode()
@@ -861,7 +868,8 @@ def test_recent_drops_a_person_with_no_hr_row(actor: User, job_values: dict[str,
         start=date(2026, 1, 5),
         job=job_values,
         salary=Decimal("2500000"),
-        by=actor,
+        by=actor,
+        order_number=next_order_number(),
     )
     EmployeeExt.objects.filter(employee=emp).delete()
     hr = _user("HR", "pal_rec4")
@@ -1004,7 +1012,8 @@ def test_empty_box_context_group_is_absent_for_a_left_person(
         reason="",
         note="",
         by=actor,
-        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_order_number(),
     )
     client.force_login(_user("HR", "pal_ctx4"))
     body = _from_body(client, f"/employees/{leaver.pk}/")

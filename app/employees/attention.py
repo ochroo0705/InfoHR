@@ -21,8 +21,6 @@ from employees.models import (
     Event,
     EventQuerySet,
     EventType,
-    HrOrder,
-    OrderState,
     ext_of,
 )
 from employees.services import events, setup
@@ -293,17 +291,6 @@ def items(user: User, rows: list[Row], today: date) -> list[Attention]:
             (r.employee for r in rows if (x := ext_of(r.employee)) is not None and x.setup_required), user
         )
     out: list[Attention] = []
-    if can_manage:
-        for o in HrOrder.objects.filter(employee_id__in=[r.employee.pk for r in rows], state=OrderState.PENDING):
-            by_pk = {r.employee.pk: r.employee for r in rows}
-            out.append(
-                Attention(
-                    by_pk[o.employee_id],
-                    f"{o.get_order_type_display()} тушаалын дугаар оруулаагүй",
-                    "order_number",
-                    DUE,
-                )
-            )
     for r in rows:
         e = r.employee
         ext = ext_of(e)
@@ -394,7 +381,6 @@ GROUP_LABELS: dict[tuple[str, int], str] = {
     ("probation", DUE): "Туршилтын хугацаа дуусах",
     ("contract", DUE): "Гэрээ дуусах",
     ("contract", OVERDUE): "Гэрээ дууссан",
-    ("order_number", DUE): "Тушаалын дугаар оруулаагүй",
     ("probation_ended", OVERDUE): "Туршилтын хугацаа дууссан",
     ("contract_ended", OVERDUE): "Гэрээ дууссан (төрөл өөрчлөх)",
     ("leave", DUE): "Чөлөөнөөс буцах",
@@ -412,7 +398,6 @@ GROUP_LABELS: dict[tuple[str, int], str] = {
 
 # Where a group's «Бүгдийг нээх →» link leads: kind -> (url name, query). A kind not listed has no page.
 GROUP_URLS: dict[str, tuple[str, dict[str, str]]] = {
-    "order_number": ("employees:orders", {"state": "pending"}),
     "leave_requests": ("leave:requests", {}),
     "checklist_tasks": ("checklists:mine", {}),
 }  # "awaiting" has no entry: OrderState has no value for "waiting for a signed order"

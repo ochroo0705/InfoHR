@@ -12,6 +12,7 @@ import pytest
 from accounts.models import User
 from django.test import Client
 from django.urls import reverse
+from employees.tests.helpers import next_order_number
 from employees.models import Employee
 from employees.services import history, macs_writes
 from employees.tests.conftest import _no_offboarding_templates, hire_values  # noqa: F401 (autouse)
@@ -82,7 +83,7 @@ def _person(given: str = "Номин", family: str = "Туяа", phone: str = PH
         "contract_type": "open_ended",
     }
     values = {**hire_values(f"УБ{next(_REGISTER):08d}"), "given_name": given, "family_name": family}
-    person = history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=None, by=actor)
+    person = history.hire(values, {}, start=date(2026, 1, 5), job=job, salary=None, by=actor, order_number=next_order_number())
     if phone:
         macs_writes.update_employee_columns(person, {"private_phone": phone})
     return person

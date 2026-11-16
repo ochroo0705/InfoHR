@@ -13,6 +13,7 @@ from django.utils import timezone
 from macs.models import EmployeeHistory, Movement
 
 from employees import access
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, EmployeeExt, Event, HrOrder, JobRecord, OrderState, SalaryRecord
 from employees.services import events, macs_writes
 from employees.services.events import EventError
@@ -47,6 +48,7 @@ def waiting_promotion(employee: Employee, actor: User, effective: date) -> Event
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     assert ev.applied_at is None
     return ev
@@ -88,6 +90,7 @@ def test_cancel_applied_past_change_still_refused(hired: Employee, actor: User) 
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     assert ev.applied_at is not None
     with pytest.raises(EventError) as exc:
@@ -106,6 +109,7 @@ def test_cancel_applied_future_change_still_works(hired: Employee, actor: User) 
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     events.cancel(ev, reason="x", by=actor, cancel_order_no="А/30")  # a signed order needs its new number
     ev.refresh_from_db()
@@ -132,6 +136,7 @@ def pension_contract(employee: Employee, actor: User, effective: date) -> Event:
         note="",
         by=actor,
         pension=True,
+        order_number=next_order_number(),
     )
 
 
@@ -155,6 +160,7 @@ def test_cancelling_waiting_pension_contract_keeps_applied_pensioner_flag(hired:
         note="",
         by=actor,
         pension=True,
+        order_number=next_order_number(),
     )
     assert applied.applied_at is not None
     assert EmployeeExt.objects.get(employee=hired).is_pensioner is True
@@ -178,6 +184,7 @@ def test_can_cancel_waiting_change_follows_what_it_would_change(hired: Employee,
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     assert mixed.applied_at is None
     assert [access.can_cancel(u, mixed) for u in (hr, acc, admin)] == [False, False, True]
@@ -190,6 +197,7 @@ def test_can_cancel_waiting_change_follows_what_it_would_change(hired: Employee,
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     assert [access.can_cancel(u, job_only) for u in (hr, acc)] == [True, False]
 

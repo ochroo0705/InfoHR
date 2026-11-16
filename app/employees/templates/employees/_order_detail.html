@@ -21,7 +21,7 @@
       {% if order.event.note %}<dt class="text-slate-500">Тайлбар</dt><dd>{{ order.event.note }}</dd>{% endif %}
       {% if change_status == 'cancelled' %}<dt class="text-slate-500">Цуцалсан шалтгаан</dt><dd>{{ order.event.cancel_reason|default:"—" }}</dd>{% endif %}
     </dl>
-    <h3 class="mt-5 mb-2 flex items-center gap-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал {% if order.number %}№ {{ order.number }}{% if order.date %} / {{ order.date|date:"Y" }}{% endif %}{% else %}<span class="font-normal italic text-amber-700">дугаар хүлээгдэж байна</span>{% endif %} <span class="ml-auto font-normal">{% include "employees/_order_state.html" with legacy=None %}</span></h3>
+    <h3 class="mt-5 mb-2 flex items-center gap-2 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800">Тушаал {% if order.number %}№ {{ order.number }}{% if order.date %} / {{ order.date|date:"Y" }}{% endif %}{% endif %} <span class="ml-auto font-normal">{% include "employees/_order_state.html" with legacy=None %}</span></h3>
     <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
       <dt class="text-slate-500">Төрөл</dt><dd>{{ order.get_order_type_display }}</dd>
       <dt class="text-slate-500">Огноо</dt><dd>{{ order.date|date:"Y-m-d"|default:"—" }}</dd>
@@ -48,7 +48,7 @@
     <ol class="ml-1 border-l border-slate-200">{% for e in entries %}
       <li class="relative pb-3 pl-4 text-sm last:pb-1">
         <span class="absolute top-1.5 -left-[5px] h-2.5 w-2.5 rounded-full border-2 border-surface bg-violet-500"></span>
-        <div class="flex items-baseline gap-2"><span class="truncate font-medium">{{ e.by.get_full_name|default:e.by.username|default:"Систем" }}</span><span class="ml-auto shrink-0 text-xs text-slate-400">{{ e.at|date:"Y-m-d H:i" }}</span></div>
+        <div class="flex items-baseline gap-2"><span class="truncate font-medium">{% if e.by %}{{ e.by.get_full_name|default:e.by.username }}{% else %}Систем{% endif %}</span><span class="ml-auto shrink-0 text-xs text-slate-400">{{ e.at|date:"Y-m-d H:i" }}</span></div>
         <p class="mt-0.5 text-slate-700">{{ e.message }}</p>
         {% if e.changes %}<dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">{% for c in e.changes %}
           <dt class="text-slate-500">{{ c.field }}</dt>

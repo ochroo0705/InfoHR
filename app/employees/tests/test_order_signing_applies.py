@@ -1,6 +1,7 @@
 """Signing an order applies the change it waits for, at its own date (signed-order plan, Task 5). A refused change
 leaves the order registered with no scan. Changes that need no order and hires are not affected."""
 
+import itertools
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -41,6 +42,14 @@ def job_at(employee: Employee, day: date) -> JobRecord:
     return job
 
 
+_numbers = itertools.count(1)
+
+
+def next_number() -> str:
+    """A unique order number for a test change: an order needs its number when it is created (D-083)."""
+    return f"Т/{next(_numbers)}"
+
+
 def _stored_files() -> set[str]:
     """Every file under the order files folder (the test fixture points it at a temporary folder)."""
     root = Path(settings.ORDER_FILES_ROOT)
@@ -57,6 +66,8 @@ def _transfer(employee: Employee, actor: User, day: date, department: str) -> Ev
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=day,
     )
 
 
@@ -72,6 +83,8 @@ def test_signing_applies_waiting_change(hired: Employee, actor: User) -> None:
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     assert ev.applied_at is None
     sign_event(ev, by=actor)
@@ -90,8 +103,6 @@ def test_signing_refused_leaves_order_registered_and_no_file(hired: Employee, ac
     _transfer(hired, actor, DAY, "Инженер")
     late = _transfer(hired, actor, LATER, "Худалдаа")
     order = HrOrder.objects.get(event=late)
-    today = timezone.localdate()
-    orders.register(order, number=orders.suggest_number(today), date=today, summary="", issued_by="", by=actor)
     order.refresh_from_db()
     files_before = _stored_files()
     scan = SimpleUploadedFile("order.pdf", b"%PDF-1.4 test", content_type="application/pdf")
@@ -115,16 +126,14 @@ def test_signing_a_hire_order_does_nothing_extra(hired: Employee, actor: User) -
         event=None,
         is_hire=True,
         order_type=OrderType.HIRED,
-        number="",
-        date=None,
+        number="Э/9",
+        date=timezone.localdate(),
         summary="",
         issued_by="",
         by=actor,
     )
     jobs_before = JobRecord.objects.filter(employee=hired).count()
-    # The hire has no event, so sign_event does not apply: register it, then attach the scan.
-    today = timezone.localdate()
-    orders.register(hire_order, number=orders.suggest_number(today), date=today, summary="", issued_by="", by=actor)
+    # The hire has no event, so sign_event does not apply: the order is registered already; attach the scan.
     hire_order.refresh_from_db()
     scan = SimpleUploadedFile("order.pdf", b"%PDF-1.4 test", content_type="application/pdf")
     signed = orders.attach_signed_file(hire_order, scan, by=actor)
@@ -144,10 +153,10 @@ def test_signing_already_applied_change_is_noop(hired: Employee, actor: User) ->
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     order = HrOrder.objects.get(event=ev)
-    today = timezone.localdate()
-    orders.register(order, number=orders.suggest_number(today), date=today, summary="", issued_by="", by=actor)
     order.refresh_from_db()
     events.apply_waiting(ev, by=actor)  # applied already, while its order is still only registered
     jobs_before = JobRecord.objects.filter(employee=hired).count()
@@ -209,8 +218,6 @@ def test_cancelled_earlier_waiting_change_does_not_block(hired: Employee, actor:
 
 
 def _register_today(order: HrOrder, actor: User) -> HrOrder:
-    today = timezone.localdate()
-    orders.register(order, number=orders.suggest_number(today), date=today, summary="", issued_by="", by=actor)
     order.refresh_from_db()
     return order
 
@@ -230,6 +237,8 @@ def test_register_then_sign_termination_links_order_to_history_row(hired: Employ
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_number(),
+        order_date=DAY,
     )
     order = _register_today(HrOrder.objects.get(event=ev), actor)
     sign_event(ev, by=actor)
@@ -254,6 +263,8 @@ def test_signing_transfer_after_employee_left_is_refused(hired: Employee, actor:
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=LATER,
     )
     record_signed(
         hired,
@@ -265,6 +276,8 @@ def test_signing_transfer_after_employee_left_is_refused(hired: Employee, actor:
         note="",
         by=actor,
         fired_reason=named(FiredReason, "Өөрийн хүсэлтээр"),
+        order_number=next_number(),
+        order_date=DAY,
     )
     order = _register_today(HrOrder.objects.get(event=transfer), actor)
     jobs_before = JobRecord.objects.filter(employee=hired).count()
@@ -290,6 +303,8 @@ def test_signing_after_department_was_deleted_is_refused(hired: Employee, actor:
         reason="",
         note="",
         by=actor,
+        order_number=next_number(),
+        order_date=DAY,
     )
     order = _register_today(HrOrder.objects.get(event=ev), actor)
     macs_writes.delete_department(engineering)

@@ -326,7 +326,7 @@ class HrOrder(models.Model):
     event = models.OneToOneField(Event, null=True, blank=True, on_delete=models.PROTECT, related_name="order")
     is_hire = models.BooleanField(default=False)
     order_type = models.SmallIntegerField("Тушаалын төрөл", choices=OrderType.choices)
-    state = models.CharField("Төлөв", max_length=12, choices=OrderState.choices, default=OrderState.PENDING)
+    state = models.CharField("Төлөв", max_length=12, choices=OrderState.choices, default=OrderState.REGISTERED)
     number = models.CharField("Тушаалын дугаар", max_length=10, blank=True)
     number_key = models.CharField(max_length=10, blank=True)
     date = models.DateField("Тушаалын огноо", null=True, blank=True, db_column="order_date")

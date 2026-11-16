@@ -12,6 +12,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from macs.models import Branch, FiredReason
 
+from employees.tests.helpers import next_order_number
 from employees.models import Employee, HrOrder, OrderState, OrderType
 from employees.services import macs_writes, orders
 from employees.tests.conftest import link_login, named
@@ -112,6 +113,7 @@ def test_hr_opens_a_scan_of_a_non_salary_order(hired: Employee, actor: User) -> 
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     order = HrOrder.objects.get(employee=hired, event__type="promotion")
     assert (order.is_hire, order.order_type) == (False, OrderType.POSITION) and order.file
@@ -131,6 +133,7 @@ def test_rehire_scan_needs_the_salary_right(hired: Employee, actor: User) -> Non
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     position = macs_writes.save_position("Ахлах")
     record_signed(
@@ -142,6 +145,7 @@ def test_rehire_scan_needs_the_salary_right(hired: Employee, actor: User) -> Non
         reason="",
         note="",
         by=actor,
+        order_number=next_order_number(),
     )
     # The code: a rehire order is not is_hire, but it is OrderType.HIRED, and the rehire records a salary.
     order = HrOrder.objects.get(employee=hired, event__type="rehire")
