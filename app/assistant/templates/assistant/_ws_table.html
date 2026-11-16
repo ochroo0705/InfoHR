@@ -8,6 +8,18 @@ marked safe. Rows are drawn 100 at a time.{% endcomment %}
 <div class="space-y-3 text-sm">
   {% if status_line %}<p role="status" class="rounded-lg bg-amber-50 p-2 text-amber-800">{{ status_line }}</p>{% endif %}
   {% if empty_note %}<p class="py-6 text-center text-slate-500">{{ empty_note }}</p>{% endif %}
+  {% if has_chart %}
+  <div class="max-w-full overflow-x-auto">
+    <div role="group" aria-label="Харагдац" class="inline-flex shrink-0 divide-x divide-slate-300 overflow-hidden rounded-lg border border-slate-300 bg-surface text-sm [&>*]:px-4 [&>*]:py-2 [&>*:hover]:bg-slate-50">
+      <a href="{{ table_view_url }}" hx-get="{{ table_view_url }}" hx-target="#ws-table-pane" hx-push-url="true" class="whitespace-nowrap{% if view == 'table' %} is-picked font-semibold{% endif %}"{% if view == 'table' %} aria-current="page"{% endif %}>Хүснэгт</a>
+      <a href="{{ chart_view_url }}" hx-get="{{ chart_view_url }}" hx-target="#ws-table-pane" hx-push-url="true" class="whitespace-nowrap{% if view == 'chart' %} is-picked font-semibold{% endif %}"{% if view == 'chart' %} aria-current="page"{% endif %}>График</a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if view == "chart" %}
+  {% include "assistant/_ws_chart.html" %}
+  {% else %}
   {% if unusable %}<p class="text-xs text-slate-500">{{ unusable }} багана хүснэгтийн хэрэгслээр ашиглагдахгүй</p>{% endif %}
 
   {% if controls %}
@@ -188,5 +200,6 @@ marked safe. Rows are drawn 100 at a time.{% endcomment %}
     <p class="tabular-nums text-slate-600">{% if first %}{{ first }}–{{ last }}{% else %}0{% endif %} / {% if total is None %}—{% else %}{{ total }}{% endif %}</p>
     {% if next_url %}<a href="{{ next_url }}" hx-get="{{ next_url }}" hx-target="#ws-table-pane" hx-push-url="true" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Дараах ›</a>{% else %}<span></span>{% endif %}
   </nav>
+  {% endif %}
   {% endif %}
 </div>

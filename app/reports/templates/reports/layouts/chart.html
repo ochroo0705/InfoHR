@@ -1,10 +1,10 @@
-{% load static %}{% comment %}The chart layout: the drawing (static/js/report_chart.js loads Plotly and draws it into the marked div) and,
+{% load static %}{% comment %}The chart layout: the drawing (static/js/charts.js loads ECharts and draws it into the marked div) and,
 always, the same numbers as a plain table, for screen readers, no-script, print and copy. docs/UI_RULES.md §4b.{% endcomment %}
 {% if chart.points %}
 <div class="mt-4">
   {{ chart_json|json_script:"report-chart-data" }}
-  <div data-report-chart data-kind="{{ chart.kind }}" data-plotly-src="{% static 'vendor/plotly/plotly-basic.min.js' %}" role="img" aria-label="{{ chart_kind_label }}: {{ chart.value_label }}" class="h-80 w-full"></div>
-  <p data-report-chart-failed hidden class="mb-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">График ачаалж чадсангүй. Доорх хүснэгтээс харна уу.</p>
+  <div data-chart data-chart-data="report-chart-data" data-kind="{{ chart.kind }}" data-echarts-src="{% static 'vendor/echarts/echarts.min.js' %}" role="img" aria-label="{{ chart_kind_label }}: {{ chart.value_label }}" class="h-80 w-full"></div>
+  <p data-chart-failed hidden class="mb-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">График ачаалж чадсангүй. Доорх хүснэгтээс харна уу.</p>
 </div>
 <div class="ptable mt-4 overflow-x-auto">
   <table>

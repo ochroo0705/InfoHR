@@ -1,0 +1,30 @@
+{% load static %}{% comment %}The chart view of the workspace table pane (ws_table, ws_views.py; UI_RULES 4d). The drawing: static/js/charts.js
+draws the marked div from the JSON in #ws-chart-data. Under it, always, the same numbers as a plain table, for screen
+readers, no-script, print and copy. Without a chart the pane says so, unless a status line already explains why.{% endcomment %}
+{% if chart_json %}
+<div class="mt-4">
+  {{ chart_json|json_script:"ws-chart-data" }}
+  <div data-chart data-chart-data="ws-chart-data" data-echarts-src="{% static 'vendor/echarts/echarts.min.js' %}" role="img" aria-label="График: {{ chart_json.value_label }}" class="h-80 w-full"></div>
+  <p data-chart-failed hidden class="mb-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">График ачаалж чадсангүй. Доорх хүснэгтээс харна уу.</p>
+</div>
+<div class="ptable mt-4 overflow-x-auto">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">{{ chart_category }}</th>
+        {% for head in chart_heads %}<th scope="col" class="text-right">{{ head }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for label, cells in chart_rows %}
+      <tr>
+        <td>{{ label }}</td>
+        {% for cell in cells %}<td class="text-right tabular-nums">{{ cell }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif not status_line %}
+<p class="py-6 text-center text-slate-500">Энэ үр дүнгээс график гаргах боломжгүй.</p>
+{% endif %}

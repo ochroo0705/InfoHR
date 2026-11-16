@@ -192,6 +192,7 @@ class WorkspaceVersion(models.Model):
     sql = models.TextField("SQL")
     settings = models.TextField("Тохиргоо", default="")  # JSON text, written by spec_to_json
     labels = models.TextField("Баганын нэр", default="", blank=True)  # JSON text {"COLUMN": "heading"}, from the model
+    chart = models.TextField("График", default="", blank=True)  # JSON text, written by chart_spec_to_json
     created_at = models.DateTimeField("Үүсгэсэн", auto_now_add=True)
 
     class Meta:

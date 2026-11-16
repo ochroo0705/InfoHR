@@ -503,7 +503,7 @@ def _number_or_none(value: object) -> float | None:
 
 
 def _chart_payload(chart: layouts_mod.Chart, hrefs: list[str]) -> dict[str, Any]:
-    """The chart's numbers for report_chart.js (in #report-chart-data): labels, values as floats (None stays null),
+    """The chart's numbers for charts.js (in #report-chart-data): labels, values as floats (None stays null),
     the kind, whether the values are money, and one click link per point (an empty text where there is none). The table
     under the chart is drawn from the same points."""
     return {

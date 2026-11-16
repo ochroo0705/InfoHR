@@ -2,18 +2,17 @@ import re
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[2]
-VENDOR = APP / "static" / "vendor" / "plotly"
+VENDOR = APP / "static" / "vendor" / "echarts"
 
 
-def test_plotly_file_exists_with_banner():
-    text = (VENDOR / "plotly-basic.min.js").read_text(encoding="utf-8")
-    assert "plotly.js (basic - minified) v2.35.2" in text[:200]
+def test_echarts_file_exists_with_version():
+    text = (VENDOR / "echarts.min.js").read_text(encoding="utf-8")
+    assert 'version="5.5.1"' in text
+    assert "Apache Software Foundation" in text[:400]
 
 
-def test_readme_names_version_and_hash():
-    readme = (VENDOR / "README.txt").read_text(encoding="utf-8")
-    assert "2.35.2" in readme and "sha256:" in readme
-    assert (VENDOR / "LICENSE").read_text(encoding="utf-8").strip()
+def test_license_is_apache():
+    assert "Apache License" in (VENDOR / "LICENSE").read_text(encoding="utf-8")
 
 
 def test_no_cdn_script_in_templates():

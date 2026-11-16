@@ -33,6 +33,7 @@ from hr_sql.host import HrHost
 from assistant import sqlanswer, ws_run
 from assistant.models import HelpQuestion, SavedTable, VerifiedQuery, WorkspaceTab, WorkspaceVersion
 from assistant.providers import get_provider
+from assistant.ws_chart import CHART_MAX_ROWS, ChartSpec, build_payload, chart_spec_from_json
 from assistant.ws_excel import ascii_stem, file_stem, plain_title, ws_excel_bytes, ws_tsv_text
 from assistant.ws_labels import display_names, view_labels
 from assistant.ws_limits import EXPORT_MAX_ROWS, EXPORT_TIMEOUT_S, MAX_PAGE, MAX_TABS, PAGE_SIZE
@@ -79,6 +80,8 @@ MAX_SORTS = 5  # the table offers up to five sort keys (UI_RULES 4b)
 MAX_FILTERS = 10  # the most filters one request may carry
 _PAGE_DIGITS = re.compile(r"[0-9]{1,6}")  # ASCII digits only: int() of other digit forms can raise
 TABLE_PARAMS = ("page", "sort", "f", "cols", "group")  # the address parameters that make a request explicit
+VIEW_TABLE = "table"  # the table pane's view: the tools and the rows (the default)
+VIEW_CHART = "chart"  # the other view (?view=chart): the chart and its numbers, only for a version with a valid chart
 
 
 def _catalogue_views(user: User) -> tuple:
@@ -498,10 +501,74 @@ def _falls_back(status: str, spec: Spec) -> bool:
     return status == "refused" and _nothing_to_clear(spec)
 
 
+def _view_url(source: _Source, request: HttpRequest, view: str) -> str:
+    """The table address with the other parameters of this address kept. The chart is the default view, so its
+    address has no `view`; the table address sets `view=table`. With no other parameter the bare address restores the
+    saved table settings."""
+    pairs = [(name, value) for name in request.GET for value in request.GET.getlist(name) if name != "view"]
+    if view == VIEW_TABLE:
+        pairs.append(("view", VIEW_TABLE))
+    query = urlencode(pairs)
+    return f"{_url(source, 'table')}?{query}" if query else _url(source, "table")
+
+
+def _view_context(request: HttpRequest, source: _Source, has_chart: bool) -> dict[str, object]:
+    """The Table / Chart toggle of the pane: whether the version has a chart, the view on screen and the two addresses.
+    A version with a valid chart shows the chart first; `?view=table` (and a version with no chart) shows the table. A
+    refresh of the pane keeps the view only through the address, so the chart stays the default on every reload."""
+    view = VIEW_TABLE if not has_chart or request.GET.get("view") == VIEW_TABLE else VIEW_CHART
+    return {
+        "has_chart": has_chart,
+        "view": view,
+        "table_view_url": _view_url(source, request, VIEW_TABLE),
+        "chart_view_url": _view_url(source, request, VIEW_CHART),
+    }
+
+
+def _chart_pane_context(user: User, sql: str, labels: str, spec: ChartSpec) -> dict[str, object]:
+    """The chart view: the saved SQL's rows (up to CHART_MAX_ROWS, no tool applied) drawn with the chart spec. A refused
+    run shows its line; rows that make no chart leave chart_json empty (the pane then says so)."""
+    result = ws_run.run_base(user, sql, limit=CHART_MAX_ROWS)
+    if result.status != "ok":
+        return {"chart_json": None, "status_line": _reason_line(result.status, result.reason)}
+    names = _names(user, sql, result.columns, labels)
+    shown = {name: _shown(names, name) for name in result.columns}  # keys are the column names as the run gives them
+    payload = build_payload(spec, result.columns, result.rows, shown)
+    if payload is None:
+        return {"chart_json": None}
+    heads, rows = _chart_table(payload)
+    return {
+        "chart_json": payload,
+        "chart_category": _shown(names, spec.x),
+        "chart_heads": heads,
+        "chart_rows": rows,
+    }
+
+
+def _figure_text(value: float | None) -> str:
+    """A chart value as the plain table shows it: whole numbers with grouping, others to two places, None as a dash."""
+    if value is None:
+        return "—"
+    return f"{value:,.0f}" if value.is_integer() else f"{value:,.2f}"
+
+
+def _chart_table(payload: dict[str, Any]) -> tuple[list[str], list[tuple[str, list[str]]]]:
+    """The chart's numbers as a plain table: the headings of the value columns (one per series, else the value's own
+    heading) and one (label, cells) pair per point."""
+    series = payload["series"]
+    heads = [str(item["label"]) for item in series] or [str(payload["value_label"])]
+    columns = [item["values"] for item in series] or [payload["values"]]
+    rows = [
+        (str(label), [_figure_text(column[at]) for column in columns]) for at, label in enumerate(payload["labels"])
+    ]
+    return heads, rows
+
+
 def _table_context(request: HttpRequest, user: User, source: _Source) -> dict[str, object]:
-    """Everything the table pane shows. Runs the source's current SQL through ws_run (base columns, one page, the
-    total). The effective spec is saved on the current version only after the page run is ok, and only when the
-    source persists (a workspace tab)."""
+    """Everything the table pane shows: the tools and the rows, or with ?view=chart the chart and its numbers when the
+    version has a valid chart (a saved table never does). Runs the source's current SQL through ws_run (base columns,
+    one page, the total). The effective spec is saved on the current version only after the page run is ok, and only
+    when the source persists (a workspace tab)."""
     version = source.version
     if version is None:
         return {**_line_context(source, ""), "empty_note": EMPTY_TAB_TEXT}
@@ -510,7 +577,20 @@ def _table_context(request: HttpRequest, user: User, source: _Source) -> dict[st
     if base.status != "ok":
         return _line_context(source, _reason_line(base.status, base.reason))
 
-    columns = base.columns
+    chart = chart_spec_from_json(getattr(version, "chart", ""), base.columns)
+    if chart is not None and request.GET.get("view") != VIEW_TABLE:
+        pane = _chart_pane_context(user, version.sql, version.labels, chart)
+        if pane["chart_json"] is not None or pane.get("status_line"):
+            return {**_view_context(request, source, True), **pane}
+        # The spec is valid but its rows make no chart (text values, no rows, no numbers): the table, with no toggle.
+        return {**_view_context(request, source, False), **_table_body(request, user, source, base.columns)}
+    return {**_view_context(request, source, chart is not None), **_table_body(request, user, source, base.columns)}
+
+
+def _table_body(request: HttpRequest, user: User, source: _Source, columns: tuple[str, ...]) -> dict[str, object]:
+    """The table view of the pane: the tools, the chips and the rows of the source's current version, for the base
+    columns its run gave (the caller has checked that run)."""
+    version = source.version
     usable = usable_columns(columns)
     unusable = len(columns) - len(usable)
     if not usable:

@@ -13,6 +13,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from accounts.models import User
 from django.db import transaction
@@ -38,6 +39,7 @@ from assistant.sqlanswer import (
 )
 from assistant.sqlask import SqlReply, ask_refine_sql_reply, ask_sql_reply
 from assistant.verified import examples_for
+from assistant.ws_chart import chart_spec_from_json, chart_spec_from_reply, chart_spec_to_json
 from assistant.ws_limits import MAX_TABS, MAX_VERSIONS
 from assistant.ws_run import base_columns, run_count
 from assistant.ws_sql import Spec, checked_group, spec_from_json, spec_to_json
@@ -118,17 +120,18 @@ def new_tab(user: User, title: str = DEFAULT_TITLE) -> WorkspaceTab:
 
 
 def add_version(
-    tab: WorkspaceTab, question: str, sql: str, settings: str = "", labels: str = ""
+    tab: WorkspaceTab, question: str, sql: str, settings: str = "", labels: str = "", chart: str = ""
 ) -> WorkspaceVersion:
     """Save a new current version of the tab. Drops the oldest versions beyond MAX_VERSIONS.
 
     `sql` must be a CheckedQuery.sql, that is, the output of check_sql for the viewer's catalogue. Callers must never
-    pass raw model or user text here. Running the saved SQL re-checks it anyway.
+    pass raw model or user text here. Running the saved SQL re-checks it anyway. `chart` must be the output of
+    chart_spec_to_json (never raw model text).
     """
     with transaction.atomic():
         _lock_tab(tab)
         version = WorkspaceVersion.objects.create(
-            tab=tab, question=question, sql=sql, settings=settings, labels=labels
+            tab=tab, question=question, sql=sql, settings=settings, labels=labels, chart=chart
         )
         stale = list(
             tab.versions.order_by("-id").values_list("id", flat=True)[MAX_VERSIONS:]
@@ -277,6 +280,7 @@ def _finish(
     total: int | None = None,
     labels: str = "",
     settings: str = "",
+    chart: str = "",
 ) -> RefineResult:
     """Store the new version when ok, then the assistant's line: one transaction under the tab's row lock.
 
@@ -294,7 +298,7 @@ def _finish(
             if latest != base_pk:
                 status, reason = "refused", CHANGED_REASON
             else:
-                version = add_version(tab, text, sql, settings=settings, labels=labels)
+                version = add_version(tab, text, sql, settings=settings, labels=labels, chart=chart)
                 title = WorkspaceTab.objects.values_list("title", flat=True).get(pk=tab.pk)
                 if first_build and title == DEFAULT_TITLE:
                     rename(tab, text)
@@ -316,12 +320,29 @@ def _give_up(tab: WorkspaceTab, text: str, base_pk: int | None) -> RefineResult:
         return RefineResult(status="refused", reason=ERROR_REASON, version=None)
 
 
-def _attempts(user: object, governed: Host, ask: Callable[[str], SqlReply]) -> tuple[str, str, str, str, str]:
+def _checked_chart(raw: dict[str, Any], columns: tuple[str, ...], keep: str) -> str:
+    """The chart JSON to save with a result. The model's chart when it is valid; "" for {"type": "none"}; "" when the
+    model gave a chart that is not valid; otherwise the kept chart (keep) re-checked against the result's columns, ""
+    when it no longer fits."""
+    parsed = chart_spec_from_reply(raw, columns)
+    if parsed == "none":
+        return ""
+    if parsed is not None:
+        return chart_spec_to_json(parsed)
+    if raw:
+        return ""
+    return chart_spec_to_json(chart_spec_from_json(keep, columns))
+
+
+def _attempts(
+    user: object, governed: Host, ask: Callable[[str], SqlReply], keep: str = ""
+) -> tuple[str, str, str, str, str, str]:
     """Ask the model for SQL and validate it with run_question (one row allowed), at most MAX_ATTEMPTS times.
 
     `ask` takes the refusal text of the previous attempt ("" the first time). Returns (status, reason, checked sql,
-    labels, group): the labels are the model's column headings as JSON text, and group the column the table shows its
-    rows under (checked_group), both kept only for the attempt that worked ("" else).
+    labels, group, chart): the labels are the model's column headings as JSON text, group the column the table shows
+    its rows under (checked_group), and chart the checked chart JSON (_checked_chart; `keep` is the chart open now).
+    All of them are kept only for the attempt that worked ("" else).
     A provider failure or an empty reply stops at once; only a checker or run refusal is fed back.
     """
     refusal = ""
@@ -331,9 +352,9 @@ def _attempts(user: object, governed: Host, ask: Callable[[str], SqlReply]) -> t
         except Exception as error:
             # Only the exception type is logged: its message can carry keys or payloads. Never shown to the viewer.
             logger.warning("refine_tab: provider call failed (%s)", type(error).__name__)
-            return "refused", PROVIDER_REASON, "", "", ""
+            return "refused", PROVIDER_REASON, "", "", "", ""
         if not reply.sql.strip():
-            return "refused", NOT_ANSWERABLE_REASON, "", "", ""
+            return "refused", NOT_ANSWERABLE_REASON, "", "", "", ""
         outcome = run_question(governed, user, reply.sql, Limits(max_rows=1))
         if isinstance(outcome, Refused):
             refusal = outcome.reason
@@ -343,9 +364,11 @@ def _attempts(user: object, governed: Host, ask: Callable[[str], SqlReply]) -> t
             if missed:
                 refusal = missed
                 continue
-        group = checked_group(outcome.query.sql, tuple(outcome.result.columns), reply.group_by)
-        return "ok", "", outcome.query.sql, json.dumps(reply.labels, ensure_ascii=False), group
-    return "refused", refusal or NOT_ANSWERABLE_REASON, "", "", ""
+        columns = tuple(outcome.result.columns)
+        group = checked_group(outcome.query.sql, columns, reply.group_by)
+        chart = _checked_chart(reply.chart, columns, keep)
+        return "ok", "", outcome.query.sql, json.dumps(reply.labels, ensure_ascii=False), group, chart
+    return "refused", refusal or NOT_ANSWERABLE_REASON, "", "", "", ""
 
 
 def _carried_labels(old: str, new: str) -> str:
@@ -423,7 +446,7 @@ def _turn(
 
     if current is None:
         examples = examples_for(catalogue, text)
-        status, reason, sql, labels, group = _attempts(
+        status, reason, sql, labels, group, chart = _attempts(
             user,
             governed,
             lambda refusal: ask_sql_reply(provider, catalogue_text, text, day, refusal=refusal, examples=examples),
@@ -441,6 +464,7 @@ def _turn(
             total=after,
             labels=labels,
             settings=_group_settings(group),
+            chart=chart,
         )
 
     base = base_columns(user, current.sql, host=governed)
@@ -450,12 +474,22 @@ def _turn(
         return _finish(tab, text, base.status, base.reason, "", base_pk, first_build=False)
     columns = base.columns
     current_group = spec_from_json(current.settings, columns).group_by
-    status, reason, sql, labels, group = _attempts(
+    status, reason, sql, labels, group, chart = _attempts(
         user,
         governed,
         lambda refusal: ask_refine_sql_reply(
-            provider, catalogue_text, current.sql, columns, history, text, day, refusal=refusal, group=current_group
+            provider,
+            catalogue_text,
+            current.sql,
+            columns,
+            history,
+            text,
+            day,
+            refusal=refusal,
+            group=current_group,
+            chart=current.chart,
         ),
+        keep=current.chart,
     )
     before = after = None
     if status == "ok":  # counted only for a refinement that worked: a refused one costs no extra run
@@ -477,6 +511,7 @@ def _turn(
         total=after,
         labels=labels,
         settings=_group_settings(group),
+        chart=chart,
     )
 
 

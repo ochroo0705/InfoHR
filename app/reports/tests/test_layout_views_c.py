@@ -1,4 +1,4 @@
-"""The chart and pivot pages: the data table, the chart's JSON, the pivot totals, the empty text, the lazy Plotly
+"""The chart and pivot pages: the data table, the chart's JSON, the pivot totals, the empty text, the lazy ECharts
 load, and the per-viewer rules."""
 
 import json
@@ -120,34 +120,44 @@ def test_chart_money_sum_is_in_the_table_and_the_json(
     assert data["values"][data["labels"].index("Санхүү")] == float(total)
 
 
-def test_chart_loads_plotly_only_through_the_data_attribute(
+def test_chart_loads_echarts_only_through_the_data_attribute(
     client: Client, login_as: Callable[..., User], views_report: Report
 ) -> None:
     login_as(client, "HR")
     page = client.get(PAGE, {"layout": "chart", "lby": "dept"}).content.decode()
-    assert re.search(r"<script[^>]*plotly", page) is None  # no Plotly <script> in the page
-    assert "data-report-chart" in page
-    assert 'data-plotly-src="' in page and "vendor/plotly/plotly-basic.min.js" in page
+    assert re.search(r"<script[^>]*echarts", page) is None  # no ECharts <script> in the page
+    assert 'data-chart' in page
+    assert 'data-echarts-src="' in page and "vendor/echarts/echarts.min.js" in page
+    assert 'data-chart-data="report-chart-data"' in page
     assert 'role="img"' in page
 
 
 # ---- the static files ----
 
 
-def test_report_chart_script_exists_and_base_loads_it_once() -> None:
-    assert (APP / "static" / "js" / "report_chart.js").is_file()
+def test_charts_script_exists_and_base_loads_it_once() -> None:
+    assert (APP / "static" / "js" / "charts.js").is_file()
     base = (APP / "templates" / "base.html").read_text(encoding="utf-8")
-    assert base.count("js/report_chart.js") == 1
+    assert base.count("js/charts.js") == 1
 
 
-def test_plotly_file_is_named_only_in_a_data_attribute() -> None:
-    """The Plotly file is loaded by report_chart.js on first use, never by a <script> in a template or in base.html."""
-    files = list((APP / "reports" / "templates").glob("**/*.html")) + [APP / "static" / "js" / "report_chart.js"]
+def test_echarts_file_is_named_only_in_a_data_attribute() -> None:
+    """The ECharts file is loaded by charts.js on first use, never by a <script> in a template or in base.html."""
+    files = list((APP / "reports" / "templates").glob("**/*.html")) + [APP / "static" / "js" / "charts.js"]
     for path in files:
         for line in path.read_text(encoding="utf-8").splitlines():
-            if "plotly-basic" in line:
-                assert "data-plotly-src=" in line, f"{path}: {line.strip()}"
-    assert "plotly-basic" not in (APP / "templates" / "base.html").read_text(encoding="utf-8")
+            if "echarts.min.js" in line:
+                assert "data-echarts-src=" in line, f"{path}: {line.strip()}"
+    assert "echarts.min.js" not in (APP / "templates" / "base.html").read_text(encoding="utf-8")
+
+
+def test_no_plotly_left() -> None:
+    roots = [APP / "templates", *APP.glob("*/templates"), APP / "static" / "js"]
+    for root in roots:
+        for path in root.rglob("*"):
+            if path.is_file() and path.suffix in {".html", ".js", ".mjs", ".py"}:
+                text = path.read_text(encoding="utf-8", errors="ignore").lower()
+                assert "plotly" not in text, f"{path} still mentions Plotly"
 
 
 def test_chart_with_no_rows_shows_the_empty_text(
@@ -271,17 +281,17 @@ def test_hostile_text_is_escaped_on_every_page(
     assert "&lt;script&gt;alert(1)" in page  # it is shown as escaped text
 
 
-def test_chart_json_keeps_the_category_text_for_plotly_to_escape(
+def test_chart_json_keeps_the_category_text_as_plain_data(
     client: Client, login_as: Callable[..., User], hostile_report: Report
 ) -> None:
     login_as(client, "HR")
     data = _chart_data(client.get(PAGE, {"layout": "chart", "lby": "dept"}).content.decode())
-    assert HOSTILE in data["labels"]  # the JSON is data; report_chart.js escapes it before Plotly
+    assert HOSTILE in data["labels"]  # the JSON is data; charts.js draws it as plain text (ECharts labels are not markup)
 
 
-def test_report_chart_js_reads_no_css_variables() -> None:
-    """Plotly cannot read oklch() values, so the chart colours are hex constants, not page variables."""
-    script = (APP / "static" / "js" / "report_chart.js").read_text(encoding="utf-8")
+def test_charts_js_reads_no_css_variables() -> None:
+    """ECharts cannot read oklch() values, so the chart colours are hex constants, not page variables."""
+    script = (APP / "static" / "js" / "charts.js").read_text(encoding="utf-8")
     assert "getPropertyValue" not in script
     assert "getComputedStyle" not in script
 
