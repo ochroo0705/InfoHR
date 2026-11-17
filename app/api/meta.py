@@ -1,6 +1,7 @@
 """GET /api/v1/meta: what the SPA needs before login (company, modules, CSRF token) and who is signed in."""
 
 from accounts import modules
+from accounts.landing import landing_url
 from accounts.models import User
 from django.conf import settings
 from django.http import HttpRequest
@@ -25,6 +26,7 @@ class UserOut(Schema):
     must_change_password: bool
     perms: list[str]
     own_record: bool  # the user has an employee record of their own («Миний хуудас» in the nav)
+    landing: str  # the page a sign-in lands on (accounts/landing.py), e.g. "/employees/today/"
 
 
 class MetaOut(Schema):
@@ -55,6 +57,7 @@ def _user_out(user: User, request: HttpRequest) -> dict[str, object]:
         "must_change_password": bool(getattr(user, "must_change_password", False)),
         "perms": perms,
         "own_record": bool(own_record({"request": request})),
+        "landing": landing_url(user),
     }
 
 

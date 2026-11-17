@@ -263,7 +263,7 @@ def test_me_page_fixed_queries(actor: User, hired: Employee, sick: LeaveTypeRow)
 
 
 def test_result_notice_shown_and_dismissed(actor: User, hired: Employee, sick: LeaveTypeRow) -> None:
-    from employees.views_me import own_notices
+    from employees.services.me_page import own_notices
 
     _approval(True)
     user = _staff("staff", hired)
@@ -316,14 +316,14 @@ def test_rejected_notice_stays_red_even_if_reason_has_the_approved_word(
 
 
 def test_non_approver_never_reaches_the_queue(monkeypatch: pytest.MonkeyPatch, hired: Employee) -> None:
-    from employees import views_me
+    from employees.services import me_page
 
     _approval(True)
 
     def queue_must_not_run(*args: object, **kwargs: object) -> None:
         raise AssertionError("the queue was worked out for a user who can decide nothing")
 
-    monkeypatch.setattr(views_me, "waiting_for_cached", queue_must_not_run)
+    monkeypatch.setattr(me_page, "waiting_for_cached", queue_must_not_run)
     assert _client(_staff("staff", hired)).get(reverse("me")).status_code == 200
 
 

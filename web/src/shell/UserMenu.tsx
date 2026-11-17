@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "react-router";
 import { api, nav } from "../api/client";
 import { cn } from "../lib/utils";
-import { TLink } from "../lib/viewTransition";
+import { AppLink } from "../lib/AppLink";
 import { DropMenu } from "./NavMenu";
 import { NavIcon } from "./NavIcon";
 import { useMeta } from "./useMeta";
@@ -70,8 +70,8 @@ export function UserMenu() {
         <p className="truncate text-xs text-slate-500">{user.username}</p>
       </div>
       {user.own_record ? (
-        <a
-          href="/me/"
+        <AppLink
+          to="/me/"
           aria-current={onMe ? "page" : undefined}
           className={cn(
             "flex items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-slate-50",
@@ -80,15 +80,15 @@ export function UserMenu() {
         >
           <NavIcon kind="user" />
           Миний хуудас
-        </a>
+        </AppLink>
       ) : null}
-      <TLink
+      <AppLink
         to="/password/change"
         className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-slate-800 hover:bg-slate-50"
       >
         <NavIcon kind="key" />
         Нууц үг солих
-      </TLink>
+      </AppLink>
       <div className="mt-1 border-t border-slate-100 pt-1">
         <button
           type="button"

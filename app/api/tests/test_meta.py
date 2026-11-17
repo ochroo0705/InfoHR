@@ -98,3 +98,20 @@ def test_meta_own_record_flag(client: Client, user: User) -> None:
     EmployeeExt.objects.update_or_create(employee=employee, defaults={"user": user})
 
     assert client.get("/api/v1/meta").json()["user"]["own_record"] is True
+
+
+def test_meta_landing_for_hr(client: Client) -> None:
+    hr = User.objects.create_user("meta-hr", password=PASSWORD)
+    hr.user_permissions.add(_perm("macs", "view_employees"))
+    client.force_login(hr)
+
+    assert client.get("/api/v1/meta").json()["user"]["landing"] == "/employees/today/"
+
+
+def test_meta_landing_for_staff_with_own_record(client: Client) -> None:
+    staff = User.objects.create_user("meta-staff", password=PASSWORD)
+    employee = make_employee(staff, hired=date(2024, 3, 1), register_no="УБ99112298")
+    EmployeeExt.objects.update_or_create(employee=employee, defaults={"user": staff})
+    client.force_login(staff)
+
+    assert client.get("/api/v1/meta").json()["user"]["landing"] == "/me/"

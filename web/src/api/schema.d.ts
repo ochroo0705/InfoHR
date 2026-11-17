@@ -4,6 +4,66 @@
  */
 
 export interface paths {
+    "/api/v1/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Attention Box
+         * @description The attention box for the signed-in user, as the Today page builds it (only employees with an HR row).
+         */
+        get: operations["api_attention_attention_box"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/more": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Attention More
+         * @description The items of one Анхаарах group past the first GROUP_LIMIT, or a page of a gap group with `all=1`.
+         */
+        get: operations["api_attention_attention_more"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attention/toggle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attention Toggle
+         * @description "Мэдлээ" / "Дахин харуулах" on one Анхаарах item or a whole group; answers with the box.
+         */
+        post: operations["api_attention_attention_toggle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf": {
         parameters: {
             query?: never;
@@ -72,6 +132,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/checklists/tasks/{pk}/tick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tick Task
+         * @description «Хийгдсэн» on a checklist task the user owns (404 when the user may not tick it, 409 when it is refused).
+         */
+        post: operations["api_me_tick_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me
+         * @description The My page of the signed-in user (its own record only; 404 without an employee record).
+         */
+        get: operations["api_me_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Notice
+         * @description «Мэдлээ» on one result notice. Only a notice of the user's own request can be dismissed (404 otherwise).
+         */
+        post: operations["api_me_dismiss_notice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/requests/{pk}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Request
+         * @description «Буцаах»: the user takes back their own waiting request. Someone else's request is 404; a refused change 409.
+         */
+        post: operations["api_me_withdraw_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meta": {
         parameters: {
             query?: never;
@@ -106,10 +246,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Today */
+        get: operations["api_today_today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/today/away": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today Away
+         * @description The names of people away on one day of the Today strip (`?day=YYYY-MM-DD`, inside the 14-day window).
+         */
+        get: operations["api_today_today_away"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/today/hires": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today Hires
+         * @description The names of people who joined in the last 30 days (the hires line of «Ойрын 30 хоног»).
+         */
+        get: operations["api_today_today_hires"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/today/upcoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today Upcoming
+         * @description The birthdays or the work anniversaries in the next 30 days (`?kind=birthday|anniversary`).
+         */
+        get: operations["api_today_today_upcoming"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/today/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today Views
+         * @description The report setups that say what is coming up, with their counts (empty without reports.view_reports).
+         */
+        get: operations["api_today_today_views"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AttentionBoxOut */
+        AttentionBoxOut: {
+            /** Gap Count */
+            gap_count: number;
+            /** Gaps */
+            gaps: components["schemas"]["GroupOut"][];
+            /** Hidden */
+            hidden: components["schemas"]["ItemOut"][];
+            /** Soon */
+            soon: components["schemas"]["GroupOut"][];
+            /** Soon Count */
+            soon_count: number;
+            /** Tone */
+            tone: string;
+            /** Urgent */
+            urgent: components["schemas"]["GroupOut"][];
+            /** Urgent Count */
+            urgent_count: number;
+        };
+        /** AttentionMoreOut */
+        AttentionMoreOut: {
+            /** Dated */
+            dated: boolean;
+            /** Items */
+            items: components["schemas"]["ItemOut"][];
+            /** More */
+            more: number;
+            /** Next Offset */
+            next_offset: number;
+        };
+        /** AwayOut */
+        AwayOut: {
+            /** Day */
+            day: string;
+            /** People */
+            people: components["schemas"]["AwayPersonOut"][];
+        };
+        /** AwayPersonOut */
+        AwayPersonOut: {
+            /** Full Name */
+            full_name: string;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Until */
+            until: string;
+        };
+        /** BalanceOut */
+        BalanceOut: {
+            /** Configured */
+            configured: boolean;
+            /** Nowhere */
+            nowhere: number;
+            /** Periods */
+            periods: components["schemas"]["PeriodOut"][];
+            /** Start Missing */
+            start_missing: boolean;
+            /** Started */
+            started: boolean;
+        };
+        /** ChecklistOut */
+        ChecklistOut: {
+            /** Open */
+            open: number;
+            /** Overdue */
+            overdue: number;
+        };
         /** CompanyOut */
         CompanyOut: {
             /** Logo Url */
@@ -121,6 +426,96 @@ export interface components {
         CsrfOut: {
             /** Token */
             token: string;
+        };
+        /** EmployeeOut */
+        EmployeeOut: {
+            /** Full Name */
+            full_name: string;
+            /** Id */
+            id: number;
+            /** Initial */
+            initial: string;
+            /** Photo */
+            photo: string;
+        };
+        /** EmployeeRefOut */
+        EmployeeRefOut: {
+            /** Code */
+            code: string;
+            /** Full Name */
+            full_name: string;
+            /** Id */
+            id: number;
+            /** Short Name */
+            short_name: string;
+        };
+        /** GroupOut */
+        GroupOut: {
+            /** Count */
+            count: number;
+            /** Dated */
+            dated: boolean;
+            /** Keys */
+            keys: string[];
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** More */
+            more: number;
+            /** Nearest */
+            nearest: string | null;
+            /** Open */
+            open: boolean;
+            /** Shown */
+            shown: components["schemas"]["ItemOut"][];
+            /** Urgency */
+            urgency: number;
+            /** Url */
+            url: string;
+        };
+        /** HireOut */
+        HireOut: {
+            /** Full Name */
+            full_name: string;
+            /** Hired */
+            hired: string;
+            /** Id */
+            id: number;
+        };
+        /** HolidayOut */
+        HolidayOut: {
+            /** Day */
+            day: string;
+            /** Name */
+            name: string;
+        };
+        /** ItemOut */
+        ItemOut: {
+            /** Anchor */
+            anchor: string;
+            /** Can Dismiss */
+            can_dismiss: boolean;
+            /** Clash */
+            clash: boolean;
+            employee: components["schemas"]["EmployeeRefOut"] | null;
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+            /** Urgency */
+            urgency: number;
+            /** Url */
+            url: string;
+        };
+        /** JobOut */
+        JobOut: {
+            /** Department */
+            department: string;
+            /** Manager */
+            manager: string;
+            /** Position */
+            position: string;
         };
         /** LoginIn */
         LoginIn: {
@@ -137,6 +532,30 @@ export interface components {
             must_change_password: boolean;
             /** Ok */
             ok: boolean;
+        };
+        /** MeOut */
+        MeOut: {
+            balance: components["schemas"]["BalanceOut"];
+            /** Can Request */
+            can_request: boolean;
+            employee: components["schemas"]["EmployeeOut"];
+            /** Has Team */
+            has_team: boolean;
+            /** Holidays */
+            holidays: components["schemas"]["HolidayOut"][];
+            job: components["schemas"]["JobOut"] | null;
+            /** Notices */
+            notices: components["schemas"]["NoticeOut"][];
+            /** Queue */
+            queue: components["schemas"]["QueueOut"][];
+            /** Recorded */
+            recorded: components["schemas"]["RecordedOut"][];
+            /** Requests */
+            requests: components["schemas"]["RequestOut"][];
+            /** Tasks */
+            tasks: components["schemas"]["TaskOut"][];
+            /** Team Away */
+            team_away: components["schemas"]["TeamAwayOut"][];
         };
         /** MetaOut */
         MetaOut: {
@@ -185,6 +604,20 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** NoticeIn */
+        NoticeIn: {
+            /** Key */
+            key: string;
+        };
+        /** NoticeOut */
+        NoticeOut: {
+            /** Approved */
+            approved: boolean;
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+        };
         /** PasswordIn */
         PasswordIn: {
             /** New Password1 */
@@ -197,6 +630,229 @@ export interface components {
              */
             old_password: string;
         };
+        /** PeriodOut */
+        PeriodOut: {
+            /** Current */
+            current: boolean;
+            /** End */
+            end: string;
+            /** Granted */
+            granted: string;
+            /** Left */
+            left: string;
+            /** Negative */
+            negative: boolean;
+            /** Start */
+            start: string;
+            /** Taken */
+            taken: string;
+        };
+        /** QueueOut */
+        QueueOut: {
+            /** Employee */
+            employee: string;
+            /** End */
+            end: string;
+            /** Id */
+            id: number;
+            /** Leave Type */
+            leave_type: string;
+            /** Start */
+            start: string;
+            /** Step */
+            step: string;
+        };
+        /** RecordedOut */
+        RecordedOut: {
+            /** Days */
+            days: string;
+            /** End */
+            end: string;
+            /** Leave Type */
+            leave_type: string;
+            /** Start */
+            start: string;
+        };
+        /** RequestOut */
+        RequestOut: {
+            /** Can Withdraw */
+            can_withdraw: boolean;
+            /** End */
+            end: string;
+            /** Id */
+            id: number;
+            /** Leave Type */
+            leave_type: string;
+            /** Reason */
+            reason: string;
+            /** Rule */
+            rule: string;
+            /** Start */
+            start: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Step */
+            step: string;
+            /** Tone */
+            tone: string;
+            /** Working Days */
+            working_days: number;
+        };
+        /** ShortcutsOut */
+        ShortcutsOut: {
+            /** Add Employee */
+            add_employee: boolean;
+            /** Orders */
+            orders: boolean;
+            /** Record Leave */
+            record_leave: boolean;
+        };
+        /** StripCellOut */
+        StripCellOut: {
+            /** Clickable */
+            clickable: boolean;
+            /** Count */
+            count: number | null;
+            /** Day */
+            day: string;
+            /** Holiday */
+            holiday: string;
+            /** Is Today */
+            is_today: boolean;
+            /** Num */
+            num: number;
+            /** Shade */
+            shade: string;
+            /** Weekday */
+            weekday: string;
+        };
+        /** StripOut */
+        StripOut: {
+            /** Cells */
+            cells: components["schemas"]["StripCellOut"][];
+            /** First */
+            first: string;
+            /** Last */
+            last: string;
+            /** Show Leave */
+            show_leave: boolean;
+            /** Today Line */
+            today_line: string;
+        };
+        /** TaskOut */
+        TaskOut: {
+            /** Can Tick */
+            can_tick: boolean;
+            /** Due */
+            due: string;
+            /** Employee */
+            employee: string;
+            /** Id */
+            id: number;
+            /** Kind Label */
+            kind_label: string;
+            /** Overdue */
+            overdue: boolean;
+            /** Title */
+            title: string;
+        };
+        /** TeamAwayOut */
+        TeamAwayOut: {
+            /** End */
+            end: string;
+            /** Full Name */
+            full_name: string;
+            /** Start */
+            start: string;
+        };
+        /** TodayCompanyOut */
+        TodayCompanyOut: {
+            /** Hires Month */
+            hires_month: number;
+            /** Leavers Month */
+            leavers_month: number;
+        };
+        /** TodayOut */
+        TodayOut: {
+            /** Away Today */
+            away_today: number;
+            box: components["schemas"]["AttentionBoxOut"];
+            company: components["schemas"]["TodayCompanyOut"] | null;
+            /** Has Own Page */
+            has_own_page: boolean;
+            /** Headcount */
+            headcount: number;
+            shortcuts: components["schemas"]["ShortcutsOut"];
+            /** Show Views */
+            show_views: boolean;
+            strip: components["schemas"]["StripOut"];
+            /** Today */
+            today: string;
+            upcoming: components["schemas"]["UpcomingOut"];
+        };
+        /** TodayViewOut */
+        TodayViewOut: {
+            /** Count */
+            count: number;
+            /** Name */
+            name: string;
+            /** Report */
+            report: string;
+            /** Url */
+            url: string;
+        };
+        /** ToggleIn */
+        ToggleIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "dismiss" | "dismiss_all" | "restore";
+            /** Keys */
+            keys: string[];
+        };
+        /** ToggleOut */
+        ToggleOut: {
+            box: components["schemas"]["AttentionBoxOut"];
+        };
+        /** UpcomingItemOut */
+        UpcomingItemOut: {
+            /** Full Name */
+            full_name: string;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** On */
+            on: string;
+            /** Years */
+            years: number | null;
+        };
+        /** UpcomingListOut */
+        UpcomingListOut: {
+            /** Items */
+            items: components["schemas"]["UpcomingItemOut"][];
+            /** Kind */
+            kind: string;
+        };
+        /** UpcomingOut */
+        UpcomingOut: {
+            /** Anniversaries */
+            anniversaries: number;
+            /** Birthdays */
+            birthdays: number;
+            checklist: components["schemas"]["ChecklistOut"] | null;
+            /** Holidays */
+            holidays: components["schemas"]["HolidayOut"][];
+            /** New Hires */
+            new_hires: number;
+            /** Open Vacancies */
+            open_vacancies: number | null;
+            /** Show Birthdays */
+            show_birthdays: boolean;
+        };
         /** UserOut */
         UserOut: {
             /** First Name */
@@ -205,6 +861,8 @@ export interface components {
             full_name: string;
             /** Id */
             id: number;
+            /** Landing */
+            landing: string;
             /** Must Change Password */
             must_change_password: boolean;
             /** Own Record */
@@ -223,6 +881,75 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    api_attention_attention_box: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionBoxOut"];
+                };
+            };
+        };
+    };
+    api_attention_attention_more: {
+        parameters: {
+            query?: {
+                kind?: string;
+                urgency?: string;
+                all?: string;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionMoreOut"];
+                };
+            };
+        };
+    };
+    api_attention_attention_toggle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToggleOut"];
+                };
+            };
+        };
+    };
     api_auth_csrf_token: {
         parameters: {
             query?: never;
@@ -307,6 +1034,88 @@ export interface operations {
             };
         };
     };
+    api_me_tick_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_me_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeOut"];
+                };
+            };
+        };
+    };
+    api_me_dismiss_notice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoticeIn"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_me_withdraw_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_meta_meta: {
         parameters: {
             query?: never;
@@ -345,6 +1154,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NavGroupOut"][];
+                };
+            };
+        };
+    };
+    api_today_today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayOut"];
+                };
+            };
+        };
+    };
+    api_today_today_away: {
+        parameters: {
+            query?: {
+                day?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AwayOut"];
+                };
+            };
+        };
+    };
+    api_today_today_hires: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireOut"][];
+                };
+            };
+        };
+    };
+    api_today_today_upcoming: {
+        parameters: {
+            query?: {
+                kind?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpcomingListOut"];
+                };
+            };
+        };
+    };
+    api_today_today_views: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayViewOut"][];
                 };
             };
         };

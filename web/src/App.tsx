@@ -5,6 +5,9 @@ import { RequireAuth } from "./shell/RequireAuth";
 import LoginPage from "./routes/LoginPage";
 import PasswordChangePage from "./routes/PasswordChangePage";
 import { NotFound } from "./routes/ErrorPage";
+import { MePage } from "./screens/me/MePage";
+import { TodayPage } from "./screens/today/TodayPage";
+import { Landing } from "./routes/Landing";
 import { ConfirmProvider } from "./widgets/confirm";
 
 // Development only: /__widgets shows the pop-up shell and the confirm dialog. In a production build this is null,
@@ -27,7 +30,9 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route path="/" element={<p>Нэвтэрсэн</p>} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/employees/today/" element={<TodayPage />} />
+          <Route path="/me/" element={<MePage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />
         </Route>

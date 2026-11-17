@@ -9,11 +9,13 @@ from datetime import date, timedelta
 from accounts.audit import Category, record_safe
 from accounts.models import User
 from django.db import IntegrityError, transaction
+from django.http import Http404
 from django.utils import timezone
 from employees.models import ActivityEntry, ActivityKind, Event
 from macs.models import Employee
 
 from checklists.models import Checklist, ChecklistKind, ChecklistState, ChecklistTask, ChecklistTemplate
+from checklists.services import owners
 
 AUDIT_ACTION_STARTED = "checklist_started"
 AUDIT_ACTION_TICKED = "checklist_task_ticked"
@@ -157,6 +159,15 @@ def tick(task: ChecklistTask, *, by: User) -> ChecklistTask:
             checklist.completed_at = timezone.now()
             checklist.save(update_fields=["state", "completed_at"])
     return task
+
+
+def tick_for(user: User, pk: int, day: date) -> ChecklistTask:
+    """Tick the task `pk` as `user` on `day` (the Django page and the API both call it). A missing task, or one the
+    user may not tick (owners.can_tick), raises Http404; a refused tick raises ChecklistError."""
+    task = ChecklistTask.objects.select_related("checklist__employee").filter(pk=pk).first()
+    if task is None or not owners.can_tick(user, task, day):
+        raise Http404
+    return tick(task, by=user)
 
 
 def untick(task: ChecklistTask, *, by: User) -> ChecklistTask:

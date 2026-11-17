@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
 import { api } from "../api/client";
+import { AppLink } from "../lib/AppLink";
 import { TLink } from "../lib/viewTransition";
 import { ScrollFloat } from "../widgets/Scrollbar";
 import { NavMenu, NavMenuProvider, type NavGroupData } from "./NavMenu";
@@ -64,7 +65,7 @@ export function TopBar() {
           >
             {(groups ?? []).map((group) =>
               group.items.length === 1 ? (
-                <TLink
+                <AppLink
                   key={group.key}
                   to={group.items[0].url}
                   aria-current={group.items[0].active ? "page" : undefined}
@@ -81,7 +82,7 @@ export function TopBar() {
                       </span>
                     </>
                   ) : null}
-                </TLink>
+                </AppLink>
               ) : (
                 <NavMenu key={group.key} group={group} />
               ),

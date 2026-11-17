@@ -16,7 +16,7 @@ from django.utils import timezone
 from leave.models import LeaveTypeExt
 from macs.models import LeaveAssign, LeaveTypeRow, LegalHoliday
 
-from employees import views_me
+from employees.services import me_page
 from employees.tests.helpers import next_order_number
 from employees.models import Employee, JobRecord
 from employees.scope import team_ids
@@ -64,7 +64,7 @@ def _leave(employee: Employee, leave_type: LeaveTypeRow, start: date, end: date)
 
 
 def _away(manager: Employee) -> list[dict[str, Any]]:
-    return views_me._team_away(manager, TODAY, team_ids(manager.pk, TODAY))
+    return me_page.team_away(manager, TODAY, team_ids(manager.pk, TODAY))
 
 
 def _login(employee: Employee, name: str) -> Client:

@@ -113,6 +113,9 @@ from employees.services import personal_writes as pw
 from employees.services.events import ALLOWED_FIELDS, SALARY_TYPES, EventError
 from employees.services.history import HistoryError, salary_on
 from employees.services.orders import OrderError
+
+# views.away_cells stays importable from here: the Today tests call it
+from employees.services.today_page import away_cells, today_facts  # noqa: F401
 from employees.validators import normalize_register_no
 
 logger = logging.getLogger(__name__)
@@ -157,55 +160,14 @@ def employee_list(request: HttpRequest) -> HttpResponse:
     return redirect(f"{url}?{urlencode(query)}" if query else url)
 
 
-AWAY_SHADES = ((10, "bg-sky-600 text-white"), (5, "bg-sky-400"))  # (% of headcount at least, class), darkest first
-
-
-def away_cells(strip: facts.AwayStrip, headcount: int) -> list[SimpleNamespace]:
-    """One cell per day of the Today strip, with its shade: 0 people sky-50, 1 or more sky-200, from 5 % of the
-    headcount sky-400, from 10 % sky-600; a weekend or public holiday is slate-100 and not clickable."""
-    cells = []
-    for day, count in zip(strip.days, strip.counts, strict=True):
-        if day.off or count is None:
-            shade = "bg-slate-100 text-slate-400"
-        elif count == 0:
-            shade = "bg-sky-50 text-slate-500"
-        else:
-            shade = next(
-                (cls for pct, cls in AWAY_SHADES if headcount and count * 100 >= pct * headcount),
-                "bg-sky-200",
-            )
-        cells.append(SimpleNamespace(day=day, count=count, shade=shade))
-    return cells
-
-
 @login_required
 def today_page(request: HttpRequest) -> HttpResponse:
     """Home page: tiles, the attention box, who is away (counts), upcoming dates (counts), company figures.
 
     Names of people away or with a birthday are not on the page; they load per click through the fragments."""
-    user, today = _user(request), timezone.localdate()
-    rows = employee_rows(access.visible_employees(user).filter(ext__isnull=False), today)
-    facts.prime_exts(rows)  # one query for every HR row: the attention rules read it per person
-    headcount = facts.headcount(rows)
-    strip = facts.away_strip(user, rows, today)
-    context: dict[str, Any] = {
-        "today": today,
-        "headcount": headcount,
-        "away": facts.away_on(user, rows, today),
-        "can_manage": access.can_manage(user),
-        "away_strip": strip,
-        "away_cells": away_cells(strip, headcount),
-        "upcoming_counts": facts.upcoming_counts(facts.upcoming(user, rows, today)),
-        "new_hires_count": len(facts.new_hires(rows, today)),  # Ойрын 30 хоног: hires line (count only)
-        "show_birthdays": user.has_perm("macs.view_personal"),  # without it the count is always 0: no line
-        "holidays": facts.holidays_ahead(today),  # Ойрын 30 хоног: holidays line
-        "open_vacancies": facts.open_vacancies(user),  # Ойрын 30 хоног: vacancies line (None: no line)
-        "checklist_summary": facts.checklist_summary(user, rows, today),  # Ойрын 30 хоног: checklist line
-        "company": company_stats.company(user, rows, today),
-        "has_own_page": access.own_employee(user) is not None,  # header link to My page (Миний хуудас)
-        "attention_open": True,
-    }
-    context.update(_attention_context(user, attention.items(user, rows, today)))
+    context: dict[str, Any] = today_facts(_user(request), timezone.localdate())
+    context["attention_open"] = True
+    context.update(_box_context(context["box"]))
     context["attention_count"] = len(context["attention"])
     return render(request, "employees/today.html", context)
 
@@ -333,17 +295,19 @@ def attention_more(request: HttpRequest) -> HttpResponse:
 
 
 def _attention_context(user: User, found: list[attention.Attention]) -> dict[str, object]:
-    shown, hidden = attention.split(user, found)
-    groups = attention.group(shown)
-    tiers = attention.tiers(groups)
+    return _box_context(attention.box(user, found))
+
+
+def _box_context(box: attention.Box) -> dict[str, object]:
+    """The template keys of the attention box, built from an already worked-out box."""
     return {
-        "attention": shown,
-        "attention_groups": groups,
-        "attention_tiers": tiers,
-        "urgent_count": tiers.urgent_count,
-        "soon_count": tiers.soon_count,
-        "gap_count": tiers.gap_count,
-        "attention_hidden": hidden,
+        "attention": box.shown,
+        "attention_groups": box.groups,
+        "attention_tiers": box.tiers,
+        "urgent_count": box.tiers.urgent_count,
+        "soon_count": box.tiers.soon_count,
+        "gap_count": box.tiers.gap_count,
+        "attention_hidden": box.hidden,
     }
 
 

@@ -38,6 +38,24 @@
         ],
         "createdAt": "2026-11-17T02:23:26.120Z",
         "reason": "Claude: L7 is the 3px top loading bar (body::before), copied verbatim from app/static/css/input.css for parity, not a card side border"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "web/src/screens/today/AttentionGroup.tsx"
+        ],
+        "createdAt": "2026-11-17T06:40:09.811Z",
+        "reason": "parity port: UI_RULES §7a mandates the urgency left stripe (border-l-4) copied verbatim from _attention_group.html / _attention.html"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "web/src/screens/today/AttentionGaps.tsx"
+        ],
+        "createdAt": "2026-11-17T06:40:12.409Z",
+        "reason": "parity port: UI_RULES §7a mandates the urgency left stripe (border-l-4) copied verbatim from _attention_group.html / _attention.html"
       }
     ]
   }

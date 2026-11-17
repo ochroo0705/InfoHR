@@ -10,6 +10,8 @@ from datetime import date
 from accounts.models import User
 from django.db import transaction
 from django.db.models import Q, QuerySet
+from django.http import Http404
+from employees.access import own_employee
 from employees.models import (
     LEAVE_REQUEST_APPROVED,
     LEAVE_REQUEST_REJECTED,
@@ -211,6 +213,19 @@ def reject(req: LeaveRequest, by: User, reason: str, today: date) -> LeaveReques
     text = _text(locked.leave_type, locked.start_date, locked.end_date, locked.working_days)
     _log(locked.employee, by, f"{LEAVE_REQUEST_REJECTED}: {text}. {reason}")
     return locked
+
+
+@transaction.atomic
+def withdraw_own(user: User, pk: int, today: date) -> LeaveRequest:
+    """The signed-in user takes back their own waiting request (the Django page and the API both call it). No own
+    employee record, or someone else's request, raises Http404; a refused change raises LeaveError."""
+    employee = own_employee(user)
+    if employee is None:
+        raise Http404
+    req = LeaveRequest.objects.filter(pk=pk, employee_id=employee.pk).first()
+    if req is None:
+        raise Http404
+    return withdraw(req, user, today)
 
 
 @transaction.atomic

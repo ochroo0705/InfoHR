@@ -1,6 +1,200 @@
 {
   "components": {
     "schemas": {
+      "AttentionBoxOut": {
+        "properties": {
+          "gap_count": {
+            "title": "Gap Count",
+            "type": "integer"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/GroupOut"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "hidden": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "title": "Hidden",
+            "type": "array"
+          },
+          "soon": {
+            "items": {
+              "$ref": "#/components/schemas/GroupOut"
+            },
+            "title": "Soon",
+            "type": "array"
+          },
+          "soon_count": {
+            "title": "Soon Count",
+            "type": "integer"
+          },
+          "tone": {
+            "title": "Tone",
+            "type": "string"
+          },
+          "urgent": {
+            "items": {
+              "$ref": "#/components/schemas/GroupOut"
+            },
+            "title": "Urgent",
+            "type": "array"
+          },
+          "urgent_count": {
+            "title": "Urgent Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tone",
+          "urgent_count",
+          "soon_count",
+          "gap_count",
+          "urgent",
+          "soon",
+          "gaps",
+          "hidden"
+        ],
+        "title": "AttentionBoxOut",
+        "type": "object"
+      },
+      "AttentionMoreOut": {
+        "properties": {
+          "dated": {
+            "title": "Dated",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "more": {
+            "title": "More",
+            "type": "integer"
+          },
+          "next_offset": {
+            "title": "Next Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dated",
+          "items",
+          "more",
+          "next_offset"
+        ],
+        "title": "AttentionMoreOut",
+        "type": "object"
+      },
+      "AwayOut": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/AwayPersonOut"
+            },
+            "title": "People",
+            "type": "array"
+          }
+        },
+        "required": [
+          "day",
+          "people"
+        ],
+        "title": "AwayOut",
+        "type": "object"
+      },
+      "AwayPersonOut": {
+        "properties": {
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "until": {
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "label",
+          "until"
+        ],
+        "title": "AwayPersonOut",
+        "type": "object"
+      },
+      "BalanceOut": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "nowhere": {
+            "title": "Nowhere",
+            "type": "integer"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodOut"
+            },
+            "title": "Periods",
+            "type": "array"
+          },
+          "start_missing": {
+            "title": "Start Missing",
+            "type": "boolean"
+          },
+          "started": {
+            "title": "Started",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "start_missing",
+          "configured",
+          "started",
+          "periods",
+          "nowhere"
+        ],
+        "title": "BalanceOut",
+        "type": "object"
+      },
+      "ChecklistOut": {
+        "properties": {
+          "open": {
+            "title": "Open",
+            "type": "integer"
+          },
+          "overdue": {
+            "title": "Overdue",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open",
+          "overdue"
+        ],
+        "title": "ChecklistOut",
+        "type": "object"
+      },
       "CompanyOut": {
         "properties": {
           "logo_url": {
@@ -37,6 +231,256 @@
           "token"
         ],
         "title": "CsrfOut",
+        "type": "object"
+      },
+      "EmployeeOut": {
+        "properties": {
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "initial": {
+            "title": "Initial",
+            "type": "string"
+          },
+          "photo": {
+            "title": "Photo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "initial",
+          "photo"
+        ],
+        "title": "EmployeeOut",
+        "type": "object"
+      },
+      "EmployeeRefOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "short_name": {
+            "title": "Short Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "short_name",
+          "code"
+        ],
+        "title": "EmployeeRefOut",
+        "type": "object"
+      },
+      "GroupOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "dated": {
+            "title": "Dated",
+            "type": "boolean"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "more": {
+            "title": "More",
+            "type": "integer"
+          },
+          "nearest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearest"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "shown": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "title": "Shown",
+            "type": "array"
+          },
+          "urgency": {
+            "title": "Urgency",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "urgency",
+          "label",
+          "count",
+          "nearest",
+          "url",
+          "dated",
+          "open",
+          "shown",
+          "more",
+          "keys"
+        ],
+        "title": "GroupOut",
+        "type": "object"
+      },
+      "HireOut": {
+        "properties": {
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "hired": {
+            "title": "Hired",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "hired"
+        ],
+        "title": "HireOut",
+        "type": "object"
+      },
+      "HolidayOut": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "name"
+        ],
+        "title": "HolidayOut",
+        "type": "object"
+      },
+      "ItemOut": {
+        "properties": {
+          "anchor": {
+            "title": "Anchor",
+            "type": "string"
+          },
+          "can_dismiss": {
+            "title": "Can Dismiss",
+            "type": "boolean"
+          },
+          "clash": {
+            "title": "Clash",
+            "type": "boolean"
+          },
+          "employee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmployeeRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "urgency": {
+            "title": "Urgency",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "text",
+          "urgency",
+          "employee",
+          "url",
+          "anchor",
+          "clash",
+          "can_dismiss"
+        ],
+        "title": "ItemOut",
+        "type": "object"
+      },
+      "JobOut": {
+        "properties": {
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "manager": {
+            "title": "Manager",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "department",
+          "manager"
+        ],
+        "title": "JobOut",
         "type": "object"
       },
       "LoginIn": {
@@ -78,6 +522,99 @@
           "csrf"
         ],
         "title": "LoginOut",
+        "type": "object"
+      },
+      "MeOut": {
+        "properties": {
+          "balance": {
+            "$ref": "#/components/schemas/BalanceOut"
+          },
+          "can_request": {
+            "title": "Can Request",
+            "type": "boolean"
+          },
+          "employee": {
+            "$ref": "#/components/schemas/EmployeeOut"
+          },
+          "has_team": {
+            "title": "Has Team",
+            "type": "boolean"
+          },
+          "holidays": {
+            "items": {
+              "$ref": "#/components/schemas/HolidayOut"
+            },
+            "title": "Holidays",
+            "type": "array"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeOut"
+            },
+            "title": "Notices",
+            "type": "array"
+          },
+          "queue": {
+            "items": {
+              "$ref": "#/components/schemas/QueueOut"
+            },
+            "title": "Queue",
+            "type": "array"
+          },
+          "recorded": {
+            "items": {
+              "$ref": "#/components/schemas/RecordedOut"
+            },
+            "title": "Recorded",
+            "type": "array"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/RequestOut"
+            },
+            "title": "Requests",
+            "type": "array"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/TaskOut"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "team_away": {
+            "items": {
+              "$ref": "#/components/schemas/TeamAwayOut"
+            },
+            "title": "Team Away",
+            "type": "array"
+          }
+        },
+        "required": [
+          "employee",
+          "job",
+          "notices",
+          "can_request",
+          "queue",
+          "tasks",
+          "has_team",
+          "team_away",
+          "holidays",
+          "balance",
+          "requests",
+          "recorded"
+        ],
+        "title": "MeOut",
         "type": "object"
       },
       "MetaOut": {
@@ -210,6 +747,42 @@
         "title": "NavItemOut",
         "type": "object"
       },
+      "NoticeIn": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "NoticeIn",
+        "type": "object"
+      },
+      "NoticeOut": {
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "text",
+          "approved"
+        ],
+        "title": "NoticeOut",
+        "type": "object"
+      },
       "PasswordIn": {
         "properties": {
           "new_password1": {
@@ -233,6 +806,627 @@
         "title": "PasswordIn",
         "type": "object"
       },
+      "PeriodOut": {
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "granted": {
+            "title": "Granted",
+            "type": "string"
+          },
+          "left": {
+            "title": "Left",
+            "type": "string"
+          },
+          "negative": {
+            "title": "Negative",
+            "type": "boolean"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "taken": {
+            "title": "Taken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "current",
+          "granted",
+          "taken",
+          "left",
+          "negative"
+        ],
+        "title": "PeriodOut",
+        "type": "object"
+      },
+      "QueueOut": {
+        "properties": {
+          "employee": {
+            "title": "Employee",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "employee",
+          "leave_type",
+          "start",
+          "end",
+          "step"
+        ],
+        "title": "QueueOut",
+        "type": "object"
+      },
+      "RecordedOut": {
+        "properties": {
+          "days": {
+            "title": "Days",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "leave_type",
+          "start",
+          "end",
+          "days"
+        ],
+        "title": "RecordedOut",
+        "type": "object"
+      },
+      "RequestOut": {
+        "properties": {
+          "can_withdraw": {
+            "title": "Can Withdraw",
+            "type": "boolean"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          },
+          "tone": {
+            "title": "Tone",
+            "type": "string"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "leave_type",
+          "start",
+          "end",
+          "working_days",
+          "status",
+          "status_label",
+          "tone",
+          "step",
+          "rule",
+          "reason",
+          "can_withdraw"
+        ],
+        "title": "RequestOut",
+        "type": "object"
+      },
+      "ShortcutsOut": {
+        "properties": {
+          "add_employee": {
+            "title": "Add Employee",
+            "type": "boolean"
+          },
+          "orders": {
+            "title": "Orders",
+            "type": "boolean"
+          },
+          "record_leave": {
+            "title": "Record Leave",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "add_employee",
+          "record_leave",
+          "orders"
+        ],
+        "title": "ShortcutsOut",
+        "type": "object"
+      },
+      "StripCellOut": {
+        "properties": {
+          "clickable": {
+            "title": "Clickable",
+            "type": "boolean"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "holiday": {
+            "title": "Holiday",
+            "type": "string"
+          },
+          "is_today": {
+            "title": "Is Today",
+            "type": "boolean"
+          },
+          "num": {
+            "title": "Num",
+            "type": "integer"
+          },
+          "shade": {
+            "title": "Shade",
+            "type": "string"
+          },
+          "weekday": {
+            "title": "Weekday",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "num",
+          "weekday",
+          "count",
+          "shade",
+          "is_today",
+          "holiday",
+          "clickable"
+        ],
+        "title": "StripCellOut",
+        "type": "object"
+      },
+      "StripOut": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/StripCellOut"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "first": {
+            "title": "First",
+            "type": "string"
+          },
+          "last": {
+            "title": "Last",
+            "type": "string"
+          },
+          "show_leave": {
+            "title": "Show Leave",
+            "type": "boolean"
+          },
+          "today_line": {
+            "title": "Today Line",
+            "type": "string"
+          }
+        },
+        "required": [
+          "show_leave",
+          "first",
+          "last",
+          "cells",
+          "today_line"
+        ],
+        "title": "StripOut",
+        "type": "object"
+      },
+      "TaskOut": {
+        "properties": {
+          "can_tick": {
+            "title": "Can Tick",
+            "type": "boolean"
+          },
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "employee": {
+            "title": "Employee",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "overdue": {
+            "title": "Overdue",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "employee",
+          "kind_label",
+          "due",
+          "overdue",
+          "can_tick"
+        ],
+        "title": "TaskOut",
+        "type": "object"
+      },
+      "TeamAwayOut": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "full_name",
+          "start",
+          "end"
+        ],
+        "title": "TeamAwayOut",
+        "type": "object"
+      },
+      "TodayCompanyOut": {
+        "properties": {
+          "hires_month": {
+            "title": "Hires Month",
+            "type": "integer"
+          },
+          "leavers_month": {
+            "title": "Leavers Month",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hires_month",
+          "leavers_month"
+        ],
+        "title": "TodayCompanyOut",
+        "type": "object"
+      },
+      "TodayOut": {
+        "properties": {
+          "away_today": {
+            "title": "Away Today",
+            "type": "integer"
+          },
+          "box": {
+            "$ref": "#/components/schemas/AttentionBoxOut"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TodayCompanyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_own_page": {
+            "title": "Has Own Page",
+            "type": "boolean"
+          },
+          "headcount": {
+            "title": "Headcount",
+            "type": "integer"
+          },
+          "shortcuts": {
+            "$ref": "#/components/schemas/ShortcutsOut"
+          },
+          "show_views": {
+            "title": "Show Views",
+            "type": "boolean"
+          },
+          "strip": {
+            "$ref": "#/components/schemas/StripOut"
+          },
+          "today": {
+            "title": "Today",
+            "type": "string"
+          },
+          "upcoming": {
+            "$ref": "#/components/schemas/UpcomingOut"
+          }
+        },
+        "required": [
+          "today",
+          "headcount",
+          "away_today",
+          "has_own_page",
+          "shortcuts",
+          "box",
+          "show_views",
+          "strip",
+          "upcoming",
+          "company"
+        ],
+        "title": "TodayOut",
+        "type": "object"
+      },
+      "TodayViewOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "report": {
+            "title": "Report",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "report",
+          "count",
+          "url"
+        ],
+        "title": "TodayViewOut",
+        "type": "object"
+      },
+      "ToggleIn": {
+        "properties": {
+          "action": {
+            "enum": [
+              "dismiss",
+              "dismiss_all",
+              "restore"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys",
+          "action"
+        ],
+        "title": "ToggleIn",
+        "type": "object"
+      },
+      "ToggleOut": {
+        "properties": {
+          "box": {
+            "$ref": "#/components/schemas/AttentionBoxOut"
+          }
+        },
+        "required": [
+          "box"
+        ],
+        "title": "ToggleOut",
+        "type": "object"
+      },
+      "UpcomingItemOut": {
+        "properties": {
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "on": {
+            "title": "On",
+            "type": "string"
+          },
+          "years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Years"
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "kind",
+          "on",
+          "years"
+        ],
+        "title": "UpcomingItemOut",
+        "type": "object"
+      },
+      "UpcomingListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UpcomingItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "items"
+        ],
+        "title": "UpcomingListOut",
+        "type": "object"
+      },
+      "UpcomingOut": {
+        "properties": {
+          "anniversaries": {
+            "title": "Anniversaries",
+            "type": "integer"
+          },
+          "birthdays": {
+            "title": "Birthdays",
+            "type": "integer"
+          },
+          "checklist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChecklistOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "holidays": {
+            "items": {
+              "$ref": "#/components/schemas/HolidayOut"
+            },
+            "title": "Holidays",
+            "type": "array"
+          },
+          "new_hires": {
+            "title": "New Hires",
+            "type": "integer"
+          },
+          "open_vacancies": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Vacancies"
+          },
+          "show_birthdays": {
+            "title": "Show Birthdays",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "holidays",
+          "open_vacancies",
+          "checklist",
+          "show_birthdays",
+          "birthdays",
+          "anniversaries",
+          "new_hires"
+        ],
+        "title": "UpcomingOut",
+        "type": "object"
+      },
       "UserOut": {
         "properties": {
           "first_name": {
@@ -246,6 +1440,10 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "landing": {
+            "title": "Landing",
+            "type": "string"
           },
           "must_change_password": {
             "title": "Must Change Password",
@@ -274,7 +1472,8 @@
           "full_name",
           "must_change_password",
           "perms",
-          "own_record"
+          "own_record",
+          "landing"
         ],
         "title": "UserOut",
         "type": "object"
@@ -295,6 +1494,141 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/attention": {
+      "get": {
+        "description": "The attention box for the signed-in user, as the Today page builds it (only employees with an HR row).",
+        "operationId": "api_attention_attention_box",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionBoxOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Attention Box",
+        "tags": [
+          "attention"
+        ]
+      }
+    },
+    "/api/v1/attention/more": {
+      "get": {
+        "description": "The items of one Анхаарах group past the first GROUP_LIMIT, or a page of a gap group with `all=1`.",
+        "operationId": "api_attention_attention_more",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "urgency",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Urgency",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "all",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "title": "All",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionMoreOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Attention More",
+        "tags": [
+          "attention"
+        ]
+      }
+    },
+    "/api/v1/attention/toggle": {
+      "post": {
+        "description": "\"Мэдлээ\" / \"Дахин харуулах\" on one Анхаарах item or a whole group; answers with the box.",
+        "operationId": "api_attention_attention_toggle",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToggleOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Attention Toggle",
+        "tags": [
+          "attention"
+        ]
+      }
+    },
     "/api/v1/auth/csrf": {
       "get": {
         "operationId": "api_auth_csrf_token",
@@ -399,6 +1733,127 @@
         ]
       }
     },
+    "/api/v1/checklists/tasks/{pk}/tick": {
+      "post": {
+        "description": "«Хийгдсэн» on a checklist task the user owns (404 when the user may not tick it, 409 when it is refused).",
+        "operationId": "api_me_tick_task",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Tick Task",
+        "tags": [
+          "checklists"
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "description": "The My page of the signed-in user (its own record only; 404 without an employee record).",
+        "operationId": "api_me_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Me",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/notice": {
+      "post": {
+        "description": "«Мэдлээ» on one result notice. Only a notice of the user's own request can be dismissed (404 otherwise).",
+        "operationId": "api_me_dismiss_notice",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Dismiss Notice",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/requests/{pk}/withdraw": {
+      "post": {
+        "description": "«Буцаах»: the user takes back their own waiting request. Someone else's request is 404; a refused change 409.",
+        "operationId": "api_me_withdraw_request",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Withdraw Request",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "operationId": "api_meta_meta",
@@ -460,6 +1915,175 @@
         "summary": "Nav",
         "tags": [
           "nav"
+        ]
+      }
+    },
+    "/api/v1/today": {
+      "get": {
+        "operationId": "api_today_today",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Today",
+        "tags": [
+          "today"
+        ]
+      }
+    },
+    "/api/v1/today/away": {
+      "get": {
+        "description": "The names of people away on one day of the Today strip (`?day=YYYY-MM-DD`, inside the 14-day window).",
+        "operationId": "api_today_today_away",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AwayOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Today Away",
+        "tags": [
+          "today"
+        ]
+      }
+    },
+    "/api/v1/today/hires": {
+      "get": {
+        "description": "The names of people who joined in the last 30 days (the hires line of «Ойрын 30 хоног»).",
+        "operationId": "api_today_today_hires",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HireOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Today Hires",
+        "tags": [
+          "today"
+        ]
+      }
+    },
+    "/api/v1/today/upcoming": {
+      "get": {
+        "description": "The birthdays or the work anniversaries in the next 30 days (`?kind=birthday|anniversary`).",
+        "operationId": "api_today_today_upcoming",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpcomingListOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Today Upcoming",
+        "tags": [
+          "today"
+        ]
+      }
+    },
+    "/api/v1/today/views": {
+      "get": {
+        "description": "The report setups that say what is coming up, with their counts (empty without reports.view_reports).",
+        "operationId": "api_today_today_views",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TodayViewOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Today Views",
+        "tags": [
+          "today"
         ]
       }
     }

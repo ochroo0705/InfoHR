@@ -14,7 +14,7 @@ import {
 import type { components } from "../api/schema";
 import { usePresence } from "../lib/presence";
 import { cn } from "../lib/utils";
-import { TLink } from "../lib/viewTransition";
+import { AppLink } from "../lib/AppLink";
 import { closeAll, closeMenu, finishClose, menuOf, openMenu, pickOpenMenu, type MenuMap } from "./navLogic";
 import { NavIcon } from "./NavIcon";
 
@@ -313,7 +313,7 @@ function PanelRow({ item }: { item: NavItemData }) {
         </p>
       ) : null}
       {item.compact ? (
-        <TLink
+        <AppLink
           to={item.url}
           aria-current={current}
           className={cn(
@@ -322,9 +322,9 @@ function PanelRow({ item }: { item: NavItemData }) {
           )}
         >
           {item.label}
-        </TLink>
+        </AppLink>
       ) : (
-        <TLink
+        <AppLink
           to={item.url}
           aria-current={current}
           className={cn(
@@ -342,7 +342,7 @@ function PanelRow({ item }: { item: NavItemData }) {
             </span>
             {item.hint ? <span className="block truncate text-xs text-slate-500">{item.hint}</span> : null}
           </span>
-        </TLink>
+        </AppLink>
       )}
     </>
   );

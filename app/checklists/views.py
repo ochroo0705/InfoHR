@@ -146,11 +146,8 @@ def _task_for(pk: int) -> ChecklistTask:
 @require_POST
 def tick(request: HttpRequest, pk: int) -> HttpResponse:
     user = _user(request)
-    task = _task_for(pk)
-    if not owners.can_tick(user, task, today()):
-        raise Http404
     try:
-        lifecycle.tick(task, by=user)
+        task = lifecycle.tick_for(user, pk, today())
     except lifecycle.ChecklistError as error:
         return HttpResponse(error.message, status=409)
     return _back(request, user, task.checklist.employee)

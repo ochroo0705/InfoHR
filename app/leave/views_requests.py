@@ -362,12 +362,8 @@ def request_check(request: HttpRequest) -> HttpResponse:
 def request_withdraw(request: HttpRequest, pk: int) -> HttpResponse:
     """The employee takes back their own waiting request. Someone else's request is 404."""
     user = _user(request)
-    employee = own_employee(user)
-    if employee is None:
-        raise Http404
-    req = get_object_or_404(LeaveRequest, pk=pk, employee_id=employee.pk)
     try:
-        request_service.withdraw(req, user, today())
+        request_service.withdraw_own(user, pk, today())
     except LeaveError as e:
         return HttpResponse(format_html('<p class="text-sm text-red-700">{}</p>', str(e)))
     return _done()

@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
 import { PageScrollbar } from "../widgets/Scrollbar";
+import { DEFAULT_MAIN_WIDTH, MainWidthContext } from "./mainWidth";
 import { TopBar } from "./TopBar";
 import { watchSystem } from "./theme";
 
@@ -9,16 +10,18 @@ import { watchSystem } from "./theme";
 export function AppShell() {
   // Follows the computer's light or dark setting while the theme choice is Автомат. Mounted once for the frame.
   useEffect(() => watchSystem(), []);
+  // A page may narrow the main column (useMainWidth in mainWidth.ts); null keeps the default.
+  const [width, setWidth] = useState<string | null>(null);
 
   return (
-    <>
+    <MainWidthContext.Provider value={setWidth}>
       <TopBar />
       <PageScrollbar />
       <div id="page">
-        <main className="mx-auto max-w-6xl px-4 py-6">
+        <main className={`mx-auto ${width ?? DEFAULT_MAIN_WIDTH} py-6`}>
           <Outlet />
         </main>
       </div>
-    </>
+    </MainWidthContext.Provider>
   );
 }

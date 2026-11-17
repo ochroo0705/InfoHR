@@ -34,6 +34,9 @@ export type ParityOptions = {
   clip?: string;
   // When true, each side signs in first (login helper, PARITY_USER / PARITY_PASSWORD) before the steps run.
   signIn?: boolean;
+  // CSS selectors painted over in both screenshots (Playwright's mask), for text that differs between runs, such
+  // as today's date.
+  mask?: string[];
 };
 
 // Signs in on a login page: fills the form, submits, and waits until the page has left /login. Call it on a page
@@ -86,6 +89,37 @@ export async function motionTokens(
   });
 }
 
+// Sends a signed-in page to `path` on its own origin. After sign-in each side lands on its own home page (Django's
+// home, React's /), so a spec opens the page it checks this way.
+export async function openPath(page: Page, path: string): Promise<void> {
+  await page.goto(new URL(path, page.url()).href);
+  await page.waitForLoadState("networkidle");
+}
+
+// Runs one behaviour check on each side: a fresh context with motion allowed, signed in, then on `path`. Returns both
+// results so the spec can compare them. For checks that read the page, not screenshots (those use parity()).
+export async function bothSides<T>(
+  browser: Browser,
+  path: string,
+  run: (page: Page) => Promise<T>,
+): Promise<{ django: T; web: T }> {
+  const onSide = async (base: string): Promise<T> => {
+    const context = await browser.newContext({ reducedMotion: "no-preference" });
+    try {
+      const page = await context.newPage();
+      await page.goto(base + path);
+      await login(page, base);
+      await openPath(page, path);
+      return await run(page);
+    } finally {
+      await context.close();
+    }
+  };
+  const django = await onSide(DJANGO_URL);
+  const web = await onSide(WEB_URL);
+  return { django, web };
+}
+
 async function newSideContext(
   browser: Browser,
   viewport: Viewport,
@@ -119,6 +153,7 @@ async function runParity(
 ): Promise<void> {
   const maxRatio = opts.maxDiffPixelRatio;
   const clip = opts.clip;
+  const mask = opts.mask;
   const djangoContext = await newSideContext(browser, viewport, theme);
   const webContext = await newSideContext(browser, viewport, theme);
   try {
@@ -138,7 +173,7 @@ async function runParity(
     for (const [index, step] of steps.entries()) {
       await step(djangoPage);
       await step(webPage);
-      await compare(testInfo, `step-${index + 1}`, djangoPage, webPage, maxRatio, clip);
+      await compare(testInfo, `step-${index + 1}`, djangoPage, webPage, maxRatio, clip, mask);
     }
   } finally {
     await djangoContext.close();
@@ -157,6 +192,7 @@ async function compare(
   webPage: Page,
   maxRatio: number,
   clip?: string,
+  mask?: string[],
 ): Promise<void> {
   // With a clip, only that element is shot (an element shot cannot be full page). Wait first until no request is
   // running on either side: the React loading bar (body[data-loading]) or an htmx request (.htmx-request), so the
@@ -172,9 +208,10 @@ async function compare(
     await idle();
     await page.waitForTimeout(300);
     await idle();
+    const masks = mask?.map((selector) => page.locator(selector));
     return clip
-      ? page.locator(clip).first().screenshot({ animations: "disabled", caret: "hide" })
-      : page.screenshot({ fullPage: true, animations: "disabled", caret: "hide" });
+      ? page.locator(clip).first().screenshot({ animations: "disabled", caret: "hide", mask: masks })
+      : page.screenshot({ fullPage: true, animations: "disabled", caret: "hide", mask: masks });
   };
   const djangoShot = PNG.sync.read(await shot(djangoPage));
   const webShot = PNG.sync.read(await shot(webPage));

@@ -3,10 +3,13 @@ from ninja import NinjaAPI
 from ninja.errors import AuthenticationError, HttpError, ValidationError
 from ninja.security import django_auth
 
+from api.attention import attention_router
 from api.auth import auth_router
 from api.errors import ApiError
+from api.me import checklists_router, me_router
 from api.meta import meta_router
 from api.nav import nav_router
+from api.today import today_router
 
 API_VERSION = 1  # bumped when the API changes shape in a way a client must notice (GET /api/v1/meta reports it)
 
@@ -54,11 +57,21 @@ def authentication_error_handler(request: HttpRequest, exc: AuthenticationError)
     return _error_response(request, 401, ["Нэвтрэх шаардлагатай."], code="not_authenticated")
 
 
+# The text ninja's APIKeyCookie (django_auth) raises when the CSRF token is missing or stale (ninja/security/apikey.py).
+NINJA_CSRF_FAILED = "CSRF check Failed"
+
+
 @api.exception_handler(HttpError)
 def http_error_handler(request: HttpRequest, exc: HttpError) -> HttpResponse:
-    return _error_response(request, exc.status_code, [str(exc.message)])
+    # The React client refetches its token and retries once on this code (web/src/api/mutate.ts).
+    is_csrf = exc.status_code == 403 and str(exc.message) == NINJA_CSRF_FAILED
+    return _error_response(request, exc.status_code, [str(exc.message)], code="csrf_failed" if is_csrf else "")
 
 
 api.add_router("/auth/", auth_router)
 api.add_router("/meta", meta_router)
 api.add_router("/nav", nav_router)
+api.add_router("/today", today_router)
+api.add_router("/attention", attention_router)
+api.add_router("/me", me_router)
+api.add_router("/checklists", checklists_router)

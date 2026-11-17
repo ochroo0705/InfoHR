@@ -2,6 +2,7 @@
 @import "./fonts.css";
 @import "./tokens.css";
 @import "./motion.css";
+@import "./components.css";
 @import "./scrollbars.css";
 
 /* Same as app/static/css/input.css: dark: utilities follow the data-theme attribute, not the OS setting. */
@@ -9,7 +10,7 @@
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
-/* Base element rules ported verbatim from app/static/css/input.css (Django parity). Component rules are not ported. */
+/* Base element rules ported verbatim from app/static/css/input.css (Django parity). Component rules that the React screens use are in components.css. */
 @layer base {
   html { scrollbar-gutter: stable; }
 }

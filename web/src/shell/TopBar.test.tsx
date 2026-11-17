@@ -112,6 +112,17 @@ describe("TopBar", () => {
     expect(await screen.findByText("3")).toBeTruthy();
   });
 
+  it("sends a nav item for a Django-only page to a full load into Django (legacy origin prefixed)", async () => {
+    vi.stubEnv("VITE_LEGACY_ORIGIN", "http://dj");
+    try {
+      renderBar([SINGLE, MENU]);
+      const link = await screen.findByRole("link", { name: /Ажилтан/ });
+      expect(link.getAttribute("href")).toBe("http://dj/employees/");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("renders a single-item group as a link with aria-current when it is the active one", async () => {
     renderBar([SINGLE, MENU]);
     const link = await screen.findByRole("link", { name: /Ажилтан/ });

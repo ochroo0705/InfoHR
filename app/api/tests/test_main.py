@@ -1,5 +1,7 @@
 import json
 
+import pytest
+from accounts.models import User
 from django import forms
 from django.http import HttpResponse
 from django.test import Client, RequestFactory
@@ -77,4 +79,24 @@ def test_authentication_error_maps_to_401() -> None:
         "field_errors": {},
         "form_errors": ["Нэвтрэх шаардлагатай."],
         "code": "not_authenticated",
+    }
+
+
+@pytest.mark.django_db
+def test_csrf_failure_is_json_with_code() -> None:
+    # ninja raises "CSRF check Failed" before the view runs; the handler turns it into the JSON shape with a code.
+    user = User.objects.create_user("csrf-user", is_active=True)
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(user)
+
+    response = client.post(
+        "/api/v1/attention/toggle", json.dumps({"keys": [], "action": "dismiss"}), content_type="application/json"
+    )
+
+    assert response.status_code == 403
+    assert response["Content-Type"].startswith("application/json")
+    assert response.json() == {
+        "field_errors": {},
+        "form_errors": ["CSRF check Failed"],
+        "code": "csrf_failed",
     }

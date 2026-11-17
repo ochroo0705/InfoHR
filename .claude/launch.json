@@ -100,6 +100,15 @@
         "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\ad_demo.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& .venv\\Scripts\\python app\\manage.py runserver 8013 --noreload"
       ],
       "port": 8013
+    },
+    {
+      "name": "mcp-ad-8765",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\ad_demo.fdb&& set MCP_ENABLED=true&& set PYTHONUTF8=1&& set PYTHONIOENCODING=utf-8&& .venv\\Scripts\\python app\\manage.py run_mcp"
+      ],
+      "port": 8765
     }
   ]
 }

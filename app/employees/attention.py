@@ -498,6 +498,32 @@ def split(user: User, found: list[Attention]) -> tuple[list[Attention], list[Att
     return [a for a in found if a.key not in hidden_keys], [a for a in found if a.key in hidden_keys]
 
 
+@dataclass
+class Box:
+    """Everything the attention box shows for one user: what is shown and hidden, the groups, and the box tone."""
+
+    shown: list[Attention]
+    hidden: list[Attention]
+    groups: list[Group]
+    tiers: Tiers
+
+    @property
+    def tone(self) -> str:
+        """Overdue items make the tone "urgent", due items "soon", and anything else "calm"."""
+        if self.tiers.urgent_count:
+            return "urgent"
+        if self.tiers.soon_count:
+            return "soon"
+        return "calm"
+
+
+def box(user: User, found: list[Attention]) -> Box:
+    """The attention box for `found` (sorted items from `items`): the user's dismissals applied, then grouped."""
+    shown, hidden = split(user, found)
+    groups = group(shown)
+    return Box(shown=shown, hidden=hidden, groups=groups, tiers=tiers(groups))
+
+
 def dismiss(user: User, item: Attention) -> None:
     if item.employee is None:  # a system reminder stays until the setting is fixed; a dismissal needs an employee
         return

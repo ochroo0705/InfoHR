@@ -128,15 +128,21 @@ def can_tick_many(
     return {t.pk: user.pk in resolved[t.pk].user_ids for t in candidates}
 
 
-def my_tasks(user: User, day: date) -> list[ChecklistTask]:
-    """Open tasks of open checklists that `user` owns on `day`, earliest due date first."""
+def my_tasks_owned(user: User, day: date) -> list[tuple[ChecklistTask, Owners]]:
+    """Open tasks of open checklists that `user` owns on `day`, earliest due date first, each with its owners. The
+    caller can gate a tick on the same owners without resolving them a second time."""
     if not user.is_active:
         return []
     candidates = list(
         _open_tasks().filter(_candidate_filter(user)).select_related("checklist__employee").order_by("due_on", "pk")
     )
     owned = owners_many(candidates, day)
-    return [task for task in candidates if user.pk in owned[task.pk].user_ids]
+    return [(task, owned[task.pk]) for task in candidates if user.pk in owned[task.pk].user_ids]
+
+
+def my_tasks(user: User, day: date) -> list[ChecklistTask]:
+    """Open tasks of open checklists that `user` owns on `day`, earliest due date first (see my_tasks_owned)."""
+    return [task for task, _owners in my_tasks_owned(user, day)]
 
 
 def may_have_tasks(user: User, day: date) -> bool:

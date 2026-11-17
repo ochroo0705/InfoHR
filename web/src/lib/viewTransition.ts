@@ -1,4 +1,10 @@
-import { createElement, useCallback, type MouseEvent, type ReactNode } from "react";
+import {
+  createElement,
+  useCallback,
+  type AnchorHTMLAttributes,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate } from "react-router";
 
@@ -53,7 +59,7 @@ export function useTransitionNavigate(): (to: string) => void {
   );
 }
 
-type TLinkProps = {
+type TLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
   to: string;
   children: ReactNode;
   className?: string;
@@ -62,14 +68,30 @@ type TLinkProps = {
 };
 
 // A router link whose plain left click goes through useTransitionNavigate. Modified clicks (new tab, new window)
-// and middle clicks keep the browser's own behaviour, because the link's href stays in place.
-export function TLink({ to, children, className, "aria-current": ariaCurrent }: TLinkProps) {
+// and middle clicks keep the browser's own behaviour, because the link's href stays in place. Other anchor props
+// (id, title, data-*, target, ...) reach the anchor. The caller's onClick runs first; if it calls preventDefault,
+// or the link has a target other than _self, the browser handles the click.
+export function TLink({
+  to,
+  children,
+  className,
+  onClick,
+  target,
+  "aria-current": ariaCurrent,
+  ...rest
+}: TLinkProps) {
   const go = useTransitionNavigate();
-  function onClick(event: MouseEvent<HTMLAnchorElement>) {
+  function handleClick(event: MouseEvent<HTMLAnchorElement>) {
+    onClick?.(event);
     if (event.defaultPrevented || event.button !== 0) return;
+    if (target && target !== "_self") return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     go(to);
   }
-  return createElement(Link, { to, className, onClick, "aria-current": ariaCurrent }, children);
+  return createElement(
+    Link,
+    { ...rest, to, target, className, onClick: handleClick, "aria-current": ariaCurrent },
+    children,
+  );
 }
