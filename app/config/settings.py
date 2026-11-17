@@ -19,6 +19,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])  # e.g. https://host.ts.net behind a tunnel
+HC_BACKEND_VERSION = env.str("HC_BACKEND_VERSION", default="dev")  # shown by GET /api/v1/meta
 # Help assistant (app/assistant). Provider: claude | deepseek | gemini | groq | empty (empty = off). The key lives in .env only.
 ASSISTANT_PROVIDER = env.str("ASSISTANT_PROVIDER", default="")
 ASSISTANT_API_KEY = env.str("ASSISTANT_API_KEY", default="")
@@ -55,6 +56,7 @@ INSTALLED_APPS = [
     "logs",
     "assistant",
     "hr_mcp",
+    "api",
 ]
 
 MIDDLEWARE = [

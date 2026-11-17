@@ -4,56 +4,93 @@
     {
       "name": "demo",
       "runtimeExecutable": ".venv/Scripts/python",
-      "runtimeArgs": ["scripts/demo.py", "run"],
+      "runtimeArgs": [
+        "scripts/demo.py",
+        "run"
+      ],
       "port": 8001
     },
     {
       "name": "demo-8001",
       "runtimeExecutable": "E:/WorkProjects/Info HR/.venv/Scripts/python.exe",
-      "runtimeArgs": ["scripts/demo.py", "run"],
+      "runtimeArgs": [
+        "scripts/demo.py",
+        "run"
+      ],
       "port": 8001
     },
     {
       "name": "selfform-demo-8031",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set DEMO_DB=info_hr_selfform_demo&& set PORT=8031&& .venv\\Scripts\\python scripts\\demo.py run"],
+      "runtimeArgs": [
+        "/c",
+        "set DEMO_DB=info_hr_selfform_demo&& set PORT=8031&& .venv\\Scripts\\python scripts\\demo.py run"
+      ],
       "port": 8031
     },
     {
       "name": "perf-demo-8041",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set DEMO_DB=info_hr_perf&& set PORT=8041&& .venv\\Scripts\\python scripts\\demo.py run"],
+      "runtimeArgs": [
+        "/c",
+        "set DEMO_DB=info_hr_perf&& set PORT=8041&& .venv\\Scripts\\python scripts\\demo.py run"
+      ],
       "port": 8041
     },
     {
       "name": "assistant-8004",
       "runtimeExecutable": "E:/WorkProjects/Info HR/.venv/Scripts/python.exe",
-      "runtimeArgs": ["app/manage.py", "runserver", "8004"],
+      "runtimeArgs": [
+        "app/manage.py",
+        "runserver",
+        "8004"
+      ],
       "port": 8004
     },
     {
       "name": "firebird-smoke",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "scripts\\fb_smoke_server.cmd"],
+      "runtimeArgs": [
+        "/c",
+        "scripts\\fb_smoke_server.cmd"
+      ],
       "port": 8010
     },
     {
       "name": "governed-fb-8011",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& .venv\\Scripts\\python app\\manage.py runserver 8011 --noreload"],
+      "runtimeArgs": [
+        "/c",
+        "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& .venv\\Scripts\\python app\\manage.py runserver 8011 --noreload"
+      ],
       "port": 8011
     },
     {
       "name": "governed-fb-8012",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& .venv\\Scripts\\python app\\manage.py runserver 8012 --noreload"],
+      "runtimeArgs": [
+        "/c",
+        "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set DJANGO_DEBUG=true&& set PYTHONIOENCODING=utf-8&& .venv\\Scripts\\python app\\manage.py runserver 8012 --noreload"
+      ],
       "port": 8012
     },
     {
       "name": "mcp-gov-8765",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set MCP_ENABLED=true&& set PYTHONUTF8=1&& set PYTHONIOENCODING=utf-8&& python app\\manage.py run_mcp"],
+      "runtimeArgs": [
+        "/c",
+        "set DB_ENGINE=firebird&& set FIREBIRD_NAME=E:\\WorkProjects\\Info HR\\db\\work\\gov_local.fdb&& set MCP_ENABLED=true&& set PYTHONUTF8=1&& set PYTHONIOENCODING=utf-8&& python app\\manage.py run_mcp"
+      ],
       "port": 8765
+    },
+    {
+      "name": "web-5173",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd web&& set DJANGO_URL=http://127.0.0.1:8001&& npm run dev -- --host 127.0.0.1"
+      ],
+      "port": 5173
     }
   ]
 }

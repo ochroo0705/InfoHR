@@ -1,0 +1,117 @@
+@theme {
+  --font-sans: "Golos Text", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  /* carservice.mn palette (user choice 2026-11-06): the "slate" greys are the site's navy-grey (#2c3e50 family),
+     "violet" is remapped to its red accent (keep writing violet-* classes, never red-* for the primary colour),
+     "amber" is its warn yellow. Danger red (red-*) is the plain Tailwind red. */
+  --color-slate-50: #f4f6f7;
+  --color-slate-100: #ecf0f1;
+  --color-slate-200: #d5dcdf;
+  --color-slate-300: #bdc6c8;
+  --color-slate-400: #95a5a6;
+  --color-slate-500: #5f6b6d;
+  --color-slate-600: #475669;
+  --color-slate-700: #34495e;
+  --color-slate-800: #2c3e50;
+  --color-slate-900: #1e2b38;
+  --color-slate-950: #17222d;
+  --color-violet-50: #fdf0ee;
+  --color-violet-100: #fadbd8;
+  --color-violet-200: #f5b7b1;
+  --color-violet-300: #f1948a;
+  --color-violet-400: #ec7063;
+  --color-violet-500: #e74c3c;
+  --color-violet-600: #c0392b;
+  --color-violet-700: #a93226;
+  --color-violet-800: #922b21;
+  --color-violet-900: #7b241c;
+  --color-violet-950: #4a1410;
+  --color-amber-300: #f7d774;
+  --color-amber-400: #f7c948;
+  --color-amber-500: #d9a82b;
+  --color-seal: #c0392b;
+  /* Card and pop-up background: write bg-surface / border-surface, never bg-white (the dark theme swaps it). White
+     text on solid fills stays text-white in both themes. */
+  --color-surface: #fff;
+  /* Picked (selected) state: navy-slate (2026-11-09, replaced lime) is only for "picked", never for status. bright =
+     fills and bars, tint = row and option background, edge = outlines, ticks and the text on the tint, ink = text on a
+     bright fill (white here, so never use ink as text on the tint: use edge). */
+  --color-pick-bright: #34495e;
+  --color-pick-tint: #e6ecf1;
+  --color-pick-edge: #2c3e50;
+  --color-pick-ink: #fff;
+  /* Editable-column marks (grid_nav.js, UI_RULES §4b): faint tints laid over the cell's own background. */
+  --edit-tint: oklch(0.85 0.08 195 / 0.18);
+  --correct-tint: oklch(0.85 0.09 75 / 0.18);
+}
+/* Motion (plan 2026-11-08-selection-motion): every open, close and swap uses these. Never longer than 300 ms; with
+   prefers-reduced-motion all motion is off (see the rule near the end of this file). */
+:root {
+  --dur-hover: 120ms;
+  --dur-in: 180ms;
+  --dur-out: 140ms;
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --ease-in: cubic-bezier(.4,0,1,1);
+}
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-surface: #1e2b38;
+    --color-slate-50: #17222d;
+    --color-slate-100: #25364a;
+    --color-slate-200: #2f4357;
+    --color-slate-300: #3b5167;
+    --color-slate-400: #6c7e8c;
+    --color-slate-500: #95a5a6;
+    --color-slate-600: #bdc6c8;
+    --color-slate-700: #d5dcdf;
+    --color-slate-800: #dde3e6;
+    --color-slate-900: #ecf0f1;
+    --color-slate-950: #f7f9f9;
+    --color-violet-50: #3a2024;
+    --color-violet-100: #4a2529;
+    --color-violet-200: #5e2d31;
+    --color-violet-300: #8a3b3b;
+    --color-violet-400: #d9574a;
+    --color-violet-500: #e74c3c;
+    --color-violet-600: #cf3a2b;
+    --color-violet-700: #f1948a;
+    --color-violet-800: #f5b1aa;
+    --color-violet-900: #f9cfca;
+    --color-violet-950: #fce6e3;
+    --color-red-50: #361b1d;
+    --color-red-100: #452023;
+    --color-red-200: #62292d;
+    --color-red-300: #86383c;
+    --color-red-400: #e0676a;
+    --color-red-500: #ec5452;
+    --color-red-600: #e2484d;
+    --color-red-700: #ff8b88;
+    --color-red-800: #ffb1ad;
+    --color-red-900: #ffd2cf;
+    --color-amber-50: #30270f;
+    --color-amber-100: #3d3111;
+    --color-amber-200: #574413;
+    --color-amber-700: #f0c674;
+    --color-amber-800: #f5d590;
+    --color-amber-900: #fae6b9;
+    --color-sky-50: #0f2a37;
+    --color-sky-100: #133547;
+    --color-sky-200: #2f7fb0;
+    --color-sky-300: #2c6d8c;
+    --color-sky-700: #7fd2f9;
+    --color-sky-800: #a7e0fb;
+    --color-sky-900: #d0effd;
+    --color-emerald-50: #0f2d25;
+    --color-emerald-100: #12392e;
+    --color-emerald-700: #6ee2b4;
+    --color-emerald-800: #a5efcf;
+    --color-seal: #e74c3c;
+    /* Picked state, dark: the light steel blue is also the text and edge colour on the dark surfaces. */
+    --color-pick-bright: #9db4c8;
+    --color-pick-tint: #2c4560; /* 2026-11-16: was #2a3a4a, too close to the #1e2b38 surface to see */
+    --color-pick-edge: #9db4c8;
+    --color-pick-ink: #1e2b38;
+    --edit-tint: oklch(0.7 0.09 195 / 0.16);
+    --correct-tint: oklch(0.75 0.1 75 / 0.16);
+  }
+}

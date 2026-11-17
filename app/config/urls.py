@@ -1,4 +1,5 @@
 from accounts.views import ForcedPasswordChangeView, ThrottledLoginView, home
+from api.main import api
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -14,6 +15,7 @@ urlpatterns = [
     path("password/change/", ForcedPasswordChangeView.as_view(), name="password_change"),
     path("me/", me_page, name="me"),
     path("me/notice/", dismiss_notice, name="me_notice"),
+    path("api/v1/", api.urls),
     path("employees/", include("employees.urls")),
     path("apply/", include("employees.urls_apply")),
     path("assistant/", include("assistant.urls")),

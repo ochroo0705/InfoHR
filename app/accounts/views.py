@@ -8,9 +8,8 @@ from django.urls import reverse_lazy
 from employees.models import EmployeeExt
 
 from accounts import login_throttle
-from accounts.audit import Category, record_safe
-from accounts.forms import ChangePasswordForm, NewPasswordForm
 from accounts.models import User
+from accounts.password_change import finish_password_change, form_class_for
 
 
 class ForcedPasswordChangeView(PasswordChangeView):
@@ -20,16 +19,12 @@ class ForcedPasswordChangeView(PasswordChangeView):
     success_url = reverse_lazy("home")
 
     def get_form_class(self) -> Any:
-        return NewPasswordForm if getattr(self.request.user, "must_change_password", False) else ChangePasswordForm
+        return form_class_for(self.request.user)  # type: ignore[arg-type]
 
     def form_valid(self, form: SetPasswordForm) -> HttpResponse:  # type: ignore[type-arg]
-        response = super().form_valid(form)
-        user = form.user
-        user.must_change_password = False
-        user.save(update_fields=["must_change_password"])
-        # No password text here: the entry only says that the user changed their own password.
-        record_safe(Category.ACCESS, "password_changed", actor=user, target_type="user", target_label=user.username)
-        return response
+        form.save()
+        finish_password_change(self.request, form.user)
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class ThrottledLoginView(LoginView):

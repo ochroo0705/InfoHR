@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./tokens.css";
+
+/* Same as app/static/css/input.css: dark: utilities follow the data-theme attribute, not the OS setting. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Base element rules ported verbatim from app/static/css/input.css (Django parity). Component rules are not ported. */
+@layer base {
+  html { scrollbar-gutter: stable; }
+}
+
+@layer base {
+  table { font-variant-numeric: tabular-nums; }
+}
+
+@layer base {
+  a, button, summary, [hx-get], [hx-post] { transition: color .15s, background-color .15s, border-color .15s, box-shadow .15s, transform .1s; }
+  button:not(:disabled):active, summary:active { transform: scale(.97); }
+  :focus-visible { outline: 2px solid var(--color-violet-500); outline-offset: 2px; }
+  h1, h2 { letter-spacing: -0.015em; }
+}
+
+@layer base {
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary, label:has(input[type="checkbox"]), select { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  button, [role="button"], summary { -webkit-user-select: none; user-select: none; }
+}
+
+body:has(.fixed.inset-0.z-50) { overflow: hidden; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: var(--color-slate-300); background-clip: padding-box; border: 3px solid transparent; border-radius: 0; }
+::-webkit-scrollbar-thumb:hover, ::-webkit-scrollbar-thumb:active { border-width: 1px; }
+::-webkit-scrollbar-thumb:horizontal:hover, ::-webkit-scrollbar-thumb:horizontal:active { background-image: linear-gradient(90deg, var(--color-violet-600), var(--color-violet-300)); }
+::-webkit-scrollbar-thumb:vertical:hover, ::-webkit-scrollbar-thumb:vertical:active { background-image: linear-gradient(180deg, var(--color-violet-600), var(--color-violet-300)); }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--color-slate-300) transparent; }
+}

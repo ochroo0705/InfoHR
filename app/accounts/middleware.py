@@ -4,7 +4,7 @@ import ipaddress
 from collections.abc import Callable
 
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
@@ -47,6 +47,10 @@ class AuditContextMiddleware:
             audit_context.clear_context()
 
 
+API_EXEMPT_PREFIXES = ("/api/v1/auth/",)
+API_EXEMPT_PATHS = ("/api/v1/meta", "/api/v1/meta/")
+
+
 class ForcePasswordChangeMiddleware:
     """While `must_change_password` is set, every page redirects to the change form.
 
@@ -61,6 +65,14 @@ class ForcePasswordChangeMiddleware:
         user = getattr(request, "user", None)
         if user is not None and user.is_authenticated and getattr(user, "must_change_password", False):
             if not self._exempt(request.path):
+                if request.path.startswith("/api/"):
+                    # The SPA reads this code and shows the change form; a redirect would hand it an HTML page.
+                    exempt = request.path.startswith(API_EXEMPT_PREFIXES) or request.path in API_EXEMPT_PATHS
+                    if not exempt:
+                        return JsonResponse(
+                            {"field_errors": {}, "form_errors": [], "code": "password_change_required"}, status=403
+                        )
+                    return self.get_response(request)
                 target = reverse("password_change")
                 if request.headers.get("HX-Request"):
                     response = HttpResponse(status=200)
