@@ -1,0 +1,44 @@
+/* Custom scrollbars: verbatim copy of app/static/css/input.css lines 619-659 (unlayered, as in the source), used by the
+   Scrollbar components in widgets/Scrollbar.tsx. The native bar rules are in app.css (input.css 603-611).
+   Source 630-631: html.sbar-page-on hides the native page bar while the page rail (PageScrollbar) is mounted. This removes
+   the 10px width difference between the React and Django pages. */
+/* The app's scrollbars (static/js/scrollbars.js, UI_RULES §4), on every scroll box and the page. Native bars are
+   hidden; a 12px rail lies on the box's bottom / right inner edge. At rest: a hairline track along the whole edge and a 5px slate
+   progress fill from the start edge to the scroll position, with an 8px accent tip at its leading end. Over the rail or
+   while dragged the fill grows to 10px and fades into the loading bar's gradient (body::before); the tip darkens. */
+.sbar-host { position: relative; }
+.sbar-on { scrollbar-width: none; }
+.sbar-on::-webkit-scrollbar { display: none; }
+.sbar-rail { position: absolute; z-index: 35; display: none; cursor: pointer; touch-action: none; }
+.sbar-rail.is-on { display: block; }
+.sbar-fixed { position: fixed; }
+.sbar-page { z-index: 39; }  /* page rail: under the top bar, the assistant panel and pop-ups */
+html.sbar-page-on { scrollbar-width: none; }
+html.sbar-page-on::-webkit-scrollbar { display: none; }
+.sbar-x { height: 12px; }
+.sbar-y { width: 12px; }
+.sbar-rail::before { content: ""; position: absolute; background: var(--color-slate-300); transition: opacity .15s; }
+.sbar-x::before { left: 0; right: 0; bottom: 3px; height: 1px; }
+.sbar-y::before { top: 0; bottom: 0; right: 3px; width: 1px; }
+.sbar-thumb { position: absolute; background: var(--color-slate-400); }
+/* only the thickness animates; the length follows the scroll at once */
+.sbar-x .sbar-thumb { left: 0; bottom: 1px; height: 5px; transition: height .15s ease-out; }
+.sbar-y .sbar-thumb { top: 0; right: 1px; width: 5px; transition: width .15s ease-out; }
+.sbar-thumb::before { content: ""; position: absolute; z-index: 1; background: var(--color-violet-500); transition: width .15s, height .15s, background-color .15s; }
+.sbar-x .sbar-thumb::before { right: 0; top: 0; bottom: 0; width: 8px; }
+.sbar-y .sbar-thumb::before { left: 0; right: 0; bottom: 0; height: 8px; }
+.sbar-thumb::after { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity .15s; }
+.sbar-x .sbar-thumb::after { background: linear-gradient(90deg, var(--color-violet-600), var(--color-violet-300)); }
+.sbar-y .sbar-thumb::after { background: linear-gradient(180deg, var(--color-violet-600), var(--color-violet-300)); }
+.sbar-x:hover .sbar-thumb, .sbar-x.is-drag .sbar-thumb { height: 10px; }
+.sbar-y:hover .sbar-thumb, .sbar-y.is-drag .sbar-thumb { width: 10px; }
+.sbar-rail:hover .sbar-thumb::after, .sbar-rail.is-drag .sbar-thumb::after { opacity: 1; }
+.sbar-rail:hover::before, .sbar-rail.is-drag::before { opacity: .6; }
+.sbar-x:hover .sbar-thumb::before, .sbar-x.is-drag .sbar-thumb::before { width: 3px; background: var(--color-violet-700); }
+.sbar-y:hover .sbar-thumb::before, .sbar-y.is-drag .sbar-thumb::before { height: 3px; background: var(--color-violet-700); }
+.sbar-fade { position: absolute; z-index: 32; width: 24px; pointer-events: none; opacity: 0; transition: opacity .2s; --sbar-shade: rgb(44 62 80 / .14); }
+.sbar-fade.is-on { opacity: 1; }
+.sbar-fade-l { background: linear-gradient(90deg, var(--sbar-shade), transparent); }
+.sbar-fade-r { background: linear-gradient(270deg, var(--sbar-shade), transparent); }
+:root[data-theme="dark"] .sbar-fade { --sbar-shade: rgb(0 0 0 / .45); }
+@media (prefers-reduced-motion: reduce) { .sbar-fade, .sbar-x .sbar-thumb, .sbar-y .sbar-thumb, .sbar-thumb::before, .sbar-thumb::after, .sbar-rail::before { transition: none; } }

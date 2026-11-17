@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import App from "./App";
+import { LoadingBar } from "./shell/LoadingBar";
 import "./styles/app.css";
 
 const queryClient = new QueryClient();
@@ -10,6 +11,7 @@ const queryClient = new QueryClient();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <LoadingBar />
       <BrowserRouter>
         <App />
       </BrowserRouter>

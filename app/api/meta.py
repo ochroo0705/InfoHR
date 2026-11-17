@@ -6,6 +6,7 @@ from django.conf import settings
 from django.http import HttpRequest
 from django.middleware.csrf import get_token
 from employees.models import CompanySettings
+from employees.templatetags.hr import own_record
 from ninja import Router, Schema
 
 meta_router = Router(tags=["meta"])
@@ -19,9 +20,11 @@ class CompanyOut(Schema):
 class UserOut(Schema):
     id: int
     username: str
+    first_name: str  # the template's avatar letter: first_name, else username (base.html line 39)
     full_name: str
     must_change_password: bool
     perms: list[str]
+    own_record: bool  # the user has an employee record of their own («Миний хуудас» in the nav)
 
 
 class MetaOut(Schema):
@@ -41,15 +44,17 @@ def _company() -> dict[str, object]:
     return {"name": row.name, "logo_url": row.letterhead_logo.url if row.letterhead_logo else None}
 
 
-def _user_out(user: User) -> dict[str, object]:
+def _user_out(user: User, request: HttpRequest) -> dict[str, object]:
     # Rights of a module that is switched off are dropped here: get_all_permissions() does not ask modules.
     perms = sorted(p for p in user.get_all_permissions() if not modules.blocked_perm(p))
     return {
         "id": user.pk,
         "username": user.get_username(),
+        "first_name": user.first_name,
         "full_name": user.get_full_name(),
         "must_change_password": bool(getattr(user, "must_change_password", False)),
         "perms": perms,
+        "own_record": bool(own_record({"request": request})),
     }
 
 
@@ -65,5 +70,5 @@ def meta(request: HttpRequest) -> dict[str, object]:
         "company": _company(),
         "modules": modules.state(),
         "csrf": get_token(request),
-        "user": _user_out(user) if signed_in else None,
+        "user": _user_out(user, request) if signed_in else None,
     }

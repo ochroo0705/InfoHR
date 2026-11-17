@@ -1,11 +1,13 @@
 import secrets
+from datetime import date
 
 import pytest
 from accounts import modules
 from accounts.models import User
 from django.contrib.auth.models import Permission
 from django.test import Client
-from employees.models import CompanySettings
+from employees.models import CompanySettings, EmployeeExt
+from leave.tests.conftest import make_employee
 
 pytestmark = pytest.mark.django_db
 
@@ -49,6 +51,7 @@ def test_meta_signed_in(client: Client, user: User) -> None:
     body = client.get("/api/v1/meta").json()
 
     assert body["user"]["username"] == "meta-user"
+    assert body["user"]["first_name"] == "Эрдэнэ"
     assert body["user"]["full_name"] == "Бат Эрдэнэ"
     assert body["user"]["must_change_password"] is False
     assert AUDIT_PERM in body["user"]["perms"]
@@ -85,3 +88,13 @@ def test_meta_reachable_when_forced(client: Client, user: User) -> None:
 
     assert response.status_code == 200
     assert response.json()["user"]["must_change_password"] is True
+
+
+def test_meta_own_record_flag(client: Client, user: User) -> None:
+    client.force_login(user)
+    assert client.get("/api/v1/meta").json()["user"]["own_record"] is False
+
+    employee = make_employee(user, hired=date(2024, 3, 1), register_no="УБ99112299")
+    EmployeeExt.objects.update_or_create(employee=employee, defaults={"user": user})
+
+    assert client.get("/api/v1/meta").json()["user"]["own_record"] is True

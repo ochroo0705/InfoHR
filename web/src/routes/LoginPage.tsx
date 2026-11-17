@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { api, nav, setCsrf, type ErrorBody } from "../api/client";
+import { api, setCsrf, type ErrorBody } from "../api/client";
 import { Button } from "../components/ui/button";
 
 // Same text as app/templates/registration/login.html line 8.
@@ -60,7 +60,7 @@ export default function LoginPage() {
         // login() rotates the CSRF token: store the new one before any further request.
         setCsrf(data.csrf);
         if (data.must_change_password) {
-          nav.assign("/password/change");
+          navigate("/password/change");
         } else {
           navigate(safeNext(params.get("next")));
         }

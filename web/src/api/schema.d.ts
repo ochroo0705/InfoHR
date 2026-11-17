@@ -199,12 +199,16 @@ export interface components {
         };
         /** UserOut */
         UserOut: {
+            /** First Name */
+            first_name: string;
             /** Full Name */
             full_name: string;
             /** Id */
             id: number;
             /** Must Change Password */
             must_change_password: boolean;
+            /** Own Record */
+            own_record: boolean;
             /** Perms */
             perms: string[];
             /** Username */

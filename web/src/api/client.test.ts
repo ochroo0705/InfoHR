@@ -135,4 +135,23 @@ describe("api client", () => {
 
     expect(assignSpy).not.toHaveBeenCalled();
   });
+
+  it("does not reload /password/change on a 403 password_change_required (no loop)", async () => {
+    const mod = await loadClient();
+    const assignSpy = vi
+      .spyOn(mod.nav, "assign")
+      .mockImplementation(() => undefined);
+    window.history.pushState({}, "", "/password/change");
+    fetchMock.mockResolvedValue(
+      jsonResponse(403, {
+        field_errors: {},
+        form_errors: [],
+        code: "password_change_required",
+      }),
+    );
+
+    await mod.api.GET("/api/v1/meta");
+
+    expect(assignSpy).not.toHaveBeenCalled();
+  });
 });

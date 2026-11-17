@@ -21,6 +21,7 @@ function renderLogin(path = "/login") {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reports" element={<p>REPORTS PAGE</p>} />
+        <Route path="/password/change" element={<p>PASSWORD CHANGE PAGE</p>} />
         <Route path="/" element={<p>HOME PAGE</p>} />
       </Routes>
     </MemoryRouter>,
@@ -85,7 +86,7 @@ describe("LoginPage", () => {
     expect(nav.assign).not.toHaveBeenCalled();
   });
 
-  it("assigns /password/change when the user must change the password", async () => {
+  it("goes to /password/change inside the app when the user must change the password", async () => {
     vi.mocked(api.POST).mockResolvedValue({
       data: { ok: true, must_change_password: true },
       response: { status: 200 },
@@ -97,7 +98,8 @@ describe("LoginPage", () => {
     fireEvent.change(screen.getByLabelText("Нууц үг"), { target: { value: "secret" } });
     fireEvent.click(screen.getByRole("button", { name: "Нэвтрэх" }));
 
-    await waitFor(() => expect(nav.assign).toHaveBeenCalledWith("/password/change"));
+    expect(await screen.findByText("PASSWORD CHANGE PAGE")).toBeTruthy();
+    expect(nav.assign).not.toHaveBeenCalled();
   });
 
   it("stores the CSRF token from the login response before navigating", async () => {

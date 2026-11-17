@@ -28,6 +28,31 @@ const DEFAULT_MAX_DIFF_PIXEL_RATIO = 0.01;
 // pixelmatch per-pixel colour distance (0 to 1). Pixels below it count as equal.
 const PIXEL_THRESHOLD = 0.1;
 
+export type ParityOptions = {
+  maxDiffPixelRatio?: number;
+  // A CSS selector. When set, only that element is screenshotted (on both sides), not the whole page.
+  clip?: string;
+  // When true, each side signs in first (login helper, PARITY_USER / PARITY_PASSWORD) before the steps run.
+  signIn?: boolean;
+};
+
+// Signs in on a login page: fills the form, submits, and waits until the page has left /login. Call it on a page
+// that is already on the login page (Django's /login/ or the React /login route). The form ids are the same on both.
+// `base` is the origin of that side, so the wait only ends on that origin.
+export async function login(page: Page, base: string): Promise<void> {
+  const username = process.env.PARITY_USER;
+  const password = process.env.PARITY_PASSWORD;
+  if (!username || !password) {
+    throw new Error("Set PARITY_USER and PARITY_PASSWORD (a demo account) before running the parity specs.");
+  }
+  await page.waitForURL((url) => url.pathname.startsWith("/login"));
+  await page.locator("#id_username").fill(username);
+  await page.locator("#id_password").fill(password);
+  // The React button stays disabled until the CSRF token arrives; click() waits for it.
+  await page.locator("form button").click();
+  await page.waitForURL((url) => url.origin === base && !url.pathname.startsWith("/login"));
+}
+
 // Call at the top level of a *.spec.ts file. It declares one test per viewport and theme.
 // Each test runs the same steps on the Django page and on the React page, and compares
 // the screenshots and the focused element id after every step.
@@ -36,14 +61,14 @@ export async function parity(
   djangoPath: string,
   webPath: string,
   steps: Step[],
-  opts: { maxDiffPixelRatio?: number } = {},
+  opts: ParityOptions = {},
 ): Promise<void> {
   const maxRatio = opts.maxDiffPixelRatio ?? DEFAULT_MAX_DIFF_PIXEL_RATIO;
   test.describe(name, () => {
     for (const viewport of VIEWPORTS) {
       for (const theme of THEMES) {
         test(`${viewport.width}px ${theme}`, async ({ browser }, testInfo) => {
-          await runParity(browser, testInfo, djangoPath, webPath, steps, viewport, theme, maxRatio);
+          await runParity(browser, testInfo, djangoPath, webPath, steps, viewport, theme, { ...opts, maxDiffPixelRatio: maxRatio });
         });
       }
     }
@@ -90,8 +115,10 @@ async function runParity(
   steps: Step[],
   viewport: Viewport,
   theme: Theme,
-  maxRatio: number,
+  opts: ParityOptions & { maxDiffPixelRatio: number },
 ): Promise<void> {
+  const maxRatio = opts.maxDiffPixelRatio;
+  const clip = opts.clip;
   const djangoContext = await newSideContext(browser, viewport, theme);
   const webContext = await newSideContext(browser, viewport, theme);
   try {
@@ -99,6 +126,11 @@ async function runParity(
     const webPage = await webContext.newPage();
     await djangoPage.goto(DJANGO_URL + djangoPath);
     await webPage.goto(WEB_URL + webPath);
+    // Anonymous visits land on the login page (Django redirects, the React guard redirects). Sign in on both sides.
+    if (opts.signIn) {
+      await login(djangoPage, DJANGO_URL);
+      await login(webPage, WEB_URL);
+    }
     // The React page fetches its CSRF token after load; wait for it so both sides are settled.
     await djangoPage.waitForLoadState("networkidle");
     await webPage.waitForLoadState("networkidle");
@@ -106,7 +138,7 @@ async function runParity(
     for (const [index, step] of steps.entries()) {
       await step(djangoPage);
       await step(webPage);
-      await compare(testInfo, `step-${index + 1}`, djangoPage, webPage, maxRatio);
+      await compare(testInfo, `step-${index + 1}`, djangoPage, webPage, maxRatio, clip);
     }
   } finally {
     await djangoContext.close();
@@ -124,10 +156,28 @@ async function compare(
   djangoPage: Page,
   webPage: Page,
   maxRatio: number,
+  clip?: string,
 ): Promise<void> {
-  const shotOptions = { fullPage: true, animations: "disabled", caret: "hide" } as const;
-  const djangoShot = PNG.sync.read(await djangoPage.screenshot(shotOptions));
-  const webShot = PNG.sync.read(await webPage.screenshot(shotOptions));
+  // With a clip, only that element is shot (an element shot cannot be full page). Wait first until no request is
+  // running on either side: the React loading bar (body[data-loading]) or an htmx request (.htmx-request), so the
+  // 3px loading bar is never caught mid-flight.
+  const shot = async (page: Page) => {
+    // Idle twice, 300 ms apart: a refetch that starts on window focus can begin just after the first check.
+    const idle = () =>
+      page.waitForFunction(
+        () => !document.body.hasAttribute("data-loading") && !document.querySelector(".htmx-request"),
+        undefined,
+        { timeout: 10_000 },
+      );
+    await idle();
+    await page.waitForTimeout(300);
+    await idle();
+    return clip
+      ? page.locator(clip).first().screenshot({ animations: "disabled", caret: "hide" })
+      : page.screenshot({ fullPage: true, animations: "disabled", caret: "hide" });
+  };
+  const djangoShot = PNG.sync.read(await shot(djangoPage));
+  const webShot = PNG.sync.read(await shot(webPage));
   const djangoFocus = await activeId(djangoPage);
   const webFocus = await activeId(webPage);
 

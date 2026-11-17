@@ -33,6 +33,56 @@ describe("tokens.css", () => {
     expect(missing).toEqual([]);
   });
 
+  it("has the dark solid-fill overrides of input.css (415-421) at the top level of the @media screen block that holds the dark :root block", () => {
+    // Returns the text inside the braces that open at index `open`.
+    function bodyAt(source: string, open: number): string {
+      let depth = 0;
+      for (let i = open; i < source.length; i += 1) {
+        if (source[i] === "{") depth += 1;
+        else if (source[i] === "}") {
+          depth -= 1;
+          if (depth === 0) return source.slice(open + 1, i);
+        }
+      }
+      throw new Error("unclosed block");
+    }
+    // Every rule that sits directly in `body` (not inside a nested block), as "selector { declarations }".
+    function topRules(body: string): string[] {
+      const css = body.replace(/\/\*[\s\S]*?\*\//g, "");
+      const out: string[] = [];
+      let buf = "";
+      for (let i = 0; i < css.length; i += 1) {
+        if (css[i] === "{") {
+          const inner = bodyAt(css, i);
+          out.push(`${buf.trim().replace(/\s+/g, " ")} { ${inner.trim().replace(/\s+/g, " ")} }`);
+          buf = "";
+          i += inner.length + 1;
+        } else {
+          buf += css[i];
+        }
+      }
+      return out;
+    }
+
+    const screenBody = bodyAt(tokensCss, tokensCss.indexOf("@media screen {") + "@media screen ".length);
+    const darkRoot = ':root[data-theme="dark"] {';
+    const rootAt = screenBody.indexOf(darkRoot);
+    expect(rootAt).toBeGreaterThanOrEqual(0);
+    const darkRootBody = bodyAt(screenBody, rootAt + darkRoot.length - 1);
+    expect(darkRootBody).toContain("--color-pick-edge");
+
+    const rules = topRules(screenBody);
+    for (const rule of [
+      ':root[data-theme="dark"] .hover\\:bg-violet-700:hover { background-color: #b0301f; }',
+      ':root[data-theme="dark"] .hover\\:bg-red-700:hover { background-color: #c13237; }',
+      ':root[data-theme="dark"] :is(.bg-amber-400, .bg-amber-500) { color: #1d1606; }',
+      ':root[data-theme="dark"] .bg-slate-800 { background-color: #17222d; }',
+      ':root[data-theme="dark"] .bg-slate-900\\/40, :root[data-theme="dark"] .bg-black\\/40 { background-color: rgb(0 0 0 / .6); }',
+    ]) {
+      expect(rules).toContain(rule);
+    }
+  });
+
   it("sets the motion durations", () => {
     const value = (name: string) => tokenProps.find((t) => t.name === name)?.value;
     expect(value("--dur-in")).toBe("180ms");

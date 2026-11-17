@@ -235,6 +235,10 @@
       },
       "UserOut": {
         "properties": {
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
           "full_name": {
             "title": "Full Name",
             "type": "string"
@@ -245,6 +249,10 @@
           },
           "must_change_password": {
             "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "own_record": {
+            "title": "Own Record",
             "type": "boolean"
           },
           "perms": {
@@ -262,9 +270,11 @@
         "required": [
           "id",
           "username",
+          "first_name",
           "full_name",
           "must_change_password",
-          "perms"
+          "perms",
+          "own_record"
         ],
         "title": "UserOut",
         "type": "object"

@@ -25,7 +25,7 @@ export const nav = {
 
 let loginRedirectDone = false;
 
-function redirectToLogin(): void {
+export function redirectToLogin(): void {
   if (loginRedirectDone) return;
   // Already on the login page: a 401 there is the expected answer, not a reason to reload.
   if (location.pathname === "/login") return;
@@ -51,7 +51,8 @@ const authMiddleware: Middleware = {
         .clone()
         .json()
         .catch(() => null)) as Partial<ErrorBody> | null;
-      if (body?.code === "password_change_required") {
+      // Already on the change page: its own 403s must not reload it (that would loop).
+      if (body?.code === "password_change_required" && location.pathname !== "/password/change") {
         nav.assign("/password/change");
       }
     }

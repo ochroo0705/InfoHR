@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "./fonts.css";
 @import "./tokens.css";
+@import "./motion.css";
+@import "./scrollbars.css";
 
 /* Same as app/static/css/input.css: dark: utilities follow the data-theme attribute, not the OS setting. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
