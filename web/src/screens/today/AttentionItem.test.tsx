@@ -1,11 +1,24 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render as renderTree, screen, waitFor, type RenderOptions } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
 import type { AttentionMoreOut, GroupOut, ItemOut } from "../../api/today";
 import { AttentionChip } from "./AttentionChip";
 import { AttentionItem } from "./AttentionItem";
 import { AttentionMore, GapPeople } from "./AttentionMore";
+
+// The tiles link to employee pages through the router (ported paths), so every render needs a Router. Any wrapper the
+// test passes is kept inside the router.
+function render(ui: ReactNode, options?: RenderOptions) {
+  const Inner = options?.wrapper;
+  return renderTree(ui, {
+    ...options,
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <MemoryRouter>{Inner ? <Inner>{children}</Inner> : children}</MemoryRouter>
+    ),
+  });
+}
 
 // fetch is stubbed before the api client is imported (openapi-fetch captures fetch when it is created). The real
 // useAttentionMore runs on a QueryClient; `respond` decides each answer from the request URL.

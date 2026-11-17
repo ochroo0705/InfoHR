@@ -11,7 +11,7 @@ describe("isPorted", () => {
   });
 
   it("is false for a Django-only page", () => {
-    expect(isPorted("/employees/5/")).toBe(false);
+    expect(isPorted("/employees/new/")).toBe(false);
   });
 });
 
@@ -40,11 +40,11 @@ describe("AppLink and openLegacyPopup", () => {
   it("renders a full-page link into the Django UI for a path that is not ported", () => {
     render(
       <MemoryRouter>
-        <AppLink to="/employees/5/">Profile</AppLink>
+        <AppLink to="/employees/new/">Profile</AppLink>
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe(
-      "http://dj/employees/5/",
+      "http://dj/employees/new/",
     );
   });
 

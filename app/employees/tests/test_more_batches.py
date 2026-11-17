@@ -15,7 +15,7 @@ from macs.models import Command, Employee
 
 from employees import views
 from employees.models import ActivityEntry, ActivityKind
-from employees.services import order_register
+from employees.services import detail_page, order_register
 
 from .test_order_register import bare, make_order
 from .test_views import login_as
@@ -77,6 +77,7 @@ def test_register_empty_text_only_on_the_first_batch(hr: Client, bare: Employee)
 @pytest.fixture
 def log(hired: Employee, actor: User, monkeypatch: pytest.MonkeyPatch) -> int:
     monkeypatch.setattr(views, "ACTIVITY_BATCH", BATCH)
+    monkeypatch.setattr(detail_page, "ACTIVITY_BATCH", BATCH)  # the drawer's first batch is cut in the service
     before = ActivityEntry.objects.filter(employee=hired).count()
     for n in range(8):
         ActivityEntry.objects.create(employee=hired, by=actor, kind=ActivityKind.NOTE, message=f"Тэмдэглэл-{n}-")

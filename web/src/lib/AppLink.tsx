@@ -59,3 +59,9 @@ export function openLegacyPopup(
 ): void {
   window.location.href = legacyOrigin() + page + "#open=" + kind;
 }
+
+// Opens the Django employee page for writes (ruling D2, the same stop-gap as openLegacyPopup): a full page load, no
+// fetch. Step 3b wires the pop-ups on the React side.
+export function openLegacyEmployee(pk: number): void {
+  window.location.href = legacyOrigin() + "/employees/" + pk + "/";
+}

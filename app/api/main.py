@@ -5,6 +5,8 @@ from ninja.security import django_auth
 
 from api.attention import attention_router
 from api.auth import auth_router
+from api.company import company_router
+from api.employee import employee_router
 from api.errors import ApiError
 from api.me import checklists_router, me_router
 from api.meta import meta_router
@@ -75,3 +77,5 @@ api.add_router("/today", today_router)
 api.add_router("/attention", attention_router)
 api.add_router("/me", me_router)
 api.add_router("/checklists", checklists_router)
+api.add_router("/employees", employee_router)
+api.add_router("/company", company_router)

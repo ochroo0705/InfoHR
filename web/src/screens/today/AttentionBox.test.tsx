@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { cleanup, fireEvent, render as renderTree, screen, type RenderOptions } from "@testing-library/react";
+import { useState, type ReactNode } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttentionBoxOut, GroupOut, ItemOut } from "../../api/today";
 import { AttentionBox } from "./AttentionBox";
@@ -7,6 +8,18 @@ import { AttentionTile } from "./AttentionTile";
 
 // The toggle mutation is replaced by a fake: `mutate` is a spy, and `setBox` lets a test play the answer the real
 // hook would write into ["today"]. useAttentionMore is never reached (no group has more items).
+// The tiles link to employee pages through the router (ported paths), so every render needs a Router. Any wrapper the
+// test passes is kept inside the router.
+function render(ui: ReactNode, options?: RenderOptions) {
+  const Inner = options?.wrapper;
+  return renderTree(ui, {
+    ...options,
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <MemoryRouter>{Inner ? <Inner>{children}</Inner> : children}</MemoryRouter>
+    ),
+  });
+}
+
 const h = vi.hoisted(() => ({
   mutate: vi.fn(),
   setBox: null as null | ((box: unknown) => void),

@@ -177,6 +177,72 @@
         "title": "BalanceOut",
         "type": "object"
       },
+      "CanOut": {
+        "properties": {
+          "create_login": {
+            "title": "Create Login",
+            "type": "boolean"
+          },
+          "manage": {
+            "title": "Manage",
+            "type": "boolean"
+          },
+          "manage_salary": {
+            "title": "Manage Salary",
+            "type": "boolean"
+          },
+          "record_leave": {
+            "title": "Record Leave",
+            "type": "boolean"
+          },
+          "view_personal": {
+            "title": "View Personal",
+            "type": "boolean"
+          },
+          "view_salary": {
+            "title": "View Salary",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "manage",
+          "create_login",
+          "view_salary",
+          "manage_salary",
+          "view_personal",
+          "record_leave"
+        ],
+        "title": "CanOut",
+        "type": "object"
+      },
+      "CancelOut": {
+        "properties": {
+          "link_text": {
+            "title": "Link Text",
+            "type": "string"
+          },
+          "order_pk": {
+            "title": "Order Pk",
+            "type": "integer"
+          },
+          "suffix": {
+            "title": "Suffix",
+            "type": "string"
+          },
+          "text_prefix": {
+            "title": "Text Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_pk",
+          "text_prefix",
+          "link_text",
+          "suffix"
+        ],
+        "title": "CancelOut",
+        "type": "object"
+      },
       "ChecklistOut": {
         "properties": {
           "open": {
@@ -193,6 +259,24 @@
           "overdue"
         ],
         "title": "ChecklistOut",
+        "type": "object"
+      },
+      "ChipOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "tone"
+        ],
+        "title": "ChipOut",
         "type": "object"
       },
       "CompanyOut": {
@@ -220,6 +304,219 @@
         "title": "CompanyOut",
         "type": "object"
       },
+      "CompanyPageBarOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value",
+          "width"
+        ],
+        "title": "CompanyPageBarOut",
+        "type": "object"
+      },
+      "CompanyPageBarsOut": {
+        "properties": {
+          "bars": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyPageBarOut"
+            },
+            "title": "Bars",
+            "type": "array"
+          },
+          "no_data": {
+            "title": "No Data",
+            "type": "boolean"
+          },
+          "no_data_text": {
+            "title": "No Data Text",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "summary",
+          "no_data",
+          "no_data_text",
+          "bars"
+        ],
+        "title": "CompanyPageBarsOut",
+        "type": "object"
+      },
+      "CompanyPageDotOut": {
+        "properties": {
+          "cx": {
+            "title": "Cx",
+            "type": "string"
+          },
+          "cy": {
+            "title": "Cy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cx",
+          "cy"
+        ],
+        "title": "CompanyPageDotOut",
+        "type": "object"
+      },
+      "CompanyPageLineOut": {
+        "properties": {
+          "first_label": {
+            "title": "First Label",
+            "type": "string"
+          },
+          "head": {
+            "title": "Head",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_dot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompanyPageDotOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_label": {
+            "title": "Last Label",
+            "type": "string"
+          },
+          "no_data": {
+            "title": "No Data",
+            "type": "boolean"
+          },
+          "no_data_text": {
+            "title": "No Data Text",
+            "type": "string"
+          },
+          "polylines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Polylines",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "view_box": {
+            "title": "View Box",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "head",
+          "label",
+          "polylines",
+          "last_dot",
+          "view_box",
+          "first_label",
+          "last_label",
+          "no_data",
+          "no_data_text"
+        ],
+        "title": "CompanyPageLineOut",
+        "type": "object"
+      },
+      "CompanyPageOut": {
+        "properties": {
+          "departments": {
+            "$ref": "#/components/schemas/CompanyPageBarsOut"
+          },
+          "headcount": {
+            "$ref": "#/components/schemas/CompanyPageLineOut"
+          },
+          "hires_text": {
+            "title": "Hires Text",
+            "type": "string"
+          },
+          "history_note": {
+            "title": "History Note",
+            "type": "string"
+          },
+          "leavers_text": {
+            "title": "Leavers Text",
+            "type": "string"
+          },
+          "partial_history": {
+            "title": "Partial History",
+            "type": "boolean"
+          },
+          "partial_scope": {
+            "title": "Partial Scope",
+            "type": "boolean"
+          },
+          "scope_label": {
+            "title": "Scope Label",
+            "type": "string"
+          },
+          "tenure": {
+            "$ref": "#/components/schemas/CompanyPageBarsOut"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "today": {
+            "title": "Today",
+            "type": "string"
+          },
+          "turnover": {
+            "$ref": "#/components/schemas/CompanyPageLineOut"
+          },
+          "turnover_note": {
+            "title": "Turnover Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "today",
+          "partial_scope",
+          "scope_label",
+          "partial_history",
+          "history_note",
+          "hires_text",
+          "leavers_text",
+          "headcount",
+          "turnover",
+          "turnover_note",
+          "departments",
+          "tenure"
+        ],
+        "title": "CompanyPageOut",
+        "type": "object"
+      },
       "CsrfOut": {
         "properties": {
           "token": {
@@ -231,6 +528,330 @@
           "token"
         ],
         "title": "CsrfOut",
+        "type": "object"
+      },
+      "EmployeeActivityChangeOut": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "old",
+          "new"
+        ],
+        "title": "EmployeeActivityChangeOut",
+        "type": "object"
+      },
+      "EmployeeActivityEntryOut": {
+        "properties": {
+          "badge_class": {
+            "title": "Badge Class",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeActivityChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "day_heading": {
+            "title": "Day Heading",
+            "type": "string"
+          },
+          "dot_class": {
+            "title": "Dot Class",
+            "type": "string"
+          },
+          "is_note": {
+            "title": "Is Note",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "message_class": {
+            "title": "Message Class",
+            "type": "string"
+          },
+          "starts_day": {
+            "title": "Starts Day",
+            "type": "boolean"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "starts_day",
+          "day_heading",
+          "time",
+          "by",
+          "kind",
+          "kind_label",
+          "dot_class",
+          "badge_class",
+          "is_note",
+          "message",
+          "message_class",
+          "changes"
+        ],
+        "title": "EmployeeActivityEntryOut",
+        "type": "object"
+      },
+      "EmployeeActivityOut": {
+        "properties": {
+          "empty_label": {
+            "title": "Empty Label",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeActivityEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "log_url": {
+            "title": "Log Url",
+            "type": "string"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "prev_day": {
+            "title": "Prev Day",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entries",
+          "prev_day",
+          "next_offset",
+          "empty_label",
+          "log_url"
+        ],
+        "title": "EmployeeActivityOut",
+        "type": "object"
+      },
+      "EmployeeBankFieldOut": {
+        "properties": {
+          "aria_label": {
+            "title": "Aria Label",
+            "type": "string"
+          },
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "select",
+              "text",
+              "checkbox"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "aria_label",
+          "kind",
+          "value",
+          "choice",
+          "text",
+          "checked"
+        ],
+        "title": "EmployeeBankFieldOut",
+        "type": "object"
+      },
+      "EmployeeHeadOut": {
+        "properties": {
+          "activity_count": {
+            "title": "Activity Count",
+            "type": "integer"
+          },
+          "can": {
+            "$ref": "#/components/schemas/CanOut"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "event_menu": {
+            "items": {
+              "$ref": "#/components/schemas/EventMenuItemOut"
+            },
+            "title": "Event Menu",
+            "type": "array"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/FactsOut"
+          },
+          "family_name": {
+            "title": "Family Name",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "given_initial": {
+            "title": "Given Initial",
+            "type": "string"
+          },
+          "given_name": {
+            "title": "Given Name",
+            "type": "string"
+          },
+          "latest_activity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatestActivityOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leave_left": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Left"
+          },
+          "next_event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextEventOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "one_time_login": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OneTimeLoginOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photo_srcset": {
+            "title": "Photo Srcset",
+            "type": "string"
+          },
+          "photo_url": {
+            "title": "Photo Url",
+            "type": "string"
+          },
+          "pk": {
+            "title": "Pk",
+            "type": "integer"
+          },
+          "setup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SetupOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/StateOut"
+          }
+        },
+        "required": [
+          "pk",
+          "full_name",
+          "family_name",
+          "given_name",
+          "given_initial",
+          "code",
+          "email",
+          "photo_url",
+          "photo_srcset",
+          "facts",
+          "state",
+          "next_event",
+          "leave_left",
+          "latest_activity",
+          "activity_count",
+          "setup",
+          "event_menu",
+          "can",
+          "one_time_login"
+        ],
+        "title": "EmployeeHeadOut",
         "type": "object"
       },
       "EmployeeOut": {
@@ -261,6 +882,384 @@
         "title": "EmployeeOut",
         "type": "object"
       },
+      "EmployeePersonalChipOut": {
+        "properties": {
+          "count_text": {
+            "title": "Count Text",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "title": "Tone",
+            "type": "string"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "count_text",
+          "visible",
+          "tone"
+        ],
+        "title": "EmployeePersonalChipOut",
+        "type": "object"
+      },
+      "EmployeePersonalChoiceOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "EmployeePersonalChoiceOut",
+        "type": "object"
+      },
+      "EmployeePersonalColumnOut": {
+        "properties": {
+          "cell_class": {
+            "title": "Cell Class",
+            "type": "string"
+          },
+          "head_class": {
+            "title": "Head Class",
+            "type": "string"
+          },
+          "header": {
+            "title": "Header",
+            "type": "string"
+          }
+        },
+        "required": [
+          "header",
+          "head_class",
+          "cell_class"
+        ],
+        "title": "EmployeePersonalColumnOut",
+        "type": "object"
+      },
+      "EmployeePersonalFieldOut": {
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "combo": {
+            "title": "Combo",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "textarea",
+              "number",
+              "date",
+              "select",
+              "checkbox"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "placeholder": {
+            "title": "Placeholder",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "required",
+          "kind",
+          "value",
+          "checked",
+          "placeholder",
+          "choice",
+          "combo",
+          "choices"
+        ],
+        "title": "EmployeePersonalFieldOut",
+        "type": "object"
+      },
+      "EmployeePersonalGroupOut": {
+        "properties": {
+          "chips": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalChipOut"
+            },
+            "title": "Chips",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "open_by_default": {
+            "title": "Open By Default",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "open_by_default",
+          "chips"
+        ],
+        "title": "EmployeePersonalGroupOut",
+        "type": "object"
+      },
+      "EmployeePersonalListOut": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalColumnOut"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "empty_label": {
+            "title": "Empty Label",
+            "type": "string"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "inline": {
+            "title": "Inline",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalListRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "group",
+          "parent",
+          "inline",
+          "editable",
+          "count",
+          "empty_label",
+          "columns",
+          "rows"
+        ],
+        "title": "EmployeePersonalListOut",
+        "type": "object"
+      },
+      "EmployeePersonalListRowOut": {
+        "properties": {
+          "cells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "cells"
+        ],
+        "title": "EmployeePersonalListRowOut",
+        "type": "object"
+      },
+      "EmployeePersonalOut": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "lists": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalListOut"
+            },
+            "title": "Lists",
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "editable",
+          "groups",
+          "counts",
+          "sections",
+          "lists"
+        ],
+        "title": "EmployeePersonalOut",
+        "type": "object"
+      },
+      "EmployeePersonalRowOut": {
+        "properties": {
+          "display": {
+            "title": "Display",
+            "type": "string"
+          },
+          "empty": {
+            "title": "Empty",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "display",
+          "empty"
+        ],
+        "title": "EmployeePersonalRowOut",
+        "type": "object"
+      },
+      "EmployeePersonalSectionOut": {
+        "properties": {
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeePersonalRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "group",
+          "editable",
+          "rows",
+          "fields"
+        ],
+        "title": "EmployeePersonalSectionOut",
+        "type": "object"
+      },
       "EmployeeRefOut": {
         "properties": {
           "code": {
@@ -287,6 +1286,481 @@
           "code"
         ],
         "title": "EmployeeRefOut",
+        "type": "object"
+      },
+      "EmployeeSalaryOut": {
+        "properties": {
+          "bank_fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeBankFieldOut"
+            },
+            "title": "Bank Fields",
+            "type": "array"
+          },
+          "can_set": {
+            "title": "Can Set",
+            "type": "boolean"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "has_rows": {
+            "title": "Has Rows",
+            "type": "boolean"
+          },
+          "missing_label": {
+            "title": "Missing Label",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeSalaryRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "set_label": {
+            "title": "Set Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current",
+          "missing_label",
+          "rows",
+          "has_rows",
+          "can_set",
+          "set_label",
+          "editable",
+          "bank_fields"
+        ],
+        "title": "EmployeeSalaryOut",
+        "type": "object"
+      },
+      "EmployeeSalaryRowOut": {
+        "properties": {
+          "action_class": {
+            "title": "Action Class",
+            "type": "string"
+          },
+          "action_label": {
+            "title": "Action Label",
+            "type": "string"
+          },
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "cancellable": {
+            "title": "Cancellable",
+            "type": "boolean"
+          },
+          "correctable": {
+            "title": "Correctable",
+            "type": "boolean"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "period_text": {
+            "title": "Period Text",
+            "type": "string"
+          },
+          "pk": {
+            "title": "Pk",
+            "type": "integer"
+          },
+          "scheduled": {
+            "title": "Scheduled",
+            "type": "boolean"
+          },
+          "scheduled_label": {
+            "title": "Scheduled Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pk",
+          "event_id",
+          "period_text",
+          "amount",
+          "label",
+          "scheduled",
+          "scheduled_label",
+          "cancellable",
+          "correctable",
+          "action_label",
+          "action_class"
+        ],
+        "title": "EmployeeSalaryRowOut",
+        "type": "object"
+      },
+      "EmployeeTaskOut": {
+        "properties": {
+          "can_tick": {
+            "title": "Can Tick",
+            "type": "boolean"
+          },
+          "can_untick": {
+            "title": "Can Untick",
+            "type": "boolean"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "done_label": {
+            "title": "Done Label",
+            "type": "string"
+          },
+          "done_rest": {
+            "title": "Done Rest",
+            "type": "string"
+          },
+          "due_class": {
+            "title": "Due Class",
+            "type": "string"
+          },
+          "due_on": {
+            "title": "Due On",
+            "type": "string"
+          },
+          "overdue": {
+            "title": "Overdue",
+            "type": "boolean"
+          },
+          "owner_label": {
+            "title": "Owner Label",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "title_class": {
+            "title": "Title Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "required",
+          "owner_label",
+          "due_on",
+          "overdue",
+          "done",
+          "done_label",
+          "done_rest",
+          "title_class",
+          "due_class",
+          "can_tick",
+          "can_untick"
+        ],
+        "title": "EmployeeTaskOut",
+        "type": "object"
+      },
+      "EmployeeWorkOut": {
+        "properties": {
+          "branch": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "checklist_visible": {
+            "title": "Checklist Visible",
+            "type": "boolean"
+          },
+          "checklists": {
+            "items": {
+              "$ref": "#/components/schemas/PanelOut"
+            },
+            "title": "Checklists",
+            "type": "array"
+          },
+          "contract_chip": {
+            "title": "Contract Chip",
+            "type": "boolean"
+          },
+          "contract_end": {
+            "title": "Contract End",
+            "type": "string"
+          },
+          "contract_end_label": {
+            "title": "Contract End Label",
+            "type": "string"
+          },
+          "contract_no": {
+            "title": "Contract No",
+            "type": "string"
+          },
+          "contract_start": {
+            "title": "Contract Start",
+            "type": "string"
+          },
+          "contract_type": {
+            "title": "Contract Type",
+            "type": "string"
+          },
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "employee_type": {
+            "title": "Employee Type",
+            "type": "string"
+          },
+          "first_hire_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkFieldOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "job_figure": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "job_type": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobRowOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "leave": {
+            "$ref": "#/components/schemas/LeaveOut"
+          },
+          "macs_contract_no": {
+            "title": "Macs Contract No",
+            "type": "string"
+          },
+          "macs_contract_period": {
+            "title": "Macs Contract Period",
+            "type": "string"
+          },
+          "macs_last_order_no": {
+            "title": "Macs Last Order No",
+            "type": "string"
+          },
+          "macs_last_order_text": {
+            "title": "Macs Last Order Text",
+            "type": "string"
+          },
+          "macs_leave_type": {
+            "title": "Macs Leave Type",
+            "type": "string"
+          },
+          "macs_probation_months": {
+            "title": "Macs Probation Months",
+            "type": "string"
+          },
+          "macs_taken_leave": {
+            "title": "Macs Taken Leave",
+            "type": "string"
+          },
+          "manager": {
+            "title": "Manager",
+            "type": "string"
+          },
+          "office": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "order_warning": {
+            "title": "Order Warning",
+            "type": "string"
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/OtherOrderOut"
+            },
+            "title": "Orders",
+            "type": "array"
+          },
+          "orders_count": {
+            "title": "Orders Count",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "probation_end": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "second_position": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "section": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "sector_years": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "transfer_chip": {
+            "title": "Transfer Chip",
+            "type": "boolean"
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingOut"
+            },
+            "title": "Waiting",
+            "type": "array"
+          },
+          "work_conditions": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          },
+          "work_schedule": {
+            "$ref": "#/components/schemas/WorkFieldOut"
+          }
+        },
+        "required": [
+          "order_warning",
+          "can_manage",
+          "transfer_chip",
+          "position",
+          "department",
+          "manager",
+          "second_position",
+          "office",
+          "section",
+          "branch",
+          "employee_type",
+          "contract_type",
+          "contract_no",
+          "contract_chip",
+          "contract_start",
+          "contract_end",
+          "contract_end_label",
+          "probation_end",
+          "first_hire_date",
+          "job_type",
+          "job_figure",
+          "work_conditions",
+          "work_schedule",
+          "sector_years",
+          "macs_contract_no",
+          "macs_contract_period",
+          "macs_taken_leave",
+          "macs_leave_type",
+          "macs_probation_months",
+          "macs_last_order_no",
+          "macs_last_order_text",
+          "waiting",
+          "jobs",
+          "orders_count",
+          "orders",
+          "leave",
+          "checklist_visible",
+          "checklists"
+        ],
+        "title": "EmployeeWorkOut",
+        "type": "object"
+      },
+      "EventMenuItemOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "EventMenuItemOut",
+        "type": "object"
+      },
+      "FactsOut": {
+        "properties": {
+          "contract_end": {
+            "title": "Contract End",
+            "type": "string"
+          },
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "employee_type": {
+            "title": "Employee Type",
+            "type": "string"
+          },
+          "first_hire_date": {
+            "title": "First Hire Date",
+            "type": "string"
+          },
+          "manager": {
+            "title": "Manager",
+            "type": "string"
+          },
+          "manager_label": {
+            "title": "Manager Label",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "position_line": {
+            "title": "Position Line",
+            "type": "string"
+          },
+          "work_phone": {
+            "title": "Work Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "department",
+          "position_line",
+          "manager",
+          "manager_label",
+          "first_hire_date",
+          "work_phone",
+          "employee_type",
+          "contract_end"
+        ],
+        "title": "FactsOut",
         "type": "object"
       },
       "GroupOut": {
@@ -481,6 +1955,375 @@
           "manager"
         ],
         "title": "JobOut",
+        "type": "object"
+      },
+      "JobRowOut": {
+        "properties": {
+          "cancel_note": {
+            "title": "Cancel Note",
+            "type": "string"
+          },
+          "cancellable": {
+            "title": "Cancellable",
+            "type": "boolean"
+          },
+          "clickable": {
+            "title": "Clickable",
+            "type": "boolean"
+          },
+          "correctable": {
+            "title": "Correctable",
+            "type": "boolean"
+          },
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "is_cancelled": {
+            "title": "Is Cancelled",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "order_chip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChipOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "order_no": {
+            "title": "Order No",
+            "type": "string"
+          },
+          "order_no_muted": {
+            "title": "Order No Muted",
+            "type": "boolean"
+          },
+          "order_pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Pk"
+          },
+          "period_note": {
+            "title": "Period Note",
+            "type": "string"
+          },
+          "period_text": {
+            "title": "Period Text",
+            "type": "string"
+          },
+          "pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pk"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "scheduled": {
+            "title": "Scheduled",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pk",
+          "label",
+          "scheduled",
+          "is_cancelled",
+          "position",
+          "department",
+          "status",
+          "order_no",
+          "cancel_note",
+          "order_pk",
+          "order_chip",
+          "period_text",
+          "period_note",
+          "cancellable",
+          "correctable",
+          "clickable",
+          "order_no_muted"
+        ],
+        "title": "JobRowOut",
+        "type": "object"
+      },
+      "LatestActivityOut": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by",
+          "at",
+          "text"
+        ],
+        "title": "LatestActivityOut",
+        "type": "object"
+      },
+      "LeaveGrantOut": {
+        "properties": {
+          "breakdown": {
+            "title": "Breakdown",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "old_chip": {
+            "title": "Old Chip",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label",
+          "days",
+          "breakdown",
+          "comment",
+          "old_chip"
+        ],
+        "title": "LeaveGrantOut",
+        "type": "object"
+      },
+      "LeaveLineOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "old_chip": {
+            "title": "Old Chip",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "text",
+          "old_chip"
+        ],
+        "title": "LeaveLineOut",
+        "type": "object"
+      },
+      "LeaveOut": {
+        "properties": {
+          "all_leaves_url": {
+            "title": "All Leaves Url",
+            "type": "string"
+          },
+          "can_manage_settings": {
+            "title": "Can Manage Settings",
+            "type": "boolean"
+          },
+          "can_record": {
+            "title": "Can Record",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "fold_hide_label": {
+            "title": "Fold Hide Label",
+            "type": "string"
+          },
+          "fold_old": {
+            "title": "Fold Old",
+            "type": "boolean"
+          },
+          "fold_show_label": {
+            "title": "Fold Show Label",
+            "type": "string"
+          },
+          "no_year_started": {
+            "title": "No Year Started",
+            "type": "boolean"
+          },
+          "nowhere": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveLineOut"
+            },
+            "title": "Nowhere",
+            "type": "array"
+          },
+          "old_absences": {
+            "items": {
+              "$ref": "#/components/schemas/OldAbsenceOut"
+            },
+            "title": "Old Absences",
+            "type": "array"
+          },
+          "old_count": {
+            "title": "Old Count",
+            "type": "integer"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/LeavePeriodOut"
+            },
+            "title": "Periods",
+            "type": "array"
+          },
+          "settings_url": {
+            "title": "Settings Url",
+            "type": "string"
+          },
+          "start_missing": {
+            "title": "Start Missing",
+            "type": "boolean"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "visible",
+          "configured",
+          "start_missing",
+          "periods",
+          "old_count",
+          "fold_old",
+          "fold_show_label",
+          "fold_hide_label",
+          "no_year_started",
+          "nowhere",
+          "old_absences",
+          "can_record",
+          "can_manage_settings",
+          "settings_url",
+          "all_leaves_url"
+        ],
+        "title": "LeaveOut",
+        "type": "object"
+      },
+      "LeavePeriodOut": {
+        "properties": {
+          "badge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChipOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "doubled_note": {
+            "title": "Doubled Note",
+            "type": "string"
+          },
+          "granted": {
+            "title": "Granted",
+            "type": "string"
+          },
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveGrantOut"
+            },
+            "title": "Grants",
+            "type": "array"
+          },
+          "leaves": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveLineOut"
+            },
+            "title": "Leaves",
+            "type": "array"
+          },
+          "left": {
+            "title": "Left",
+            "type": "string"
+          },
+          "left_tone": {
+            "title": "Left Tone",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "boolean"
+          },
+          "period_class": {
+            "title": "Period Class",
+            "type": "string"
+          },
+          "period_text": {
+            "title": "Period Text",
+            "type": "string"
+          },
+          "row_class": {
+            "title": "Row Class",
+            "type": "string"
+          },
+          "taken": {
+            "title": "Taken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_text",
+          "row_class",
+          "period_class",
+          "badge",
+          "current",
+          "old",
+          "granted",
+          "taken",
+          "left",
+          "left_tone",
+          "doubled_note",
+          "grants",
+          "leaves"
+        ],
+        "title": "LeavePeriodOut",
         "type": "object"
       },
       "LoginIn": {
@@ -747,6 +2590,19 @@
         "title": "NavItemOut",
         "type": "object"
       },
+      "NextEventOut": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "NextEventOut",
+        "type": "object"
+      },
       "NoticeIn": {
         "properties": {
           "key": {
@@ -781,6 +2637,232 @@
           "approved"
         ],
         "title": "NoticeOut",
+        "type": "object"
+      },
+      "OldAbsenceOut": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "name",
+          "note"
+        ],
+        "title": "OldAbsenceOut",
+        "type": "object"
+      },
+      "OneTimeLoginOut": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "OneTimeLoginOut",
+        "type": "object"
+      },
+      "OtherOrderOut": {
+        "properties": {
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "can_upload": {
+            "title": "Can Upload",
+            "type": "boolean"
+          },
+          "cancel_number": {
+            "title": "Cancel Number",
+            "type": "string"
+          },
+          "cancel_prefix": {
+            "title": "Cancel Prefix",
+            "type": "string"
+          },
+          "cancel_suffix": {
+            "title": "Cancel Suffix",
+            "type": "string"
+          },
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "boolean"
+          },
+          "cancelled_by_pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled By Pk"
+          },
+          "cancels": {
+            "items": {
+              "$ref": "#/components/schemas/CancelOut"
+            },
+            "title": "Cancels",
+            "type": "array"
+          },
+          "chip": {
+            "$ref": "#/components/schemas/ChipOut"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "hire_note": {
+            "title": "Hire Note",
+            "type": "string"
+          },
+          "legacy": {
+            "title": "Legacy",
+            "type": "boolean"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "number_muted": {
+            "title": "Number Muted",
+            "type": "boolean"
+          },
+          "order_pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Pk"
+          },
+          "pdf_url": {
+            "title": "Pdf Url",
+            "type": "string"
+          },
+          "scan_url": {
+            "title": "Scan Url",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "type_label": {
+            "title": "Type Label",
+            "type": "string"
+          },
+          "word_url": {
+            "title": "Word Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_pk",
+          "legacy",
+          "number",
+          "number_muted",
+          "date",
+          "type_label",
+          "hire_note",
+          "summary",
+          "cancel_prefix",
+          "cancel_number",
+          "cancel_suffix",
+          "cancelled_by_pk",
+          "cancels",
+          "chip",
+          "cancelled",
+          "can_edit",
+          "can_upload",
+          "scan_url",
+          "word_url",
+          "pdf_url"
+        ],
+        "title": "OtherOrderOut",
+        "type": "object"
+      },
+      "PanelOut": {
+        "properties": {
+          "can_cancel": {
+            "title": "Can Cancel",
+            "type": "boolean"
+          },
+          "can_start": {
+            "title": "Can Start",
+            "type": "boolean"
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "checklist": {
+            "title": "Checklist",
+            "type": "boolean"
+          },
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeTaskOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "today": {
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "heading",
+          "caption",
+          "checklist",
+          "completed",
+          "progress",
+          "today",
+          "can_start",
+          "can_cancel",
+          "rows"
+        ],
+        "title": "PanelOut",
         "type": "object"
       },
       "PasswordIn": {
@@ -983,6 +3065,80 @@
         "title": "RequestOut",
         "type": "object"
       },
+      "SetupItemOut": {
+        "properties": {
+          "auto": {
+            "title": "Auto",
+            "type": "boolean"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "done",
+          "auto",
+          "note"
+        ],
+        "title": "SetupItemOut",
+        "type": "object"
+      },
+      "SetupOut": {
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SetupItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "percent": {
+            "title": "Percent",
+            "type": "integer"
+          },
+          "progress_text": {
+            "title": "Progress Text",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "done",
+          "total",
+          "complete",
+          "percent",
+          "progress_text"
+        ],
+        "title": "SetupOut",
+        "type": "object"
+      },
       "ShortcutsOut": {
         "properties": {
           "add_employee": {
@@ -1004,6 +3160,29 @@
           "orders"
         ],
         "title": "ShortcutsOut",
+        "type": "object"
+      },
+      "StateOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "tone"
+        ],
+        "title": "StateOut",
         "type": "object"
       },
       "StripCellOut": {
@@ -1477,6 +3656,103 @@
         ],
         "title": "UserOut",
         "type": "object"
+      },
+      "WaitingOut": {
+        "properties": {
+          "cancellable": {
+            "title": "Cancellable",
+            "type": "boolean"
+          },
+          "chip": {
+            "$ref": "#/components/schemas/ChipOut"
+          },
+          "clickable": {
+            "title": "Clickable",
+            "type": "boolean"
+          },
+          "effective": {
+            "title": "Effective",
+            "type": "string"
+          },
+          "event_pk": {
+            "title": "Event Pk",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "order_no": {
+            "title": "Order No",
+            "type": "string"
+          },
+          "order_no_muted": {
+            "title": "Order No Muted",
+            "type": "boolean"
+          },
+          "order_pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Pk"
+          }
+        },
+        "required": [
+          "event_pk",
+          "label",
+          "effective",
+          "order_no",
+          "order_pk",
+          "chip",
+          "cancellable",
+          "clickable",
+          "order_no_muted"
+        ],
+        "title": "WaitingOut",
+        "type": "object"
+      },
+      "WorkFieldOut": {
+        "properties": {
+          "aria_label": {
+            "title": "Aria Label",
+            "type": "string"
+          },
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "combo": {
+            "title": "Combo",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "choice",
+          "combo",
+          "text",
+          "aria_label"
+        ],
+        "title": "WorkFieldOut",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -1761,6 +4037,234 @@
         "summary": "Tick Task",
         "tags": [
           "checklists"
+        ]
+      }
+    },
+    "/api/v1/company": {
+      "get": {
+        "description": "The company figures page (403 without the employee-list right, as company_page).",
+        "operationId": "api_company_company",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyPageOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Company",
+        "tags": [
+          "company"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}": {
+      "get": {
+        "description": "The header, rail and rights of one employee the signed-in user may see (404 otherwise).",
+        "operationId": "api_employee_employee_head",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeHeadOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Head",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/activity": {
+      "get": {
+        "description": "One batch of the «Түүх» drawer for an employee the signed-in user may see (404 otherwise), as activity_more:\n50 entries from `offset` (a junk offset is 0), the day heading of the entry above, and the next offset.",
+        "operationId": "api_employee_employee_activity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeActivityOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Activity",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/personal": {
+      "get": {
+        "description": "The personal tab of one employee the signed-in user may see (404 otherwise; 403 without the personal right):\nthe topic groups with their chips, the four field sections, and the personal lists.",
+        "operationId": "api_employee_employee_personal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeePersonalOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Personal",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/salary": {
+      "get": {
+        "description": "The Salary tab of one employee the signed-in user may see (404 otherwise; 403 without the salary right):\ntoday's pay, the pay history rows and the «Банк, даатгал» block.",
+        "operationId": "api_employee_employee_salary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeSalaryOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Salary",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/work": {
+      "get": {
+        "description": "The Work tab of one employee the signed-in user may see (404 otherwise): job, contract, MACS fields, the\nhistory, the waiting changes, the other orders, the leave block and the checklist panels.",
+        "operationId": "api_employee_employee_work",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWorkOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Work",
+        "tags": [
+          "employees"
         ]
       }
     },

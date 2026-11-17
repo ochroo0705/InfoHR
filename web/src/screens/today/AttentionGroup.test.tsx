@@ -1,10 +1,24 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render as renderTree, screen, type RenderOptions } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
 import type { GroupOut, ItemOut } from "../../api/today";
 import { AttentionGaps } from "./AttentionGaps";
 import { AttentionGroup } from "./AttentionGroup";
 
 // useAttentionMore is replaced by a fake (no network): null params give nothing, otherwise a fixed page of people.
+// The tiles link to employee pages through the router (ported paths), so every render needs a Router. Any wrapper the
+// test passes is kept inside the router.
+function render(ui: ReactNode, options?: RenderOptions) {
+  const Inner = options?.wrapper;
+  return renderTree(ui, {
+    ...options,
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <MemoryRouter>{Inner ? <Inner>{children}</Inner> : children}</MemoryRouter>
+    ),
+  });
+}
+
 const h = vi.hoisted(() => ({ useAttentionMore: vi.fn() }));
 vi.mock("../../api/today", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api/today")>()),

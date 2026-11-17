@@ -7,6 +7,8 @@ import PasswordChangePage from "./routes/PasswordChangePage";
 import { NotFound } from "./routes/ErrorPage";
 import { MePage } from "./screens/me/MePage";
 import { TodayPage } from "./screens/today/TodayPage";
+import { EmployeePage } from "./screens/employee/EmployeePage";
+import { CompanyPage } from "./screens/company/CompanyPage";
 import { Landing } from "./routes/Landing";
 import { ConfirmProvider } from "./widgets/confirm";
 
@@ -33,6 +35,8 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/employees/today/" element={<TodayPage />} />
           <Route path="/me/" element={<MePage />} />
+          <Route path="/employees/company/" element={<CompanyPage />} />
+          <Route path="/employees/:pk/" element={<EmployeePage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />
         </Route>

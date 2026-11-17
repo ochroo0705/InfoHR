@@ -5,6 +5,9 @@
 @import "./components.css";
 @import "./scrollbars.css";
 
+/* Classes that the API sends as strings (app/api/employee.py tone strings) are built only if Tailwind scans them. */
+@source "../../../app/api";
+
 /* Same as app/static/css/input.css: dark: utilities follow the data-theme attribute, not the OS setting. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 

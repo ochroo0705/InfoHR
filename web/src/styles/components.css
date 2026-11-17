@@ -11,6 +11,37 @@
   .ptable.card-soft { border-color: transparent; }
   /* input.css 240: tile icon */
   .tile-icon { display: flex; height: 2.5rem; width: 2.5rem; flex: none; align-items: center; justify-content: center; border-radius: .75rem; }
+  /* input.css 191-205, 230-232, 250, 158, 161: tables (UI_RULES 4), sticky frame, signed-order seal, row selection */
+  section[id^="tab-"] dl dt { font-size: .8125rem; letter-spacing: .01em; color: var(--color-slate-600); }
+  section[id^="tab-"] dl dd:not(:has(input, select, textarea)) { font-weight: 500; }
+  .ptable { margin-top: .5rem; overflow-x: auto; border: 1px solid var(--color-slate-200); border-radius: .5rem; }
+  .ptable > table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+  .ptable th { padding: .5rem .75rem; text-align: left; white-space: nowrap; font-size: var(--text-xs); font-weight: 500; color: var(--color-slate-600); background: var(--color-slate-50); border-bottom: 1px solid var(--color-slate-200); }
+  .ptable td { padding: .5rem .75rem; border-top: 1px solid var(--color-slate-100); }
+  .ptable tbody tr:first-child td { border-top: 0; }
+  .ptable .text-right { text-align: right; }
+  .ptable .pl-6 { padding-left: 1.5rem; }
+  .ptable thead th:first-child { border-top-left-radius: calc(.5rem - 1px); }
+  .ptable thead th:last-child { border-top-right-radius: calc(.5rem - 1px); }
+  .f-changed .f-soft { box-shadow: inset 3px 0 0 var(--color-violet-500); }
+  .ptable-fit { max-height: max(20rem, calc(100dvh - 11rem)); overflow: auto; overscroll-behavior: contain; }
+  .ptable-fit thead th { position: sticky; top: 0; z-index: 20; }
+  .ptable-fit thead th.sticky { z-index: 30; }
+  .seal { display: inline-block; padding: .125rem .6875rem; border: 2px solid var(--color-seal); border-radius: .4375rem; background: rgb(192 51 42 / .05); box-shadow: inset 0 0 0 2px var(--color-surface), inset 0 0 0 3px var(--color-seal); color: var(--color-seal); font-size: var(--text-xs); font-weight: 600; letter-spacing: .02em; line-height: 1.25; rotate: -2deg; mix-blend-mode: multiply; white-space: nowrap; }
+  tr.cursor-pointer, tr[data-inline-row], #result_list tbody tr, body[data-selecting] #report-page tbody tr[data-person] { -webkit-user-select: none; user-select: none; }
+  tr.cursor-pointer :is(input, textarea, select), tr[data-inline-row] :is(input, textarea, select) { -webkit-user-select: text; user-select: text; }
+  /* input.css 551-555 (the React rows: cursor-pointer and hover:bg rows; the Django-only selectors are left out) */
+  tr.cursor-pointer, tr.cursor-pointer > td, tr[class*="hover:bg-"], tr[class*="hover:bg-"] > td { transition: background-color var(--dur-hover) var(--ease-out); }
+  /* input.css 562-564: a link that is the whole row does not underline on hover */
+  tr.cursor-pointer a:hover, tr[class*="hover:bg-"] a:hover { text-decoration: none; }
+  /* input.css 242-248: employee page tabs (flat, icon + label, thin violet underline that slides in on the active tab) */
+  .tab { position: relative; display: flex; align-items: center; gap: .375rem; padding: .875rem 0 .75rem; font-size: .875rem; font-weight: 500; color: var(--color-slate-500); }
+  .tab svg { color: var(--color-slate-400); transition: color .15s; }
+  .tab:hover { color: var(--color-slate-800); }
+  .tab::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--color-violet-600); transform: scaleX(0); transition: transform .2s; }
+  .tab.tab-on { color: var(--color-slate-900); font-weight: 600; }
+  .tab.tab-on svg { color: var(--color-violet-600); }
+  .tab.tab-on::after { transform: scaleX(1); }
 }
 
 /* input.css 423: dark hover shadow of the soft-lift link. Inside the @media screen block that starts at input.css 353; the
@@ -18,3 +49,20 @@
 @media screen {
   :root[data-theme="dark"] a.card-soft:hover { box-shadow: 0 0 0 1px var(--color-slate-300), 0 10px 28px rgb(0 0 0 / .45); }
 }
+
+/* input.css 424: the seal in dark mode (outside the layer, as in input.css) */
+@media screen {
+  :root[data-theme="dark"] .seal { mix-blend-mode: normal; background: rgb(231 76 60 / .08); }
+}
+
+/* Unlayered, as in detail.html's inline <style> (the source of these rules). */
+/* detail.html inline style: the activity drawer width (420 px, 520 px from 1536 px, 600 px from 1920 px) and the page push on wide screens (body.drawer-open #page). */
+:root{--drawer-w:420px}
+@media (min-width:1536px){:root{--drawer-w:520px}}
+@media (min-width:1920px){:root{--drawer-w:600px}}
+#page{transition:padding-right .2s}
+@media (min-width:1024px){body.drawer-open #page{padding-right:var(--drawer-w)}}
+
+/* htmx default indicator rules (htmx injects them in Django): a spinner shows only while its request runs. */
+.htmx-indicator{opacity:0;transition:opacity 200ms ease-in}
+.htmx-request .htmx-indicator,.htmx-request.htmx-indicator{opacity:1}

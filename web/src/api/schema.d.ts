@@ -152,6 +152,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/company": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Company
+         * @description The company figures page (403 without the employee-list right, as company_page).
+         */
+        get: operations["api_company_company"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Head
+         * @description The header, rail and rights of one employee the signed-in user may see (404 otherwise).
+         */
+        get: operations["api_employee_employee_head"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Activity
+         * @description One batch of the «Түүх» drawer for an employee the signed-in user may see (404 otherwise), as activity_more:
+         *     50 entries from `offset` (a junk offset is 0), the day heading of the entry above, and the next offset.
+         */
+        get: operations["api_employee_employee_activity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/personal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Personal
+         * @description The personal tab of one employee the signed-in user may see (404 otherwise; 403 without the personal right):
+         *     the topic groups with their chips, the four field sections, and the personal lists.
+         */
+        get: operations["api_employee_employee_personal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/salary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Salary
+         * @description The Salary tab of one employee the signed-in user may see (404 otherwise; 403 without the salary right):
+         *     today's pay, the pay history rows and the «Банк, даатгал» block.
+         */
+        get: operations["api_employee_employee_salary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Work
+         * @description The Work tab of one employee the signed-in user may see (404 otherwise): job, contract, MACS fields, the
+         *     history, the waiting changes, the other orders, the leave block and the checklist panels.
+         */
+        get: operations["api_employee_employee_work"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -408,12 +532,45 @@ export interface components {
             /** Started */
             started: boolean;
         };
+        /** CanOut */
+        CanOut: {
+            /** Create Login */
+            create_login: boolean;
+            /** Manage */
+            manage: boolean;
+            /** Manage Salary */
+            manage_salary: boolean;
+            /** Record Leave */
+            record_leave: boolean;
+            /** View Personal */
+            view_personal: boolean;
+            /** View Salary */
+            view_salary: boolean;
+        };
+        /** CancelOut */
+        CancelOut: {
+            /** Link Text */
+            link_text: string;
+            /** Order Pk */
+            order_pk: number;
+            /** Suffix */
+            suffix: string;
+            /** Text Prefix */
+            text_prefix: string;
+        };
         /** ChecklistOut */
         ChecklistOut: {
             /** Open */
             open: number;
             /** Overdue */
             overdue: number;
+        };
+        /** ChipOut */
+        ChipOut: {
+            /** Label */
+            label: string;
+            /** Tone */
+            tone: string;
         };
         /** CompanyOut */
         CompanyOut: {
@@ -422,10 +579,191 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CompanyPageBarOut */
+        CompanyPageBarOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Width */
+            width: string;
+        };
+        /** CompanyPageBarsOut */
+        CompanyPageBarsOut: {
+            /** Bars */
+            bars: components["schemas"]["CompanyPageBarOut"][];
+            /** No Data */
+            no_data: boolean;
+            /** No Data Text */
+            no_data_text: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
+        /** CompanyPageDotOut */
+        CompanyPageDotOut: {
+            /** Cx */
+            cx: string;
+            /** Cy */
+            cy: string;
+        };
+        /** CompanyPageLineOut */
+        CompanyPageLineOut: {
+            /** First Label */
+            first_label: string;
+            /** Head */
+            head: string;
+            /** Label */
+            label: string;
+            last_dot: components["schemas"]["CompanyPageDotOut"] | null;
+            /** Last Label */
+            last_label: string;
+            /** No Data */
+            no_data: boolean;
+            /** No Data Text */
+            no_data_text: string;
+            /** Polylines */
+            polylines: string[];
+            /** Title */
+            title: string;
+            /** View Box */
+            view_box: string;
+        };
+        /** CompanyPageOut */
+        CompanyPageOut: {
+            departments: components["schemas"]["CompanyPageBarsOut"];
+            headcount: components["schemas"]["CompanyPageLineOut"];
+            /** Hires Text */
+            hires_text: string;
+            /** History Note */
+            history_note: string;
+            /** Leavers Text */
+            leavers_text: string;
+            /** Partial History */
+            partial_history: boolean;
+            /** Partial Scope */
+            partial_scope: boolean;
+            /** Scope Label */
+            scope_label: string;
+            tenure: components["schemas"]["CompanyPageBarsOut"];
+            /** Title */
+            title: string;
+            /** Today */
+            today: string;
+            turnover: components["schemas"]["CompanyPageLineOut"];
+            /** Turnover Note */
+            turnover_note: string;
+        };
         /** CsrfOut */
         CsrfOut: {
             /** Token */
             token: string;
+        };
+        /** EmployeeActivityChangeOut */
+        EmployeeActivityChangeOut: {
+            /** Field */
+            field: string;
+            /** New */
+            new: string;
+            /** Old */
+            old: string;
+        };
+        /** EmployeeActivityEntryOut */
+        EmployeeActivityEntryOut: {
+            /** Badge Class */
+            badge_class: string;
+            /** By */
+            by: string;
+            /** Changes */
+            changes: components["schemas"]["EmployeeActivityChangeOut"][];
+            /** Day */
+            day: string;
+            /** Day Heading */
+            day_heading: string;
+            /** Dot Class */
+            dot_class: string;
+            /** Is Note */
+            is_note: boolean;
+            /** Kind */
+            kind: string;
+            /** Kind Label */
+            kind_label: string;
+            /** Message */
+            message: string;
+            /** Message Class */
+            message_class: string;
+            /** Starts Day */
+            starts_day: boolean;
+            /** Time */
+            time: string;
+        };
+        /** EmployeeActivityOut */
+        EmployeeActivityOut: {
+            /** Empty Label */
+            empty_label: string;
+            /** Entries */
+            entries: components["schemas"]["EmployeeActivityEntryOut"][];
+            /** Log Url */
+            log_url: string;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Prev Day */
+            prev_day: string;
+        };
+        /** EmployeeBankFieldOut */
+        EmployeeBankFieldOut: {
+            /** Aria Label */
+            aria_label: string;
+            /** Checked */
+            checked: boolean;
+            /** Choice */
+            choice: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "select" | "text" | "checkbox";
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+            /** Value */
+            value: string;
+        };
+        /** EmployeeHeadOut */
+        EmployeeHeadOut: {
+            /** Activity Count */
+            activity_count: number;
+            can: components["schemas"]["CanOut"];
+            /** Code */
+            code: string;
+            /** Email */
+            email: string;
+            /** Event Menu */
+            event_menu: components["schemas"]["EventMenuItemOut"][];
+            facts: components["schemas"]["FactsOut"];
+            /** Family Name */
+            family_name: string;
+            /** Full Name */
+            full_name: string;
+            /** Given Initial */
+            given_initial: string;
+            /** Given Name */
+            given_name: string;
+            latest_activity: components["schemas"]["LatestActivityOut"] | null;
+            /** Leave Left */
+            leave_left: string | null;
+            next_event: components["schemas"]["NextEventOut"] | null;
+            one_time_login: components["schemas"]["OneTimeLoginOut"] | null;
+            /** Photo Srcset */
+            photo_srcset: string;
+            /** Photo Url */
+            photo_url: string;
+            /** Pk */
+            pk: number;
+            setup: components["schemas"]["SetupOut"] | null;
+            state: components["schemas"]["StateOut"];
         };
         /** EmployeeOut */
         EmployeeOut: {
@@ -438,6 +776,141 @@ export interface components {
             /** Photo */
             photo: string;
         };
+        /** EmployeePersonalChipOut */
+        EmployeePersonalChipOut: {
+            /** Count Text */
+            count_text: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Tone */
+            tone: string;
+            /** Visible */
+            visible: boolean;
+        };
+        /** EmployeePersonalChoiceOut */
+        EmployeePersonalChoiceOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** EmployeePersonalColumnOut */
+        EmployeePersonalColumnOut: {
+            /** Cell Class */
+            cell_class: string;
+            /** Head Class */
+            head_class: string;
+            /** Header */
+            header: string;
+        };
+        /** EmployeePersonalFieldOut */
+        EmployeePersonalFieldOut: {
+            /** Checked */
+            checked: boolean;
+            /** Choice */
+            choice: string;
+            /** Choices */
+            choices: components["schemas"]["EmployeePersonalChoiceOut"][];
+            /** Combo */
+            combo: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "textarea" | "number" | "date" | "select" | "checkbox";
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Placeholder */
+            placeholder: string;
+            /** Required */
+            required: boolean;
+            /** Value */
+            value: string;
+        };
+        /** EmployeePersonalGroupOut */
+        EmployeePersonalGroupOut: {
+            /** Chips */
+            chips: components["schemas"]["EmployeePersonalChipOut"][];
+            /** Key */
+            key: string;
+            /** Open By Default */
+            open_by_default: boolean;
+            /** Title */
+            title: string;
+        };
+        /** EmployeePersonalListOut */
+        EmployeePersonalListOut: {
+            /** Columns */
+            columns: components["schemas"]["EmployeePersonalColumnOut"][];
+            /** Count */
+            count: number;
+            /** Editable */
+            editable: boolean;
+            /** Empty Label */
+            empty_label: string;
+            /** Group */
+            group: string;
+            /** Inline */
+            inline: boolean;
+            /** Kind */
+            kind: string;
+            /** Parent */
+            parent: string | null;
+            /** Rows */
+            rows: components["schemas"]["EmployeePersonalListRowOut"][];
+            /** Title */
+            title: string;
+        };
+        /** EmployeePersonalListRowOut */
+        EmployeePersonalListRowOut: {
+            /** Cells */
+            cells: string[];
+            /** Key */
+            key: string;
+        };
+        /** EmployeePersonalOut */
+        EmployeePersonalOut: {
+            /** Counts */
+            counts: {
+                [key: string]: string;
+            };
+            /** Editable */
+            editable: boolean;
+            /** Groups */
+            groups: components["schemas"]["EmployeePersonalGroupOut"][];
+            /** Lists */
+            lists: components["schemas"]["EmployeePersonalListOut"][];
+            /** Sections */
+            sections: components["schemas"]["EmployeePersonalSectionOut"][];
+        };
+        /** EmployeePersonalRowOut */
+        EmployeePersonalRowOut: {
+            /** Display */
+            display: string;
+            /** Empty */
+            empty: boolean;
+            /** Label */
+            label: string;
+        };
+        /** EmployeePersonalSectionOut */
+        EmployeePersonalSectionOut: {
+            /** Editable */
+            editable: boolean;
+            /** Fields */
+            fields: components["schemas"]["EmployeePersonalFieldOut"][];
+            /** Group */
+            group: string;
+            /** Name */
+            name: string;
+            /** Rows */
+            rows: components["schemas"]["EmployeePersonalRowOut"][];
+            /** Title */
+            title: string;
+        };
         /** EmployeeRefOut */
         EmployeeRefOut: {
             /** Code */
@@ -448,6 +921,172 @@ export interface components {
             id: number;
             /** Short Name */
             short_name: string;
+        };
+        /** EmployeeSalaryOut */
+        EmployeeSalaryOut: {
+            /** Bank Fields */
+            bank_fields: components["schemas"]["EmployeeBankFieldOut"][];
+            /** Can Set */
+            can_set: boolean;
+            /** Current */
+            current: string | null;
+            /** Editable */
+            editable: boolean;
+            /** Has Rows */
+            has_rows: boolean;
+            /** Missing Label */
+            missing_label: string;
+            /** Rows */
+            rows: components["schemas"]["EmployeeSalaryRowOut"][];
+            /** Set Label */
+            set_label: string;
+        };
+        /** EmployeeSalaryRowOut */
+        EmployeeSalaryRowOut: {
+            /** Action Class */
+            action_class: string;
+            /** Action Label */
+            action_label: string;
+            /** Amount */
+            amount: string;
+            /** Cancellable */
+            cancellable: boolean;
+            /** Correctable */
+            correctable: boolean;
+            /** Event Id */
+            event_id: number | null;
+            /** Label */
+            label: string;
+            /** Period Text */
+            period_text: string;
+            /** Pk */
+            pk: number;
+            /** Scheduled */
+            scheduled: boolean;
+            /** Scheduled Label */
+            scheduled_label: string;
+        };
+        /** EmployeeTaskOut */
+        EmployeeTaskOut: {
+            /** Can Tick */
+            can_tick: boolean;
+            /** Can Untick */
+            can_untick: boolean;
+            /** Done */
+            done: boolean;
+            /** Done Label */
+            done_label: string;
+            /** Done Rest */
+            done_rest: string;
+            /** Due Class */
+            due_class: string;
+            /** Due On */
+            due_on: string;
+            /** Overdue */
+            overdue: boolean;
+            /** Owner Label */
+            owner_label: string;
+            /** Required */
+            required: boolean;
+            /** Title */
+            title: string;
+            /** Title Class */
+            title_class: string;
+        };
+        /** EmployeeWorkOut */
+        EmployeeWorkOut: {
+            branch: components["schemas"]["WorkFieldOut"];
+            /** Can Manage */
+            can_manage: boolean;
+            /** Checklist Visible */
+            checklist_visible: boolean;
+            /** Checklists */
+            checklists: components["schemas"]["PanelOut"][];
+            /** Contract Chip */
+            contract_chip: boolean;
+            /** Contract End */
+            contract_end: string;
+            /** Contract End Label */
+            contract_end_label: string;
+            /** Contract No */
+            contract_no: string;
+            /** Contract Start */
+            contract_start: string;
+            /** Contract Type */
+            contract_type: string;
+            /** Department */
+            department: string;
+            /** Employee Type */
+            employee_type: string;
+            first_hire_date: components["schemas"]["WorkFieldOut"] | null;
+            job_figure: components["schemas"]["WorkFieldOut"];
+            job_type: components["schemas"]["WorkFieldOut"];
+            /** Jobs */
+            jobs: components["schemas"]["JobRowOut"][];
+            leave: components["schemas"]["LeaveOut"];
+            /** Macs Contract No */
+            macs_contract_no: string;
+            /** Macs Contract Period */
+            macs_contract_period: string;
+            /** Macs Last Order No */
+            macs_last_order_no: string;
+            /** Macs Last Order Text */
+            macs_last_order_text: string;
+            /** Macs Leave Type */
+            macs_leave_type: string;
+            /** Macs Probation Months */
+            macs_probation_months: string;
+            /** Macs Taken Leave */
+            macs_taken_leave: string;
+            /** Manager */
+            manager: string;
+            office: components["schemas"]["WorkFieldOut"];
+            /** Order Warning */
+            order_warning: string;
+            /** Orders */
+            orders: components["schemas"]["OtherOrderOut"][];
+            /** Orders Count */
+            orders_count: number;
+            /** Position */
+            position: string;
+            probation_end: components["schemas"]["WorkFieldOut"];
+            second_position: components["schemas"]["WorkFieldOut"];
+            section: components["schemas"]["WorkFieldOut"];
+            sector_years: components["schemas"]["WorkFieldOut"];
+            /** Transfer Chip */
+            transfer_chip: boolean;
+            /** Waiting */
+            waiting: components["schemas"]["WaitingOut"][];
+            work_conditions: components["schemas"]["WorkFieldOut"];
+            work_schedule: components["schemas"]["WorkFieldOut"];
+        };
+        /** EventMenuItemOut */
+        EventMenuItemOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** FactsOut */
+        FactsOut: {
+            /** Contract End */
+            contract_end: string;
+            /** Department */
+            department: string;
+            /** Employee Type */
+            employee_type: string;
+            /** First Hire Date */
+            first_hire_date: string;
+            /** Manager */
+            manager: string;
+            /** Manager Label */
+            manager_label: string;
+            /** Position */
+            position: string;
+            /** Position Line */
+            position_line: string;
+            /** Work Phone */
+            work_phone: string;
         };
         /** GroupOut */
         GroupOut: {
@@ -516,6 +1155,134 @@ export interface components {
             manager: string;
             /** Position */
             position: string;
+        };
+        /** JobRowOut */
+        JobRowOut: {
+            /** Cancel Note */
+            cancel_note: string;
+            /** Cancellable */
+            cancellable: boolean;
+            /** Clickable */
+            clickable: boolean;
+            /** Correctable */
+            correctable: boolean;
+            /** Department */
+            department: string;
+            /** Is Cancelled */
+            is_cancelled: boolean;
+            /** Label */
+            label: string;
+            order_chip: components["schemas"]["ChipOut"] | null;
+            /** Order No */
+            order_no: string;
+            /** Order No Muted */
+            order_no_muted: boolean;
+            /** Order Pk */
+            order_pk: number | null;
+            /** Period Note */
+            period_note: string;
+            /** Period Text */
+            period_text: string;
+            /** Pk */
+            pk: number | null;
+            /** Position */
+            position: string;
+            /** Scheduled */
+            scheduled: boolean;
+            /** Status */
+            status: string;
+        };
+        /** LatestActivityOut */
+        LatestActivityOut: {
+            /** At */
+            at: string;
+            /** By */
+            by: string;
+            /** Text */
+            text: string;
+        };
+        /** LeaveGrantOut */
+        LeaveGrantOut: {
+            /** Breakdown */
+            breakdown: string;
+            /** Comment */
+            comment: string;
+            /** Days */
+            days: string;
+            /** Label */
+            label: string;
+            /** Old Chip */
+            old_chip: boolean;
+        };
+        /** LeaveLineOut */
+        LeaveLineOut: {
+            /** Label */
+            label: string;
+            /** Old Chip */
+            old_chip: boolean;
+            /** Text */
+            text: string;
+        };
+        /** LeaveOut */
+        LeaveOut: {
+            /** All Leaves Url */
+            all_leaves_url: string;
+            /** Can Manage Settings */
+            can_manage_settings: boolean;
+            /** Can Record */
+            can_record: boolean;
+            /** Configured */
+            configured: boolean;
+            /** Fold Hide Label */
+            fold_hide_label: string;
+            /** Fold Old */
+            fold_old: boolean;
+            /** Fold Show Label */
+            fold_show_label: string;
+            /** No Year Started */
+            no_year_started: boolean;
+            /** Nowhere */
+            nowhere: components["schemas"]["LeaveLineOut"][];
+            /** Old Absences */
+            old_absences: components["schemas"]["OldAbsenceOut"][];
+            /** Old Count */
+            old_count: number;
+            /** Periods */
+            periods: components["schemas"]["LeavePeriodOut"][];
+            /** Settings Url */
+            settings_url: string;
+            /** Start Missing */
+            start_missing: boolean;
+            /** Visible */
+            visible: boolean;
+        };
+        /** LeavePeriodOut */
+        LeavePeriodOut: {
+            badge: components["schemas"]["ChipOut"] | null;
+            /** Current */
+            current: boolean;
+            /** Doubled Note */
+            doubled_note: string;
+            /** Granted */
+            granted: string;
+            /** Grants */
+            grants: components["schemas"]["LeaveGrantOut"][];
+            /** Leaves */
+            leaves: components["schemas"]["LeaveLineOut"][];
+            /** Left */
+            left: string;
+            /** Left Tone */
+            left_tone: string;
+            /** Old */
+            old: boolean;
+            /** Period Class */
+            period_class: string;
+            /** Period Text */
+            period_text: string;
+            /** Row Class */
+            row_class: string;
+            /** Taken */
+            taken: string;
         };
         /** LoginIn */
         LoginIn: {
@@ -604,6 +1371,11 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** NextEventOut */
+        NextEventOut: {
+            /** Text */
+            text: string;
+        };
         /** NoticeIn */
         NoticeIn: {
             /** Key */
@@ -617,6 +1389,87 @@ export interface components {
             key: string;
             /** Text */
             text: string;
+        };
+        /** OldAbsenceOut */
+        OldAbsenceOut: {
+            /** Date */
+            date: string;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string;
+        };
+        /** OneTimeLoginOut */
+        OneTimeLoginOut: {
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /** OtherOrderOut */
+        OtherOrderOut: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Upload */
+            can_upload: boolean;
+            /** Cancel Number */
+            cancel_number: string;
+            /** Cancel Prefix */
+            cancel_prefix: string;
+            /** Cancel Suffix */
+            cancel_suffix: string;
+            /** Cancelled */
+            cancelled: boolean;
+            /** Cancelled By Pk */
+            cancelled_by_pk: number | null;
+            /** Cancels */
+            cancels: components["schemas"]["CancelOut"][];
+            chip: components["schemas"]["ChipOut"];
+            /** Date */
+            date: string;
+            /** Hire Note */
+            hire_note: string;
+            /** Legacy */
+            legacy: boolean;
+            /** Number */
+            number: string;
+            /** Number Muted */
+            number_muted: boolean;
+            /** Order Pk */
+            order_pk: number | null;
+            /** Pdf Url */
+            pdf_url: string;
+            /** Scan Url */
+            scan_url: string;
+            /** Summary */
+            summary: string;
+            /** Type Label */
+            type_label: string;
+            /** Word Url */
+            word_url: string;
+        };
+        /** PanelOut */
+        PanelOut: {
+            /** Can Cancel */
+            can_cancel: boolean;
+            /** Can Start */
+            can_start: boolean;
+            /** Caption */
+            caption: string;
+            /** Checklist */
+            checklist: boolean;
+            /** Completed */
+            completed: boolean;
+            /** Heading */
+            heading: string;
+            /** Kind */
+            kind: string;
+            /** Progress */
+            progress: string;
+            /** Rows */
+            rows: components["schemas"]["EmployeeTaskOut"][];
+            /** Today */
+            today: string;
         };
         /** PasswordIn */
         PasswordIn: {
@@ -700,6 +1553,34 @@ export interface components {
             /** Working Days */
             working_days: number;
         };
+        /** SetupItemOut */
+        SetupItemOut: {
+            /** Auto */
+            auto: boolean;
+            /** Done */
+            done: boolean;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Note */
+            note: string;
+        };
+        /** SetupOut */
+        SetupOut: {
+            /** Complete */
+            complete: boolean;
+            /** Done */
+            done: number;
+            /** Items */
+            items: components["schemas"]["SetupItemOut"][];
+            /** Percent */
+            percent: number;
+            /** Progress Text */
+            progress_text: string;
+            /** Total */
+            total: number;
+        };
         /** ShortcutsOut */
         ShortcutsOut: {
             /** Add Employee */
@@ -708,6 +1589,15 @@ export interface components {
             orders: boolean;
             /** Record Leave */
             record_leave: boolean;
+        };
+        /** StateOut */
+        StateOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Tone */
+            tone: string;
         };
         /** StripCellOut */
         StripCellOut: {
@@ -871,6 +1761,41 @@ export interface components {
             perms: string[];
             /** Username */
             username: string;
+        };
+        /** WaitingOut */
+        WaitingOut: {
+            /** Cancellable */
+            cancellable: boolean;
+            chip: components["schemas"]["ChipOut"];
+            /** Clickable */
+            clickable: boolean;
+            /** Effective */
+            effective: string;
+            /** Event Pk */
+            event_pk: number;
+            /** Label */
+            label: string;
+            /** Order No */
+            order_no: string;
+            /** Order No Muted */
+            order_no_muted: boolean;
+            /** Order Pk */
+            order_pk: number | null;
+        };
+        /** WorkFieldOut */
+        WorkFieldOut: {
+            /** Aria Label */
+            aria_label: string;
+            /** Choice */
+            choice: string;
+            /** Combo */
+            combo: boolean;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /** Value */
+            value: string;
         };
     };
     responses: never;
@@ -1051,6 +1976,138 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    api_company_company: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyPageOut"];
+                };
+            };
+        };
+    };
+    api_employee_employee_head: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeHeadOut"];
+                };
+            };
+        };
+    };
+    api_employee_employee_activity: {
+        parameters: {
+            query?: {
+                offset?: string;
+            };
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeActivityOut"];
+                };
+            };
+        };
+    };
+    api_employee_employee_personal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeePersonalOut"];
+                };
+            };
+        };
+    };
+    api_employee_employee_salary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeSalaryOut"];
+                };
+            };
+        };
+    };
+    api_employee_employee_work: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWorkOut"];
+                };
             };
         };
     };
