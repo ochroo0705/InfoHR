@@ -65,6 +65,17 @@ def test_hidden_widget_is_skipped() -> None:
     assert [item["name"] for item in describe_form(_WithHidden(), names=("a", "b"))] == ["a"]
 
 
+class _WithFile(forms.Form):
+    photo = forms.ImageField(required=False, widget=forms.ClearableFileInput)
+    upload = forms.FileField(required=False, widget=forms.FileInput)
+
+
+def test_file_inputs_are_kind_file() -> None:
+    by_name = {item["name"]: item for item in describe_form(_WithFile())}
+    assert by_name["photo"]["kind"] == "file"
+    assert by_name["upload"]["kind"] == "file"
+
+
 def test_empty_lists_is_empty_for_a_form_without_the_method() -> None:
     assert empty_lists(_WithHidden()) == []
 

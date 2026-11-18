@@ -13,6 +13,7 @@ from django.forms import (
     BoundField,
     CheckboxInput,
     DateInput,
+    FileInput,
     Form,
     HiddenInput,
     NumberInput,
@@ -44,6 +45,8 @@ def _kind(widget: Widget) -> str:
         return "date"
     if isinstance(widget, NumberInput):
         return "number"
+    if isinstance(widget, FileInput):  # ClearableFileInput subclasses FileInput
+        return "file"
     return "text"
 
 

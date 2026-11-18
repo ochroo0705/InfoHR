@@ -172,6 +172,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/employees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hire Create
+         * @description Hire a new employee from the add form, the same hire as the Django page. `values` is a JSON object of HTML name
+         *     -> string (every box, a checkbox as "on" or absent); `candidate` and `submission` are the hidden values the form
+         *     posts back. A refused or invalid form answers 200 with ok false and nothing is written. 403 without the manage
+         *     right, 400 for malformed values, 401 without a login.
+         */
+        post: operations["api_hire_hire_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/check-register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hire Register Check
+         * @description The employee already under this register number, if the user may see them (the live check on the hire page).
+         *     The number is normalised the way the save normalises it; an empty one looks nobody up.
+         */
+        get: operations["api_hire_hire_register_check"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/districts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hire Districts
+         * @description The district options of the city, as the hire page's district select shows them. No or an unknown city has no
+         *     district, so the list is empty.
+         */
+        get: operations["api_hire_hire_districts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/new": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hire Form
+         * @description The hire form's layout, fields and gating. `candidate` and `submission` are the recruitment candidate and the
+         *     self-form HR hires from; the other query values prefill the forms (the recruitment «Ажилд авах» link). A bad or
+         *     foreign id is ignored. 403 without the manage right.
+         */
+        get: operations["api_hire_hire_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/order-suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hire Order Suggest
+         * @description `{number, date}` for the «Санал болгох» button: the next number of the year of `date` (else today) and the date
+         *     to use when the form's date is still empty. A bad or empty date means today.
+         */
+        get: operations["api_hire_hire_order_suggest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{pk}": {
         parameters: {
             query?: never;
@@ -692,6 +800,48 @@ export interface paths {
         get: operations["api_nav_nav"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/selfforms/{pk}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hire Reject
+         * @description HR rejects a submitted self-form for good; the reason is kept on the invitation. A blank reason or a form that
+         *     is not waiting for HR is refused with ok false. 403 without the manage right, 404 outside the user's scope.
+         */
+        post: operations["api_hire_hire_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/selfforms/{pk}/send-back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hire Send Back
+         * @description HR sends a submitted self-form back to the employee with a note. A blank note or a form that is not waiting for
+         *     HR is refused with ok false and nothing is written. 403 without the manage right, 404 outside the user's scope.
+         */
+        post: operations["api_hire_hire_send_back"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1575,6 +1725,51 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** HireDecisionOut */
+        HireDecisionOut: {
+            /** Form Errors */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
+            /** Redirect */
+            redirect: string;
+        };
+        /** HireDuplicateOut */
+        HireDuplicateOut: {
+            /** Employee Name */
+            employee_name: string;
+            /** Employee Pk */
+            employee_pk: number | null;
+            /** Visible */
+            visible: boolean;
+        };
+        /** HireFormOut */
+        HireFormOut: {
+            /** Candidate */
+            candidate: number | null;
+            duplicate: components["schemas"]["HireDuplicateOut"] | null;
+            /** Fields */
+            fields: components["schemas"]["EmployeeFormFieldOut"][];
+            review: components["schemas"]["HireReviewOut"] | null;
+            /** Submission */
+            submission: number | null;
+            /** Tabs */
+            tabs: components["schemas"]["HireTabOut"][];
+            /** Title */
+            title: string;
+        };
+        /** HireNoteIn */
+        HireNoteIn: {
+            /** Note */
+            note: string;
+        };
+        /** HireOrderSuggestOut */
+        HireOrderSuggestOut: {
+            /** Date */
+            date: string;
+            /** Number */
+            number: string;
+        };
         /** HireOut */
         HireOut: {
             /** Full Name */
@@ -1583,6 +1778,80 @@ export interface components {
             hired: string;
             /** Id */
             id: number;
+        };
+        /** HireReasonIn */
+        HireReasonIn: {
+            /** Reason */
+            reason: string;
+        };
+        /** HireRegisterCheckOut */
+        HireRegisterCheckOut: {
+            match: components["schemas"]["HireRegisterMatchOut"] | null;
+        };
+        /** HireRegisterMatchOut */
+        HireRegisterMatchOut: {
+            /** Code */
+            code: string;
+            /** Full Name */
+            full_name: string;
+            /** Pk */
+            pk: number;
+        };
+        /** HireResultOut */
+        HireResultOut: {
+            /** Candidate */
+            candidate: number | null;
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
+            /** Order Errors */
+            order_errors: string[];
+            /** Pk */
+            pk: number | null;
+            /** Redirect */
+            redirect: string;
+            /** Submission */
+            submission: number | null;
+        };
+        /** HireReviewOut */
+        HireReviewOut: {
+            /** Contact */
+            contact: string[][];
+            /** Education */
+            education: string[][][];
+            /** Family */
+            family: string[][][];
+            /** Has Photo */
+            has_photo: boolean;
+            /** Hr Note */
+            hr_note: string;
+            /** Submitted At */
+            submitted_at: string;
+        };
+        /** HireSectionOut */
+        HireSectionOut: {
+            /** Heading */
+            heading: string;
+            /** Kind */
+            kind: string;
+            /** Names */
+            names: string[];
+            /** Note */
+            note: string;
+        };
+        /** HireTabOut */
+        HireTabOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Sections */
+            sections: components["schemas"]["HireSectionOut"][];
         };
         /** HolidayOut */
         HolidayOut: {
@@ -2463,6 +2732,134 @@ export interface operations {
             };
         };
     };
+    api_hire_hire_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Candidate
+                     * @default
+                     */
+                    candidate?: string;
+                    /** Photo */
+                    photo?: string | null;
+                    /**
+                     * Submission
+                     * @default
+                     */
+                    submission?: string;
+                    /** Values */
+                    values: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireResultOut"];
+                };
+            };
+        };
+    };
+    api_hire_hire_register_check: {
+        parameters: {
+            query?: {
+                register_no?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireRegisterCheckOut"];
+                };
+            };
+        };
+    };
+    api_hire_hire_districts: {
+        parameters: {
+            query?: {
+                city?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeFormChoiceOut"][];
+                };
+            };
+        };
+    };
+    api_hire_hire_form: {
+        parameters: {
+            query?: {
+                candidate?: string;
+                submission?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireFormOut"];
+                };
+            };
+        };
+    };
+    api_hire_hire_order_suggest: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireOrderSuggestOut"];
+                };
+            };
+        };
+    };
     api_employee_employee_head: {
         parameters: {
             query?: never;
@@ -3095,6 +3492,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NavGroupOut"][];
+                };
+            };
+        };
+    };
+    api_hire_hire_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HireReasonIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireDecisionOut"];
+                };
+            };
+        };
+    };
+    api_hire_hire_send_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HireNoteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HireDecisionOut"];
                 };
             };
         };

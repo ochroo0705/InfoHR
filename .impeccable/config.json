@@ -56,6 +56,15 @@
         ],
         "createdAt": "2026-11-17T06:40:12.409Z",
         "reason": "parity port: UI_RULES §7a mandates the urgency left stripe (border-l-4) copied verbatim from _attention_group.html / _attention.html"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "web/src/screens/hire/ReviewPanel.tsx"
+        ],
+        "createdAt": "2026-11-18T02:47:09.668Z",
+        "reason": "Claude: parity port of selfform/_review_panel.html (violet border and fill are the existing Django class strings; project rule 'Django is the reference'); flat violet accent, no gradient. Not user confirmed."
       }
     ]
   }

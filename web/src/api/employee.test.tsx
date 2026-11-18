@@ -71,7 +71,7 @@ describe("employee and company routes", () => {
   it("treats an employee page and the company page as ported, and a Django-only page as not", () => {
     expect(isPorted("/employees/12/")).toBe(true);
     expect(isPorted("/employees/company/")).toBe(true);
-    expect(isPorted("/employees/new/")).toBe(false);
+    expect(isPorted("/employees/orders/")).toBe(false);
   });
 
   it("openLegacyEmployee sends a full page load to the Django employee page", () => {

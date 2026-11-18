@@ -62,7 +62,7 @@ class EmployeeFormFieldOut(Schema):
     name: str  # the HTML name the browser posts (the salary fields carry the «si-» prefix)
     label: str
     required: bool
-    kind: str  # checkbox | select | textarea | date | number | text
+    kind: str  # checkbox | select | textarea | date | number | file | text
     value: str  # the stored value as the browser would post it
     checked: bool  # checkboxes only
     placeholder: str

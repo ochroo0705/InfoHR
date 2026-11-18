@@ -196,6 +196,22 @@ def test_failure_in_mark_hired_rolls_the_hire_back(
     assert Candidate.objects.get(pk=candidate.pk).stage == Stage.NEW
 
 
+def test_refused_hire_with_login_leaves_no_one_time_login(
+    client: Client, job_values: dict[str, Any], candidate: Candidate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The login is made inside the hire transaction; when the hire rolls back, no password stays in the session."""
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise pipeline.PipelineError("boom")
+
+    monkeypatch.setattr(pipeline, "mark_hired", refuse)
+    login_as(client, "HR")
+    response = _post(client, job_values, candidate.pk, create_login="on", username="gadur.hire")
+    assert response.status_code == 400
+    assert "one_time_login" not in client.session
+    assert not User.objects.filter(username="gadur.hire").exists()
+
+
 def test_get_ignores_bad_candidate_and_prefills_nothing_hidden(client: Client, job_values: dict[str, Any]) -> None:
     login_as(client, "HR")
     body = client.get("/employees/new/?candidate=abc&family_name=Дорж").content.decode()

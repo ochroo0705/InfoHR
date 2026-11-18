@@ -120,7 +120,8 @@ export function SoftBox({
 
 // The control of one boxed field. `firstRef` is set on the native controls only (input, textarea, select of a plain kind):
 // Select, DatePicker and MoneyInput keep their own element, so a focus target for them is not offered.
-function BoxedControl({
+// Exported so a single field (the hire page's HireField) draws the same control as FormFields does.
+export function BoxedControl({
   field,
   value,
   invalid,

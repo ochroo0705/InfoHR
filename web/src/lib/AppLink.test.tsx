@@ -11,7 +11,17 @@ describe("isPorted", () => {
   });
 
   it("is false for a Django-only page", () => {
-    expect(isPorted("/employees/new/")).toBe(false);
+    expect(isPorted("/employees/orders/")).toBe(false);
+  });
+
+  it("treats the add-employee page as ported, with or without its query string", () => {
+    expect(isPorted("/employees/new/")).toBe(true);
+    expect(isPorted("/employees/new/?candidate=3")).toBe(true);
+  });
+
+  it("needs the trailing slash for the add-employee page, like the other ported routes", () => {
+    expect(isPorted("/employees/new")).toBe(false);
+    expect(isPorted("/employees/company")).toBe(false);
   });
 });
 
@@ -40,12 +50,21 @@ describe("AppLink and openLegacyPopup", () => {
   it("renders a full-page link into the Django UI for a path that is not ported", () => {
     render(
       <MemoryRouter>
-        <AppLink to="/employees/new/">Profile</AppLink>
+        <AppLink to="/employees/orders/">Profile</AppLink>
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe(
-      "http://dj/employees/new/",
+      "http://dj/employees/orders/",
     );
+  });
+
+  it("renders an in-app link for the add-employee page", () => {
+    render(
+      <MemoryRouter>
+        <AppLink to="/employees/new/">Ажилтан нэмэх</AppLink>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("link", { name: "Ажилтан нэмэх" }).getAttribute("href")).toBe("/employees/new/");
   });
 
   it("renders a router link for a ported path", () => {

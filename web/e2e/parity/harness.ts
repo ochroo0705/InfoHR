@@ -22,7 +22,7 @@ const VIEWPORTS = [
 ] as const;
 const THEMES = ["light", "dark"] as const;
 type Theme = (typeof THEMES)[number];
-type Viewport = (typeof VIEWPORTS)[number];
+type Viewport = { width: number; height: number };
 
 const DEFAULT_MAX_DIFF_PIXEL_RATIO = 0.01;
 // pixelmatch per-pixel colour distance (0 to 1). Pixels below it count as equal.
@@ -37,6 +37,9 @@ export type ParityOptions = {
   // CSS selectors painted over in both screenshots (Playwright's mask), for text that differs between runs, such
   // as today's date.
   mask?: string[];
+  // Viewports to run. Unset: 1280 and 375 (the default for every spec). A spec that needs another width (the hire page
+  // runs 768 too) passes its own list.
+  viewports?: Viewport[];
 };
 
 // Signs in on a login page: fills the form, submits, and waits until the page has left /login. Call it on a page
@@ -68,7 +71,7 @@ export async function parity(
 ): Promise<void> {
   const maxRatio = opts.maxDiffPixelRatio ?? DEFAULT_MAX_DIFF_PIXEL_RATIO;
   test.describe(name, () => {
-    for (const viewport of VIEWPORTS) {
+    for (const viewport of opts.viewports ?? VIEWPORTS) {
       for (const theme of THEMES) {
         test(`${viewport.width}px ${theme}`, async ({ browser }, testInfo) => {
           await runParity(browser, testInfo, djangoPath, webPath, steps, viewport, theme, { ...opts, maxDiffPixelRatio: maxRatio });

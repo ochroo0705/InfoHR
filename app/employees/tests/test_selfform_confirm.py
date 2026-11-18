@@ -415,7 +415,7 @@ def test_resubmission_between_read_and_confirm_is_refused(
         SelfFormInvitation.objects.filter(pk=sub.pk).update(submitted_at=timezone.now() + timedelta(minutes=5))
         return found
 
-    monkeypatch.setattr("employees.views.reviewable_submission", resubmitted_after_read)
+    monkeypatch.setattr("employees.services.hire_page.reviewable_submission", resubmitted_after_read)
     response = _post_confirm(client, _confirm_payload(job_values, lists, sub))
 
     assert response.status_code == 400 and SUBMISSION_GONE_TEXT in response.content.decode()
@@ -447,7 +447,7 @@ def test_second_confirm_refused_inside_transaction_rolls_hire_back(
         writes.append("photo")
         real_save(employee, jpeg)
 
-    monkeypatch.setattr("employees.views.reviewable_submission", lambda user, raw: waiting_copy)
+    monkeypatch.setattr("employees.services.hire_page.reviewable_submission", lambda user, raw: waiting_copy)
     monkeypatch.setattr(pw, "add", counting_add)
     monkeypatch.setattr(macs_writes, "save_photo", counting_save)
     # a different register number, so the duplicate check of the hire form does not stop the request first

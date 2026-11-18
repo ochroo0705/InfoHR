@@ -2188,6 +2188,168 @@
         "title": "GroupOut",
         "type": "object"
       },
+      "HireDecisionOut": {
+        "properties": {
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "redirect": {
+            "title": "Redirect",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "form_errors",
+          "redirect"
+        ],
+        "title": "HireDecisionOut",
+        "type": "object"
+      },
+      "HireDuplicateOut": {
+        "properties": {
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "employee_pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee Pk"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "visible",
+          "employee_pk",
+          "employee_name"
+        ],
+        "title": "HireDuplicateOut",
+        "type": "object"
+      },
+      "HireFormOut": {
+        "properties": {
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate"
+          },
+          "duplicate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HireDuplicateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HireReviewOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "submission": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission"
+          },
+          "tabs": {
+            "items": {
+              "$ref": "#/components/schemas/HireTabOut"
+            },
+            "title": "Tabs",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "tabs",
+          "fields",
+          "candidate",
+          "submission",
+          "review",
+          "duplicate"
+        ],
+        "title": "HireFormOut",
+        "type": "object"
+      },
+      "HireNoteIn": {
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "HireNoteIn",
+        "type": "object"
+      },
+      "HireOrderSuggestOut": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "date"
+        ],
+        "title": "HireOrderSuggestOut",
+        "type": "object"
+      },
       "HireOut": {
         "properties": {
           "full_name": {
@@ -2209,6 +2371,261 @@
           "hired"
         ],
         "title": "HireOut",
+        "type": "object"
+      },
+      "HireReasonIn": {
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "HireReasonIn",
+        "type": "object"
+      },
+      "HireRegisterCheckOut": {
+        "properties": {
+          "match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HireRegisterMatchOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "match"
+        ],
+        "title": "HireRegisterCheckOut",
+        "type": "object"
+      },
+      "HireRegisterMatchOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "pk": {
+            "title": "Pk",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pk",
+          "code",
+          "full_name"
+        ],
+        "title": "HireRegisterMatchOut",
+        "type": "object"
+      },
+      "HireResultOut": {
+        "properties": {
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate"
+          },
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "order_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Order Errors",
+            "type": "array"
+          },
+          "pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pk"
+          },
+          "redirect": {
+            "title": "Redirect",
+            "type": "string"
+          },
+          "submission": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission"
+          }
+        },
+        "required": [
+          "ok",
+          "pk",
+          "redirect",
+          "field_errors",
+          "form_errors",
+          "order_errors",
+          "candidate",
+          "submission"
+        ],
+        "title": "HireResultOut",
+        "type": "object"
+      },
+      "HireReviewOut": {
+        "properties": {
+          "contact": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Contact",
+            "type": "array"
+          },
+          "education": {
+            "items": {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "title": "Education",
+            "type": "array"
+          },
+          "family": {
+            "items": {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "title": "Family",
+            "type": "array"
+          },
+          "has_photo": {
+            "title": "Has Photo",
+            "type": "boolean"
+          },
+          "hr_note": {
+            "title": "Hr Note",
+            "type": "string"
+          },
+          "submitted_at": {
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submitted_at",
+          "has_photo",
+          "education",
+          "family",
+          "contact",
+          "hr_note"
+        ],
+        "title": "HireReviewOut",
+        "type": "object"
+      },
+      "HireSectionOut": {
+        "properties": {
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "heading",
+          "kind",
+          "names",
+          "note"
+        ],
+        "title": "HireSectionOut",
+        "type": "object"
+      },
+      "HireTabOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/HireSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "sections"
+        ],
+        "title": "HireTabOut",
         "type": "object"
       },
       "HolidayOut": {
@@ -4422,6 +4839,246 @@
         ]
       }
     },
+    "/api/v1/employees": {
+      "post": {
+        "description": "Hire a new employee from the add form, the same hire as the Django page. `values` is a JSON object of HTML name\n-> string (every box, a checkbox as \"on\" or absent); `candidate` and `submission` are the hidden values the form\nposts back. A refused or invalid form answers 200 with ok false and nothing is written. 403 without the manage\nright, 400 for malformed values, 401 without a login.",
+        "operationId": "api_hire_hire_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "candidate": {
+                    "default": "",
+                    "title": "Candidate",
+                    "type": "string"
+                  },
+                  "photo": {
+                    "anyOf": [
+                      {
+                        "format": "binary",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Photo"
+                  },
+                  "submission": {
+                    "default": "",
+                    "title": "Submission",
+                    "type": "string"
+                  },
+                  "values": {
+                    "title": "Values",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "values"
+                ],
+                "title": "MultiPartBodyParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HireResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Hire Create",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/check-register": {
+      "get": {
+        "description": "The employee already under this register number, if the user may see them (the live check on the hire page).\nThe number is normalised the way the save normalises it; an empty one looks nobody up.",
+        "operationId": "api_hire_hire_register_check",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "register_no",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Register No",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HireRegisterCheckOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Hire Register Check",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/districts": {
+      "get": {
+        "description": "The district options of the city, as the hire page's district select shows them. No or an unknown city has no\ndistrict, so the list is empty.",
+        "operationId": "api_hire_hire_districts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "city",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "City",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EmployeeFormChoiceOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Hire Districts",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/new": {
+      "get": {
+        "description": "The hire form's layout, fields and gating. `candidate` and `submission` are the recruitment candidate and the\nself-form HR hires from; the other query values prefill the forms (the recruitment «Ажилд авах» link). A bad or\nforeign id is ignored. 403 without the manage right.",
+        "operationId": "api_hire_hire_form",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "candidate",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Candidate",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "submission",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Submission",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HireFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Hire Form",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/order-suggest": {
+      "get": {
+        "description": "`{number, date}` for the «Санал болгох» button: the next number of the year of `date` (else today) and the date\nto use when the form's date is still empty. A bad or empty date means today.",
+        "operationId": "api_hire_hire_order_suggest",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HireOrderSuggestOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Hire Order Suggest",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/v1/employees/{pk}": {
       "get": {
         "description": "The header, rail and rights of one employee the signed-in user may see (404 otherwise).",
@@ -5671,6 +6328,102 @@
         "summary": "Nav",
         "tags": [
           "nav"
+        ]
+      }
+    },
+    "/api/v1/selfforms/{pk}/reject": {
+      "post": {
+        "description": "HR rejects a submitted self-form for good; the reason is kept on the invitation. A blank reason or a form that\nis not waiting for HR is refused with ok false. 403 without the manage right, 404 outside the user's scope.",
+        "operationId": "api_hire_hire_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HireReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HireDecisionOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Hire Reject",
+        "tags": [
+          "selfforms"
+        ]
+      }
+    },
+    "/api/v1/selfforms/{pk}/send-back": {
+      "post": {
+        "description": "HR sends a submitted self-form back to the employee with a note. A blank note or a form that is not waiting for\nHR is refused with ok false and nothing is written. 403 without the manage right, 404 outside the user's scope.",
+        "operationId": "api_hire_hire_send_back",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HireNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HireDecisionOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Hire Send Back",
+        "tags": [
+          "selfforms"
         ]
       }
     },

@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
-// The meta request never answers here: RequireAuth then shows only the bare shell background.
+// The meta request never answers here: RequireAuth would then show only the bare shell background. The route tests
+// need the page content, so the guard and the shell frame are passed through and the two screens are stubs.
 vi.mock("./api/client", () => ({
   api: { GET: vi.fn(() => new Promise(() => {})) },
   setCsrf: vi.fn(),
@@ -15,11 +17,32 @@ vi.mock("./api/client", () => ({
   nav: { assign: vi.fn() },
 }));
 
+vi.mock("./shell/RequireAuth", () => ({
+  RequireAuth: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock("./shell/AppShell", async () => {
+  const { Outlet } = await import("react-router");
+  return { AppShell: () => <Outlet /> };
+});
+
+vi.mock("./screens/hire/HirePage", () => ({
+  HirePage: () => <p>stub: HirePage</p>,
+}));
+
+vi.mock("./screens/employee/EmployeePage", () => ({
+  EmployeePage: () => <p>stub: EmployeePage</p>,
+}));
+
 // npm test runs from web/, so process.cwd() is the web/ folder.
 const basePath = resolve(process.cwd(), "../app/templates/base.html");
 const indexPath = resolve(process.cwd(), "index.html");
 
 describe("App", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it("sets the document language to mn", () => {
     const client = new QueryClient();
     render(
@@ -30,6 +53,32 @@ describe("App", () => {
       </QueryClientProvider>,
     );
     expect(document.documentElement.lang).toBe("mn");
+  });
+
+  it("renders HirePage at /employees/new/ (static segment wins over /employees/:pk/)", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/employees/new/"]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("stub: HirePage")).toBeTruthy();
+    expect(screen.queryByText("stub: EmployeePage")).toBeNull();
+  });
+
+  it("still renders EmployeePage at /employees/12/", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/employees/12/"]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("stub: EmployeePage")).toBeTruthy();
+    expect(screen.queryByText("stub: HirePage")).toBeNull();
   });
 });
 
