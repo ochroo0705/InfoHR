@@ -1,19 +1,20 @@
 import { useEmployeeSalary } from "../../api/employee";
 import type { components } from "../../api/schema";
 import { openLegacyEmployee } from "../../lib/AppLink";
-import { Soft } from "./Soft";
+import { PageSoft, Soft } from "./Soft";
 import { ScrollFloat } from "../../widgets/Scrollbar";
+import { useCorrectionPopup } from "./CorrectionModal";
 
 // Port of `employees/_tab_salary.html`: the pay heading with «Цалин тогтоох», the current pay, the pay history table and
 // the «Банк, даатгал» block. Classes, Mongolian text, element order and ids are copied from the template. React renders
 // only the strings and flags the API sends (current, missing_label, set_label, period_text, scheduled_label, action_label,
-// action_class, and each bank box's kind and value). Every write (set, cancel, correct) opens the Django employee page
-// (openLegacyEmployee, ruling D2): no fetch.
+// action_class, and each bank box's kind and value). «Цалин тогтоох» and a row's «Засвар» open the correction pop-up
+// (CorrectionModal, Task 16a). A row's «Цуцлах» still opens the Django employee page (openLegacyEmployee, ruling D2).
 
 type Salary = components["schemas"]["EmployeeSalaryOut"];
 type BankField = components["schemas"]["EmployeeBankFieldOut"];
 
-// One soft box of the bank block, as the widget `kind` gives it (`Soft`).
+// One soft box of the bank block, as the widget `kind` gives it (`Soft`). Read-only: the API's value and text.
 function BankSoft({ field }: { field: BankField }) {
   return (
     <Soft
@@ -26,7 +27,14 @@ function BankSoft({ field }: { field: BankField }) {
   );
 }
 
+// A box of the bank block for a user who may edit it: bound to the page form by its name (PageSoft; the select takes its
+// options from the page form, the checkbox is "on" or ""). Until the page form has loaded, it is the read-only box above.
+function BankBox({ field }: { field: BankField }) {
+  return <PageSoft name={field.name} label={field.aria_label} fallback={<BankSoft field={field} />} />;
+}
+
 function SalaryBody({ salary, pk }: { salary: Salary; pk: number }) {
+  const { openCorrection, correctionModal } = useCorrectionPopup(pk);
   return (
     <>
       <div className="flex items-baseline gap-3">
@@ -42,7 +50,7 @@ function SalaryBody({ salary, pk }: { salary: Salary; pk: number }) {
         {salary.set_label && (
           <button
             type="button"
-            onClick={() => openLegacyEmployee(pk)}
+            onClick={() => openCorrection("salary/set")}
             className="ml-auto rounded px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50"
           >
             {salary.set_label}
@@ -84,7 +92,14 @@ function SalaryBody({ salary, pk }: { salary: Salary; pk: number }) {
                   </td>
                   <td className="text-right whitespace-nowrap">
                     {row.action_label && (
-                      <button type="button" onClick={() => openLegacyEmployee(pk)} className={row.action_class}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          // «Засвар» (correctable) opens the pop-up; «Цуцлах» (cancellable) stays on the legacy page.
+                          row.correctable ? openCorrection(`salary/${row.pk}/correct`) : openLegacyEmployee(pk)
+                        }
+                        className={row.action_class}
+                      >
                         {row.action_label}
                       </button>
                     )}
@@ -100,10 +115,11 @@ function SalaryBody({ salary, pk }: { salary: Salary; pk: number }) {
         {salary.bank_fields.map((field) => (
           <div key={field.label}>
             <dt className="text-slate-500">{field.label}</dt>
-            <dd>{salary.editable ? <BankSoft field={field} /> : field.text}</dd>
+            <dd>{salary.editable ? <BankBox field={field} /> : field.text}</dd>
           </div>
         ))}
       </dl>
+      {correctionModal}
     </>
   );
 }

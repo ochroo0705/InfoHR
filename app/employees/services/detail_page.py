@@ -27,6 +27,12 @@ def _is_scheduled(event: Event | None, today: date) -> bool:
     return event is not None and event.status(today) in ("scheduled", "awaiting_signature")
 
 
+def needs_setup(employee: Employee) -> bool:
+    """Whether the employee's setup checklist (Бүрдүүлэлт) is still open: the items may be ticked."""
+    ext = ext_of(employee)
+    return ext is not None and ext.setup_required
+
+
 def _mark_scheduled(rows: Any, user: User, today: date) -> list[Any]:
     """Flag history rows of a not-yet-effective event, and whether this user may cancel it."""
     result = list(rows)

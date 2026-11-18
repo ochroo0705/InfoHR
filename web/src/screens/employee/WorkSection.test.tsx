@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type EmployeeWorkOut, useEmployeeWork } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
@@ -153,7 +155,17 @@ const SETUP = {
   items: [],
 } as unknown as NonNullable<Parameters<typeof WorkSection>[0]["setup"]>;
 
+// SetupCard in the section calls a mutation hook, so every render needs a query client (a fresh one per test).
+let client: QueryClient;
+function wrap(ui: ReactNode) {
+  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+}
+function renderSection(ui: ReactNode) {
+  return render(wrap(ui));
+}
+
 beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.mocked(openLegacyEmployee).mockClear();
 });
 
@@ -165,13 +177,13 @@ afterEach(() => {
 describe("WorkSection", () => {
   it("draws nothing before the Work data arrives", () => {
     useWork(undefined);
-    const { container } = render(<WorkSection pk={7} setup={null} />);
+    const { container } = renderSection(<WorkSection pk={7} setup={null} />);
     expect(container.textContent).toBe("");
   });
 
   it("shows the section error line when the request fails", () => {
     useWork(undefined, new Error("boom"));
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("Мэдээлэл ачаалж чадсангүй.")).toBeTruthy();
   });
 
@@ -221,7 +233,7 @@ describe("WorkSection", () => {
         checklists: [panel()],
       }),
     );
-    const { container } = render(<WorkSection pk={7} setup={SETUP} />);
+    const { container } = renderSection(<WorkSection pk={7} setup={SETUP} />);
     const headings = Array.from(container.querySelectorAll("h3")).map((h) => h.textContent ?? "");
     expect(headings).toEqual([
       "Албан тушаал, байршил",
@@ -243,18 +255,18 @@ describe("WorkSection", () => {
 
   it("renders no leave block when leave.visible is false", () => {
     useWork(work({ leave: leaveOut({ visible: false }) }));
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.queryByText("Ээлжийн амралт")).toBeNull();
   });
 
   it("shows the not-configured line, with the settings link only for a user who can manage it", () => {
     useWork(work({ leave: leaveOut({ configured: false, can_manage_settings: false }) }));
-    const first = render(<WorkSection pk={7} setup={null} />);
+    const first = renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText(/Ээлжийн амралтын төрлийг сонгоогүй байна\./)).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Төрөл тохируулах" })).toBeNull();
     first.unmount();
     useWork(work({ leave: leaveOut({ configured: false, can_manage_settings: true }) }));
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     const link = screen.getByRole("link", { name: "Төрөл тохируулах" });
     expect(link.getAttribute("href")).toBe("/leave/settings/");
   });
@@ -279,7 +291,7 @@ describe("WorkSection", () => {
         }),
       }),
     );
-    const { container } = render(<WorkSection pk={7} setup={null} />);
+    const { container } = renderSection(<WorkSection pk={7} setup={null} />);
     const oldBody = container.querySelector("[data-old-year]") as HTMLElement;
     expect(oldBody.className).toContain("hidden");
     fireEvent.click(screen.getByRole("button", { name: "Өмнөх 1 жил харах ▾" }));
@@ -289,7 +301,7 @@ describe("WorkSection", () => {
 
   it("hides the checklist blocks when checklist_visible is false", () => {
     useWork(work({ checklist_visible: false, checklists: [panel()] }));
-    const { container } = render(<WorkSection pk={7} setup={null} />);
+    const { container } = renderSection(<WorkSection pk={7} setup={null} />);
     expect(container.querySelector("[data-checklist]")).toBeNull();
   });
 
@@ -312,7 +324,7 @@ describe("WorkSection", () => {
         ],
       }),
     );
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(document.querySelector("span.text-emerald-700")?.textContent).toBe("Хийгдсэн");
     expect(screen.getByText("Заавал биш")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Хийгдсэн" }));
@@ -336,7 +348,7 @@ describe("WorkSection", () => {
         ],
       }),
     );
-    const { container } = render(<WorkSection pk={7} setup={null} />);
+    const { container } = renderSection(<WorkSection pk={7} setup={null} />);
     const input = container.querySelector('input[name="anchor_day"]') as HTMLInputElement;
     expect(input.value).toBe("2026-11-17");
     fireEvent.click(screen.getByRole("button", { name: "Ажлаас гарах жагсаалт эхлүүлэх" }));
@@ -361,7 +373,7 @@ describe("WorkSection", () => {
         }),
       }),
     );
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("Одоо").className).toContain("bg-amber-200");
     expect(screen.getByText("Ирэх").className).toContain("bg-slate-100");
   });
@@ -380,7 +392,7 @@ describe("WorkSection", () => {
         }),
       }),
     );
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText(/Энэ хугацаанд давхардсан эрх байна/)).toBeTruthy();
     expect(screen.getByText("15 хоног")).toBeTruthy();
     expect(screen.getByText("2026-03-01 – 2026-03-02, 2 өдөр")).toBeTruthy();
@@ -389,7 +401,7 @@ describe("WorkSection", () => {
 
   it("shows the start-missing line and no table when the start date is unknown", () => {
     useWork(work({ leave: leaveOut({ start_missing: true, configured: true }) }));
-    const { container } = render(<WorkSection pk={7} setup={null} />);
+    const { container } = renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("Ажилд орсон огноо бүртгэлгүй тул ээлжийн амралтыг тооцох боломжгүй.")).toBeTruthy();
     expect(container.querySelector("[data-old-year]")).toBeNull();
     expect(screen.queryByText("Ажлын жил")).toBeNull();
@@ -397,7 +409,7 @@ describe("WorkSection", () => {
 
   it("shows the no-year line when the year has not started", () => {
     useWork(work({ leave: leaveOut({ no_year_started: true }) }));
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("Ажлын жил эхлээгүй байна.")).toBeTruthy();
   });
 
@@ -409,7 +421,7 @@ describe("WorkSection", () => {
         }),
       }),
     );
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("Эрхийн хугацаагүй чөлөө")).toBeTruthy();
     expect(screen.getByText(/2026-02-01 – 2026-02-03, 3 өдөр/)).toBeTruthy();
     expect(screen.getByText("Хуучин системээс")).toBeTruthy();
@@ -423,7 +435,7 @@ describe("WorkSection", () => {
         }),
       }),
     );
-    const { container } = render(<WorkSection pk={7} setup={null} />);
+    const { container } = renderSection(<WorkSection pk={7} setup={null} />);
     expect(container.querySelector("[data-old-absences]")).not.toBeNull();
     expect(screen.getByText("Зөвхөн харах")).toBeTruthy();
     expect(screen.getByText("Өвчний чөлөө")).toBeTruthy();
@@ -432,28 +444,28 @@ describe("WorkSection", () => {
 
   it("gives «Чөлөө бүртгэх» to the Django page only when the user can record leave", () => {
     useWork(work({ leave: leaveOut({ can_record: true }) }));
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Чөлөө бүртгэх" }));
     expect(openLegacyEmployee).toHaveBeenCalledWith(7);
   });
 
   it("links «Бүх чөлөө» to the leave list", () => {
     useWork(work());
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     const link = screen.getByRole("link", { name: "Бүх чөлөө (өвчний, цалингүй…)" });
     expect(link.getAttribute("href")).toBe("/leave/?employee=7&status=all");
   });
 
   it("shows «Цуцлах» on a cancellable checklist and gives it to the Django page", () => {
     useWork(work({ checklist_visible: true, checklists: [panel({ can_cancel: true })] }));
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
     expect(openLegacyEmployee).toHaveBeenCalledWith(7);
   });
 
   it("adds the «Дууссан» note to the caption of a completed checklist", () => {
     useWork(work({ checklist_visible: true, checklists: [panel({ completed: true })] }));
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("Дууссан").className).toContain("text-emerald-700");
   });
 
@@ -468,16 +480,16 @@ describe("WorkSection", () => {
         ],
       }),
     );
-    render(<WorkSection pk={7} setup={null} />);
+    renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("2026-01-10").className).toContain("text-red-700");
   });
 
   it("keeps the one-shot order warning when a refetch returns an empty warning", () => {
     useWork(work({ order_warning: "Тушаал анхааруулга" }));
-    const { rerender } = render(<WorkSection pk={7} setup={null} />);
+    const { rerender } = renderSection(<WorkSection pk={7} setup={null} />);
     expect(screen.getByText("Тушаал анхааруулга")).toBeTruthy();
     useWork(work({ order_warning: "" }));
-    rerender(<WorkSection pk={7} setup={null} />);
+    rerender(wrap(<WorkSection pk={7} setup={null} />));
     expect(screen.getByText("Тушаал анхааруулга")).toBeTruthy();
   });
 });

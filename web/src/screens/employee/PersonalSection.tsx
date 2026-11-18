@@ -1,23 +1,25 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { useEmployeePersonal } from "../../api/employee";
 import type { components } from "../../api/schema";
-import { openLegacyEmployee } from "../../lib/AppLink";
+import { ClashChoice } from "./ClashChoice";
 import { PersonalGroup } from "./PersonalGroup";
 import { PersonalList } from "./PersonalList";
-import { Soft } from "./Soft";
+import { Soft, type SoftKind } from "./Soft";
+import { isUnsaved, useUnsavedRevision } from "../../lib/unsaved";
+import { useSectionEdit, type PersonalSectionOut } from "./sectionEdit";
 
 // Port of `employees/_tab_personal.html`: five topic groups, each a collapsible <details> with its chips, and inside
 // them the four field sections and the personal lists, placed as the template places them. The placement uses the
 // API's `group` and `parent` keys: a list whose `parent` is a section sits inside that section; a list with no parent
 // follows the group's sections, in the API's (template) order. Classes, Mongolian text, ids and wrappers are copied
 // from the templates. React renders only the strings and flags the API sends. Field sections are soft boxes for a
-// manager (`editable`) and read rows otherwise. Every write (the boxes' save, add, edit) opens the Django employee page
-// (openLegacyEmployee, ruling D2): no fetch.
+// manager (`editable`) and read rows otherwise. A manager's field sections save on the spot (step 3b, task 14a): each
+// has its own save strip and posts only its changed names. An inline list is edited in its own rows (15b); a pop-up list's
+// add, edit and delete open its own pop-up (RowModal, 15c). Nothing here opens the Django employee page for a list write.
 
 type PersonalOut = components["schemas"]["EmployeePersonalOut"];
 type Section = PersonalOut["sections"][number];
-type Field = Section["fields"][number];
 type Row = Section["rows"][number];
 type List = PersonalOut["lists"][number];
 
@@ -45,36 +47,91 @@ function ReadRows({ rows }: { rows: Row[] }) {
   );
 }
 
-// The soft boxes of a field section for a manager (`_on_spot_fields.html`). The save strip is hidden until a change
-// (step 3b wires it); its buttons open the Django page for now.
-function OnSpotFields({ section, pk }: { section: Section; pk: number }) {
+// Opens a group by its key (never closes it). PersonalBody provides it, so a section can open its own group when a save is
+// refused, even when the section was already dirty and the registry does not change.
+const OpenGroupContext = createContext<(key: string) => void>(() => undefined);
+
+// The soft boxes of a field section for a manager (`_on_spot_fields.html`). Each box is bound to the section's edit state
+// (sectionEdit.ts): a typed change shows the save strip and the violet edge; «Болих» drops the edits; «Хадгалах» posts the
+// changed names with the section's snapshot. A refused save keeps the edits, shows the errors and keeps the strip.
+function OnSpotFields({ section, pk }: { section: PersonalSectionOut; pk: number }) {
+  const edit = useSectionEdit(pk, section);
+  const formRef = useRef<HTMLFormElement>(null);
+  const formId = `sec-${section.name}-form`;
+
+  const openGroup = useContext(OpenGroupContext);
+
+  // After a refused save, its group opens (sections.js openMarked) and the first box with an error comes into view
+  // (sections.js and PageForm do the same).
+  useEffect(() => {
+    if (edit.errorTick === 0) return;
+    openGroup(section.group);
+    const invalid = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (invalid && typeof invalid.scrollIntoView === "function") invalid.scrollIntoView({ block: "center" });
+  }, [edit.errorTick, openGroup, section.group]);
+
   return (
     <div id={`fields-${section.name}`}>
-      <form id={`sec-${section.name}-form`} data-on-spot="" className="mt-4" onSubmit={(e) => e.preventDefault()}>
+      <form
+        ref={formRef}
+        id={formId}
+        data-on-spot=""
+        data-dirty={edit.dirty ? "" : undefined}
+        className="mt-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void edit.save();
+        }}
+      >
+        {edit.formErrors.length > 0 ? (
+          <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">
+            {edit.formErrors.map((message, i) => (
+              <p key={i}>{message}</p>
+            ))}
+          </div>
+        ) : null}
         <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          {section.fields.map((field: Field) => (
-            <div key={field.name}>
-              <dt className="text-xs text-slate-500">
-                {field.label}
-                {field.required ? " *" : null}
-              </dt>
-              <dd>
-                <Soft
-                  label={field.label}
-                  kind={field.kind}
-                  value={field.value}
-                  choice={field.choice}
-                  combo={field.combo}
-                  checked={field.checked}
-                  placeholder={field.placeholder}
-                />
-              </dd>
-            </div>
-          ))}
+          {section.fields.map((field) => {
+            const error = edit.errors[field.name];
+            const edited = field.name in edit.edits;
+            return (
+              <div key={field.name}>
+                <dt className="text-xs text-slate-500">
+                  {field.label}
+                  {field.required ? " *" : null}
+                </dt>
+                <dd>
+                  <Soft
+                    label={field.label}
+                    kind={field.kind as SoftKind}
+                    value={edited ? edit.edits[field.name] : field.value}
+                    choice={field.choice}
+                    combo={field.combo}
+                    checked={edited ? edit.edits[field.name] === "on" : field.checked}
+                    placeholder={field.placeholder}
+                    name={field.name}
+                    form={formId}
+                    onChange={(name, value) => edit.setValue(name, value)}
+                    error={error && error.errors.length > 0 ? error.errors : undefined}
+                    changed={edited}
+                    choices={field.choices}
+                  />
+                  {error?.conflict ? (
+                    <ClashChoice
+                      name={field.name}
+                      theirs={error.conflict}
+                      value={edit.resolves[field.name] ?? "mine"}
+                      onPick={(choice) => edit.setResolve(field.name, choice)}
+                    />
+                  ) : null}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
         <div
           data-strip=""
-          hidden
+          hidden={!edit.dirty}
           className="mt-4 flex items-center justify-end gap-2 rounded-lg border border-violet-300 bg-violet-50 p-2"
         >
           <span className="mr-auto flex items-center gap-2 text-sm font-medium text-violet-900">
@@ -82,15 +139,15 @@ function OnSpotFields({ section, pk }: { section: Section; pk: number }) {
           </span>
           <button
             type="button"
-            onClick={() => openLegacyEmployee(pk)}
+            onClick={edit.cancel}
             className="rounded-lg border border-slate-300 bg-surface px-4 py-2 text-sm hover:bg-slate-50"
           >
             Болих
           </button>
           <button
-            type="button"
-            onClick={() => openLegacyEmployee(pk)}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700"
+            type="submit"
+            disabled={edit.pending}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700 disabled:opacity-60"
           >
             Хадгалах
           </button>
@@ -185,6 +242,10 @@ function PersonalBody({ pk, data, openGroup }: { pk: number; data: PersonalOut; 
     Object.fromEntries(data.groups.map((group) => [group.key, group.open_by_default || group.key === openGroup])),
   );
 
+  const openGroupKey = useCallback((key: string) => {
+    setOpen((current) => (current[key] ? current : { ...current, [key]: true }));
+  }, []);
+
   const reveal = (key: string) => {
     const el = groupRefs.current[key];
     if (!el) return;
@@ -197,6 +258,22 @@ function PersonalBody({ pk, data, openGroup }: { pk: number; data: PersonalOut; 
     if (openGroup) reveal(openGroup);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Django's openMarked (sections.js): a group that holds a section with unsaved edits or a failed save opens itself. It
+  // only opens, never closes, and runs when a section's state changes (the registry revision) or the data refetches. A
+  // group the user closed by hand, with no dirty section in it, is not touched.
+  const unsavedRevision = useUnsavedRevision();
+  useEffect(() => {
+    const dirtyGroups = new Set(data.sections.filter((s) => isUnsaved("section:" + s.name)).map((s) => s.group));
+    if (dirtyGroups.size === 0) return;
+    setOpen((current) => {
+      const missing = [...dirtyGroups].filter((key) => !current[key]);
+      if (missing.length === 0) return current;
+      const next = { ...current };
+      missing.forEach((key) => (next[key] = true));
+      return next;
+    });
+  }, [unsavedRevision, data.sections]);
 
   // Printing shows every group: a closed one opens for the print and closes again after it (sections.js beforeprint and
   // afterprint). flushSync makes the open state reach the DOM before the browser takes the print snapshot.
@@ -258,7 +335,9 @@ function PersonalBody({ pk, data, openGroup }: { pk: number; data: PersonalOut; 
             }}
             onToggle={() => setOpen((current) => ({ ...current, [group.key]: !current[group.key] }))}
           >
-            <GroupBody groupKey={group.key} sections={data.sections} lists={data.lists} pk={pk} />
+            <OpenGroupContext.Provider value={openGroupKey}>
+              <GroupBody groupKey={group.key} sections={data.sections} lists={data.lists} pk={pk} />
+            </OpenGroupContext.Provider>
           </PersonalGroup>
         ))}
       </div>

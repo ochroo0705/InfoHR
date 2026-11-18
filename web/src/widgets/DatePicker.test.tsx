@@ -204,3 +204,57 @@ describe("DatePicker", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe("DatePicker: className, invalid and placeholder (Soft's soft box)", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  function Plain(props: { mode?: "day" | "month"; className?: string; invalid?: boolean; placeholder?: string; form?: string }) {
+    return (
+      <>
+        <label htmlFor="dx">Огноо</label>
+        <DatePicker id="dx" name="dx" value="" onChange={() => {}} {...props} />
+      </>
+    );
+  }
+
+  it("by default the day box keeps FIELD, the day placeholder and has no aria-invalid", () => {
+    render(<Plain />);
+    const box = screen.getByLabelText("Огноо") as HTMLInputElement;
+    expect(box.className).toContain("rounded-lg border border-slate-300");
+    expect(box.placeholder).toBe("ЖЖЖЖ-СС-ӨӨ");
+    expect(box.getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("by default the month box keeps the month placeholder", () => {
+    render(<Plain mode="month" />);
+    expect((screen.getByLabelText("Огноо") as HTMLInputElement).placeholder).toBe("ЖЖЖЖ-СС");
+  });
+
+  it("className replaces the FIELD classes on the box", () => {
+    render(<Plain className="w-full f-soft" />);
+    const box = screen.getByLabelText("Огноо") as HTMLInputElement;
+    expect(box.className).toBe("w-full f-soft");
+  });
+
+  it("placeholder replaces the default hint", () => {
+    render(<Plain placeholder="—" />);
+    expect((screen.getByLabelText("Огноо") as HTMLInputElement).placeholder).toBe("—");
+  });
+
+  it("invalid sets aria-invalid=true on the box", () => {
+    render(<Plain invalid />);
+    expect(screen.getByLabelText("Огноо").getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("form sets the form attribute on the text box, so it posts with that form", () => {
+    render(<Plain form="emp-form" />);
+    expect(screen.getByLabelText("Огноо").getAttribute("form")).toBe("emp-form");
+  });
+
+  it("by default the box has no form attribute", () => {
+    render(<Plain />);
+    expect(screen.getByLabelText("Огноо").hasAttribute("form")).toBe(false);
+  });
+});

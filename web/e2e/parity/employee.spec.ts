@@ -68,8 +68,15 @@ function pkForName(html: string, name: string): number {
 const openEmployee: Step = (page) => openPath(page, `/employees/${employeePk}/`);
 
 // Opens the employee page, then the «Түүх» drawer by its header button, and waits until the drawer has slid in.
+// The floating «Асуух» assistant button (base.html `assistant_fab`, fixed bottom-right, z-40) is hidden on both sides for
+// this step. Django draws it over the drawer's corner; the React shell has no assistant button yet (a later step), so
+// only Django would show it. Hidden with visibility, so the layout does not move. Returns with the shell port (see
+// EXPECTED_DIFFS.md).
+const ASSISTANT_FAB_HIDDEN = "[data-assistant-fab]{visibility:hidden !important}";
+
 const openEmployeeDrawer: Step = async (page: Page) => {
   await openEmployee(page);
+  await page.addStyleTag({ content: ASSISTANT_FAB_HIDDEN });
   await page.locator(ACTIVITY_BUTTON).first().click();
   const drawer = page.locator("#activity-drawer");
   await expect(drawer).toHaveAttribute("aria-hidden", "false");

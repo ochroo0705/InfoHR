@@ -51,6 +51,13 @@ export interface SelectProps {
   onAddModal?: (text: string) => void;
   // The hint shown while the typing box has focus.
   placeholder?: string;
+  // Replaces the default box classes (FIELD) on the visible box, for a caller's own look (Soft's soft box). Unset: FIELD.
+  className?: string;
+  // Sets aria-invalid="true" on the visible box. Unset: no attribute.
+  invalid?: boolean;
+  // The id of the <form> the box posts with (the `form` attribute). Set on the visible box, the native select and the
+  // hidden field, so Enter in a typing box and the posted value both belong to that form. Unset: no attribute.
+  form?: string;
 }
 
 const SEARCH_FROM = 8;
@@ -91,15 +98,28 @@ export function Select(props: SelectProps): ReactNode {
   return <PickerSelect {...props} />;
 }
 
-function NativeSelect({ id, name, value, onChange, options, required = false, disabled = false }: SelectProps) {
+function NativeSelect({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+  required = false,
+  disabled = false,
+  className,
+  invalid,
+  form,
+}: SelectProps) {
   return (
     <select
       id={id}
       name={name}
+      form={form}
       value={value}
       required={required}
       disabled={disabled}
-      className={FIELD}
+      aria-invalid={invalid || undefined}
+      className={className ?? FIELD}
       onChange={(e) => onChange(e.target.value)}
     >
       {options.map((o) => (
@@ -125,6 +145,9 @@ function PickerSelect({
   addModal = false,
   onAddModal,
   placeholder = HINT,
+  className,
+  invalid,
+  form,
 }: SelectProps) {
   // select.js isCombo: addUrl, or search on, or 8+ options; search off never. addModal alone does not count.
   const combo = search !== false && (Boolean(addUrl) || search === true || options.length >= SEARCH_FROM);
@@ -381,7 +404,9 @@ function PickerSelect({
     }
   };
 
-  const hiddenField = <input ref={setFormField} type="hidden" name={name} value={value} readOnly />;
+  const hiddenField = (
+    <input ref={setFormField} type="hidden" id={id} name={name} form={form} value={value} readOnly />
+  );
 
   const popup = showPopup
     ? createPortal(
@@ -458,10 +483,13 @@ function PickerSelect({
       <>
         <input
           ref={setTrigger}
-          id={id}
+          // select.js names the typing box «sel-» + the select's id; the select keeps the plain id (hiddenField).
+          id={id ? `sel-${id}` : undefined}
+          form={form}
           type="text"
           role="combobox"
-          className={cn(FIELD, "sel-combo")}
+          aria-invalid={invalid || undefined}
+          className={cn(className ?? FIELD, "sel-combo")}
           autoComplete="off"
           spellCheck={false}
           value={current}
@@ -532,12 +560,14 @@ function PickerSelect({
         ref={setTriggerAndField}
         id={id}
         name={name}
+        form={form}
         value={value}
         required={required}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={FIELD}
+        aria-invalid={invalid || undefined}
+        className={className ?? FIELD}
         onChange={(e) => {
           // A change event with the value already shown is our own notify (see the effect), not a pick.
           if (e.target.value !== value) onChange(e.target.value);

@@ -64,6 +64,10 @@
   .sel-active { background: var(--color-slate-100); color: var(--color-slate-900); }
   /* The chosen option: lime tint, olive text; the ✓ below is the non-colour cue. */
   .sel-selected { font-weight: 600; background: var(--color-pick-tint); color: var(--color-pick-edge); }
+  /* input.css: the picked row of an inline list (its cells take the pick tint, as Django's rule does). */
+  tr.is-picked > td { background-color: var(--color-pick-tint); }
+  /* input.css: the 3px edge of a picked row sits on its first cell (an inset shadow, so the row does not move). */
+  .is-picked > td:first-child { box-shadow: inset 3px 0 0 var(--color-pick-edge); transition: box-shadow var(--dur-hover) var(--ease-out); }
   /* Selected and keyboard/hover-highlighted: a 2px edge ring, so the highlight still shows on the picked option. */
   .sel-selected.sel-active { box-shadow: inset 0 0 0 2px var(--color-pick-edge); }
   .sel-selected::before { content: "✓"; position: absolute; left: .625rem; }

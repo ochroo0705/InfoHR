@@ -53,6 +53,16 @@ export function pickTopShell<T extends ShellState>(shells: readonly T[]): T | nu
   return null;
 }
 
+// The Escape target: the topmost pop-up that is not leaving, closable or not. A non-closable pop-up (the one-time
+// password, UI_RULES §6a) takes the Escape and does nothing with it, so the Escape never falls through to a closable
+// pop-up below it.
+export function pickEscapeTarget<T extends ShellState>(shells: readonly T[]): T | null {
+  for (let i = shells.length - 1; i >= 0; i -= 1) {
+    if (!shells[i].leaving) return shells[i];
+  }
+  return null;
+}
+
 // Whether removing a shell plays the pop-up exit first. Only a pop-up shell does. A shell already leaving, a noAnim
 // shell (rebuilt from an open pop-up) and a context without the exit are removed at once.
 export interface RemovableShell {

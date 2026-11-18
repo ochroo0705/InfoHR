@@ -1,7 +1,14 @@
 // Port of web/legacy-specs/modal.test.ts (the 13 cases of app/static/js/modal.js helpers) against modalLogic.ts.
 // The scenarios are kept. Shells are plain objects instead of DOM nodes; tryClose is async, so its cases await it.
 import { describe, expect, it } from "vitest";
-import { DIRTY_CONFIRM_MESSAGE, hasServerErrors, pickTopShell, shouldAnimateRemoval, tryClose } from "./modalLogic";
+import {
+  DIRTY_CONFIRM_MESSAGE,
+  hasServerErrors,
+  pickEscapeTarget,
+  pickTopShell,
+  shouldAnimateRemoval,
+  tryClose,
+} from "./modalLogic";
 
 type FakeShell = { name: string; closable: boolean; leaving: boolean; isShell: boolean; noAnim: boolean };
 
@@ -117,5 +124,24 @@ describe("hasServerErrors", () => {
   it("is true for a field message or a form message", () => {
     expect(hasServerErrors({ field_errors: { name: ["Заавал бөглөнө"] } })).toBe(true);
     expect(hasServerErrors({ form_errors: ["Алдаа"] })).toBe(true);
+  });
+});
+
+describe("pickEscapeTarget", () => {
+  it("returns the topmost shell that is not leaving, closable or not", () => {
+    const below = fake({ name: "below" });
+    const top = fake({ name: "top", closable: false });
+    expect(pickEscapeTarget([below, top])).toBe(top);
+  });
+
+  it("skips leaving shells", () => {
+    const below = fake({ name: "below" });
+    const top = fake({ name: "top", leaving: true });
+    expect(pickEscapeTarget([below, top])).toBe(below);
+  });
+
+  it("returns null when there are no shells or every one is leaving", () => {
+    expect(pickEscapeTarget([])).toBeNull();
+    expect(pickEscapeTarget([fake({ leaving: true })])).toBeNull();
   });
 });

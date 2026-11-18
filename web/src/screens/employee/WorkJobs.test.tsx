@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmployeeWorkOut } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
@@ -8,6 +10,41 @@ vi.mock("../../lib/AppLink", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../lib/AppLink")>();
   return { ...actual, openLegacyEmployee: vi.fn() };
 });
+
+// fetch is stubbed before the api client is imported (the «Засвар» pop-up loads its form through it), as in RowModal.test.
+const h = vi.hoisted(() => {
+  const fetchMock = vi.fn();
+  const NativeRequest = globalThis.Request;
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => fetchMock(input, init));
+  vi.stubGlobal(
+    "Request",
+    class extends NativeRequest {
+      constructor(input: RequestInfo | URL, init?: RequestInit) {
+        super(typeof input === "string" ? new URL(input, window.location.origin) : input, init);
+      }
+    },
+  );
+  return { fetchMock };
+});
+const fetchMock = h.fetchMock;
+
+// The job correction form the pop-up gets back (only the title matters to these tests).
+const JOB_FORM = {
+  title: "Ажлын түүх засварлах",
+  fields: [
+    { name: "position", label: "Албан тушаал", required: false, kind: "text", value: "Ахлах мэргэжилтэн", checked: false, placeholder: "", choice: "", combo: false, choices: [], help: "", max_length: null, errors: [] },
+    { name: "reason", label: "Шалтгаан", required: true, kind: "text", value: "", checked: false, placeholder: "", choice: "", combo: false, choices: [], help: "", max_length: null, errors: [] },
+  ],
+  hidden: {},
+  empty_lists: [],
+  can_delete: false,
+};
+
+// WorkJobs with a query client, for the «Засвар» pop-up (its form is a query).
+function renderWithClient(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 // A work payload as the API sends it. Only the fields this part reads matter; the rest is filled so the shape is complete.
 function work(overrides: Partial<EmployeeWorkOut> = {}): EmployeeWorkOut {
@@ -58,6 +95,15 @@ const defaultChip = { label: "Хүчингүй", tone: "rounded-full bg-slate-20
 
 beforeEach(() => {
   vi.mocked(openLegacyEmployee).mockClear();
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(async (input: unknown) => {
+    const request = input as Request;
+    const path = new URL(request.url).pathname;
+    if (request.method === "GET" && path.endsWith("/correct/form")) {
+      return new Response(JSON.stringify(JOB_FORM), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    throw new Error(`unexpected request ${request.method} ${path}`);
+  });
 });
 
 afterEach(() => {
@@ -192,5 +238,50 @@ describe("WorkJobs", () => {
     const { container } = render(<WorkJobs work={work({ jobs: [scheduledJob] })} pk={7} />);
     fireEvent.click(container.querySelector("tbody tr") as HTMLElement);
     expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+  });
+
+  it("a «Цуцлах» button inside the page form does not submit it: the click only opens the legacy page", () => {
+    const submit = vi.fn();
+    render(
+      <form
+        id="emp-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <WorkJobs work={work({ jobs: [cancellableJob] })} pk={7} />
+      </form>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
+    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(submit).not.toHaveBeenCalled();
+  });
+});
+
+describe("WorkJobs: «Засвар» opens the job correction pop-up (Task 16a)", () => {
+  // A correctable row of a job record (pk 2) with an order, so the row itself is also clickable.
+  const correctable = { ...scheduledJob, pk: 2, scheduled: false, cancellable: false, correctable: true };
+
+  it("«Засвар» opens the pop-up of that job record, and the row click does not open the legacy page", async () => {
+    renderWithClient(<WorkJobs work={work({ jobs: [correctable] })} pk={7} />);
+    fireEvent.click(screen.getByRole("button", { name: "Засвар" }));
+    await screen.findByRole("heading", { name: "Ажлын түүх засварлах" });
+    const paths = fetchMock.mock.calls.map((call) => new URL((call[0] as Request).url).pathname);
+    expect(paths).toContain("/api/v1/employees/7/job/2/correct/form");
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("a correctable row with no job record id shows no «Засвар» button (nothing to correct)", () => {
+    renderWithClient(<WorkJobs work={work({ jobs: [{ ...correctable, pk: null, clickable: false }] })} pk={7} />);
+    expect(screen.queryByRole("button", { name: "Засвар" })).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("«Цуцлах» keeps opening the legacy page, not the pop-up", () => {
+    renderWithClient(<WorkJobs work={work({ jobs: [cancellableJob] })} pk={7} />);
+    fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
+    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

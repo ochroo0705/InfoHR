@@ -10,6 +10,7 @@ from accounts import roles
 from accounts.models import AccessScope, User
 from django.contrib.auth.models import Group, Permission
 from django.test import Client
+from employees import sections
 from employees.forms import EmployeeForm
 from employees.models import Employee
 from employees.services import history, macs_writes
@@ -200,3 +201,31 @@ def test_editable_sections_send_soft_fields_and_read_only_sends_rows(hr_user: Us
     read_identity = next(s for s in read_body["sections"] if s["name"] == "identity")
     assert read_identity["fields"] == []
     assert read_identity["rows"][0]["label"] == "Регистрийн дугаар"
+
+
+def test_personal_fields_carry_only_the_declared_keys(hr_user: User, hired: Employee) -> None:
+    """The describe_form extras (help, max_length, errors) stay off the personal API response."""
+    body = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/personal").json()
+    declared = {"name", "label", "required", "kind", "value", "checked", "placeholder", "choice", "combo", "choices"}
+    fields = [f for section in body["sections"] for f in section["fields"]]
+    assert fields
+    assert all(set(f) == declared for f in fields)
+
+
+def test_list_columns_name_the_form_field_they_edit(hr_user: User, hired: Employee) -> None:
+    """Inline columns carry the form field their box edits (the form has that field); pop-up lists send "" for all."""
+    client = _client(hr_user)
+    body = client.get(f"/api/v1/employees/{hired.pk}/personal").json()
+    seen = {item["kind"] for item in body["lists"]}
+    assert set(sections.INLINE_LISTS) <= seen
+    for item in body["lists"]:
+        kind = item["kind"]
+        if kind in sections.INLINE_LISTS:
+            spec = sections.INLINE_LISTS[kind]
+            form = client.get(f"/api/v1/employees/{hired.pk}/personal/{kind}/form").json()
+            form_names = {field["name"] for field in form["fields"]}
+            assert [column["field"] for column in item["columns"]] == [col.field for col in spec.columns], kind
+            for column in item["columns"]:
+                assert column["field"] in form_names, (kind, column["field"])
+        else:
+            assert all(column["field"] == "" for column in item["columns"]), kind

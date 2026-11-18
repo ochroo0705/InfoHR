@@ -1,12 +1,14 @@
 import {
   createElement,
   useCallback,
+  useRef,
   type AnchorHTMLAttributes,
   type MouseEvent,
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
+import { anyUnsaved, confirmLeave } from "./unsaved";
 
 // Page cross-fade for the React app. Port of the same-origin View Transitions rules in styles/motion.css (input.css
 // 482-493): when the browser has document.startViewTransition and the user has not asked for reduced motion, a
@@ -44,18 +46,39 @@ export function runViewTransition(update: () => void): void {
   }
 }
 
+// True when the link keeps the current path (a hash, a query, or the same page). Only a path change counts as leaving.
+function staysOnPath(to: string, current: string): boolean {
+  return new URL(to, "http://local" + current).pathname === current;
+}
+
 export function useTransitionNavigate(): (to: string) => void {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // A leave question that is open: a second click on a leave link meanwhile does nothing (one question, one navigation).
+  const asking = useRef(false);
   return useCallback(
     (to: string) => {
-      runViewTransition(() => {
-        // flushSync commits the new route before the browser takes the "after" snapshot.
-        flushSync(() => {
-          void navigate(to);
+      const go = () => {
+        runViewTransition(() => {
+          // flushSync commits the new route before the browser takes the "after" snapshot.
+          flushSync(() => {
+            void navigate(to);
+          });
         });
+      };
+      // Leaving the page with unsaved edits asks first (the unsaved registry, unsaved.ts). A same-page link does not ask.
+      if (!anyUnsaved() || staysOnPath(to, pathname)) {
+        go();
+        return;
+      }
+      if (asking.current) return;
+      asking.current = true;
+      void confirmLeave().then((ok) => {
+        asking.current = false;
+        if (ok) go();
       });
     },
-    [navigate],
+    [navigate, pathname],
   );
 }
 

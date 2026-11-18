@@ -22,7 +22,6 @@ MISSING = "Ажилд орсон огноо бүртгэлгүй тул ээлж
 @pytest.fixture(autouse=True)
 def fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("leave.views.today", lambda: TODAY)
-    monkeypatch.setattr("employees.views.leave_today", lambda: TODAY)
     monkeypatch.setattr("django.utils.timezone.localdate", lambda: TODAY)
 
 

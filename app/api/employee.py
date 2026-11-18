@@ -11,15 +11,15 @@ from typing import Any, Literal
 
 from accounts.models import User
 from checklists.models import ChecklistState
-from django.forms import BoundField, CheckboxInput, DateInput, NumberInput, Select, Textarea
 from django.http import HttpRequest, HttpResponse
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import Truncator
-from employees import access, sections
+from employees import access, sections, stale
 from employees.models import ActivityEntry, ContractType, Employee, Event, OrderState, ext_of
 from employees.services.detail_page import ACTIVITY_BATCH, detail_facts
+from employees.services.form_schema import describe_field
 from employees.templatetags.hr import day_label, mnt, thumb
 from employees.views import ONE_TIME_LOGIN_KEY, ORDER_WARNING_KEY
 from leave.models import GrantKind
@@ -283,6 +283,7 @@ class PanelOut(Schema):
 
 
 class WorkFieldOut(Schema):
+    name: str  # the form field's HTML name (the page-form field the soft box posts, e.g. «office», «sector_years»)
     kind: str  # the widget the Django soft box renders: "select", "date" or "number" (_tab_work.html)
     value: str  # the box's raw value: a select's stored code (a foreign key's pk), an ISO date, a number; "" if empty
     choice: str  # a select's current option text (the combo box's text; "" for the blank option); "" for other kinds
@@ -347,6 +348,7 @@ class EmployeeSalaryRowOut(Schema):
 
 
 class EmployeeBankFieldOut(Schema):
+    name: str  # the form field's HTML name, «si-» prefixed (e.g. «si-bank», «si-account_no»)
     label: str  # the row's label, in template order
     aria_label: str  # the form field's accessible name (Django's label, e.g. «НДД-ийн дугаар»)
     kind: Literal["select", "text", "checkbox"]  # the soft box Django renders: a select, a text box or a checkbox
@@ -866,6 +868,7 @@ def _fk_select(employee: Any, name: str) -> dict[str, Any]:
     label = _fk_text(getattr(employee, name))
     pk = getattr(employee, field.attname)
     return {
+        "name": name,
         "kind": "select",
         "value": "" if pk is None else str(pk),
         "choice": label,
@@ -878,9 +881,10 @@ def _choice_field(employee: Any, name: str, text: str) -> dict[str, Any]:
     """A soft select over a model's choices: the stored code and its label. `text` is the template's read-only text."""
     value = getattr(employee, name)
     if value is None or value == "":
-        return {"kind": "select", "value": "", "choice": "", "combo": False, "text": text}
+        return {"name": name, "kind": "select", "value": "", "choice": "", "combo": False, "text": text}
     labels = dict(employee._meta.get_field(name).flatchoices)
     return {
+        "name": name,
         "kind": "select",
         "value": str(value),
         "choice": str(labels.get(value, "")),
@@ -889,12 +893,20 @@ def _choice_field(employee: Any, name: str, text: str) -> dict[str, Any]:
     }
 
 
-def _date_field(value: date | None) -> dict[str, Any]:
-    return {"kind": "date", "value": _iso(value), "choice": "", "combo": False, "text": _iso(value) or "—"}
-
-
-def _number_field(value: int | None) -> dict[str, Any]:
+def _date_field(name: str, value: date | None) -> dict[str, Any]:
     return {
+        "name": name,
+        "kind": "date",
+        "value": _iso(value),
+        "choice": "",
+        "combo": False,
+        "text": _iso(value) or "—",
+    }
+
+
+def _number_field(name: str, value: int | None) -> dict[str, Any]:
+    return {
+        "name": name,
         "kind": "number",
         "value": "" if value is None else str(value),
         "choice": "",
@@ -943,8 +955,10 @@ def employee_work(request: HttpRequest, response: HttpResponse, pk: int) -> dict
         "contract_start": _iso(job.contract_start if job is not None else None) or "—",
         "contract_end": _iso(job.contract_end if job is not None else None),
         "contract_end_label": contract_end_label,
-        "probation_end": _aria(_date_field(ext.probation_end if ext is not None else None), "Туршилтын хугацаа дуусах"),
-        "first_hire_date": _aria(_date_field(employee.first_hire_date), "Анх ажилд орсон огноо")
+        "probation_end": _aria(
+            _date_field("probation_end", ext.probation_end if ext is not None else None), "Туршилтын хугацаа дуусах"
+        ),
+        "first_hire_date": _aria(_date_field("first_hire_date", employee.first_hire_date), "Анх ажилд орсон огноо")
         if can_manage
         else None,
         "job_type": _aria(
@@ -958,7 +972,7 @@ def employee_work(request: HttpRequest, response: HttpResponse, pk: int) -> dict
             _choice_field(employee, "work_conditions", str(employee.get_work_conditions_display())), "Ажлын нөхцөл"
         ),
         "work_schedule": _aria(_fk_select(employee, "work_schedule"), "Ажлын цагийн хуваарь"),
-        "sector_years": _aria(_number_field(employee.sector_years), "Салбарт ажилласан жил"),
+        "sector_years": _aria(_number_field("sector_years", employee.sector_years), "Салбарт ажилласан жил"),
         "macs_contract_no": _default(employee.contract_no),
         "macs_contract_period": f"{_iso(employee.contract_start) or '—'} – {_iso(employee.contract_end)}",
         "macs_taken_leave": "Тийм" if employee.taken_leave == 1 else ("Үгүй" if employee.taken_leave == 0 else "—"),
@@ -1014,10 +1028,11 @@ def _salary_row_out(row: Any, can_manage: bool) -> dict[str, Any]:
     }
 
 
-def _text_bank_field(label: str, aria: str, raw: Any) -> dict[str, Any]:
-    """A plain text soft box (a text input), its accessible name and its read-only text («—» when empty)."""
+def _text_bank_field(name: str, label: str, aria: str, raw: Any) -> dict[str, Any]:
+    """A plain text soft box (a text input), its form name, accessible name and its read-only text («—» when empty)."""
     value = str(raw) if raw else ""
     return {
+        "name": name,
         "label": label,
         "aria_label": aria,
         "kind": "text",
@@ -1035,13 +1050,14 @@ def _bank_fields(employee: Employee) -> list[dict[str, Any]]:
     bank = _aria(_select_field(employee.bank), "Банк")
     insured = _aria(_select_field(employee.insured_category), "Даатгуулагчийн төрөл")
     return [
-        {"label": "Банк", **bank, "checked": False},
-        _text_bank_field("Дансны дугаар", "Дансны дугаар", employee.account_no),
-        _text_bank_field("НДД", "НДД-ийн дугаар", employee.social_insurance_no),
-        _text_bank_field("ЭМДД", "ЭМДД-ийн дугаар", employee.health_insurance_no),
-        {"label": "Даатгуулагчийн төрөл", **insured, "checked": False},
-        _text_bank_field("ТТД", "Татвар төлөгчийн дугаар", employee.taxpayer_no),
+        {"name": "si-bank", "label": "Банк", **bank, "checked": False},
+        _text_bank_field("si-account_no", "Дансны дугаар", "Дансны дугаар", employee.account_no),
+        _text_bank_field("si-social_insurance_no", "НДД", "НДД-ийн дугаар", employee.social_insurance_no),
+        _text_bank_field("si-health_insurance_no", "ЭМДД", "ЭМДД-ийн дугаар", employee.health_insurance_no),
+        {"name": "si-insured_category", "label": "Даатгуулагчийн төрөл", **insured, "checked": False},
+        _text_bank_field("si-taxpayer_no", "ТТД", "Татвар төлөгчийн дугаар", employee.taxpayer_no),
         {
+            "name": "si-has_disability",
             "label": "Хөгжлийн бэрхшээл",
             "aria_label": "Хөгжлийн бэрхшээлтэй",
             "kind": "checkbox",
@@ -1127,10 +1143,12 @@ class EmployeePersonalSectionOut(Schema):
     editable: bool  # the fields show as soft boxes (readOnly until step 3b); otherwise the read rows show
     rows: list[EmployeePersonalRowOut]  # read mode
     fields: list[EmployeePersonalFieldOut]  # the soft boxes, only when editable
+    loaded: str  # the stale-check snapshot (JSON) of the personal form, posted back on save; "" when not editable
 
 
 class EmployeePersonalColumnOut(Schema):
     header: str
+    field: str  # the form field this column's box edits (InlineColumn.field); "" for pop-up lists
     head_class: str  # the <th> class string, "" when none
     cell_class: str  # the <td> class string, "" when none
 
@@ -1423,12 +1441,14 @@ def _personal_list_out(employee: Employee, kind: str, rows: list[Any], can_manag
     if kind in sections.INLINE_LISTS:
         spec = sections.INLINE_LISTS[kind]
         items = sections.inline_context(employee, kind, rows, can_manage)["items"]
-        columns = [{"header": col.header, "head_class": "", "cell_class": ""} for col in spec.columns]
+        columns = [
+            {"header": col.header, "field": col.field, "head_class": "", "cell_class": ""} for col in spec.columns
+        ]
         out_rows = [{"key": str(item["key"]), "cells": [_default(cell) for cell in item["cells"]]} for item in items]
         title, inline = spec.title, True
     else:
         title, cols = _TABLE_LISTS[kind]
-        columns = [{"header": h, "head_class": hc, "cell_class": cc} for h, hc, cc in cols]
+        columns = [{"header": h, "field": "", "head_class": hc, "cell_class": cc} for h, hc, cc in cols]
         out_rows = [{"key": str(r.key), "cells": _table_cells(kind, r)} for r in rows]
         inline = False
     return {
@@ -1452,66 +1472,6 @@ def _chip_out(key: str, label: str, count: Any, filled_only: bool) -> dict[str, 
     return {"key": key, "label": label, "count_text": text, "visible": shown, "tone": _CHIP_TONE}
 
 
-def _choice_value(value: Any) -> str:
-    raw = getattr(value, "value", value)  # a ModelChoiceIteratorValue carries the pk in .value
-    return "" if raw is None else str(raw)
-
-
-def _box_placeholder(widget: Any, kind: str) -> str:
-    """A select's data-placeholder (the birth place pickers), a text box's placeholder or «—», "" for a checkbox."""
-    if kind == "select":
-        return str(widget.attrs.get("data-placeholder", ""))
-    if kind == "checkbox":
-        return ""
-    return str(widget.attrs.get("placeholder", "—"))
-
-
-# select.js SEARCH_FROM: a select with this many options (blank entry included) is a typing box.
-_SEARCH_FROM = 8
-
-
-def _personal_field_out(bound: BoundField) -> dict[str, Any]:
-    """One soft box of an editable section, with the kind its _field.html widget renders."""
-    widget = bound.field.widget
-    if isinstance(widget, CheckboxInput):
-        kind = "checkbox"
-    elif isinstance(widget, Select):
-        kind = "select"
-    elif isinstance(widget, Textarea):
-        kind = "textarea"
-    elif isinstance(widget, DateInput):
-        kind = "date"
-    elif isinstance(widget, NumberInput):
-        kind = "number"
-    else:
-        kind = "text"
-    value = bound.value()
-    if value is None or isinstance(value, bool):
-        value_text = ""
-    else:
-        value_text = value.isoformat() if isinstance(value, date) else str(value)
-    choices: list[dict[str, str]] = []
-    choice = ""
-    combo = False
-    if kind == "select":
-        choices = [{"value": _choice_value(v), "label": str(label)} for v, label in bound.field.choices]
-        choice = next((c["label"] for c in choices if value_text and c["value"] == value_text), "")
-        search = widget.attrs.get("data-search")
-        combo = "data-add-url" in widget.attrs or search == "on" or (search != "off" and len(choices) >= _SEARCH_FROM)
-    return {
-        "name": bound.name,
-        "label": str(bound.label),
-        "required": bool(bound.field.required),
-        "kind": kind,
-        "value": value_text,
-        "checked": bool(value) if kind == "checkbox" else False,
-        "placeholder": _box_placeholder(widget, kind),
-        "choice": choice,
-        "combo": combo,
-        "choices": choices,
-    }
-
-
 def _personal_section_out(name: str, ctx: dict[str, Any], can_manage: bool) -> dict[str, Any]:
     return {
         "name": name,
@@ -1522,7 +1482,8 @@ def _personal_section_out(name: str, ctx: dict[str, Any], can_manage: bool) -> d
             {"label": label, "display": str(value) if value else "—", "empty": not value}
             for label, value in ctx["rows"]
         ],
-        "fields": [_personal_field_out(bound) for bound in ctx["fields"]] if can_manage else [],
+        "fields": [describe_field(bound) for bound in ctx["fields"]] if can_manage else [],
+        "loaded": stale.snapshot(ctx["form"]) if can_manage else "",
     }
 
 

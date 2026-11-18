@@ -962,7 +962,7 @@ def test_personal_tab_query_count(
 
 # Measured 2026-10-26 (Task 7b): the same page with one waiting change (a job change that waits for its order).
 # One more query than PERSONAL_TAB_QUERIES: the baseline already counts the waiting-events lookup, and with a
-# waiting event the order lookup runs too (views._awaiting_rows); with no waiting event that lookup is skipped.
+# waiting event the order lookup runs too (detail_page._awaiting_rows); with no waiting event that lookup is skipped.
 # 167 since the data-scope lookup: one AccessScope row per request (Task 3, data-scope plan).
 # 169 since Task 6 (see PERSONAL_TAB_QUERIES: 168 + the waiting-change lookups).
 # 170 with the nav query above.

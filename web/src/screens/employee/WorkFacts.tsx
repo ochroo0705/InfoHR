@@ -1,6 +1,6 @@
 import type { EmployeeWorkOut, WorkFieldOut } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
-import { Soft } from "./Soft";
+import { PageSoft, Soft } from "./Soft";
 
 // Port of the job and contract facts of `_tab_work.html`: «Албан тушаал, байршил», the second row (хавсарсан, Алба,
 // Хэсэг, Салбар), «Гэрээ», «Ажлын нөхцөл, цаг» and «Хуучин системээс (MACS)». The setup card (Task 11) comes before it,
@@ -26,9 +26,21 @@ function SoftField({ field, width }: { field: WorkFieldOut; width?: string }) {
   );
 }
 
+// A soft box bound to the page form by its name (PageSoft). Until the page form has loaded, it is the read-only box above.
+function BoundField({ field, width }: { field: WorkFieldOut; width?: string }) {
+  return (
+    <PageSoft
+      name={field.name}
+      label={field.aria_label}
+      width={width}
+      fallback={<SoftField field={field} width={width} />}
+    />
+  );
+}
+
 // A field that is a soft box for a user who can manage the employee, and plain text otherwise (the template's branch).
 function Editable({ manage, field, width }: { manage: boolean; field: WorkFieldOut; width?: string }) {
-  return manage ? <SoftField field={field} width={width} /> : <>{field.text}</>;
+  return manage ? <BoundField field={field} width={width} /> : <>{field.text}</>;
 }
 
 // The «өөрчлөх» chip beside a field (`_change_chip.html`): a legacy pop-up, a full page load (ruling D2).
@@ -146,7 +158,7 @@ export function WorkFacts({ work, pk }: { work: Work; pk: number }) {
           <div>
             <dt className="text-slate-500">Анх ажилд орсон огноо</dt>
             <dd>
-              <SoftField field={work.first_hire_date} />
+              {manage ? <BoundField field={work.first_hire_date} /> : <SoftField field={work.first_hire_date} />}
             </dd>
           </div>
         )}

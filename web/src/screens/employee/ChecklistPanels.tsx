@@ -1,12 +1,15 @@
+import { useState } from "react";
 import type { EmployeeWorkOut } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
+import { DatePicker } from "../../widgets/DatePicker";
 import { ScrollFloat } from "../../widgets/Scrollbar";
 
 // Port of `checklists/_employee_section.html` (one panel per kind, in the Work tab after the leave block) and of
 // `checklists/_task_row.html`. Classes, Mongolian text, element order and data-* hooks are copied from the templates.
 // The API sends the strings, the class strings and the flags (done_label, done_rest, title_class, due_class). Every
 // write (cancel, the start form, tick, untick) opens the Django employee page (openLegacyEmployee, ruling D2). The start
-// form's date box is read-only until step 3b, so a change here is not lost to a page that does not post it.
+// form's date box is the shared DatePicker (the `datepicker.js` text box: ISO text, calendar button), drawn with the
+// template's own box classes. Submitting still opens the Django page, which does not carry the picked date.
 
 type Work = EmployeeWorkOut;
 type Panel = Work["checklists"][number];
@@ -56,6 +59,7 @@ function TaskRow({ row, pk }: { row: Task; pk: number }) {
 }
 
 function PanelSection({ panel, pk }: { panel: Panel; pk: number }) {
+  const [anchorDay, setAnchorDay] = useState(panel.today);
   return (
     <section className="mt-10" data-checklist data-checklist-kind={panel.kind}>
       <div className="mb-3 flex items-center gap-2">
@@ -118,11 +122,10 @@ function PanelSection({ panel, pk }: { panel: Panel; pk: number }) {
         >
           <label className="text-sm">
             <span className="block text-slate-500">Сүүлийн ажлын өдөр</span>
-            <input
-              type="date"
+            <DatePicker
               name="anchor_day"
-              value={panel.today}
-              readOnly
+              value={anchorDay}
+              onChange={setAnchorDay}
               required
               className="rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm"
             />

@@ -213,6 +213,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/employees/{pk}/job/{record_id}/correct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Job Correct
+         * @description Correct one job row; the reason is required. A refused correction answers 200 with ok false.
+         */
+        post: operations["api_employee_writes_employee_job_correct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/job/{record_id}/correct/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Job Correct Form
+         * @description The pop-up to correct one job row (403 without the manage right or for a scheduled row).
+         */
+        get: operations["api_employee_writes_employee_job_correct_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Login Create
+         * @description Create the employee's login and answer its temporary password once (no-store). An invalid username is a 400
+         *     with field_errors["username"]; a refused creation (a second login, a taken name) is a 400 with form_errors.
+         */
+        post: operations["api_employee_writes_employee_login_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Note Add
+         * @description Add a note to the employee's activity log (a manager's right; 404 outside the user's scope, 403 without it).
+         */
+        post: operations["api_employee_writes_employee_note_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/page-form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Page Form
+         * @description The header, work and bank fields and the salary fields of one employee the user may see, with their stored
+         *     values (404 outside the user's scope; 403 without the manage or the salary right).
+         */
+        get: operations["api_employee_writes_employee_page_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{pk}/personal": {
         parameters: {
             query?: never;
@@ -234,6 +336,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/employees/{pk}/personal/sections/{section}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Personal Section Save
+         * @description Save one section of the personal tab (the same save as the Django section form). Business outcomes answer
+         *     200 with the result; an unknown section is 404, a user without the manage and personal rights is 403.
+         */
+        post: operations["api_employee_writes_employee_personal_section_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/personal/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Personal Row Add
+         * @description Add one row of a personal list. A refused form answers 200 with ok false; an unknown list is 404.
+         */
+        post: operations["api_employee_writes_employee_personal_row_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/personal/{kind}/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Personal Row Form
+         * @description The pop-up of one personal-list row: an add form (no key) or the edit form of the row `key`. An address takes
+         *     city, district and street as presets so the district choices follow the city (the Django pop-up's rule).
+         */
+        get: operations["api_employee_writes_employee_personal_row_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/personal/{kind}/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Personal Row Edit
+         * @description Change one row of a personal list if it still matches the loaded values posted back (a changed row answers
+         *     200 with ok false and the message in form_errors). Missing loaded values: 400, nothing written; unknown row: 404.
+         */
+        post: operations["api_employee_writes_employee_personal_row_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/personal/{kind}/{key}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Personal Row Delete
+         * @description Delete one row of a personal list, on the loaded values posted back (same rules as the edit).
+         */
+        post: operations["api_employee_writes_employee_personal_row_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{pk}/salary": {
         parameters: {
             query?: never;
@@ -249,6 +454,129 @@ export interface paths {
         get: operations["api_employee_employee_salary"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/salary/set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Salary Set
+         * @description Set the first salary and write its activity entry. A refused form answers 200 with ok false.
+         */
+        post: operations["api_employee_writes_employee_salary_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/salary/set/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Salary Set Form
+         * @description The pop-up to set the first salary (404 outside the user's scope; 403 without the salary right or once a salary
+         *     exists).
+         */
+        get: operations["api_employee_writes_employee_salary_set_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/salary/{record_id}/correct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Salary Correct
+         * @description Correct one salary row; the reason is required. A refused correction answers 200 with ok false.
+         */
+        post: operations["api_employee_writes_employee_salary_correct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/salary/{record_id}/correct/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Salary Correct Form
+         * @description The pop-up to correct one salary row (403 for a scheduled row; 404 for another employee's row).
+         */
+        get: operations["api_employee_writes_employee_salary_correct_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Save
+         * @description Save what the user may change on the employee page. `values_json` is a JSON object of HTML name -> string
+         *     (the fields, `loaded`, `si-loaded` and any `resolve-<name>`). Business outcomes answer 200 with the result.
+         */
+        post: operations["api_employee_writes_employee_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/setup/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Employee Setup Toggle
+         * @description Tick or untick one setup item (Бүрдүүлэлт) while the employee's checklist is open. 403 without the manage right
+         *     or once the checklist is closed; a system item answers 400.
+         */
+        post: operations["api_employee_writes_employee_setup_toggle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -726,10 +1054,79 @@ export interface components {
             kind: "select" | "text" | "checkbox";
             /** Label */
             label: string;
+            /** Name */
+            name: string;
             /** Text */
             text: string;
             /** Value */
             value: string;
+        };
+        /** EmployeeFormChoiceOut */
+        EmployeeFormChoiceOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** EmployeeFormEmptyListOut */
+        EmployeeFormEmptyListOut: {
+            /** Label */
+            label: string;
+            /** Slug */
+            slug: string;
+        };
+        /** EmployeeFormFieldOut */
+        EmployeeFormFieldOut: {
+            /** Checked */
+            checked: boolean;
+            /** Choice */
+            choice: string;
+            /** Choices */
+            choices: components["schemas"]["EmployeeFormChoiceOut"][];
+            /** Combo */
+            combo: boolean;
+            /** Errors */
+            errors: string[];
+            /** Help */
+            help: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Max Length */
+            max_length: number | null;
+            /** Name */
+            name: string;
+            /** Placeholder */
+            placeholder: string;
+            /** Required */
+            required: boolean;
+            /** Value */
+            value: string;
+        };
+        /** EmployeeFormOut */
+        EmployeeFormOut: {
+            /** Can Delete */
+            can_delete: boolean;
+            /** Empty Lists */
+            empty_lists: components["schemas"]["EmployeeFormEmptyListOut"][];
+            /** Fields */
+            fields: components["schemas"]["EmployeeFormFieldOut"][];
+            /** Hidden */
+            hidden: {
+                [key: string]: string;
+            };
+            /** Title */
+            title: string;
+        };
+        /** EmployeeFormPageOut */
+        EmployeeFormPageOut: {
+            /** Fields */
+            fields: components["schemas"]["EmployeeFormFieldOut"][];
+            /** Loaded */
+            loaded: string;
+            /** Si Loaded */
+            si_loaded: string;
         };
         /** EmployeeHeadOut */
         EmployeeHeadOut: {
@@ -800,6 +1197,8 @@ export interface components {
         EmployeePersonalColumnOut: {
             /** Cell Class */
             cell_class: string;
+            /** Field */
+            field: string;
             /** Head Class */
             head_class: string;
             /** Header */
@@ -904,6 +1303,8 @@ export interface components {
             fields: components["schemas"]["EmployeePersonalFieldOut"][];
             /** Group */
             group: string;
+            /** Loaded */
+            loaded: string;
             /** Name */
             name: string;
             /** Rows */
@@ -1059,6 +1460,67 @@ export interface components {
             waiting: components["schemas"]["WaitingOut"][];
             work_conditions: components["schemas"]["WorkFieldOut"];
             work_schedule: components["schemas"]["WorkFieldOut"];
+        };
+        /** EmployeeWriteLoginIn */
+        EmployeeWriteLoginIn: {
+            /** Username */
+            username: string;
+        };
+        /** EmployeeWriteLoginOut */
+        EmployeeWriteLoginOut: {
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /** EmployeeWriteNoteIn */
+        EmployeeWriteNoteIn: {
+            /** Text */
+            text: string;
+        };
+        /** EmployeeWriteResultOut */
+        EmployeeWriteResultOut: {
+            /** Conflicts */
+            conflicts: {
+                [key: string]: string;
+            };
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Loaded */
+            loaded: string;
+            /** Ok */
+            ok: boolean;
+            /** Si Loaded */
+            si_loaded: string;
+            /** Tab */
+            tab: string;
+        };
+        /** EmployeeWriteRowIn */
+        EmployeeWriteRowIn: {
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /** EmployeeWriteSectionIn */
+        EmployeeWriteSectionIn: {
+            /** Loaded */
+            loaded: string;
+            /**
+             * Resolve
+             * @default {}
+             */
+            resolve: {
+                [key: string]: string;
+            };
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
         };
         /** EventMenuItemOut */
         EventMenuItemOut: {
@@ -1792,6 +2254,8 @@ export interface components {
             combo: boolean;
             /** Kind */
             kind: string;
+            /** Name */
+            name: string;
             /** Text */
             text: string;
             /** Value */
@@ -2045,6 +2509,128 @@ export interface operations {
             };
         };
     };
+    api_employee_writes_employee_job_correct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteRowIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_job_correct_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeFormOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_login_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteLoginIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteLoginOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_note_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteNoteIn"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_employee_writes_employee_page_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeFormPageOut"];
+                };
+            };
+        };
+    };
     api_employee_employee_personal: {
         parameters: {
             query?: never;
@@ -2063,6 +2649,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmployeePersonalOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_personal_section_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                section: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteSectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_personal_row_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteRowIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_personal_row_form: {
+        parameters: {
+            query?: {
+                key?: number | null;
+                city?: string | null;
+                district?: string | null;
+                street?: string | null;
+            };
+            header?: never;
+            path: {
+                pk: number;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeFormOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_personal_row_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                kind: string;
+                key: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteRowIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_personal_row_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                kind: string;
+                key: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteRowIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
                 };
             };
         };
@@ -2086,6 +2810,166 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EmployeeSalaryOut"];
                 };
+            };
+        };
+    };
+    api_employee_writes_employee_salary_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteRowIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_salary_set_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeFormOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_salary_correct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeWriteRowIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_salary_correct_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeFormOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Photo */
+                    photo?: string | null;
+                    /**
+                     * Photo Clear
+                     * @default false
+                     */
+                    photo_clear?: boolean;
+                    /**
+                     * Tab
+                     * @default
+                     */
+                    tab?: string;
+                    /** Values Json */
+                    values_json: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_writes_employee_setup_toggle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -47,7 +47,7 @@ def may_correct(user: User, employee: Employee, key: str) -> bool:
 
 def _scheduled(event: Event | None, today: date) -> bool:
     """A change that can still be cancelled: scheduled, or waiting for its signed order (any date). The same check as
-    the employee page's correction (employees.views._is_scheduled)."""
+    the employee page's correction (employees.services.detail_page._is_scheduled)."""
     return event is not None and event.status(today) in ("scheduled", "awaiting_signature")
 
 

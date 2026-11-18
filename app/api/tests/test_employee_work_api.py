@@ -152,6 +152,7 @@ def test_hr_sees_the_contract_and_macs_fields(hr_user: User, hired: Employee) ->
 def test_first_hire_date_is_sent_only_to_managers(hr_user: User, hired: Employee) -> None:
     hire = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/work").json()["first_hire_date"]
     assert hire == {
+        "name": "first_hire_date",
         "kind": "date",
         "value": "2026-01-05",
         "choice": "",
@@ -193,6 +194,7 @@ def test_seeded_branch_office_and_position_send_the_stored_option(hr_user: User,
     assert body["position"] == "Нягтлан"
     assert body["department"] == "Санхүү"
     assert body["branch"] == {
+        "name": "branch",
         "kind": "select",
         "value": str(branch.pk),
         "choice": "Төв салбар",
@@ -382,3 +384,28 @@ def test_cancelled_order_links_to_the_order_that_cancelled_it(hr_user: User, hir
     assert who["cancelled_by_pk"] is None
     assert [c["order_pk"] for c in who["cancels"]] == [cancelled.pk]
     assert who["cancels"][0]["link_text"] == "харах"
+
+
+WORK_SOFT_FIELDS = (
+    "second_position",
+    "office",
+    "section",
+    "branch",
+    "probation_end",
+    "first_hire_date",
+    "job_type",
+    "job_figure",
+    "work_conditions",
+    "work_schedule",
+    "sector_years",
+)
+
+
+def test_work_soft_fields_carry_their_form_names_that_page_form_has(hr_user: User, hired: Employee) -> None:
+    body = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/work").json()
+    page = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/page-form").json()
+    form_names = {field["name"] for field in page["fields"]}
+    for key in WORK_SOFT_FIELDS:
+        assert body[key] is not None, key
+        assert body[key]["name"] == key
+        assert body[key]["name"] in form_names

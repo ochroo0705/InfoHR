@@ -37,6 +37,14 @@ export interface DatePickerProps {
   max?: string;
   required?: boolean;
   disabled?: boolean;
+  // Replaces the default box classes (FIELD) on the text box, for a caller's own look. Unset: FIELD.
+  className?: string;
+  // Sets aria-invalid="true" on the text box. Unset: no attribute.
+  invalid?: boolean;
+  // The hint in an empty box. Unset: the default for the mode (ЖЖЖЖ-СС-ӨӨ, or ЖЖЖЖ-СС in month mode).
+  placeholder?: string;
+  // The id of the <form> the text box posts with (the `form` attribute). Unset: no attribute.
+  form?: string;
 }
 
 type View = { y: number; m: number };
@@ -82,6 +90,10 @@ export function DatePicker({
   max,
   required = false,
   disabled = false,
+  className,
+  invalid,
+  placeholder,
+  form,
 }: DatePickerProps): ReactNode {
   const month = mode === "month";
   const [open, setOpen] = useState(false);
@@ -388,15 +400,17 @@ export function DatePicker({
           ref={inputRef}
           id={id}
           name={name}
+          form={form}
           type="text"
           inputMode="numeric"
           autoComplete="off"
-          className={FIELD}
+          aria-invalid={invalid || undefined}
+          className={className ?? FIELD}
           value={value}
           required={required}
           disabled={disabled}
           maxLength={month ? 7 : 10}
-          placeholder={month ? "ЖЖЖЖ-СС" : "ЖЖЖЖ-СС-ӨӨ"}
+          placeholder={placeholder ?? (month ? "ЖЖЖЖ-СС" : "ЖЖЖЖ-СС-ӨӨ")}
           title={month ? "Жил-сар" : "Жил-сар-өдөр"}
           onChange={onTyped}
           onBlur={onBlur}

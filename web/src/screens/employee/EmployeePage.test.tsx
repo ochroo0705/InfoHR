@@ -4,12 +4,20 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmployeeHeadOut } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
+import { anyUnsaved, isUnsaved, LEAVE_MESSAGE, LEAVE_OK, setUnsaved } from "../../lib/unsaved";
+import { TLink } from "../../lib/viewTransition";
+import { confirm } from "../../widgets/confirm";
 import { MainWidthContext } from "../../shell/mainWidth";
 import { EmployeePage } from "./EmployeePage";
 
 vi.mock("../../lib/AppLink", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../lib/AppLink")>();
   return { ...actual, openLegacyEmployee: vi.fn() };
+});
+
+vi.mock("../../widgets/confirm", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../widgets/confirm")>();
+  return { ...actual, confirm: vi.fn() };
 });
 
 // fetch is stubbed before the api client is imported (openapi-fetch captures fetch when it is created). Relative URLs
@@ -316,5 +324,254 @@ describe("EmployeePage", () => {
     expect(scroll).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
     window.location.hash = "";
+  });
+
+  it("a viewer without the manage rights renders no save bar and asks for no page form", async () => {
+    answerHead(200, head());
+    const { container } = renderAt("/employees/7/", newClient());
+    await screen.findByRole("heading", { name: "Ажил" });
+    expect(container.querySelector("#save-bar")).toBeNull();
+    const askedForPageForm = fetchMock.mock.calls.some((call) => {
+      const input = call[0] as Request | string;
+      return (typeof input === "string" ? input : input.url).endsWith("/page-form");
+    });
+    expect(askedForPageForm).toBe(false);
+  });
+
+  it("a manager gets the page form and the save bar, hidden until a box changes", async () => {
+    const pageForm = { loaded: "L1", si_loaded: "", fields: [] };
+    fetchMock.mockImplementation(async (input: Request | string) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.endsWith("/page-form")) return jsonResponse(200, pageForm);
+      if (url.endsWith("/work")) return jsonResponse(200, emptyWork());
+      if (url.endsWith("/salary")) return jsonResponse(200, emptySalary());
+      if (url.endsWith("/personal")) return jsonResponse(200, emptyPersonal());
+      return jsonResponse(200, head({ can: { ...head().can, manage: true } }));
+    });
+    const { container } = renderAt("/employees/7/", newClient());
+    await screen.findByRole("heading", { name: "Ажил" });
+    await waitFor(() => expect(container.querySelector("#save-bar")).not.toBeNull());
+    expect(container.querySelector("#save-bar")?.classList.contains("hidden")).toBe(true);
+    await waitFor(() => {
+      const askedForPageForm = fetchMock.mock.calls.some((call) => {
+        const input = call[0] as Request | string;
+        return (typeof input === "string" ? input : input.url).endsWith("/page-form");
+      });
+      expect(askedForPageForm).toBe(true);
+    });
+  });
+
+  it("a manager edit in the header shows the save bar, and a submit of the page saves once", async () => {
+    const box = {
+      name: "work_phone", label: "Ажлын утас", kind: "text", value: "7700-1234", choice: "", checked: false, choices: [],
+      combo: false, errors: [], help: "", max_length: null, placeholder: "—", required: false,
+    };
+    const pageForm = { loaded: "L1", si_loaded: "", fields: [box] };
+    fetchMock.mockImplementation(async (input: Request | string) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.endsWith("/page-form")) return jsonResponse(200, pageForm);
+      if (url.endsWith("/save")) {
+        return jsonResponse(200, { ok: true, field_errors: {}, form_errors: [], conflicts: {}, loaded: "L2", si_loaded: "", tab: "" });
+      }
+      if (url.endsWith("/work")) return jsonResponse(200, emptyWork());
+      if (url.endsWith("/salary")) return jsonResponse(200, emptySalary());
+      if (url.endsWith("/personal")) return jsonResponse(200, emptyPersonal());
+      return jsonResponse(200, head({ can: { ...head().can, manage: true } }));
+    });
+    const { container } = renderAt("/employees/7/", newClient());
+    await screen.findByRole("heading", { name: "Ажил" });
+    await waitFor(() => expect((screen.getByLabelText("Ажлын утас") as HTMLInputElement).readOnly).toBe(false));
+
+    fireEvent.change(screen.getByLabelText("Ажлын утас"), { target: { value: "7700-5555" } });
+    const bar = container.querySelector("#save-bar") as HTMLElement;
+    expect(bar.classList.contains("flex")).toBe(true);
+
+    const pageFormEl = container.querySelector("#emp-form") as HTMLFormElement;
+    // The page form is empty: the boxes and the section forms are not inside it; the box posts with form="emp-form".
+    expect(pageFormEl.childElementCount).toBe(0);
+    expect(screen.getByLabelText("Ажлын утас").getAttribute("form")).toBe("emp-form");
+    fireEvent.submit(pageFormEl);
+    fireEvent.submit(pageFormEl);
+
+    await waitFor(() => expect(bar.classList.contains("hidden")).toBe(true));
+    const saves = fetchMock.mock.calls.filter((call) => {
+      const input = call[0] as Request | string;
+      return (typeof input === "string" ? input : input.url).endsWith("/save");
+    });
+    expect(saves).toHaveLength(1);
+  });
+});
+
+// ---- Unsaved edits: the page's beforeunload guard and the in-app leave check (unsaved.ts, viewTransition.ts) ----
+
+const WORK_PHONE = "Ажлын утас";
+const STORED_PHONE = "7700-1234";
+
+// A manager's page: the page form has one box (the work phone), so a typed change is a real page edit (PageForm owns it).
+function setManagerFetch() {
+  const box = {
+    name: "work_phone", label: WORK_PHONE, kind: "text", value: STORED_PHONE, choice: "", checked: false, choices: [],
+    combo: false, errors: [], help: "", max_length: null, placeholder: "—", required: false,
+  };
+  const pageForm = { loaded: "L1", si_loaded: "", fields: [box] };
+  fetchMock.mockImplementation(async (input: Request | string) => {
+    const url = typeof input === "string" ? input : input.url;
+    if (url.endsWith("/page-form")) return jsonResponse(200, pageForm);
+    if (url.endsWith("/save")) {
+      return jsonResponse(200, { ok: true, field_errors: {}, form_errors: [], conflicts: {}, loaded: "L2", si_loaded: "", tab: "" });
+    }
+    if (url.endsWith("/work")) return jsonResponse(200, emptyWork());
+    if (url.endsWith("/salary")) return jsonResponse(200, emptySalary());
+    if (url.endsWith("/personal")) return jsonResponse(200, emptyPersonal());
+    return jsonResponse(200, head({ can: { ...head().can, manage: true } }));
+  });
+}
+
+// Types a page edit into the work phone box and waits for the page to take it.
+async function editWorkPhone(value: string) {
+  fireEvent.change(await screen.findByLabelText(WORK_PHONE), { target: { value } });
+  await waitFor(() => expect(isUnsaved("page")).toBe(true));
+}
+
+// The employee page with links that leave it (/me/), stay on its path (a hash, a query) or open another employee.
+function renderWithLinks(path: string, client: QueryClient) {
+  return render(
+    <QueryClientProvider client={client}>
+      <MainWidthContext.Provider value={() => undefined}>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route
+              path="/employees/:pk/"
+              element={
+                <>
+                  <EmployeePage />
+                  <TLink to="/me/">go-me</TLink>
+                  <TLink to="/employees/7/#personal-edu">same-page</TLink>
+                  <TLink to="/employees/7/?tab=work">same-query</TLink>
+                  <TLink to="/employees/8/">to-eight</TLink>
+                </>
+              }
+            />
+            <Route path="/me/" element={<p>me route</p>} />
+          </Routes>
+        </MemoryRouter>
+      </MainWidthContext.Provider>
+    </QueryClientProvider>,
+  );
+}
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("EmployeePage unsaved edits", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.mocked(confirm).mockReset();
+    setManagerFetch();
+  });
+
+  afterEach(() => {
+    cleanup();
+    act(() => {
+      setUnsaved("page", false);
+      setUnsaved("section:identity", false);
+    });
+  });
+
+  it("a dirty section makes beforeunload prevented, and a clean page does not", async () => {
+    renderAt("/employees/7/", newClient());
+    await screen.findByRole("heading", { name: "Ажил" });
+
+    const clean = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+
+    act(() => setUnsaved("section:identity", true));
+    const dirty = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
+  it("a page edit makes beforeunload prevented", async () => {
+    renderAt("/employees/7/", newClient());
+    await editWorkPhone("55555555");
+    const dirty = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
+  it("leaving the page while dirty asks; declining keeps the page, the edit and the unsaved flag", async () => {
+    vi.mocked(confirm).mockResolvedValue(false);
+    renderWithLinks("/employees/7/", newClient());
+    await editWorkPhone("55555555");
+
+    fireEvent.click(screen.getByText("go-me"));
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(LEAVE_MESSAGE, { ok: LEAVE_OK }));
+    await tick();
+    expect(screen.queryByText("me route")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Ажил" })).toBeTruthy();
+    expect(anyUnsaved()).toBe(true);
+    expect((screen.getByLabelText(WORK_PHONE) as HTMLInputElement).value).toBe("55555555");
+  });
+
+  it("leaving the page while dirty asks; accepting leaves", async () => {
+    vi.mocked(confirm).mockResolvedValue(true);
+    renderWithLinks("/employees/7/", newClient());
+    await editWorkPhone("55555555");
+
+    fireEvent.click(screen.getByText("go-me"));
+
+    expect(await screen.findByText("me route")).toBeTruthy();
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("a double click on a leave link while the question is open asks once and navigates at most once", async () => {
+    let answer: (ok: boolean) => void = () => undefined;
+    vi.mocked(confirm).mockImplementation(() => new Promise<boolean>((resolve) => (answer = resolve)));
+    renderWithLinks("/employees/7/", newClient());
+    await editWorkPhone("55555555");
+
+    fireEvent.click(screen.getByText("go-me"));
+    fireEvent.click(screen.getByText("go-me"));
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    answer(true);
+    expect(await screen.findByText("me route")).toBeTruthy();
+    await tick();
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("a link that stays on the same page while dirty does not ask (hash or query)", async () => {
+    renderWithLinks("/employees/7/", newClient());
+    await editWorkPhone("55555555");
+
+    fireEvent.click(screen.getByText("same-page"));
+    fireEvent.click(screen.getByText("same-query"));
+
+    await tick();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Ажил" })).toBeTruthy();
+    expect(anyUnsaved()).toBe(true);
+  });
+
+  it("leaving the page with nothing unsaved does not ask", async () => {
+    renderWithLinks("/employees/7/", newClient());
+    await screen.findByRole("heading", { name: "Ажил" });
+
+    fireEvent.click(screen.getByText("go-me"));
+
+    expect(await screen.findByText("me route")).toBeTruthy();
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("another employee on the same route starts clean: the last employee's edit does not carry over", async () => {
+    vi.mocked(confirm).mockResolvedValue(true);
+    renderWithLinks("/employees/7/", newClient());
+    await editWorkPhone("55555555");
+
+    fireEvent.click(screen.getByText("to-eight"));
+
+    await waitFor(() => expect((screen.getByLabelText(WORK_PHONE) as HTMLInputElement).value).toBe(STORED_PHONE));
+    expect(anyUnsaved()).toBe(false);
   });
 });

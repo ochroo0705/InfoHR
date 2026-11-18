@@ -1,16 +1,27 @@
+import { useRef, useState } from "react";
 import type { EmployeeHeadOut } from "../../api/employee";
-import { openLegacyEmployee } from "../../lib/AppLink";
+import { useToggleSetup } from "../../api/employeeWrites";
+import { SAVE_FAILED_TEXT } from "./PageForm";
 
 // Port of `_setup.html` (the «Бүрдүүлэлт» card): a collapsible card with the checklist items and a progress bar. The
 // card is open while incomplete. Classes, Mongolian text, element order and ids are copied from the template. React
 // renders the numbers, texts and flags the API sends (done, progress_text, percent, complete, items' note, auto).
-// Ticking an item is a write: it opens the Django employee page (openLegacyEmployee, ruling D2). A system item (auto)
-// is a disabled checkbox.
+// Ticking an item posts it (useToggleSetup); the header and the work refetch then redraw the card. A system item (auto)
+// is a disabled checkbox and stays inert. While an item's toggle is pending its checkbox is disabled; a failed toggle
+// leaves the checkbox at the server's state and shows one red line under the card.
 
 type Setup = NonNullable<EmployeeHeadOut["setup"]>;
 type Item = Setup["items"][number];
 
-function SetupItem({ item, pk }: { item: Item; pk: number }) {
+function SetupItem({
+  item,
+  pending,
+  onToggle,
+}: {
+  item: Item;
+  pending: boolean;
+  onToggle: (key: string) => void;
+}) {
   return (
     <li>
       <label
@@ -20,8 +31,10 @@ function SetupItem({ item, pk }: { item: Item; pk: number }) {
           type="checkbox"
           className="peer sr-only"
           checked={item.done}
-          disabled={item.auto}
-          onChange={() => openLegacyEmployee(pk)}
+          disabled={item.auto || pending}
+          onChange={() => {
+            if (!item.auto) onToggle(item.key);
+          }}
         />
         <span
           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-violet-500 ${
@@ -56,7 +69,34 @@ function SetupItem({ item, pk }: { item: Item; pk: number }) {
   );
 }
 
+// Keeps one item's flag: a copy of the set without `key`.
+function without(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
+  const next = new Set(set);
+  next.delete(key);
+  return next;
+}
+
 export function SetupCard({ setup, pk }: { setup: Setup | null; pk: number }) {
+  const toggle = useToggleSetup(pk);
+  // Per item: which ticks are in flight and which failed. Each tick has its own promise, so two quick ticks on two
+  // items do not share one pending flag or one failure. A ref holds the in-flight keys, so a second click in the same
+  // tick sends nothing.
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
+  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
+  const inFlight = useRef(new Set<string>());
+  const tick = (key: string) => {
+    if (inFlight.current.has(key)) return;
+    inFlight.current.add(key);
+    setPending((prev) => new Set(prev).add(key));
+    setFailed((prev) => without(prev, key));
+    toggle
+      .mutateAsync(key)
+      .catch(() => setFailed((prev) => new Set(prev).add(key)))
+      .finally(() => {
+        inFlight.current.delete(key);
+        setPending((prev) => without(prev, key));
+      });
+  };
   if (setup === null) return null;
   const complete = setup.complete;
   return (
@@ -118,10 +158,16 @@ export function SetupCard({ setup, pk }: { setup: Setup | null; pk: number }) {
         </summary>
         <ul className="divide-y divide-slate-100 border-t border-slate-100">
           {setup.items.map((item) => (
-            <SetupItem key={item.key} item={item} pk={pk} />
+            <SetupItem
+              key={item.key}
+              item={item}
+              pending={pending.has(item.key)}
+              onToggle={tick}
+            />
           ))}
         </ul>
       </details>
+      {failed.size > 0 ? <p className="mt-2 text-sm text-red-600">{SAVE_FAILED_TEXT}</p> : null}
     </div>
   );
 }

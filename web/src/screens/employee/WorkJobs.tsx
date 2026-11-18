@@ -1,13 +1,16 @@
 import type { EmployeeWorkOut } from "../../api/employee";
+import type { CorrectionPath } from "../../api/employeeWrites";
 import { openLegacyEmployee } from "../../lib/AppLink";
 import { ScrollFloat } from "../../widgets/Scrollbar";
+import { useCorrectionPopup } from "./CorrectionModal";
 
 // Port of the job/changes part of `_tab_work.html`: the «Гарын үсэг хүлээж буй өөрчлөлт» table (waiting rows), then the
 // «Ажлын түүх» table (job history). Both headings are included. The setup card, the job and contract facts (WorkFacts),
 // the orders block and the leave and checklist blocks are rendered by other parts. Classes, Mongolian text, element
 // order and hooks are copied from the templates. React renders only the strings and flags the API sends: `clickable`
-// (the row has an order), `order_no_muted` (the grey «—»), `is_cancelled` and `cancellable`. Every write (cancel,
-// correct, row click) opens the Django employee page (openLegacyEmployee, ruling D2): no fetch.
+// (the row has an order), `order_no_muted` (the grey «—»), `is_cancelled` and `cancellable`. A job row's «Засвар» opens
+// the job correction pop-up (CorrectionModal, Task 16a). The other writes (cancel, row click to the order) still open
+// the Django employee page (openLegacyEmployee, ruling D2): no fetch.
 
 type Work = EmployeeWorkOut;
 type Waiting = Work["waiting"][number];
@@ -46,6 +49,7 @@ function WaitingRow({ row, pk }: { row: Waiting; pk: number }) {
       <td className="text-right">
         {row.cancellable && (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               openLegacyEmployee(pk);
@@ -60,7 +64,16 @@ function WaitingRow({ row, pk }: { row: Waiting; pk: number }) {
   );
 }
 
-function JobRow({ job, pk }: { job: Job; pk: number }) {
+function JobRow({
+  job,
+  pk,
+  onCorrect,
+}: {
+  job: Job;
+  pk: number;
+  onCorrect: (path: CorrectionPath) => void;
+}) {
+  const recordId = job.pk;
   return (
     <tr
       className={rowClass(job.is_cancelled ? "text-slate-400 line-through" : "", job.clickable)}
@@ -100,6 +113,7 @@ function JobRow({ job, pk }: { job: Job; pk: number }) {
       <td className="text-right">
         {!job.is_cancelled && job.cancellable ? (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               openLegacyEmployee(pk);
@@ -109,11 +123,12 @@ function JobRow({ job, pk }: { job: Job; pk: number }) {
             Цуцлах
           </button>
         ) : (
-          job.correctable && (
+          job.correctable && recordId !== null && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                openLegacyEmployee(pk);
+                onCorrect(`job/${recordId}/correct`);
               }}
               className="text-violet-700 hover:underline"
             >
@@ -127,6 +142,7 @@ function JobRow({ job, pk }: { job: Job; pk: number }) {
 }
 
 export function WorkJobs({ work, pk }: { work: Work; pk: number }) {
+  const { openCorrection, correctionModal } = useCorrectionPopup(pk);
   return (
     <>
       {work.waiting.length > 0 && (
@@ -169,11 +185,12 @@ export function WorkJobs({ work, pk }: { work: Work; pk: number }) {
           </thead>
           <tbody>
             {work.jobs.map((job, index) => (
-              <JobRow key={job.pk ?? `c${index}`} job={job} pk={pk} />
+              <JobRow key={job.pk ?? `c${index}`} job={job} pk={pk} onCorrect={openCorrection} />
             ))}
           </tbody>
         </table>
       </ScrollFloat>
+      {correctionModal}
     </>
   );
 }

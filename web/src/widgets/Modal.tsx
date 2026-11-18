@@ -6,7 +6,7 @@ import { confirm } from "./confirm";
 import {
   hasServerErrors,
   modalStack,
-  pickTopShell,
+  pickEscapeTarget,
   popModal,
   pushModal,
   tryClose,
@@ -32,6 +32,8 @@ export interface ModalProps {
   title?: ReactNode;
   // No enter and no exit animation; the pop-up appears and goes at once (the legacy no-anim class).
   noAnim?: boolean;
+  // false: no ✕, and Escape, ✕ and an outside click do nothing (the one-time password, UI_RULES §6a). Default true.
+  closable?: boolean;
   // A Tailwind max-width class for the panel. Default max-w-2xl, as in employees/_modal.html.
   width?: string;
   children?: ReactNode;
@@ -44,6 +46,7 @@ export function Modal({
   serverErrors = null,
   title,
   noAnim = false,
+  closable = true,
   width = "max-w-2xl",
   children,
 }: ModalProps) {
@@ -63,6 +66,7 @@ export function Modal({
   const dirtyNow = dirty || touched || hasServerErrors(serverErrors);
 
   const requestClose = (): void => {
+    if (!closable) return;
     void tryClose(
       {
         dirty: dirtyNow,
@@ -79,8 +83,8 @@ export function Modal({
   // The Escape listener and the stack entry read these live, so they never act on the render they were set up in.
   // `leaving` is the exit that is actually playing. The closed mark is not an exit: a pop-up whose parent did not close
   // it must not block Escape for the pop-ups above it.
-  const live = useRef({ requestClose, leaving: false });
-  live.current = { requestClose, leaving };
+  const live = useRef({ requestClose, leaving: false, closable });
+  live.current = { requestClose, leaving, closable };
 
   // Every render with open still true clears the closed mark. A parent that re-renders after a close request (or
   // reopens the pop-up) gets a working ✕ and Escape again.
@@ -97,7 +101,9 @@ export function Modal({
   useEffect(() => {
     if (!mounted) return;
     const entry: StackEntry = {
-      closable: true,
+      get closable() {
+        return live.current.closable;
+      },
       get leaving() {
         return live.current.leaving;
       },
@@ -106,7 +112,8 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;  // an inner popup already used this Escape
       if (modalStack().some((s) => s.leaving)) return;  // an exit is under way: the next Escape waits for it
-      if (pickTopShell(modalStack()) !== entry) return;
+      // A non-closable top pop-up takes the Escape (requestClose does nothing), so it never reaches one below.
+      if (pickEscapeTarget(modalStack()) !== entry) return;
       e.preventDefault();
       live.current.requestClose();
     };
@@ -160,6 +167,7 @@ export function Modal({
           </h2>
         ) : null}
         {children}
+        {closable ? (
         <button
           type="button"
           data-modal-x=""
@@ -181,6 +189,7 @@ export function Modal({
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
+        ) : null}
       </div>
     </div>,
     document.body,

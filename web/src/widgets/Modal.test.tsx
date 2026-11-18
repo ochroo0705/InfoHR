@@ -159,6 +159,39 @@ describe("Modal", () => {
     expect(onCloseStuck).toHaveBeenCalledTimes(2);
   });
 
+  it("closable false: no ✕, and Escape and an outside click do nothing", () => {
+    const onClose = vi.fn();
+    renderWithConfirm(
+      <Modal open closable={false} title="T" onClose={onClose}>
+        <p>inside</p>
+      </Modal>,
+    );
+    expect(document.querySelector("[data-modal-x]")).toBeNull();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    fireEvent.mouseDown(overlayOf());
+    fireEvent.click(overlayOf());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("inside")).toBeTruthy();
+  });
+
+  it("a non-closable pop-up on top takes Escape, and the closable one below is not closed", () => {
+    const onCloseBelow = vi.fn();
+    const onCloseTop = vi.fn();
+    renderWithConfirm(
+      <>
+        <Modal open title="Below" onClose={onCloseBelow}>
+          below
+        </Modal>
+        <Modal open closable={false} title="Top" onClose={onCloseTop}>
+          top
+        </Modal>
+      </>,
+    );
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onCloseBelow).not.toHaveBeenCalled();
+    expect(onCloseTop).not.toHaveBeenCalled();
+  });
+
   it("noAnim adds the no-anim class", () => {
     renderWithConfirm(
       <Modal open noAnim title="T" onClose={() => {}}>

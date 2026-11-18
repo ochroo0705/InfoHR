@@ -13,7 +13,7 @@ from accounts.models import User
 from config import batching
 from config.params import id_param as _id_param
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied
+from django.core.exceptions import PermissionDenied
 from django.db import DataError, IntegrityError, transaction
 from django.forms.utils import ErrorDict
 from django.http import (
@@ -24,7 +24,6 @@ from django.http import (
     HttpResponseBadRequest,
     HttpResponseRedirect,
     JsonResponse,
-    QueryDict,
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -35,7 +34,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.vary import vary_on_headers
 from reports.staff_list import REPORT as STAFF_LIST
 
-from employees import access, attention, company_stats, palette, sections, signature_image, stale
+from employees import access, attention, company_stats, palette, sections, signature_image
 from employees import today as facts
 from employees.forms import (
     BIRTH_FIELDS,
@@ -62,7 +61,6 @@ from employees.images import photo_bytes as decode_stored_photo
 from employees.listing import Row, employee_rows
 from employees.models import (
     EXT_FIELDS,
-    PERSONAL_FIELDS,
     CompanySettings,
     ContractType,
     Department,
@@ -76,7 +74,6 @@ from employees.models import (
     OrderType,
     SelfFormInvitation,
     SelfFormStatus,
-    ext_of,
 )
 from employees.selfform import review as selfform_review
 from employees.selfform.answers import AnswerErrors, rows_for_confirm
@@ -96,6 +93,7 @@ from employees.services import (
     order_register,
     order_signing,
     orders,
+    page_writes,
     personal_rows,
     print_jobs,
     records,
@@ -113,9 +111,17 @@ from employees.services.detail_page import (  # noqa: F401  (tests import these 
     detail_facts,
     order_rows,
 )
+from employees.services.detail_page import (
+    needs_setup as _needs_setup,
+)
 from employees.services.events import ALLOWED_FIELDS, SALARY_TYPES, EventError
 from employees.services.history import HistoryError, salary_on
 from employees.services.orders import OrderError
+from employees.services.page_writes import (  # noqa: F401  (tests and other modules import these names from here)
+    DB_REFUSED,
+    TABS,
+    _surface_hidden_errors,
+)
 
 # views.away_cells stays importable from here: the Today tests call it
 from employees.services.today_page import away_cells, today_facts  # noqa: F401
@@ -314,29 +320,12 @@ def _box_context(box: attention.Box) -> dict[str, object]:
     }
 
 
-def _needs_setup(employee: Employee) -> bool:
-    ext = ext_of(employee)
-    return ext is not None and ext.setup_required
-
-
 def _employee_for(request: HttpRequest, pk: int) -> Employee:
     return get_object_or_404(access.visible_employees(_user(request)), pk=pk)
 
 
 def _employee_form(request: HttpRequest, employee: Employee, data: Any = None, files: Any = None) -> EmployeeForm:
-    form = EmployeeForm(data, files, employee=employee, user=_user(request))
-    if not access.can_view_personal(_user(request), employee):  # those inputs are not on the page
-        for name in PERSONAL_FIELDS:
-            form.fields.pop(name, None)
-    return form
-
-
-def _salary_form(employee: Employee) -> SalaryInsuranceForm:
-    return SalaryInsuranceForm(prefix="si", employee=employee)
-
-
-def leave_today() -> date:
-    return timezone.localdate()
+    return page_writes.employee_form(_user(request), employee, data, files)
 
 
 ORDER_WARNING_KEY = "order_warning"  # session: MACS number clash, shown once on the employee page
@@ -359,11 +348,12 @@ def _refresh_context(request: HttpRequest, employee: Employee) -> dict[str, obje
 
 def detail_context(request: HttpRequest, employee: Employee) -> dict[str, object]:
     user = _user(request)
+    form, si_form = page_writes.page_form_state(user, employee)
     return {
         **detail_facts(user, employee, timezone.localdate()),
         "order_warning": request.session.pop(ORDER_WARNING_KEY, "") if request.method == "GET" else "",
-        "form": _employee_form(request, employee) if access.can_manage(user) else None,
-        "si_form": _salary_form(employee) if access.can_manage_salary(user) else None,
+        "form": form,
+        "si_form": si_form,
     }
 
 
@@ -915,48 +905,8 @@ def _require(allowed: bool) -> None:
         raise PermissionDenied
 
 
-DB_REFUSED = "Мэдээллийг хадгалж чадсангүй: утга хэт урт эсвэл зөвшөөрөгдөөгүй байна."
 PHOTO_FIELDS = ("photo", "photo_clear")
 ONE_TIME_LOGIN_KEY = "one_time_login"  # session key: {employee, username, password} shown once on the detail page
-TABS = ("work", "personal", "salary")
-WORK_TAB_FIELDS = frozenset(
-    {
-        "first_hire_date",
-        "work_conditions",
-        "work_schedule",
-        "probation_end",
-        "job_type",
-        "job_figure",
-        "second_position",
-        "office",
-        "section",
-        "branch",
-        "sector_years",
-    }
-)
-
-
-def _error_tab(form: EmployeeForm | None, si_form: SalaryInsuranceForm | None, posted: str) -> str:
-    """The tab to open after a failed save, so the first error is not hidden behind another tab."""
-    if si_form is not None and si_form.errors:
-        return "salary"
-    errors = set(form.errors) if form is not None else set()
-    if errors & (PERSONAL_FIELDS | set(BIRTH_FIELDS)):
-        return "personal"
-    if errors & WORK_TAB_FIELDS:
-        return "work"
-    return posted if posted in TABS else "work"
-
-
-def _surface_hidden_errors(form: EmployeeForm, posted: QueryDict) -> None:
-    """A field the page did not post (completed from the stored value) has no box to show its error: copy it to the
-    form-wide error line above the form, with the field's label."""
-    for name in list(form.errors):
-        if name == NON_FIELD_ERRORS or name in posted:
-            continue
-        label = form.fields[name].label if name in form.fields else name
-        for message in form.errors[name]:
-            form.add_error(None, f"{label}: {message}")
 
 
 @login_required
@@ -964,60 +914,18 @@ def _surface_hidden_errors(form: EmployeeForm, posted: QueryDict) -> None:
 def employee_save(request: HttpRequest, pk: int) -> HttpResponse:
     user = _user(request)
     employee = _employee_for(request, pk)
-    can_manage, can_salary = access.can_manage(user), access.can_manage_salary(user)
-    _require(can_manage or can_salary)
-    # Fresh instance for the form so update_employee can diff against the unmodified `employee`.
-    form = None
-    if can_manage:  # the Ажил tab posts no personal fields: they are completed from the stored values
-        stored = Employee.objects.get(pk=pk)
-        posted = sections.complete_post(EmployeeForm(employee=stored, user=user), request.POST)
-        form = _employee_form(request, stored, posted, request.FILES)
-    si_form = None
-    if can_salary:  # without the permission, salary POST data is ignored entirely
-        si_form = SalaryInsuranceForm(request.POST, prefix="si", employee=employee)
-    tab = request.POST.get("tab", "")
-    valid = (form is None or form.is_valid()) and (si_form is None or si_form.is_valid())
-    changes: dict[str, Any] = {}
-    si_changes: dict[str, Any] = {}
-    if valid:
-        # Only what this user changed is written; a field MACS changed meanwhile is asked about.
-        if form is not None:
-            columns, ext = form.values()
-            changes = stale.resolve(form, employee, {**columns, **ext})
-        if si_form is not None:
-            si_changes = stale.resolve(si_form, employee, {f: si_form.cleaned_data[f] for f in si_form.changed_data})
-        valid = not getattr(form, "conflicts", None) and not getattr(si_form, "conflicts", None)
-    if valid:
-        try:
-            with transaction.atomic():
-                if form is not None:
-                    records.update_employee(employee, changes, user)
-                    place = form.birth_place()
-                    if place is not None:
-                        records.set_birth_place(employee, *place, user)
-                    photo = form.photo_bytes()
-                    if photo is not None:
-                        records.set_photo(employee, photo or None, by=user)
-                if si_changes:
-                    records.update_salary_insurance(employee, si_changes, user)
-        except (IntegrityError, DataError) as exc:
-            target = form if form is not None else si_form  # an accountant's save has only the salary form
-            if target is not None:
-                target.add_error(None, DB_REFUSED)
-            logger.warning("employee write refused: %s", exc)
-        else:
-            if request.headers.get("HX-Request"):  # reload in place: no extra history step, the tab (#hash) stays
-                response = HttpResponse(status=204)
-                response["HX-Refresh"] = "true"
-                return response
-            url = reverse("employees:detail", args=[pk])
-            return HttpResponseRedirect(f"{url}#{tab}" if tab in TABS else url, status=303)
-    if form is not None and form.errors:
-        _surface_hidden_errors(form, request.POST)
+    result = page_writes.save_page(user, employee, request.POST, request.FILES)
+    if result.ok:
+        if request.headers.get("HX-Request"):  # reload in place: no extra history step, the tab (#hash) stays
+            response = HttpResponse(status=204)
+            response["HX-Refresh"] = "true"
+            return response
+        url = reverse("employees:detail", args=[pk])
+        return HttpResponseRedirect(f"{url}#{result.tab}" if result.tab in TABS else url, status=303)
     context = detail_context(request, employee) | {
-        "form": form,
-        "si_form": si_form,
-        "tab": _error_tab(form, si_form, tab),
+        "form": result.form,
+        "si_form": result.si_form,
+        "tab": result.tab,
     }
     # htmx swaps only <main> with the errors (status 200: htmx ignores 4xx), so the URL and history stay as they were.
     status = 200 if request.headers.get("HX-Request") else 400
@@ -1039,37 +947,19 @@ def personal_section(request: HttpRequest, pk: int, section: str) -> HttpRespons
     form: EmployeeForm | None = None
     can_manage = access.can_manage(user)
     if request.method == "POST":
-        # Same flow as employee_save: fresh instance for the form, the visible one for the stale check and the write.
-        stored = Employee.objects.get(pk=pk)
-        form = EmployeeForm(
-            sections.section_data(EmployeeForm(employee=stored, user=user), request.POST, names),
-            employee=stored,
-            user=user,
-        )
-        sections.only_section_required(form, names)
-        if form.is_valid():
-            columns, ext = form.values()
-            changes = stale.resolve(form, employee, {**columns, **ext})
-            if not getattr(form, "conflicts", None):
-                try:
-                    with transaction.atomic():
-                        records.update_employee(employee, changes, user)
-                        place = form.birth_place()
-                        if place is not None:
-                            records.set_birth_place(employee, *place, user)
-                except (IntegrityError, DataError) as exc:
-                    form.add_error(None, DB_REFUSED)
-                    logger.warning("employee section write refused: %s", exc)
-                else:
-                    employee = Employee.objects.get(pk=pk)
-                    context = _section_context(
-                        employee, section, names, None, can_manage=can_manage, with_lists=False, user=user
-                    )
-                    context |= {**_refresh_context(request, employee), "oob": True}
-                    if section == "other":  # its menu entry counts filled fields
-                        filled, total = sections.other_progress(employee)
-                        context |= {"menu_sec": section, "menu_count": f"{filled}/{total}"}
-                    return render(request, template, context)
+        # The validation, stale check and write are page_writes.save_section (shared with the API); this view renders.
+        result = page_writes.save_section(user, employee, section, request.POST)
+        if result.ok:
+            employee = Employee.objects.get(pk=pk)
+            context = _section_context(
+                employee, section, names, None, can_manage=can_manage, with_lists=False, user=user
+            )
+            context |= {**_refresh_context(request, employee), "oob": True}
+            if section == "other":  # its menu entry counts filled fields
+                filled, total = sections.other_progress(employee)
+                context |= {"menu_sec": section, "menu_count": f"{filled}/{total}"}
+            return render(request, template, context)
+        form = result.form
         editing = True  # invalid, conflicting or refused: show the section for editing with its errors
     else:
         form = EmployeeForm(employee=Employee.objects.get(pk=pk), user=user)

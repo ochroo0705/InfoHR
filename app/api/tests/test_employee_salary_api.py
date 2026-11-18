@@ -199,6 +199,7 @@ def test_bank_and_category_are_selects_with_their_pk_and_name(salary_user: User,
     body = _body(salary_user, hired)
     bank_field, account_field, _, _, category_field, _, _ = body["bank_fields"]
     assert bank_field == {
+        "name": "si-bank",
         "label": "Банк",
         "aria_label": "Банк",
         "kind": "select",
@@ -228,3 +229,23 @@ def test_view_only_salary_user_sees_the_bank_block_read_only(hired: Employee) ->
     assert body["bank_fields"][-1]["kind"] == "checkbox"
     assert all(row["correctable"] is False for row in body["rows"])
     assert all(row["action_label"] == "" for row in body["rows"])
+
+
+BANK_NAMES = [
+    "si-bank",
+    "si-account_no",
+    "si-social_insurance_no",
+    "si-health_insurance_no",
+    "si-insured_category",
+    "si-taxpayer_no",
+    "si-has_disability",
+]
+
+
+def test_bank_fields_carry_their_si_form_names_that_page_form_has(salary_user: User, hired: Employee) -> None:
+    body = _client(salary_user).get(f"/api/v1/employees/{hired.pk}/salary").json()
+    page = _client(salary_user).get(f"/api/v1/employees/{hired.pk}/page-form").json()
+    form_names = {field["name"] for field in page["fields"]}
+    assert [field["name"] for field in body["bank_fields"]] == BANK_NAMES
+    for field in body["bank_fields"]:
+        assert field["name"] in form_names

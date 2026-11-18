@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { useEmployee, type EmployeeHeadOut } from "../../api/employee";
 import { AppLink } from "../../lib/AppLink";
+import { useUnsavedGuard } from "../../lib/unsaved";
 import { Forbidden, NotFound } from "../../routes/ErrorPage";
 import { useMainWidth } from "../../shell/mainWidth";
 import { ActivityDrawer } from "./ActivityDrawer";
 import { readActivityOpen, writeActivityOpen } from "./activityStore";
 import { Header } from "./Header";
 import { OneTimeLogin } from "./OneTimeLogin";
+import { PageFormElement, PageFormProvider } from "./PageForm";
 import { PersonalSection } from "./PersonalSection";
 import { Rail } from "./Rail";
 import { SalarySection } from "./SalarySection";
+import { SaveBar } from "./SaveBar";
 import { WorkSection } from "./WorkSection";
 import { showSection, TAB_ON_CLASS, useScrollSpy } from "./scrollSpy";
 
@@ -31,10 +34,14 @@ type OneTimeLoginOut = NonNullable<EmployeeHeadOut["one_time_login"]>;
 export function EmployeePage() {
   const { pk } = useParams();
   if (!pk || !/^\d+$/.test(pk)) return <NotFound />;
-  return <EmployeeView pk={Number(pk)} />;
+  // key: a different employee is a new view, so no edit or registry flag of the last one carries over.
+  return <EmployeeView key={pk} pk={Number(pk)} />;
 }
 
 function EmployeeView({ pk }: { pk: number }) {
+  // Closing or reloading the tab asks while anything on the page is unsaved (unsaved.ts). In-app leaving is guarded by
+  // useTransitionNavigate.
+  useUnsavedGuard();
   const employee = useEmployee(pk);
   const head = employee.data;
 
@@ -133,8 +140,13 @@ function EmployeeBody({ pk, head, failed }: { pk: number; head: EmployeeHeadOut;
   const tabClass = (name: string) => (active === name ? `tab ${TAB_ON_CLASS}` : "tab");
   const tabAria = (name: string) => (active === name ? "page" : undefined);
 
+  // The page form (the header, work, bank and salary boxes) is for managers and salary managers only. Its provider wraps
+  // the header and the sections, and the save bar sits after the tabs card, as #save-bar does in detail.html.
+  const pageFormOn = head.can.manage || head.can.manage_salary;
+
   return (
-    <>
+    <PageFormProvider pk={pk} enabled={pageFormOn} section={active}>
+      <PageFormElement />
       {failed ? (
         <p role="alert" className="mb-3 text-sm text-red-600">
           Мэдээлэл ачаалж чадсангүй.
@@ -197,8 +209,10 @@ function EmployeeBody({ pk, head, failed }: { pk: number; head: EmployeeHeadOut;
               </section>
             ) : null}
           </div>
+          {pageFormOn ? <SaveBar /> : null}
         </div>
       </div>
+      {/* The drawer sits outside the page form (its own note form posts nothing to the page). */}
       <ActivityDrawer
         pk={pk}
         count={head.activity_count}
@@ -206,6 +220,6 @@ function EmployeeBody({ pk, head, failed }: { pk: number; head: EmployeeHeadOut;
         open={drawerOpen}
         onClose={closeActivity}
       />
-    </>
+    </PageFormProvider>
   );
 }

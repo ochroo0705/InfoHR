@@ -345,3 +345,98 @@ describe("Select: combo-box mode (task 16)", () => {
     expect(screen.getByRole("combobox").tagName).toBe("INPUT");
   });
 });
+
+describe("Select: className and invalid (Soft's soft box)", () => {
+  beforeEach(() => stubMatchMedia(false));
+  afterEach(() => {
+    cleanup();
+    delete (window as { matchMedia?: unknown }).matchMedia;
+  });
+
+  function Plain(props: { search: boolean; className?: string; invalid?: boolean }) {
+    return (
+      <>
+        <label htmlFor={props.search === false ? "sx" : "sel-sx"}>Хэлтэс</label>
+        <Select
+          id="sx"
+          name="sx"
+          value=""
+          options={SEVEN}
+          search={props.search}
+          className={props.className}
+          invalid={props.invalid}
+          onChange={() => {}}
+        />
+      </>
+    );
+  }
+
+  it("by default the combo box keeps its FIELD classes and has no aria-invalid", () => {
+    render(<Plain search />);
+    const box = screen.getByLabelText("Хэлтэс");
+    expect(box.className).toContain("rounded-lg border border-slate-300");
+    expect(box.getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("by default the click-list select keeps its FIELD classes and has no aria-invalid", () => {
+    render(<Plain search={false} />);
+    const select = screen.getByLabelText("Хэлтэс");
+    expect(select.className).toContain("rounded-lg border border-slate-300");
+    expect(select.getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("className replaces the FIELD classes on the combo box and keeps sel-combo", () => {
+    render(<Plain search className="w-full f-soft" />);
+    const box = screen.getByLabelText("Хэлтэс");
+    expect(box.className).toBe("w-full f-soft sel-combo");
+    expect(box.className).not.toContain("rounded-lg");
+  });
+
+  it("className replaces the FIELD classes on the click-list select", () => {
+    render(<Plain search={false} className="w-full f-soft" />);
+    expect(screen.getByLabelText("Хэлтэс").className).toBe("w-full f-soft");
+  });
+
+  it("invalid sets aria-invalid=true on the combo box and on the click-list select", () => {
+    const { unmount } = render(<Plain search invalid />);
+    expect(screen.getByLabelText("Хэлтэс").getAttribute("aria-invalid")).toBe("true");
+    unmount();
+    render(<Plain search={false} invalid />);
+    expect(screen.getByLabelText("Хэлтэс").getAttribute("aria-invalid")).toBe("true");
+  });
+});
+
+describe("Select: form attribute (Soft's boxes in the employee page form)", () => {
+  beforeEach(() => stubMatchMedia(false));
+  afterEach(() => {
+    cleanup();
+    delete (window as { matchMedia?: unknown }).matchMedia;
+  });
+
+  function Plain(props: { search: boolean; form?: string }) {
+    return (
+      <>
+        <label htmlFor={props.search === false ? "fx" : "sel-fx"}>Хэлтэс</label>
+        <Select id="fx" name="fx" value="" options={SEVEN} search={props.search} form={props.form} onChange={() => {}} />
+      </>
+    );
+  }
+
+  it("form sets the form attribute on the click-list select", () => {
+    render(<Plain search={false} form="emp-form" />);
+    expect(screen.getByLabelText("Хэлтэс").getAttribute("form")).toBe("emp-form");
+  });
+
+  it("form sets the form attribute on the typing box and on its hidden field", () => {
+    const { container } = render(<Plain search form="emp-form" />);
+    expect(screen.getByLabelText("Хэлтэс").getAttribute("form")).toBe("emp-form");
+    const hidden = container.querySelector('input[type="hidden"][name="fx"]');
+    expect(hidden?.getAttribute("form")).toBe("emp-form");
+  });
+
+  it("by default no element of the select has a form attribute", () => {
+    const { container } = render(<Plain search />);
+    expect(screen.getByLabelText("Хэлтэс").hasAttribute("form")).toBe(false);
+    expect(container.querySelector('input[type="hidden"][name="fx"]')?.hasAttribute("form")).toBe(false);
+  });
+});

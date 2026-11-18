@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useEmployeeActivity, type EmployeeActivityOut } from "../../api/employee";
-import { AppLink, openLegacyEmployee } from "../../lib/AppLink";
+import { useAddNote } from "../../api/employeeWrites";
+import { AppLink } from "../../lib/AppLink";
 import { cn } from "../../lib/utils";
 import { ScrollFloat } from "../../widgets/Scrollbar";
 import { useWide } from "./activityStore";
+import { SAVE_FAILED_TEXT } from "./PageForm";
 
 // Port of the «Түүх» drawer: `#activity-backdrop`, `#activity-drawer`, `_activity.html` and `_activity_entries.html`
 // (employees/detail.html and the employees/_activity*.html partials). Classes, Mongolian text, ids and hooks are copied
@@ -88,6 +90,28 @@ export function ActivityDrawer({ pk, count, canManage, open, onClose }: Activity
     void queryClient.invalidateQueries({ queryKey: ["employee", pk, "activity"] });
   }, [count, pk, queryClient]);
 
+  // The note form. A blank note posts nothing. The text stays while the request is in flight and after a failure;
+  // it is cleared when the note is saved (text typed meanwhile stays). The drawer stays open either way.
+  const addNote = useAddNote(pk);
+  const [note, setNote] = useState("");
+  const [noteFailed, setNoteFailed] = useState(false);
+  const noteInFlight = useRef(false);
+  const submitNote = async () => {
+    const typed = note;
+    const text = typed.trim();
+    if (text === "" || noteInFlight.current) return;
+    noteInFlight.current = true;
+    setNoteFailed(false);
+    try {
+      await addNote.mutateAsync(text);
+      setNote((current) => (current === typed ? "" : current));
+    } catch {
+      setNoteFailed(true);
+    } finally {
+      noteInFlight.current = false;
+    }
+  };
+
   // The end pill loads the next batch once it scrolls into view (htmx `revealed`). The pill is kept in state through a
   // callback ref, so the observer follows the element: it is set up for each pill that is shown and not loading, and
   // disconnected when the pill goes or a batch starts loading. A reopen needs nothing: the panel slides in and the
@@ -163,17 +187,31 @@ export function ActivityDrawer({ pk, count, canManage, open, onClose }: Activity
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    openLegacyEmployee(pk);
+                    void submitNote();
                   }}
-                  className="sticky top-[72px] z-10 -mx-6 mb-4 flex gap-2 border-b border-slate-100 bg-surface px-6 pb-4"
+                  className="sticky top-[72px] z-10 -mx-6 mb-4 flex flex-wrap gap-2 border-b border-slate-100 bg-surface px-6 pb-4"
                 >
                   <input
+                    type="text"
                     name="text"
                     required
+                    value={note}
+                    onChange={(e) => {
+                      setNote(e.target.value);
+                      setNoteFailed(false);
+                    }}
                     placeholder="Тэмдэглэл бичих…"
-                    className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
-                  <button className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Нэмэх</button>
+                  <button
+                    type="submit"
+                    disabled={addNote.isPending}
+                    aria-busy={addNote.isPending || undefined}
+                    className="self-end rounded-lg bg-violet-600 px-4 py-2 text-sm text-white disabled:opacity-60"
+                  >
+                    Нэмэх
+                  </button>
+                  {noteFailed ? <p className="w-full text-sm text-red-600">{SAVE_FAILED_TEXT}</p> : null}
                 </form>
               ) : null}
               <div id="activity-list">

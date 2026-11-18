@@ -699,6 +699,10 @@
             "title": "Label",
             "type": "string"
           },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -709,6 +713,7 @@
           }
         },
         "required": [
+          "name",
           "label",
           "aria_label",
           "kind",
@@ -718,6 +723,196 @@
           "checked"
         ],
         "title": "EmployeeBankFieldOut",
+        "type": "object"
+      },
+      "EmployeeFormChoiceOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "EmployeeFormChoiceOut",
+        "type": "object"
+      },
+      "EmployeeFormEmptyListOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "label"
+        ],
+        "title": "EmployeeFormEmptyListOut",
+        "type": "object"
+      },
+      "EmployeeFormFieldOut": {
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "choice": {
+            "title": "Choice",
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "combo": {
+            "title": "Combo",
+            "type": "boolean"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "help": {
+            "title": "Help",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Length"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "placeholder": {
+            "title": "Placeholder",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "required",
+          "kind",
+          "value",
+          "checked",
+          "placeholder",
+          "choice",
+          "combo",
+          "choices",
+          "help",
+          "max_length",
+          "errors"
+        ],
+        "title": "EmployeeFormFieldOut",
+        "type": "object"
+      },
+      "EmployeeFormOut": {
+        "properties": {
+          "can_delete": {
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "empty_lists": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormEmptyListOut"
+            },
+            "title": "Empty Lists",
+            "type": "array"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "hidden": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Hidden",
+            "type": "object"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "fields",
+          "hidden",
+          "empty_lists",
+          "can_delete"
+        ],
+        "title": "EmployeeFormOut",
+        "type": "object"
+      },
+      "EmployeeFormPageOut": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "loaded": {
+            "title": "Loaded",
+            "type": "string"
+          },
+          "si_loaded": {
+            "title": "Si Loaded",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loaded",
+          "si_loaded",
+          "fields"
+        ],
+        "title": "EmployeeFormPageOut",
         "type": "object"
       },
       "EmployeeHeadOut": {
@@ -939,6 +1134,10 @@
             "title": "Cell Class",
             "type": "string"
           },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
           "head_class": {
             "title": "Head Class",
             "type": "string"
@@ -950,6 +1149,7 @@
         },
         "required": [
           "header",
+          "field",
           "head_class",
           "cell_class"
         ],
@@ -1233,6 +1433,10 @@
             "title": "Group",
             "type": "string"
           },
+          "loaded": {
+            "title": "Loaded",
+            "type": "string"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -1255,7 +1459,8 @@
           "group",
           "editable",
           "rows",
-          "fields"
+          "fields",
+          "loaded"
         ],
         "title": "EmployeePersonalSectionOut",
         "type": "object"
@@ -1690,6 +1895,150 @@
           "checklists"
         ],
         "title": "EmployeeWorkOut",
+        "type": "object"
+      },
+      "EmployeeWriteLoginIn": {
+        "properties": {
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "EmployeeWriteLoginIn",
+        "type": "object"
+      },
+      "EmployeeWriteLoginOut": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "EmployeeWriteLoginOut",
+        "type": "object"
+      },
+      "EmployeeWriteNoteIn": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "EmployeeWriteNoteIn",
+        "type": "object"
+      },
+      "EmployeeWriteResultOut": {
+        "properties": {
+          "conflicts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Conflicts",
+            "type": "object"
+          },
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "loaded": {
+            "title": "Loaded",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "si_loaded": {
+            "title": "Si Loaded",
+            "type": "string"
+          },
+          "tab": {
+            "title": "Tab",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "field_errors",
+          "form_errors",
+          "conflicts",
+          "loaded",
+          "si_loaded",
+          "tab"
+        ],
+        "title": "EmployeeWriteResultOut",
+        "type": "object"
+      },
+      "EmployeeWriteRowIn": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "title": "EmployeeWriteRowIn",
+        "type": "object"
+      },
+      "EmployeeWriteSectionIn": {
+        "properties": {
+          "loaded": {
+            "title": "Loaded",
+            "type": "string"
+          },
+          "resolve": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Resolve",
+            "type": "object"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values",
+          "loaded"
+        ],
+        "title": "EmployeeWriteSectionIn",
         "type": "object"
       },
       "EventMenuItemOut": {
@@ -3734,6 +4083,10 @@
             "title": "Kind",
             "type": "string"
           },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -3744,6 +4097,7 @@
           }
         },
         "required": [
+          "name",
           "kind",
           "value",
           "choice",
@@ -4154,6 +4508,237 @@
         ]
       }
     },
+    "/api/v1/employees/{pk}/job/{record_id}/correct": {
+      "post": {
+        "description": "Correct one job row; the reason is required. A refused correction answers 200 with ok false.",
+        "operationId": "api_employee_writes_employee_job_correct",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteRowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Job Correct",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/job/{record_id}/correct/form": {
+      "get": {
+        "description": "The pop-up to correct one job row (403 without the manage right or for a scheduled row).",
+        "operationId": "api_employee_writes_employee_job_correct_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Job Correct Form",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/login": {
+      "post": {
+        "description": "Create the employee's login and answer its temporary password once (no-store). An invalid username is a 400\nwith field_errors[\"username\"]; a refused creation (a second login, a taken name) is a 400 with form_errors.",
+        "operationId": "api_employee_writes_employee_login_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteLoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteLoginOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Login Create",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/note": {
+      "post": {
+        "description": "Add a note to the employee's activity log (a manager's right; 404 outside the user's scope, 403 without it).",
+        "operationId": "api_employee_writes_employee_note_add",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Note Add",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/page-form": {
+      "get": {
+        "description": "The header, work and bank fields and the salary fields of one employee the user may see, with their stored\nvalues (404 outside the user's scope; 403 without the manage or the salary right).",
+        "operationId": "api_employee_writes_employee_page_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeFormPageOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Page Form",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/v1/employees/{pk}/personal": {
       "get": {
         "description": "The personal tab of one employee the signed-in user may see (404 otherwise; 403 without the personal right):\nthe topic groups with their chips, the four field sections, and the personal lists.",
@@ -4192,6 +4777,363 @@
         ]
       }
     },
+    "/api/v1/employees/{pk}/personal/sections/{section}": {
+      "post": {
+        "description": "Save one section of the personal tab (the same save as the Django section form). Business outcomes answer\n200 with the result; an unknown section is 404, a user without the manage and personal rights is 403.",
+        "operationId": "api_employee_writes_employee_personal_section_save",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteSectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Personal Section Save",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/personal/{kind}": {
+      "post": {
+        "description": "Add one row of a personal list. A refused form answers 200 with ok false; an unknown list is 404.",
+        "operationId": "api_employee_writes_employee_personal_row_add",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteRowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Personal Row Add",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/personal/{kind}/form": {
+      "get": {
+        "description": "The pop-up of one personal-list row: an add form (no key) or the edit form of the row `key`. An address takes\ncity, district and street as presets so the district choices follow the city (the Django pop-up's rule).",
+        "operationId": "api_employee_writes_employee_personal_row_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "city",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "City"
+            }
+          },
+          {
+            "in": "query",
+            "name": "district",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "District"
+            }
+          },
+          {
+            "in": "query",
+            "name": "street",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Street"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Personal Row Form",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/personal/{kind}/{key}": {
+      "post": {
+        "description": "Change one row of a personal list if it still matches the loaded values posted back (a changed row answers\n200 with ok false and the message in form_errors). Missing loaded values: 400, nothing written; unknown row: 404.",
+        "operationId": "api_employee_writes_employee_personal_row_edit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteRowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Personal Row Edit",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/personal/{kind}/{key}/delete": {
+      "post": {
+        "description": "Delete one row of a personal list, on the loaded values posted back (same rules as the edit).",
+        "operationId": "api_employee_writes_employee_personal_row_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteRowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Personal Row Delete",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/v1/employees/{pk}/salary": {
       "get": {
         "description": "The Salary tab of one employee the signed-in user may see (404 otherwise; 403 without the salary right):\ntoday's pay, the pay history rows and the «Банк, даатгал» block.",
@@ -4225,6 +5167,316 @@
           }
         ],
         "summary": "Employee Salary",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/salary/set": {
+      "post": {
+        "description": "Set the first salary and write its activity entry. A refused form answers 200 with ok false.",
+        "operationId": "api_employee_writes_employee_salary_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteRowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Salary Set",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/salary/set/form": {
+      "get": {
+        "description": "The pop-up to set the first salary (404 outside the user's scope; 403 without the salary right or once a salary\nexists).",
+        "operationId": "api_employee_writes_employee_salary_set_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Salary Set Form",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/salary/{record_id}/correct": {
+      "post": {
+        "description": "Correct one salary row; the reason is required. A refused correction answers 200 with ok false.",
+        "operationId": "api_employee_writes_employee_salary_correct",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeWriteRowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Salary Correct",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/salary/{record_id}/correct/form": {
+      "get": {
+        "description": "The pop-up to correct one salary row (403 for a scheduled row; 404 for another employee's row).",
+        "operationId": "api_employee_writes_employee_salary_correct_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Salary Correct Form",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/save": {
+      "post": {
+        "description": "Save what the user may change on the employee page. `values_json` is a JSON object of HTML name -> string\n(the fields, `loaded`, `si-loaded` and any `resolve-<name>`). Business outcomes answer 200 with the result.",
+        "operationId": "api_employee_writes_employee_save",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "photo": {
+                    "anyOf": [
+                      {
+                        "format": "binary",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Photo"
+                  },
+                  "photo_clear": {
+                    "default": false,
+                    "title": "Photo Clear",
+                    "type": "boolean"
+                  },
+                  "tab": {
+                    "default": "",
+                    "title": "Tab",
+                    "type": "string"
+                  },
+                  "values_json": {
+                    "title": "Values Json",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "values_json"
+                ],
+                "title": "MultiPartBodyParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Save",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/setup/{key}": {
+      "post": {
+        "description": "Tick or untick one setup item (Бүрдүүлэлт) while the employee's checklist is open. 403 without the manage right\nor once the checklist is closed; a system item answers 400.",
+        "operationId": "api_employee_writes_employee_setup_toggle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Setup Toggle",
         "tags": [
           "employees"
         ]

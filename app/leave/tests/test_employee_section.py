@@ -20,7 +20,6 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture(autouse=True)
 def fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("leave.views.today", lambda: date(2026, 10, 14))
-    monkeypatch.setattr("employees.views.leave_today", lambda: date(2026, 10, 14))
     monkeypatch.setattr("django.utils.timezone.localdate", lambda: date(2026, 10, 14))
 
 

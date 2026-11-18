@@ -7,8 +7,9 @@ never written to a log, a message or an ActivityEntry.
 
 from accounts.models import User
 from accounts.passwords import set_temp_password
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
+from employees import history_range
 from employees.models import ActivityEntry, ActivityKind, Employee, ensure_ext
 
 
@@ -21,12 +22,20 @@ def create_login(employee: Employee, username: str, by: User) -> tuple[User, str
     username = username.strip()
     if not username:
         raise ValueError("Нэвтрэх нэрийг бичнэ үү.")
+    # Lock order as setup.toggle: the history lock, then the Employee row. Two concurrent calls for one employee
+    # wait here, so the second one sees the login the first one made.
+    history_range.lock_employee(employee.pk)
+    Employee.objects.select_for_update().get(pk=employee.pk)
     ext = ensure_ext(employee)
     if ext.user_id is not None:
         raise ValueError("Нэвтрэх эрх аль хэдийн байна.")
     if User.objects.filter(username=username).exists():
         raise ValueError("Энэ нэвтрэх нэр бүртгэлтэй байна.")
-    login = User.objects.create_user(username, first_name=employee.given_name, last_name=employee.family_name)
+    try:
+        with transaction.atomic():  # a savepoint: a duplicate name lost in a race is a ValueError, not a 500
+            login = User.objects.create_user(username, first_name=employee.given_name, last_name=employee.family_name)
+    except IntegrityError:
+        raise ValueError("Энэ нэвтрэх нэр бүртгэлтэй байна.") from None
     password = set_temp_password(login)
     ext.user = login
     ext.save(update_fields=["user"])
