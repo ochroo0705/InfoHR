@@ -198,9 +198,31 @@ describe("OrderDetailModal: drawing", () => {
     expect(valueOf("Цуцалсан тушаал").textContent).toBe("№ 2026-02 тушаалыг цуцалсан");
 
     fireEvent.click(inDialog().getByRole("link", { name: "№ 2026-09" }));
-    expect(opened.openOrder).toHaveBeenLastCalledWith(15);
+    expect(opened.openOrder).toHaveBeenLastCalledWith(15, 7);
     fireEvent.click(inDialog().getByRole("link", { name: "№ 2026-02" }));
-    expect(opened.openOrder).toHaveBeenLastCalledWith(16);
+    expect(opened.openOrder).toHaveBeenLastCalledWith(16, 7);
+  });
+
+  it("name link goes to detail.employee_pk even when the pk prop differs", async () => {
+    loadOut = detail({ employee_pk: 9 });
+    renderModal(); // the pk prop is 7
+
+    await screen.findByRole("heading", { name: HIRE_TITLE });
+    expect(inDialog().getByRole("link", { name: "Бат Болд" }).getAttribute("href")).toBe("/employees/9/");
+  });
+
+  it("the other-order link opens that order with detail.employee_pk, not the pk prop", async () => {
+    loadOut = detail({
+      employee_pk: 9,
+      cancel_rows: [
+        { label: "Цуцалсан тушаал", reason: "", text_prefix: "", order_pk: 16, link_text: "№ 2026-02", suffix: "" },
+      ],
+    });
+    renderModal(); // the pk prop is 7
+
+    await screen.findByRole("heading", { name: HIRE_TITLE });
+    fireEvent.click(inDialog().getByRole("link", { name: "№ 2026-02" }));
+    expect(opened.openOrder).toHaveBeenLastCalledWith(16, 9);
   });
 
   it("scan note when the server says so", async () => {

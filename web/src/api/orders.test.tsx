@@ -154,6 +154,7 @@ describe("order pop-up API", () => {
       { queryKey: ["employee", 5, "activity"], exact: true },
       { queryKey: ["today"] },
       { queryKey: ["attention"] },
+      { queryKey: ["orders-register"] },
     ]);
   });
 
@@ -230,6 +231,7 @@ describe("order pop-up API", () => {
       ["employee", 5, "activity"],
       ["today"],
       ["attention"],
+      ["orders-register"],
     ]);
   });
 
@@ -363,6 +365,7 @@ describe("order pop-up API", () => {
       { queryKey: ["employee", 5, "activity"], exact: true },
       { queryKey: ["today"] },
       { queryKey: ["attention"] },
+      { queryKey: ["orders-register"] },
     ]);
   });
 

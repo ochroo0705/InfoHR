@@ -28,7 +28,7 @@
   <select name="order_type" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх төрөл</option>
     {% for key, label in types %}<option value="{{ key }}"{% if order_type == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   <select name="department" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх хэлтэс</option>
-    {% for d in departments %}<option value="{{ d.pk }}"{% if department == d.pk %} selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+    {% for pk, name in departments %}<option value="{{ pk }}"{% if department == pk %} selected{% endif %}>{{ name }}</option>{% endfor %}</select>
   <select name="state" class="shrink-0 rounded-lg border border-slate-300 py-2 pl-3 pr-8 text-sm"><option value="">Бүх төлөв</option>
     {% for key, label in states %}<option value="{{ key }}"{% if state == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   <a href="{% url 'employees:orders' %}" class="text-sm text-slate-500 hover:text-violet-700">Цэвэрлэх</a>

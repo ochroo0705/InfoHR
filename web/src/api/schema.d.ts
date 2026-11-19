@@ -1140,6 +1140,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Print
+         * @description Every matching row, grouped by department, as the print page draws it. Writes one export log line.
+         */
+        get: operations["api_order_register_order_print"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/print/selected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Order Print Selected
+         * @description The ticked orders as one PDF, one order per page. Form-encoded `ids` so a plain form can post them; each
+         *     printed order is logged like a single download.
+         */
+        post: operations["api_order_register_order_print_selected"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/print/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Order Print Start
+         * @description Start the ticked orders' PDF as a background job (11 orders or more); the page polls the job's status.
+         */
+        post: operations["api_order_register_order_print_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/print/{token}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Print File
+         * @description The job's PDF once it is ready. 404 until then, and for another user's or an unknown job.
+         */
+        get: operations["api_order_register_order_print_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/print/{token}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Print Status
+         * @description The job's state. Only the user who started it may read it (404 otherwise, and for an unknown token).
+         */
+        get: operations["api_order_register_order_print_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Order Register Batch */
+        get: operations["api_order_register_order_register_batch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/selfforms/{pk}/reject": {
         parameters: {
             query?: never;
@@ -2703,6 +2821,187 @@ export interface components {
             values: {
                 [key: string]: string;
             };
+        };
+        /** OrderPrintGroupOut */
+        OrderPrintGroupOut: {
+            /** Department */
+            department: string;
+            /** Rows */
+            rows: components["schemas"]["OrderPrintRowOut"][];
+        };
+        /** OrderPrintOut */
+        OrderPrintOut: {
+            /** Company */
+            company: string;
+            /** Empty */
+            empty: boolean;
+            /** Groups */
+            groups: components["schemas"]["OrderPrintGroupOut"][];
+            /** Today */
+            today: string;
+        };
+        /** OrderPrintRowOut */
+        OrderPrintRowOut: {
+            /** Age */
+            age: string;
+            /** Date */
+            date: string;
+            /** Employee Name */
+            employee_name: string;
+            /** Gender */
+            gender: string;
+            /** Issued By */
+            issued_by: string;
+            /** N */
+            n: number;
+            /** Number */
+            number: string;
+            /** Position */
+            position: string;
+            /** Register No */
+            register_no: string;
+            /** Summary */
+            summary: string;
+        };
+        /** OrderPrintStartOut */
+        OrderPrintStartOut: {
+            /** File */
+            file: string;
+            /** Status */
+            status: string;
+            /** Token */
+            token: string;
+        };
+        /** OrderPrintStatusOut */
+        OrderPrintStatusOut: {
+            /** Count */
+            count: number;
+            /** Message */
+            message: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "running" | "ready" | "failed";
+        };
+        /** OrderRegisterAllLabelsOut */
+        OrderRegisterAllLabelsOut: {
+            /** Department */
+            department: string;
+            /** Order Type */
+            order_type: string;
+            /** State */
+            state: string;
+            /** Year */
+            year: string;
+        };
+        /** OrderRegisterChipOut */
+        OrderRegisterChipOut: {
+            /** Class Name */
+            class_name: string;
+            /** Label */
+            label: string;
+        };
+        /** OrderRegisterOptionOut */
+        OrderRegisterOptionOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** OrderRegisterOptionsOut */
+        OrderRegisterOptionsOut: {
+            /** Departments */
+            departments: components["schemas"]["OrderRegisterOptionOut"][];
+            /** States */
+            states: components["schemas"]["OrderRegisterOptionOut"][];
+            /** Types */
+            types: components["schemas"]["OrderRegisterOptionOut"][];
+            /** Years */
+            years: components["schemas"]["OrderRegisterOptionOut"][];
+        };
+        /** OrderRegisterOut */
+        OrderRegisterOut: {
+            all_labels: components["schemas"]["OrderRegisterAllLabelsOut"];
+            /** Background From */
+            background_from: number;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Next Offset */
+            next_offset: number | null;
+            options: components["schemas"]["OrderRegisterOptionsOut"];
+            query: components["schemas"]["OrderRegisterQueryOut"];
+            /** Report Link */
+            report_link: boolean;
+            /** Rows */
+            rows: components["schemas"]["OrderRegisterRowOut"][];
+            /** Sort Heads */
+            sort_heads: {
+                [key: string]: components["schemas"]["OrderRegisterSortHeadOut"];
+            };
+        };
+        /** OrderRegisterQueryOut */
+        OrderRegisterQueryOut: {
+            /** Department */
+            department: number | null;
+            /** Order Type */
+            order_type: number | null;
+            /** Q */
+            q: string;
+            /** Sort */
+            sort: string;
+            /** State */
+            state: string;
+            /** Year */
+            year: number | null;
+        };
+        /** OrderRegisterRowOut */
+        OrderRegisterRowOut: {
+            /** Awaiting */
+            awaiting: boolean;
+            awaiting_chip: components["schemas"]["OrderRegisterChipOut"] | null;
+            /** Cancelled */
+            cancelled: boolean;
+            /** Chip Class */
+            chip_class: string;
+            /** Date Label */
+            date_label: string;
+            /** Department */
+            department: string;
+            /** Employee Id */
+            employee_id: number;
+            /** Employee Name */
+            employee_name: string;
+            /** Key */
+            key: string;
+            /** Number Label */
+            number_label: string;
+            /** Number Muted */
+            number_muted: boolean;
+            /**
+             * Opens
+             * @enum {string}
+             */
+            opens: "detail" | "employee";
+            /** Order Id */
+            order_id: number | null;
+            /** Pickable */
+            pickable: boolean;
+            /** State */
+            state: string;
+            /** State Label */
+            state_label: string;
+            /** Summary */
+            summary: string;
+        };
+        /** OrderRegisterSortHeadOut */
+        OrderRegisterSortHeadOut: {
+            /** Aria */
+            aria: string;
+            /** Arrow */
+            arrow: string;
+            /** Next */
+            next: string;
         };
         /** OrderSignIn */
         OrderSignIn: {
@@ -4565,6 +4864,155 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NavGroupOut"][];
+                };
+            };
+        };
+    };
+    api_order_register_order_print: {
+        parameters: {
+            query?: {
+                year?: string;
+                order_type?: string;
+                department?: string;
+                state?: string;
+                q?: string;
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPrintOut"];
+                };
+            };
+        };
+    };
+    api_order_register_order_print_selected: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** Ids */
+                    ids?: string[] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_order_register_order_print_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** Ids */
+                    ids?: string[] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPrintStartOut"];
+                };
+            };
+        };
+    };
+    api_order_register_order_print_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_order_register_order_print_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPrintStatusOut"];
+                };
+            };
+        };
+    };
+    api_order_register_order_register_batch: {
+        parameters: {
+            query?: {
+                year?: string;
+                order_type?: string;
+                department?: string;
+                state?: string;
+                q?: string;
+                sort?: string;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRegisterOut"];
                 };
             };
         };

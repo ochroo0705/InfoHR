@@ -127,6 +127,7 @@ describe("order detail, sign and signature API", () => {
       { queryKey: ["employee", 5, "activity"], exact: true },
       { queryKey: ["today"] },
       { queryKey: ["attention"] },
+      { queryKey: ["orders-register"] },
     ]);
   });
 

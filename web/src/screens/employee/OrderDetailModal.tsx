@@ -15,7 +15,8 @@ import { loadMessagesOf, useStaleRefresh } from "./popupGuards";
 // the Modal plays its exit. The query is disabled while closed, so a late answer after close is never shown.
 
 export type OrderDetailOpeners = {
-  openOrder(orderId: number): void;
+  // The other order's employee is the shown detail's `employee_pk`, passed by this pop-up.
+  openOrder(orderId: number, employeePk: number): void;
   edit(orderId: number): void;
   upload(orderId: number): void;
   cancelOrder(orderId: number): void;
@@ -168,7 +169,7 @@ function Detail({
                   className={LINK}
                   onClick={(event) => {
                     event.preventDefault();
-                    actions.openOrder(row.order_pk as number);
+                    actions.openOrder(row.order_pk as number, detail.employee_pk);
                   }}
                 >
                   {row.link_text}

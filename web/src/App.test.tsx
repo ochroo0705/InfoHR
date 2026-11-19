@@ -23,7 +23,7 @@ vi.mock("./shell/RequireAuth", () => ({
 
 vi.mock("./shell/AppShell", async () => {
   const { Outlet } = await import("react-router");
-  return { AppShell: () => <Outlet /> };
+  return { AppShell: () => <div data-testid="app-shell"><Outlet /></div> };
 });
 
 vi.mock("./screens/hire/HirePage", () => ({
@@ -66,6 +66,41 @@ describe("App", () => {
     );
     expect(screen.getByText("stub: HirePage")).toBeTruthy();
     expect(screen.queryByText("stub: EmployeePage")).toBeNull();
+  });
+
+  it("renders the order print page at /employees/orders/print/ with its heading", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/employees/orders/print/"]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Хүний нөөцийн тушаалууд" })).toBeTruthy();
+  });
+
+  it("the print page is outside the app shell, while the order register is inside it", () => {
+    const printClient = new QueryClient();
+    const { unmount } = render(
+      <QueryClientProvider client={printClient}>
+        <MemoryRouter initialEntries={["/employees/orders/print/"]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByTestId("app-shell")).toBeNull();
+    expect(screen.queryByRole("navigation")).toBeNull();
+    unmount();
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/employees/orders/"]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId("app-shell")).toBeTruthy();
   });
 
   it("still renders EmployeePage at /employees/12/", () => {

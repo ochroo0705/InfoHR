@@ -205,6 +205,7 @@ describe("event API", () => {
       { queryKey: ["employee", 5, "activity"], exact: true },
       { queryKey: ["today"] },
       { queryKey: ["attention"] },
+      { queryKey: ["orders-register"] },
     ]);
   });
 
@@ -284,6 +285,7 @@ describe("event API", () => {
       ["employee", 5, "activity"],
       ["today"],
       ["attention"],
+      ["orders-register"],
     ]);
   });
 

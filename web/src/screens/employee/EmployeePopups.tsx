@@ -22,31 +22,33 @@ import { OrderSignModal } from "./OrderSignModal";
 //   the open detail itself (its serial), so a late call from an older detail cannot replace a newer pop-up.
 // The close is matched to its serial, so a late close of an older pop-up cannot close a newer one.
 // This is the same pattern as useCorrectionPopup (CorrectionModal.tsx); it is kept as one provider, so each page mounts
-// the pop-ups once. Only the page's own pk is passed in: the provider decides no rule.
+// the pop-ups once. The `pk` prop is the default employee. Every pick carries its own pk, and an opener may pass another
+// employee's pk as its second argument (the register page opens pop-ups for any employee). The provider decides no rule.
 
-type PopupPick =
+type PopupPick = (
   | { kind: "event"; type: string }
   | { kind: "hr"; target: HrPopupTarget }
   | { kind: "history"; orderId: number }
   | { kind: "detail"; orderId: number }
-  | { kind: "sign"; orderId: number };
+  | { kind: "sign"; orderId: number }
+) & { pk: number };
 
 type Popup = { pick: PopupPick; serial: number; open: boolean } | null;
 
 export type EmployeePopupsApi = {
-  openEvent: (type: string) => void;
-  openEventCancel: (eventId: number) => void;
-  openOrderEdit: (orderId: number) => void;
-  openOrderUpload: (orderId: number) => void;
-  openOrderHistory: (orderId: number) => void;
-  openOrderDetail: (orderId: number) => void;
-  openOrderCancel: (orderId: number) => void;
-  openOrderSign: (orderId: number) => void;
+  openEvent: (type: string, employeePk?: number) => void;
+  openEventCancel: (eventId: number, employeePk?: number) => void;
+  openOrderEdit: (orderId: number, employeePk?: number) => void;
+  openOrderUpload: (orderId: number, employeePk?: number) => void;
+  openOrderHistory: (orderId: number, employeePk?: number) => void;
+  openOrderDetail: (orderId: number, employeePk?: number) => void;
+  openOrderCancel: (orderId: number, employeePk?: number) => void;
+  openOrderSign: (orderId: number, employeePk?: number) => void;
 };
 
 const EmployeePopupsContext = createContext<EmployeePopupsApi | null>(null);
 
-export function EmployeePopups({ pk, children }: { pk: number; children: ReactNode }) {
+export function EmployeePopups({ pk, children }: { pk?: number; children: ReactNode }) {
   const [popup, setPopup] = useState<Popup>(null);
 
   // A new open takes the next serial. The serial is read from the previous pop-up, which is never cleared, so it only grows.
@@ -67,53 +69,64 @@ export function EmployeePopups({ pk, children }: { pk: number; children: ReactNo
     setPopup((prev) => (prev && prev.serial === serial ? { ...prev, open: false } : prev));
   }, []);
 
-  // The openers the order detail gets. Each one replaces that detail (matched by its serial).
-  const detailActions = (serial: number): OrderDetailOpeners => ({
-    openOrder: (orderId) => show({ kind: "detail", orderId }, serial),
-    edit: (orderId) => show({ kind: "hr", target: { kind: "order-edit", orderId } }, serial),
-    upload: (orderId) => show({ kind: "hr", target: { kind: "order-upload", orderId } }, serial),
-    cancelOrder: (orderId) => show({ kind: "hr", target: { kind: "order-cancel", orderId } }, serial),
-    cancelEvent: (eventId) => show({ kind: "hr", target: { kind: "event-cancel", eventId } }, serial),
-    sign: (orderId) => show({ kind: "sign", orderId }, serial),
+  // The openers the order detail gets. Each one replaces that detail (matched by its serial). The replacement is for the
+  // SHOWN detail's employee (`detailPk`), so a detail of another employee opens that employee's pop-ups. A row of
+  // another order passes the employee the detail shows (`employeePk`).
+  const detailActions = (serial: number, detailPk: number): OrderDetailOpeners => ({
+    openOrder: (orderId, employeePk) => show({ kind: "detail", orderId, pk: employeePk }, serial),
+    edit: (orderId) => show({ kind: "hr", target: { kind: "order-edit", orderId }, pk: detailPk }, serial),
+    upload: (orderId) => show({ kind: "hr", target: { kind: "order-upload", orderId }, pk: detailPk }, serial),
+    cancelOrder: (orderId) => show({ kind: "hr", target: { kind: "order-cancel", orderId }, pk: detailPk }, serial),
+    cancelEvent: (eventId) => show({ kind: "hr", target: { kind: "event-cancel", eventId }, pk: detailPk }, serial),
+    sign: (orderId) => show({ kind: "sign", orderId, pk: detailPk }, serial),
   });
 
-  const api = useMemo<EmployeePopupsApi>(
-    () => ({
-      openEvent: (type) => show({ kind: "event", type }),
-      openEventCancel: (eventId) => show({ kind: "hr", target: { kind: "event-cancel", eventId } }),
-      openOrderEdit: (orderId) => show({ kind: "hr", target: { kind: "order-edit", orderId } }),
-      openOrderUpload: (orderId) => show({ kind: "hr", target: { kind: "order-upload", orderId } }),
-      openOrderHistory: (orderId) => show({ kind: "history", orderId }),
-      openOrderDetail: (orderId) => show({ kind: "detail", orderId }),
-      openOrderCancel: (orderId) => show({ kind: "hr", target: { kind: "order-cancel", orderId } }),
-      openOrderSign: (orderId) => show({ kind: "sign", orderId }),
-    }),
-    [show],
-  );
+  const api = useMemo<EmployeePopupsApi>(() => {
+    // The employee an opener acts for: its own argument, else the provider's default. With neither, the call is a bug.
+    const pkOf = (employeePk?: number): number => {
+      const found = employeePk ?? pk;
+      if (found === undefined) throw new Error("EmployeePopups needs a pk.");
+      return found;
+    };
+    return {
+      openEvent: (type, employeePk) => show({ kind: "event", type, pk: pkOf(employeePk) }),
+      openEventCancel: (eventId, employeePk) =>
+        show({ kind: "hr", target: { kind: "event-cancel", eventId }, pk: pkOf(employeePk) }),
+      openOrderEdit: (orderId, employeePk) =>
+        show({ kind: "hr", target: { kind: "order-edit", orderId }, pk: pkOf(employeePk) }),
+      openOrderUpload: (orderId, employeePk) =>
+        show({ kind: "hr", target: { kind: "order-upload", orderId }, pk: pkOf(employeePk) }),
+      openOrderHistory: (orderId, employeePk) => show({ kind: "history", orderId, pk: pkOf(employeePk) }),
+      openOrderDetail: (orderId, employeePk) => show({ kind: "detail", orderId, pk: pkOf(employeePk) }),
+      openOrderCancel: (orderId, employeePk) =>
+        show({ kind: "hr", target: { kind: "order-cancel", orderId }, pk: pkOf(employeePk) }),
+      openOrderSign: (orderId, employeePk) => show({ kind: "sign", orderId, pk: pkOf(employeePk) }),
+    };
+  }, [show, pk]);
 
   let modal: ReactNode = null;
   if (popup) {
     const { pick, serial, open } = popup;
     const onClose = () => close(serial);
     if (pick.kind === "event") {
-      modal = <EventModal key={serial} pk={pk} type={pick.type} open={open} onClose={onClose} />;
+      modal = <EventModal key={serial} pk={pick.pk} type={pick.type} open={open} onClose={onClose} />;
     } else if (pick.kind === "hr") {
-      modal = <HrPopup key={serial} pk={pk} target={pick.target} open={open} onClose={onClose} />;
+      modal = <HrPopup key={serial} pk={pick.pk} target={pick.target} open={open} onClose={onClose} />;
     } else if (pick.kind === "detail") {
       modal = (
         <OrderDetailModal
           key={serial}
-          pk={pk}
+          pk={pick.pk}
           orderId={pick.orderId}
           open={open}
           onClose={onClose}
-          actions={detailActions(serial)}
+          actions={detailActions(serial, pick.pk)}
         />
       );
     } else if (pick.kind === "sign") {
-      modal = <OrderSignModal key={serial} pk={pk} orderId={pick.orderId} open={open} onClose={onClose} />;
+      modal = <OrderSignModal key={serial} pk={pick.pk} orderId={pick.orderId} open={open} onClose={onClose} />;
     } else {
-      modal = <OrderHistoryModal key={serial} pk={pk} orderId={pick.orderId} open={open} onClose={onClose} />;
+      modal = <OrderHistoryModal key={serial} pk={pick.pk} orderId={pick.orderId} open={open} onClose={onClose} />;
     }
   }
 

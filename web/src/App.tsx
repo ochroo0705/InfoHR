@@ -9,6 +9,8 @@ import { MePage } from "./screens/me/MePage";
 import { TodayPage } from "./screens/today/TodayPage";
 import { EmployeePage } from "./screens/employee/EmployeePage";
 import { CompanyPage } from "./screens/company/CompanyPage";
+import { OrdersPage } from "./screens/orders/OrdersPage";
+import { OrdersPrintPage } from "./screens/orders/OrdersPrintPage";
 import { HirePage } from "./screens/hire/HirePage";
 import { Landing } from "./routes/Landing";
 import { ConfirmProvider } from "./widgets/confirm";
@@ -26,6 +28,15 @@ export default function App() {
     <ConfirmProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Standalone like Django's print page: no AppShell, but signed in. */}
+        <Route
+          path="/employees/orders/print/"
+          element={
+            <RequireAuth>
+              <OrdersPrintPage />
+            </RequireAuth>
+          }
+        />
         <Route
           element={
             <RequireAuth>
@@ -38,6 +49,7 @@ export default function App() {
           <Route path="/me/" element={<MePage />} />
           <Route path="/employees/company/" element={<CompanyPage />} />
           <Route path="/employees/new/" element={<HirePage />} />
+          <Route path="/employees/orders/" element={<OrdersPage />} />
           <Route path="/employees/:pk/" element={<EmployeePage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />

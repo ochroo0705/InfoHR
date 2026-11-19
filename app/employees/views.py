@@ -7,7 +7,6 @@ from urllib.parse import urlencode
 from accounts.audit import record_export
 from accounts.models import User
 from config import batching
-from config.params import id_param as _id_param
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import (
@@ -44,13 +43,9 @@ from employees.forms import (
 )
 from employees.listing import Row, employee_rows
 from employees.models import (
-    CompanySettings,
-    Department,
     Employee,
     HrOrder,
     JobRecord,
-    OrderState,
-    OrderType,
 )
 from employees.services import (
     event_page,
@@ -61,7 +56,9 @@ from employees.services import (
     order_docs,
     order_files,
     order_popups,
+    order_print_page,
     order_register,
+    order_register_page,
     order_signing,
     orders,
     page_writes,
@@ -96,7 +93,7 @@ from employees.services.today_page import away_cells, today_facts  # noqa: F401
 from employees.validators import normalize_register_no
 
 logger = logging.getLogger(__name__)
-NO_DEPARTMENT = "Хэлтэсгүй"
+NO_DEPARTMENT = order_print_page.NO_DEPARTMENT  # re-exported: the print page and the tests use this name
 
 
 def _group_by_department(rows: list[Row]) -> list[tuple[str, list[Row]]]:
@@ -968,8 +965,8 @@ def order_document_pdf(request: HttpRequest, pk: int, order_id: int) -> HttpResp
     return _order_download(request, pk, order_id, pdf=True)
 
 
-MAX_ID_DIGITS = 9  # ids longer than this cannot be a row id (and would overflow the database integer)
-ORDER_PRINT_LIMIT = 100  # orders in one printout; a bigger pile is printed in two goes
+MAX_ID_DIGITS = print_jobs.MAX_ID_DIGITS  # longer ids cannot be a row id (the database integer overflows)
+ORDER_PRINT_LIMIT = print_jobs.ORDER_PRINT_LIMIT  # orders in one printout; a bigger pile is printed in two goes
 
 
 @login_required
@@ -980,21 +977,13 @@ def orders_print_selected(request: HttpRequest) -> FileResponse | HttpResponseBa
     logged like a single download."""
     user = _user(request)
     _require(access.can_manage(user))
-    ids = {int(v) for v in request.POST.getlist("ids") if v.isdecimal() and len(v) <= MAX_ID_DIGITS}
-    chosen = list(
-        HrOrder.objects.filter(pk__in=ids, employee__in=access.visible_employees(user))
-        .exclude(state=OrderState.CANCELLED)
-        .select_related("employee")
-        .order_by("date", "pk")[:ORDER_PRINT_LIMIT]
-    )
-    if not chosen:
-        return HttpResponseBadRequest("Хэвлэх тушаал алга.")
+    ids = set(print_jobs.parse_ids(request.POST.getlist("ids")))
     try:
-        data, printed = order_docs.render_pdf_many(chosen, user)
-    except order_docs.OrderDocError:
-        return HttpResponseBadRequest("Хэвлэх тушаал алга.")
+        data, printed = print_jobs.render_now(user, ids)
+    except print_jobs.NothingToPrint:
+        return HttpResponseBadRequest(print_jobs.NOTHING)
     for order in printed:
-        record_export(request, "download_order", _order_label(order, order.employee))
+        record_export(request, "download_order", print_jobs.export_label(order))
     return FileResponse(io.BytesIO(data), filename="tushaal-songoson.pdf", content_type=order_docs.PDF_TYPE)
 
 
@@ -1005,7 +994,7 @@ def orders_print_start(request: HttpRequest) -> JsonResponse:
     polling `orders_print_status` and offers `orders_print_file` when it is ready."""
     user = _user(request)
     _require(access.can_manage(user))
-    ids = [int(v) for v in request.POST.getlist("ids") if v.isdecimal() and len(v) <= MAX_ID_DIGITS]
+    ids = print_jobs.parse_ids(request.POST.getlist("ids"))
     if not ids:
         return JsonResponse({"error": print_jobs.NOTHING}, status=400)
     token = print_jobs.start(user, ids)
@@ -1078,36 +1067,20 @@ def order_file(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     return order_files.file_response(payload)
 
 
-_order_label = order_files.order_label  # the log label; the views and the service share one text
-
-
 def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[str, Any]:
     """The register page's filters and rows: one batch (`batched`, the page itself) or every row (print)."""
-    get = request.GET
-    state = get.get("state", "")
-    valid_states = {s.value for s in OrderState} | {order_register.LEGACY}
-    state = state if state in valid_states else ""
-    year, order_type, department = (
-        _id_param(get.get("year")),
-        _id_param(get.get("order_type")),
-        _id_param(get.get("department")),
-    )
-    if order_type is not None and order_type not in OrderType.values:
-        order_type = None
-    if year is not None and not 1 <= year <= 9999:
-        year = None
+    query = order_register_page.parse_query(request.GET)
     today = timezone.localdate()
-    q = get.get("q", "").strip()[:100]
-    sort = order_register.clean_sort(get.get("sort", order_register.DEFAULT_SORT))
+    options = order_register_page.filter_options(today)
     user = _user(request)
     filters: dict[str, Any] = {
-        "year": year,
-        "order_type": order_type,
-        "department_id": department,
-        "state": state or None,
+        "year": query.year,
+        "order_type": query.order_type,
+        "department_id": query.department,
+        "state": query.state or None,
         "today": today,
-        "q": q,
-        "sort": sort,
+        "q": query.q,
+        "sort": query.sort,
     }
     paging: dict[str, Any] = {}
     if batched:
@@ -1118,23 +1091,21 @@ def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[st
         paging = {"offset": batch.offset, "next_query": batch.next_query}
     else:
         rows = order_register.register_rows(user, **filters)
-    # Every new order is numbered (D-083), so the state filter has no «Дугаар оруулаагүй» choice.
-    states = [(k, v) for k, v in OrderState.choices if k != OrderState.PENDING]
     return {
         **paging,
-        "can_manage": access.can_manage(_user(request)),
+        "can_manage": access.can_manage(user),
         "rows": rows,
-        "q": q,
-        "sort": sort,
-        "sort_heads": order_register.sort_heads(sort),
-        "year": year,
-        "order_type": order_type,
-        "department": department,
-        "state": state,
-        "types": OrderType.choices,
-        "states": [*states, (order_register.LEGACY, "MACS")],
-        "departments": Department.objects.exclude(ext__active=False),
-        "years": list(range(today.year, today.year - 12, -1)),
+        "q": query.q,
+        "sort": query.sort,
+        "sort_heads": order_register.sort_heads(query.sort),
+        "year": query.year,
+        "order_type": query.order_type,
+        "department": query.department,
+        "state": query.state,
+        "types": options.types,
+        "states": options.states,
+        "departments": options.departments,
+        "years": options.years,
         "querystring": request.GET.urlencode(),
         "today": today,
     }
@@ -1169,33 +1140,18 @@ def orders_page(request: HttpRequest) -> HttpResponse:
 @login_required
 def orders_print(request: HttpRequest) -> HttpResponse:
     context = _register_context(request)
-    buckets: dict[str, list[order_register.RegisterRow]] = {}
-    for row in sorted(context["rows"], key=lambda r: (r.date is None, r.date)):
-        buckets.setdefault(row.department or NO_DEPARTMENT, []).append(row)
-    context["groups"] = sorted(buckets.items(), key=lambda item: (item[0] == NO_DEPARTMENT, item[0]))
-    context["company"] = CompanySettings.get().name
+    query = order_register_page.parse_query(request.GET)
+    options = order_register_page.filter_options(timezone.localdate())
+    context["groups"] = [(group.department, group.rows) for group in order_print_page.build_groups(context["rows"])]
+    context["company"] = order_print_page.company_name()
     record_export(
-        request, "print_page", "Тушаалын бүртгэл", filters=_register_label(context), rows=len(context["rows"])
+        request, "print_page", "Тушаалын бүртгэл", filters=_register_label(query, options), rows=len(context["rows"])
     )
     return render(request, "employees/orders_print.html", context)
 
 
-def _register_label(context: dict[str, Any]) -> str:
-    """The register's filters as one readable line for the system log. The search text is not written, only that a
-    search was made: it is typed by the user and may hold a person's name."""
-    parts: list[str] = []
-    if context["year"]:
-        parts.append(f"Он: {context['year']}")
-    if context["order_type"] is not None:
-        parts.append(f"Тушаалын төрөл: {OrderType(context['order_type']).label}")
-    if context["department"] is not None:
-        name = Department.objects.filter(pk=context["department"]).values_list("name", flat=True).first()
-        parts.append(f"Хэлтэс: {name or '—'}")
-    if context["state"]:
-        parts.append(f"Төлөв: {dict(context['states']).get(context['state'], '—')}")
-    if context["q"]:
-        parts.append("Хайлт ашигласан")
-    return "; ".join(parts)
+def _register_label(query: order_register_page.RegisterQuery, options: order_register_page.FilterOptions) -> str:
+    return order_print_page.register_label(query, options)
 
 
 # --- Ctrl+K command palette ---

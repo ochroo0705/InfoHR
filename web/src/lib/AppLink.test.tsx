@@ -10,8 +10,15 @@ describe("isPorted", () => {
     expect(isPorted("/me/#top")).toBe(true);
   });
 
-  it("is false for a Django-only page", () => {
-    expect(isPorted("/employees/orders/")).toBe(false);
+  it("treats the order register as ported, and a Django-only page as not", () => {
+    expect(isPorted("/employees/orders/")).toBe(true);
+    expect(isPorted("/reports/orders/")).toBe(false);
+  });
+
+  it("isPorted true for /employees/orders/print/", () => {
+    expect(isPorted("/employees/orders/print/")).toBe(true);
+    expect(isPorted("/employees/orders/print/?year=2026&state=registered")).toBe(true);
+    expect(isPorted("/employees/orders/print")).toBe(false);
   });
 
   it("treats the add-employee page as ported, with or without its query string", () => {
@@ -50,11 +57,11 @@ describe("AppLink and openLegacyPopup", () => {
   it("renders a full-page link into the Django UI for a path that is not ported", () => {
     render(
       <MemoryRouter>
-        <AppLink to="/employees/orders/">Profile</AppLink>
+        <AppLink to="/reports/orders/">Profile</AppLink>
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe(
-      "http://dj/employees/orders/",
+      "http://dj/reports/orders/",
     );
   });
 

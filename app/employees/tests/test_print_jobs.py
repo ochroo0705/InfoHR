@@ -3,15 +3,17 @@
 import json
 import os
 import time
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pytest
-from accounts.models import SystemLogEntry
+from accounts.models import SystemLogEntry, User
+from django.contrib.auth.models import Group
 from django.test import Client
 from django.urls import reverse
 
-from employees.models import Employee, HrOrder, OrderState
+from employees.models import Employee, HrOrder, OrderState, OrderType
 from employees.services import order_docs, print_jobs
 
 from .test_order_docs import _need_pdf_font, hire_order, hr  # noqa: F401  (hr is a fixture)
@@ -118,6 +120,58 @@ def test_old_job_folders_are_removed_on_the_next_start(hr: Client, hired: Employ
     os.utime(old, (long_ago, long_ago))
     _start(hr, hire_order(hired).pk)
     assert not old.exists()
+
+
+def _hr_user() -> User:
+    user = User.objects.create_user("hr_print", password="x-long-pass-123")  # noqa: S106
+    user.groups.add(Group.objects.get(name="HR"))
+    return user
+
+
+def test_parse_ids_drops_non_decimal_and_long_values() -> None:
+    values = ["1", "abc", "-1", "9" * 10, "12", "12", "9" * 9]
+    assert print_jobs.parse_ids(values) == [1, 12, 12, 999999999]
+
+
+def test_render_now_orders_by_date_and_skips_cancelled_and_foreign(hired: Employee, actor: User) -> None:
+    _need_pdf_font()
+    late = hire_order(hired)
+    HrOrder.objects.filter(pk=late.pk).update(date=date(2026, 2, 1))
+    early = HrOrder.objects.create(employee=hired, is_hire=True, order_type=OrderType.HIRED, date=date(2026, 1, 1))
+    cancelled = HrOrder.objects.create(
+        employee=hired, is_hire=True, order_type=OrderType.HIRED, date=date(2025, 1, 1), state=OrderState.CANCELLED
+    )
+    data, used = print_jobs.render_now(_hr_user(), [late.pk, early.pk, cancelled.pk])
+    assert data.startswith(b"%PDF-") and [o.pk for o in used] == [early.pk, late.pk]
+    with pytest.raises(print_jobs.NothingToPrint):
+        print_jobs.render_now(actor, [late.pk])  # a user who sees no employee of this order
+
+
+def test_render_now_raises_nothing_to_print_when_empty(hired: Employee) -> None:
+    user = _hr_user()
+    for ids in ([], [999999]):
+        with pytest.raises(print_jobs.NothingToPrint) as info:
+            print_jobs.render_now(user, ids)
+        assert str(info.value) == print_jobs.NOTHING
+
+
+def test_render_now_caps_at_limit(hired: Employee, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: F811
+    HrOrder.objects.bulk_create(
+        [
+            HrOrder(employee=hired, is_hire=True, order_type=OrderType.HIRED, date=date(2026, 1, 1))
+            for _ in range(print_jobs.LIMIT + 1)
+        ]
+    )
+    pks = list(HrOrder.objects.values_list("pk", flat=True))
+    seen: list[list[HrOrder]] = []
+
+    def fake(orders: list[HrOrder], user: User) -> tuple[bytes, list[HrOrder]]:
+        seen.append(orders)
+        return b"%PDF-", orders
+
+    monkeypatch.setattr(order_docs, "render_pdf_many", fake)
+    print_jobs.render_now(_hr_user(), pks)
+    assert len(seen[0]) == print_jobs.LIMIT == print_jobs.ORDER_PRINT_LIMIT
 
 
 def test_register_page_has_the_badge_and_the_threshold(hr: Client, hired: Employee) -> None:  # noqa: F811

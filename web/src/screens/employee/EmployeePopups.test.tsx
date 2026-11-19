@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EmployeePopups, useEmployeePopups } from "./EmployeePopups";
+import { EmployeePopups, useEmployeePopups, type EmployeePopupsApi } from "./EmployeePopups";
 
 // The pop-up components the provider mounts are stubbed: the test checks which one is mounted, with which props, and
 // whether each open mounts a new instance (the stub records a serial per mount). `data-id` changes exactly when React
@@ -59,7 +59,7 @@ vi.mock("./OrderDetailModal", async () => {
       open: boolean;
       onClose: () => void;
       actions: {
-        openOrder: (id: number) => void;
+        openOrder: (id: number, employeePk: number) => void;
         edit: (id: number) => void;
         upload: (id: number) => void;
         cancelOrder: (id: number) => void;
@@ -79,7 +79,7 @@ vi.mock("./OrderDetailModal", async () => {
         createElement("button", { type: "button", onClick: () => actions.cancelOrder(orderId) }, "detail-cancel-order"),
         createElement("button", { type: "button", onClick: () => actions.cancelEvent(41) }, "detail-cancel-event"),
         createElement("button", { type: "button", onClick: () => actions.sign(orderId) }, "detail-sign"),
-        createElement("button", { type: "button", onClick: () => actions.openOrder(99) }, "detail-open-other"),
+        createElement("button", { type: "button", onClick: () => actions.openOrder(99, props.pk) }, "detail-open-other"),
       );
     },
   };
@@ -138,6 +138,16 @@ function Buttons() {
 function Bare() {
   useEmployeePopups();
   return null;
+}
+
+// Opens the detail of order 60 of employee 9, a pk other than the provider default (7).
+function OtherEmployee() {
+  const popups = useEmployeePopups();
+  return (
+    <button type="button" onClick={() => popups.openOrderDetail(60, 9)}>
+      open-other-employee-detail
+    </button>
+  );
 }
 
 function renderPopups() {
@@ -337,6 +347,55 @@ describe("EmployeePopups", () => {
     fireEvent.click(screen.getByText("open-history"));
     expect(screen.queryByTestId("event")).toBeNull();
     expect(screen.getByTestId("history").getAttribute("data-open")).toBe("true");
+  });
+
+  it("opens a detail for another employee than the provider default", () => {
+    render(
+      <EmployeePopups pk={7}>
+        <OtherEmployee />
+      </EmployeePopups>,
+    );
+    fireEvent.click(screen.getByText("open-other-employee-detail"));
+    const detail = screen.getByTestId("detail");
+    expect(detail.getAttribute("data-pk")).toBe("9");
+    expect(detail.getAttribute("data-order")).toBe("60");
+  });
+
+  it("a replacement from that detail keeps the shown employee's pk", () => {
+    render(
+      <EmployeePopups pk={7}>
+        <OtherEmployee />
+      </EmployeePopups>,
+    );
+    fireEvent.click(screen.getByText("open-other-employee-detail"));
+    fireEvent.click(screen.getByText("detail-edit"));
+    expect(screen.getByTestId("hr").getAttribute("data-pk")).toBe("9");
+    expect(targetOf("hr")).toEqual({ kind: "order-edit", orderId: 60 });
+    fireEvent.click(screen.getByText("stub close"));
+
+    fireEvent.click(screen.getByText("open-other-employee-detail"));
+    fireEvent.click(screen.getByText("detail-sign"));
+    expect(screen.getByTestId("sign").getAttribute("data-pk")).toBe("9");
+    fireEvent.click(screen.getByText("stub close"));
+
+    fireEvent.click(screen.getByText("open-other-employee-detail"));
+    fireEvent.click(screen.getByText("detail-open-other"));
+    expect(screen.getByTestId("detail").getAttribute("data-pk")).toBe("9");
+    expect(screen.getByTestId("detail").getAttribute("data-order")).toBe("99");
+  });
+
+  it("openOrderDetail without any pk throws", () => {
+    const held: { api: EmployeePopupsApi | null } = { api: null };
+    function Grab() {
+      held.api = useEmployeePopups();
+      return null;
+    }
+    render(
+      <EmployeePopups>
+        <Grab />
+      </EmployeePopups>,
+    );
+    expect(() => held.api?.openOrderDetail(60)).toThrow("EmployeePopups needs a pk.");
   });
 
   it("closing keeps the pop-up mounted with open false until the next open, which remounts it", () => {

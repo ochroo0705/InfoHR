@@ -14,7 +14,7 @@ import secrets
 import shutil
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -25,18 +25,24 @@ from django.db import connections
 
 from employees import access
 from employees.models import HrOrder, OrderState
-from employees.services import order_docs
+from employees.services import order_docs, order_files
 
 logger = logging.getLogger(__name__)
 
 BACKGROUND_FROM = 11  # this many orders or more are built in the background; fewer are built while the user waits
 LIMIT = 100  # orders in one printout (the register's cap, ORDER_PRINT_LIMIT)
+ORDER_PRINT_LIMIT = LIMIT
+MAX_ID_DIGITS = 9  # ids longer than this cannot be a row id (and would overflow the database integer)
 KEEP_FOR = 24 * 3600
 STALE_AFTER = 10 * 60
 TOKEN = re.compile(r"[A-Za-z0-9_-]{16,64}")
 NOTHING = "Хэвлэх тушаал алга."
 FAILED = "Бэлтгэж чадсангүй."
 RESTARTED = "Бэлтгэх үед алдаа гарлаа (сервер дахин ассан байж болно)."
+
+
+class NothingToPrint(Exception):
+    """None of the ids can be printed: none chosen by the user's rights, or no order has a usable template."""
 
 
 def _root() -> Path:
@@ -78,6 +84,27 @@ def _chosen(user: User, ids: Sequence[int]) -> list[HrOrder]:
 
 def _label(order: HrOrder) -> str:
     return f"Тушаал № {order.number or 'дугаар байхгүй'}, ажилтны код {order.employee.code}"
+
+
+def export_label(order: HrOrder) -> str:
+    """The log label of one printed order (the same text as a single download's)."""
+    return order_files.order_label(order, order.employee)
+
+
+def parse_ids(values: Iterable[str]) -> list[int]:
+    """The posted ids: decimal strings of at most MAX_ID_DIGITS characters, in the given order, duplicates kept."""
+    return [int(v) for v in values if v.isdecimal() and len(v) <= MAX_ID_DIGITS]
+
+
+def render_now(user: User, ids: Iterable[int]) -> tuple[bytes, list[HrOrder]]:
+    """The chosen orders as one PDF, built at once. Raises NothingToPrint when none can be printed."""
+    chosen = _chosen(user, list(ids))
+    if not chosen:
+        raise NothingToPrint(NOTHING)
+    try:
+        return order_docs.render_pdf_many(chosen, user)
+    except order_docs.OrderDocError:
+        raise NothingToPrint(NOTHING) from None
 
 
 def run(token: str, user_id: int, ids: Sequence[int]) -> None:

@@ -108,12 +108,14 @@ export function useSubmitEventCancel(pk: number, eventId: number) {
 }
 
 // An event write (record or cancel) changes the employee's work, salary and activity, and the Today and attention
-// lists that show it. ["today"] is a prefix, so its open sub-lists refresh too. Exported for the order writes, which
-// change the same parts (an order that has an event applies its change).
+// lists that show it. ["today"] is a prefix, so its open sub-lists refresh too. The orders register shows the same
+// orders (a cancel or sign from it), so ["orders-register"] refreshes too. Exported for the order writes, which change
+// the same parts (an order that has an event applies its change).
 export function invalidateEventWrites(queryClient: QueryClient, pk: number) {
   return Promise.all([
     invalidateEmployee(queryClient, pk, ["work", "salary", "activity"]),
     queryClient.invalidateQueries({ queryKey: ["today"] }),
     queryClient.invalidateQueries({ queryKey: ["attention"] }),
+    queryClient.invalidateQueries({ queryKey: ["orders-register"] }),
   ]);
 }

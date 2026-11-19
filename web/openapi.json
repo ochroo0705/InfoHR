@@ -4105,6 +4105,526 @@
         "title": "OrderPopupValuesIn",
         "type": "object"
       },
+      "OrderPrintGroupOut": {
+        "properties": {
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OrderPrintRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "department",
+          "rows"
+        ],
+        "title": "OrderPrintGroupOut",
+        "type": "object"
+      },
+      "OrderPrintOut": {
+        "properties": {
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "empty": {
+            "title": "Empty",
+            "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/OrderPrintGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "today": {
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "company",
+          "today",
+          "groups",
+          "empty"
+        ],
+        "title": "OrderPrintOut",
+        "type": "object"
+      },
+      "OrderPrintRowOut": {
+        "properties": {
+          "age": {
+            "title": "Age",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "gender": {
+            "title": "Gender",
+            "type": "string"
+          },
+          "issued_by": {
+            "title": "Issued By",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "register_no": {
+            "title": "Register No",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "n",
+          "date",
+          "employee_name",
+          "position",
+          "number",
+          "summary",
+          "issued_by",
+          "register_no",
+          "gender",
+          "age"
+        ],
+        "title": "OrderPrintRowOut",
+        "type": "object"
+      },
+      "OrderPrintStartOut": {
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "status",
+          "file"
+        ],
+        "title": "OrderPrintStartOut",
+        "type": "object"
+      },
+      "OrderPrintStatusOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "ready",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "count",
+          "message"
+        ],
+        "title": "OrderPrintStatusOut",
+        "type": "object"
+      },
+      "OrderRegisterAllLabelsOut": {
+        "properties": {
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "order_type": {
+            "title": "Order Type",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "year": {
+            "title": "Year",
+            "type": "string"
+          }
+        },
+        "required": [
+          "year",
+          "order_type",
+          "department",
+          "state"
+        ],
+        "title": "OrderRegisterAllLabelsOut",
+        "type": "object"
+      },
+      "OrderRegisterChipOut": {
+        "properties": {
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "class_name"
+        ],
+        "title": "OrderRegisterChipOut",
+        "type": "object"
+      },
+      "OrderRegisterOptionOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "OrderRegisterOptionOut",
+        "type": "object"
+      },
+      "OrderRegisterOptionsOut": {
+        "properties": {
+          "departments": {
+            "items": {
+              "$ref": "#/components/schemas/OrderRegisterOptionOut"
+            },
+            "title": "Departments",
+            "type": "array"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/OrderRegisterOptionOut"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/OrderRegisterOptionOut"
+            },
+            "title": "Types",
+            "type": "array"
+          },
+          "years": {
+            "items": {
+              "$ref": "#/components/schemas/OrderRegisterOptionOut"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "years",
+          "types",
+          "states",
+          "departments"
+        ],
+        "title": "OrderRegisterOptionsOut",
+        "type": "object"
+      },
+      "OrderRegisterOut": {
+        "properties": {
+          "all_labels": {
+            "$ref": "#/components/schemas/OrderRegisterAllLabelsOut"
+          },
+          "background_from": {
+            "title": "Background From",
+            "type": "integer"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "options": {
+            "$ref": "#/components/schemas/OrderRegisterOptionsOut"
+          },
+          "query": {
+            "$ref": "#/components/schemas/OrderRegisterQueryOut"
+          },
+          "report_link": {
+            "title": "Report Link",
+            "type": "boolean"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OrderRegisterRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "sort_heads": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/OrderRegisterSortHeadOut"
+            },
+            "title": "Sort Heads",
+            "type": "object"
+          }
+        },
+        "required": [
+          "rows",
+          "next_offset",
+          "can_manage",
+          "report_link",
+          "background_from",
+          "query",
+          "sort_heads",
+          "options",
+          "all_labels"
+        ],
+        "title": "OrderRegisterOut",
+        "type": "object"
+      },
+      "OrderRegisterQueryOut": {
+        "properties": {
+          "department": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "order_type": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Type"
+          },
+          "q": {
+            "title": "Q",
+            "type": "string"
+          },
+          "sort": {
+            "title": "Sort",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "year",
+          "order_type",
+          "department",
+          "state",
+          "q",
+          "sort"
+        ],
+        "title": "OrderRegisterQueryOut",
+        "type": "object"
+      },
+      "OrderRegisterRowOut": {
+        "properties": {
+          "awaiting": {
+            "title": "Awaiting",
+            "type": "boolean"
+          },
+          "awaiting_chip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderRegisterChipOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "boolean"
+          },
+          "chip_class": {
+            "title": "Chip Class",
+            "type": "string"
+          },
+          "date_label": {
+            "title": "Date Label",
+            "type": "string"
+          },
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "integer"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "number_label": {
+            "title": "Number Label",
+            "type": "string"
+          },
+          "number_muted": {
+            "title": "Number Muted",
+            "type": "boolean"
+          },
+          "opens": {
+            "enum": [
+              "detail",
+              "employee"
+            ],
+            "title": "Opens",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "pickable": {
+            "title": "Pickable",
+            "type": "boolean"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "state_label": {
+            "title": "State Label",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "order_id",
+          "employee_id",
+          "number_label",
+          "date_label",
+          "employee_name",
+          "department",
+          "summary",
+          "state",
+          "state_label",
+          "chip_class",
+          "awaiting",
+          "awaiting_chip",
+          "number_muted",
+          "cancelled",
+          "pickable",
+          "opens"
+        ],
+        "title": "OrderRegisterRowOut",
+        "type": "object"
+      },
+      "OrderRegisterSortHeadOut": {
+        "properties": {
+          "aria": {
+            "title": "Aria",
+            "type": "string"
+          },
+          "arrow": {
+            "title": "Arrow",
+            "type": "string"
+          },
+          "next": {
+            "title": "Next",
+            "type": "string"
+          }
+        },
+        "required": [
+          "next",
+          "arrow",
+          "aria"
+        ],
+        "title": "OrderRegisterSortHeadOut",
+        "type": "object"
+      },
       "OrderSignIn": {
         "properties": {
           "mode": {
@@ -7996,6 +8516,365 @@
         "summary": "Nav",
         "tags": [
           "nav"
+        ]
+      }
+    },
+    "/api/v1/orders/print": {
+      "get": {
+        "description": "Every matching row, grouped by department, as the print page draws it. Writes one export log line.",
+        "operationId": "api_order_register_order_print",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Year",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order_type",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Order Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "department",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Department",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Sort",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderPrintOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Print",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/print/selected": {
+      "post": {
+        "description": "The ticked orders as one PDF, one order per page. Form-encoded `ids` so a plain form can post them; each\nprinted order is logged like a single download.",
+        "operationId": "api_order_register_order_print_selected",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "ids": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ids"
+                  }
+                },
+                "title": "FormParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Print Selected",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/print/start": {
+      "post": {
+        "description": "Start the ticked orders' PDF as a background job (11 orders or more); the page polls the job's status.",
+        "operationId": "api_order_register_order_print_start",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "ids": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ids"
+                  }
+                },
+                "title": "FormParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderPrintStartOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Print Start",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/print/{token}/file": {
+      "get": {
+        "description": "The job's PDF once it is ready. 404 until then, and for another user's or an unknown job.",
+        "operationId": "api_order_register_order_print_file",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Print File",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/print/{token}/status": {
+      "get": {
+        "description": "The job's state. Only the user who started it may read it (404 otherwise, and for an unknown token).",
+        "operationId": "api_order_register_order_print_status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderPrintStatusOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Print Status",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/register": {
+      "get": {
+        "operationId": "api_order_register_order_register_batch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Year",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order_type",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Order Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "department",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Department",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRegisterOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Register Batch",
+        "tags": [
+          "orders"
         ]
       }
     },

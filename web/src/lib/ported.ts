@@ -4,6 +4,8 @@ export const PORTED: RegExp[] = [
   /^\/employees\/today\/$/,
   /^\/employees\/\d+\/$/,
   /^\/employees\/company\/$/,
+  /^\/employees\/orders\/$/,
+  /^\/employees\/orders\/print\/$/,
   /^\/employees\/new\/$/,
   /^\/me\/$/,
   /^\/password\/change$/,

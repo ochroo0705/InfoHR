@@ -1,0 +1,36 @@
+/* The <style> of app/employees/templates/employees/orders_print.html, every selector under .orders-print (the page
+   wrapper), so the app's Tailwind base does not change the table. body rules stay on body (the print block only). */
+.orders-print {
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  line-height: normal;
+  margin: 16px;
+  color: #000;
+}
+/* Arial is deliberate: parity with the Django print page (orders_print.html), not the app's font. */
+.orders-print .top { display: flex; justify-content: space-between; align-items: baseline; }
+.orders-print h1 { font-size: 16px; font-weight: bold; text-align: center; margin: 8px 0 12px; }
+.orders-print table { width: 100%; border-collapse: collapse; }
+.orders-print th, .orders-print td { border: 1px solid #444; padding: 3px 5px; text-align: left; vertical-align: top; box-sizing: content-box; }
+.orders-print th { background: #eee; }
+.orders-print td.group { font-weight: bold; background: #f6f6f6; }
+.orders-print .sign { margin: 28px 0 11px; }
+.orders-print .noprint { margin-bottom: 8px; }
+/* The browser's own button look, as Django's page shows it (the app's preflight would make it a flat text). */
+.orders-print .noprint button { all: revert; }
+/* Django's page is white; the app's body background is not used on this page. Scoped like the print rules. */
+body:has(.orders-print) { background: #fff; }
+/* The app's global html gutter and body min-height (100vh) are not Django's: the page is as tall as its content. */
+html:has(.orders-print) { scrollbar-gutter: auto; }
+body:has(.orders-print) { min-height: 0; }
+@media print {
+  .orders-print .noprint { display: none; }
+  /* Scoped to this page, so printing any other route is unaffected. */
+  body:has(.orders-print) { margin: 0; }
+  .orders-print { margin: 0; }
+  .orders-print tr { page-break-inside: avoid; }
+  .orders-print thead { display: table-header-group; }
+  /* Only the page is printed: the top loading bar (body::before) and anything outside #root are hidden. */
+  body:has(.orders-print)::before { display: none; }
+  body:has(.orders-print) > *:not(#root) { display: none; }
+}
