@@ -1,11 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EmployeePopups, useEmployeePopups } from "./EmployeePopups";
 
-// The three pop-up components the provider mounts are stubbed: the test checks which one is mounted, with which props, and
+// The pop-up components the provider mounts are stubbed: the test checks which one is mounted, with which props, and
 // whether each open mounts a new instance (the stub records a serial per mount). `data-id` changes exactly when React
-// remounts the stub.
-const h = vi.hoisted(() => ({ serial: 0 }));
+// remounts the stub. `h.detailClose` keeps the onClose of the last rendered detail, so a test can call it late.
+const h = vi.hoisted(() => ({ serial: 0, detailClose: null as null | (() => void) }));
 
 vi.mock("./EventModal", async () => {
   const { createElement, useRef } = await import("react");
@@ -49,7 +49,57 @@ vi.mock("./OrderHistoryModal", async () => {
   };
 });
 
-// A component that asks the hook for the five openers, one button each.
+// The detail's five actions and the open of another order's detail, one button each (as the real pop-up's footer).
+vi.mock("./OrderDetailModal", async () => {
+  const { createElement, useRef } = await import("react");
+  return {
+    OrderDetailModal: (props: {
+      pk: number;
+      orderId: number;
+      open: boolean;
+      onClose: () => void;
+      actions: {
+        openOrder: (id: number) => void;
+        edit: (id: number) => void;
+        upload: (id: number) => void;
+        cancelOrder: (id: number) => void;
+        cancelEvent: (id: number) => void;
+        sign: (id: number) => void;
+      };
+    }) => {
+      const id = useRef(++h.serial);
+      h.detailClose = props.onClose;
+      const { actions, orderId } = props;
+      return createElement(
+        "div",
+        { "data-testid": "detail", "data-id": id.current, "data-pk": props.pk, "data-order": props.orderId, "data-open": String(props.open) },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub close"),
+        createElement("button", { type: "button", onClick: () => actions.edit(orderId) }, "detail-edit"),
+        createElement("button", { type: "button", onClick: () => actions.upload(orderId) }, "detail-upload"),
+        createElement("button", { type: "button", onClick: () => actions.cancelOrder(orderId) }, "detail-cancel-order"),
+        createElement("button", { type: "button", onClick: () => actions.cancelEvent(41) }, "detail-cancel-event"),
+        createElement("button", { type: "button", onClick: () => actions.sign(orderId) }, "detail-sign"),
+        createElement("button", { type: "button", onClick: () => actions.openOrder(99) }, "detail-open-other"),
+      );
+    },
+  };
+});
+
+vi.mock("./OrderSignModal", async () => {
+  const { createElement, useRef } = await import("react");
+  return {
+    OrderSignModal: (props: { pk: number; orderId: number; open: boolean; onClose: () => void }) => {
+      const id = useRef(++h.serial);
+      return createElement(
+        "div",
+        { "data-testid": "sign", "data-id": id.current, "data-pk": props.pk, "data-order": props.orderId, "data-open": String(props.open) },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub close"),
+      );
+    },
+  };
+});
+
+// A component that asks the hook for the openers, one button each.
 function Buttons() {
   const popups = useEmployeePopups();
   return (
@@ -72,6 +122,15 @@ function Buttons() {
       <button type="button" onClick={() => popups.openOrderHistory(53)}>
         open-history
       </button>
+      <button type="button" onClick={() => popups.openOrderDetail(60)}>
+        open-detail
+      </button>
+      <button type="button" onClick={() => popups.openOrderCancel(62)}>
+        open-order-cancel
+      </button>
+      <button type="button" onClick={() => popups.openOrderSign(63)}>
+        open-sign
+      </button>
     </>
   );
 }
@@ -91,6 +150,10 @@ function renderPopups() {
 
 function idOf(testId: string): string {
   return screen.getByTestId(testId).getAttribute("data-id") ?? "";
+}
+
+function targetOf(testId: string): unknown {
+  return JSON.parse(screen.getByTestId(testId).getAttribute("data-target") ?? "null");
 }
 
 describe("EmployeePopups", () => {
@@ -147,6 +210,97 @@ describe("EmployeePopups", () => {
     const history = screen.getByTestId("history");
     expect(history.getAttribute("data-pk")).toBe("7");
     expect(history.getAttribute("data-order")).toBe("53");
+  });
+
+  it("openOrderDetail mounts the detail of that order, with the employee's pk", () => {
+    renderPopups();
+    fireEvent.click(screen.getByText("open-detail"));
+    const detail = screen.getByTestId("detail");
+    expect(detail.getAttribute("data-pk")).toBe("7");
+    expect(detail.getAttribute("data-order")).toBe("60");
+    expect(detail.getAttribute("data-open")).toBe("true");
+  });
+
+  it("openOrderCancel mounts the order cancel pop-up, and openOrderSign mounts the signing pop-up", () => {
+    renderPopups();
+    fireEvent.click(screen.getByText("open-order-cancel"));
+    expect(targetOf("hr")).toEqual({ kind: "order-cancel", orderId: 62 });
+    fireEvent.click(screen.getByText("stub close"));
+    fireEvent.click(screen.getByText("open-sign"));
+    const sign = screen.getByTestId("sign");
+    expect(sign.getAttribute("data-pk")).toBe("7");
+    expect(sign.getAttribute("data-order")).toBe("63");
+    expect(sign.getAttribute("data-open")).toBe("true");
+  });
+
+  it("a detail action replaces the detail (edit, upload, cancel order, cancel event, sign)", () => {
+    renderPopups();
+    fireEvent.click(screen.getByText("open-detail"));
+    const first = idOf("detail");
+
+    fireEvent.click(screen.getByText("detail-edit"));
+    expect(screen.queryByTestId("detail")).toBeNull();
+    expect(targetOf("hr")).toEqual({ kind: "order-edit", orderId: 60 });
+    expect(idOf("hr")).not.toBe(first);
+    fireEvent.click(screen.getByText("stub close"));
+
+    fireEvent.click(screen.getByText("open-detail"));
+    fireEvent.click(screen.getByText("detail-upload"));
+    expect(screen.queryByTestId("detail")).toBeNull();
+    expect(targetOf("hr")).toEqual({ kind: "order-upload", orderId: 60 });
+    fireEvent.click(screen.getByText("stub close"));
+
+    fireEvent.click(screen.getByText("open-detail"));
+    fireEvent.click(screen.getByText("detail-cancel-order"));
+    expect(screen.queryByTestId("detail")).toBeNull();
+    expect(targetOf("hr")).toEqual({ kind: "order-cancel", orderId: 60 });
+    fireEvent.click(screen.getByText("stub close"));
+
+    fireEvent.click(screen.getByText("open-detail"));
+    fireEvent.click(screen.getByText("detail-cancel-event"));
+    expect(screen.queryByTestId("detail")).toBeNull();
+    expect(targetOf("hr")).toEqual({ kind: "event-cancel", eventId: 41 });
+    fireEvent.click(screen.getByText("stub close"));
+
+    fireEvent.click(screen.getByText("open-detail"));
+    fireEvent.click(screen.getByText("detail-sign"));
+    expect(screen.queryByTestId("detail")).toBeNull();
+    expect(screen.getByTestId("sign").getAttribute("data-order")).toBe("60");
+    fireEvent.click(screen.getByText("stub close"));
+
+    fireEvent.click(screen.getByText("open-detail"));
+    fireEvent.click(screen.getByText("detail-open-other"));
+    expect(screen.getByTestId("detail").getAttribute("data-order")).toBe("99");
+    expect(screen.getAllByTestId("detail")).toHaveLength(1);
+  });
+
+  it("another opener is still ignored while the detail is open", () => {
+    renderPopups();
+    fireEvent.click(screen.getByText("open-detail"));
+    const first = idOf("detail");
+    fireEvent.click(screen.getByText("open-transfer"));
+    fireEvent.click(screen.getByText("open-history"));
+    fireEvent.click(screen.getByText("open-sign"));
+    fireEvent.click(screen.getByText("open-detail"));
+    expect(screen.queryByTestId("event")).toBeNull();
+    expect(screen.queryByTestId("history")).toBeNull();
+    expect(screen.queryByTestId("sign")).toBeNull();
+    expect(screen.getAllByTestId("detail")).toHaveLength(1);
+    expect(idOf("detail")).toBe(first);
+    expect(screen.getByTestId("detail").getAttribute("data-open")).toBe("true");
+  });
+
+  it("late close of the replaced detail does not close the new pop-up", () => {
+    renderPopups();
+    fireEvent.click(screen.getByText("open-detail"));
+    const lateClose = h.detailClose;
+    expect(lateClose).not.toBeNull();
+    fireEvent.click(screen.getByText("detail-edit"));
+    expect(targetOf("hr")).toEqual({ kind: "order-edit", orderId: 60 });
+    act(() => {
+      lateClose?.();
+    });
+    expect(screen.getByTestId("hr").getAttribute("data-open")).toBe("true");
   });
 
   it("opening the same pop-up twice remounts it (the instance id differs)", () => {

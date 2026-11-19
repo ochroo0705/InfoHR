@@ -347,13 +347,62 @@ def test_order_row_flags_and_scan_url_follow_the_scan_right(hr_user: User, hired
     assert row["can_edit"] is True
     assert (row["scan_url"] != "") is employee_access.can_open_order_scan(hr_user, order)
     if row["scan_url"]:
-        assert row["scan_url"].endswith(f"/order/{order.pk}/file/")
+        assert row["scan_url"] == f"/api/v1/employees/{hired.pk}/orders/{order.pk}/file"
     viewer = User.objects.create_user("employee_work_order_plain", password=PASSWORD)
     link_login(hired, viewer)
     plain = _client(viewer).get(f"/api/v1/employees/{hired.pk}/work").json()
     plain_row = next(r for r in plain["orders"] if r["order_pk"] == order.pk)
     assert plain_row["can_edit"] is False
     assert (plain_row["scan_url"] != "") is employee_access.can_open_order_scan(viewer, order)
+
+
+def test_order_urls_are_api_paths_and_empty_when_hidden(hr_user: User, hired: Employee) -> None:
+    event = Event.objects.create(
+        employee=hired, type=EventType.PROMOTION, effective=date(2026, 2, 1), applied_at=timezone.now()
+    )
+    order = HrOrder.objects.create(
+        employee=hired,
+        event=event,
+        order_type=OrderType.POSITION,
+        state=OrderState.REGISTERED,
+        number="8",
+        date=date(2026, 2, 1),
+        summary="Замын тушаал",
+        file="2026/url-order.pdf",
+    )
+    cancelled_event = Event.objects.create(
+        employee=hired, type=EventType.PROMOTION, effective=date(2026, 3, 1), applied_at=timezone.now()
+    )
+    cancelled = HrOrder.objects.create(
+        employee=hired,
+        event=cancelled_event,
+        order_type=OrderType.POSITION,
+        state=OrderState.CANCELLED,
+        number="9",
+        date=date(2026, 3, 1),
+        summary="Цуцалсан тушаал",
+        file="",
+    )
+    base = f"/api/v1/employees/{hired.pk}/orders/{order.pk}"
+    body = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/work").json()
+    rows = {r["order_pk"]: r for r in body["orders"]}
+    row = rows[order.pk]
+    # The scan and the documents each show only when their rule allows; a shown link is the API path.
+    assert (row["scan_url"] != "") is employee_access.can_open_order_scan(hr_user, order)
+    assert row["scan_url"] in ("", f"{base}/file")
+    assert row["word_url"] in ("", f"{base}/document")
+    assert row["pdf_url"] in ("", f"{base}/document/pdf")
+    assert (row["word_url"] != "") is (row["pdf_url"] != "")
+    cancelled_row = rows[cancelled.pk]
+    assert cancelled_row["scan_url"] == ""
+    assert cancelled_row["word_url"] == ""
+    assert cancelled_row["pdf_url"] == ""
+    viewer = User.objects.create_user("employee_work_url_plain", password=PASSWORD)
+    link_login(hired, viewer)
+    plain_body = _client(viewer).get(f"/api/v1/employees/{hired.pk}/work").json()
+    plain_row = next(r for r in plain_body["orders"] if r["order_pk"] == order.pk)
+    assert plain_row["word_url"] == ""
+    assert plain_row["pdf_url"] == ""
 
 
 def test_cancelled_order_sends_its_cancel_text_as_segments_and_a_muted_number(hr_user: User, hired: Employee) -> None:

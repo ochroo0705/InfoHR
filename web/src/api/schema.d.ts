@@ -472,6 +472,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/employees/{pk}/orders/{order_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Cancel Form
+         * @description The cancel pop-up of a registered order with no change behind it (the reason). 404 for a change's order, a
+         *     signed or pending one; 403 without the manage right.
+         */
+        get: operations["api_orders_order_cancel_form"];
+        put?: never;
+        /**
+         * Order Cancel Submit
+         * @description Cancel the order with the posted reason. A missing reason answers 200 with ok false on the `reason` field; a
+         *     service refusal answers 200 with ok false as a form error. Nothing is written then.
+         */
+        post: operations["api_orders_order_cancel_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Detail View
+         * @description The whole order pop-up. Anyone who may see the employee may open it; the buttons follow the user's rights.
+         */
+        get: operations["api_orders_order_detail_view"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Document Download
+         * @description The order filled from its Word template, as .docx (a draft to print and sign). 403 without the manage right.
+         */
+        get: operations["api_order_files_order_document_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/document/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Document Pdf Download
+         * @description The same order as a PDF. 403 without the manage right; a cancelled order is 404.
+         */
+        get: operations["api_order_files_order_document_pdf_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{pk}/orders/{order_id}/edit": {
         parameters: {
             query?: never;
@@ -498,6 +584,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/employees/{pk}/orders/{order_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order File Download
+         * @description The signed scan of the order. Hire and rehire scans need the salary right (403 without it).
+         */
+        get: operations["api_order_files_order_file_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{pk}/orders/{order_id}/history": {
         parameters: {
             query?: never;
@@ -511,6 +617,52 @@ export interface paths {
          *     employee (no manage right).
          */
         get: operations["api_orders_order_history_view"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Sign Form
+         * @description The signing pop-up's data: the title with the order's number, and whether the user has a saved signature. 403
+         *     without the signing switch or for a hire order whose salary the user may not see; 404 when not registered.
+         */
+        get: operations["api_orders_order_sign_form"];
+        put?: never;
+        /**
+         * Order Sign Submit
+         * @description Sign the registered order (saved or drawn). A refusal that writes nothing answers 200 with ok false and the
+         *     messages; the signing is not wrapped in a transaction here (the service makes its own).
+         */
+        post: operations["api_orders_order_sign_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/signing-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Signing Image Download
+         * @description The signature picture of a signed order. Anyone who may see the employee may see it; not logged.
+         */
+        get: operations["api_order_files_order_signing_image_download"];
         put?: never;
         post?: never;
         delete?: never;
@@ -908,6 +1060,46 @@ export interface paths {
          * @description «Буцаах»: the user takes back their own waiting request. Someone else's request is 404; a refused change 409.
          */
         post: operations["api_me_withdraw_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Signature Image
+         * @description The signed-in user's own saved signature picture (only ever their own; 404 when none). Not logged.
+         */
+        get: operations["api_me_my_signature_image"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/signature/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * My Signature Delete
+         * @description Delete the user's own saved signature. Answers ok; the page refreshes its own query.
+         */
+        post: operations["api_me_my_signature_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2370,6 +2562,11 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** OkOut */
+        OkOut: {
+            /** Ok */
+            ok: boolean;
+        };
         /** OldAbsenceOut */
         OldAbsenceOut: {
             /** Date */
@@ -2385,6 +2582,91 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /** OrderDetailActionsOut */
+        OrderDetailActionsOut: {
+            /** Cancel Event Id */
+            cancel_event_id: number | null;
+            /** Cancel Order */
+            cancel_order: boolean;
+            /** Edit */
+            edit: boolean;
+            /** Pdf Url */
+            pdf_url: string;
+            /** Sign */
+            sign: boolean;
+            /** Upload */
+            upload: boolean;
+            /** Word Url */
+            word_url: string;
+        };
+        /** OrderDetailLinkRowOut */
+        OrderDetailLinkRowOut: {
+            /** Label */
+            label: string;
+            /** Link Text */
+            link_text: string;
+            /** Order Pk */
+            order_pk: number | null;
+            /** Reason */
+            reason: string;
+            /** Suffix */
+            suffix: string;
+            /** Text Prefix */
+            text_prefix: string;
+        };
+        /** OrderDetailOut */
+        OrderDetailOut: {
+            actions: components["schemas"]["OrderDetailActionsOut"];
+            /** Awaiting Note */
+            awaiting_note: string;
+            /** Cancel Rows */
+            cancel_rows: components["schemas"]["OrderDetailLinkRowOut"][];
+            /** Change Rows */
+            change_rows: components["schemas"]["OrderDetailRowOut"][];
+            /** Employee Code */
+            employee_code: string;
+            /** Employee Name */
+            employee_name: string;
+            /** Employee Pk */
+            employee_pk: number;
+            /** Entries */
+            entries: components["schemas"]["OrderHistoryEntryOut"][];
+            /** Order Heading */
+            order_heading: string;
+            /** Order Rows */
+            order_rows: components["schemas"]["OrderDetailRowOut"][];
+            scan: components["schemas"]["OrderDetailScanOut"];
+            signing: components["schemas"]["OrderDetailSigningOut"] | null;
+            state_chip: components["schemas"]["ChipOut"];
+            status_chip: components["schemas"]["ChipOut"] | null;
+            /** Title */
+            title: string;
+        };
+        /** OrderDetailRowOut */
+        OrderDetailRowOut: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** OrderDetailScanOut */
+        OrderDetailScanOut: {
+            /** Note */
+            note: string;
+            /** Url */
+            url: string;
+        };
+        /** OrderDetailSigningOut */
+        OrderDetailSigningOut: {
+            /** Image Url */
+            image_url: string;
+            /** Text */
+            text: string;
         };
         /** OrderHistoryEntryChangeOut */
         OrderHistoryEntryChangeOut: {
@@ -2419,6 +2701,37 @@ export interface components {
             values: {
                 [key: string]: string;
             };
+        };
+        /** OrderSignIn */
+        OrderSignIn: {
+            /** Mode */
+            mode: string;
+            /**
+             * Remember
+             * @default false
+             */
+            remember: boolean;
+            /**
+             * Signature
+             * @default
+             */
+            signature: string;
+        };
+        /** OrderSignOut */
+        OrderSignOut: {
+            /** Has Saved */
+            has_saved: boolean;
+            /** Saved Url */
+            saved_url: string;
+            /** Title */
+            title: string;
+        };
+        /** OrderSignResultOut */
+        OrderSignResultOut: {
+            /** Errors */
+            errors: string[];
+            /** Ok */
+            ok: boolean;
         };
         /** OtherOrderOut */
         OtherOrderOut: {
@@ -3393,6 +3706,121 @@ export interface operations {
             };
         };
     };
+    api_orders_order_cancel_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupOut"];
+                };
+            };
+        };
+    };
+    api_orders_order_cancel_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderPopupValuesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupResultOut"];
+                };
+            };
+        };
+    };
+    api_orders_order_detail_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetailOut"];
+                };
+            };
+        };
+    };
+    api_order_files_order_document_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_order_files_order_document_pdf_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_orders_order_edit_form: {
         parameters: {
             query?: never;
@@ -3443,6 +3871,27 @@ export interface operations {
             };
         };
     };
+    api_order_files_order_file_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_orders_order_history_view: {
         parameters: {
             query?: never;
@@ -3463,6 +3912,77 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OrderHistoryOut"];
                 };
+            };
+        };
+    };
+    api_orders_order_sign_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderSignOut"];
+                };
+            };
+        };
+    };
+    api_orders_order_sign_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderSignIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderSignResultOut"];
+                };
+            };
+        };
+    };
+    api_order_files_order_signing_image_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -3964,6 +4484,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    api_me_my_signature_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_me_my_signature_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
             };
         };
     };

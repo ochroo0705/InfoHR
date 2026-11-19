@@ -3,7 +3,13 @@ import { useRef, useState, type FormEvent } from "react";
 import { invalidateEmployee, type EmployeeFormFieldOut } from "../../api/employeeWrites";
 import { useEventCancelForm, useSubmitEventCancel, type HrPopupOut, type HrPopupResultOut } from "../../api/events";
 import type { ApiFailure } from "../../api/mutate";
-import { useOrderPopup, useSubmitOrderEdit, useSubmitOrderUpload, type OrderPopupKind } from "../../api/orders";
+import {
+  useOrderPopup,
+  useSubmitOrderCancel,
+  useSubmitOrderEdit,
+  useSubmitOrderUpload,
+  type OrderPopupKind,
+} from "../../api/orders";
 import { useUnsavedFlag } from "../../lib/unsaved";
 import { confirm } from "../../widgets/confirm";
 import { FormFields, toPostValues, useFormValues } from "../../widgets/FormFields";
@@ -12,19 +18,19 @@ import { OrderFields } from "../../widgets/OrderFields";
 import { tryClose } from "../../widgets/modalLogic";
 import { loadMessagesOf, splitRefusal, STALE_TEXT, useStaleRefresh, usePopupGuards } from "./popupGuards";
 
-// The generic pop-up of `employees/_modal.html` for the order edit, the order scan upload and the event cancel. The
+// The generic pop-up of `employees/_modal.html` for the order edit, the order scan upload, the order cancel and the event
+// cancel. The
 // server draws the form: its title, hint, submit label, multipart flag and fields (HrPopupOut). This component draws
 // them and keeps what the user typed; it decides no rule (no order block, no «cancel_order_no», no required box).
 // Contract: the parent remounts the pop-up with a new key for each open (as CorrectionModal and the sections do), so each
 // open starts with nothing typed. The parent keeps it mounted while `open` goes false, so the Modal plays its exit.
-// Order cancel (`order-cancel`) is not here yet (Task 3d-2 extends `target`).
 
 const NO_FIELDS: EmployeeFormFieldOut[] = [];
 const FILE_BOX_CLASS =
   "mt-1 inline-block cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-violet-500";
 
 export type HrPopupTarget =
-  | { kind: "order-edit" | "order-upload"; orderId: number }
+  | { kind: "order-edit" | "order-upload" | "order-cancel"; orderId: number }
   | { kind: "event-cancel"; eventId: number };
 
 export type HrPopupProps = {
@@ -40,7 +46,8 @@ export function HrPopup({ pk, target, open, onClose }: HrPopupProps) {
   const isOrder = target.kind !== "event-cancel";
   const orderId = target.kind === "event-cancel" ? 0 : target.orderId;
   const eventId = target.kind === "event-cancel" ? target.eventId : 0;
-  const orderKind: OrderPopupKind = target.kind === "order-upload" ? "upload" : "edit";
+  const orderKind: OrderPopupKind =
+    target.kind === "order-upload" ? "upload" : target.kind === "order-cancel" ? "cancel" : "edit";
 
   // The load and the save hooks are all called (hooks rules); the ones of the other kinds are disabled or unused.
   const orderLoad = useOrderPopup(pk, orderId, orderKind, open && isOrder);
@@ -48,6 +55,7 @@ export function HrPopup({ pk, target, open, onClose }: HrPopupProps) {
   const load = isOrder ? orderLoad : cancelLoad;
   const submitEdit = useSubmitOrderEdit(pk, orderId);
   const submitUpload = useSubmitOrderUpload(pk, orderId);
+  const submitOrderCancel = useSubmitOrderCancel(pk, orderId);
   const submitCancel = useSubmitEventCancel(pk, eventId);
 
   const shown: HrPopupOut | null = load.data ?? null;
@@ -98,11 +106,14 @@ export function HrPopup({ pk, target, open, onClose }: HrPopupProps) {
     dropError(name);
   };
 
-  // Sends the pop-up's own request: the order edit or cancel posts the boxes; the upload posts the chosen file.
+  // Sends the pop-up's own request: the order edit, the order cancel and the event cancel post the boxes; the upload
+  // posts the chosen file.
   const send = (): Promise<HrPopupResultOut> => {
     if (target.kind === "order-upload") return submitUpload.mutateAsync({ file });
     const body = { values: toPostValues(fields, values.values) };
-    return target.kind === "order-edit" ? submitEdit.mutateAsync(body) : submitCancel.mutateAsync(body);
+    if (target.kind === "order-edit") return submitEdit.mutateAsync(body);
+    if (target.kind === "order-cancel") return submitOrderCancel.mutateAsync(body);
+    return submitCancel.mutateAsync(body);
   };
 
   // Enter in a box, or the submit button: one request at a time. A refusal keeps the pop-up open with every value typed.

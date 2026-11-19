@@ -18,6 +18,7 @@ const popups = vi.hoisted(() => ({
   openOrderEdit: vi.fn(),
   openOrderUpload: vi.fn(),
   openOrderHistory: vi.fn(),
+  openOrderDetail: vi.fn(),
 }));
 vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
 
@@ -256,13 +257,48 @@ describe("WorkJobs", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("a clickable row opens the legacy page on click", () => {
-    const { container } = render(<WorkJobs work={work({ jobs: [scheduledJob] })} pk={7} />);
-    fireEvent.click(container.querySelector("tbody tr") as HTMLElement);
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+  it("clicking a job or waiting row with an order opens the detail; a row without one does nothing", () => {
+    const waiting = {
+      event_pk: 9,
+      label: "Гэрээ сунгасан",
+      effective: "2027-02-01",
+      order_no: "№ 14 / 2027",
+      order_pk: 14,
+      chip: { label: "Гарын үсэг хүлээж байна", tone: "x" },
+      cancellable: false,
+      clickable: true,
+      order_no_muted: false,
+    };
+    const { container } = render(<WorkJobs work={work({ waiting: [waiting], jobs: [scheduledJob] })} pk={7} />);
+    const rows = container.querySelectorAll("tbody tr");
+    fireEvent.click(rows[0] as HTMLElement);
+    expect(popups.openOrderDetail).toHaveBeenLastCalledWith(14);
+    fireEvent.click(rows[1] as HTMLElement);
+    expect(popups.openOrderDetail).toHaveBeenLastCalledWith(40);
+    expect(popups.openOrderDetail).toHaveBeenCalledTimes(2);
+
+    popups.openOrderDetail.mockClear();
+    const noOrder = { ...waiting, order_pk: null, clickable: false, order_no: "—", order_no_muted: true };
+    const { container: bare } = render(<WorkJobs work={work({ waiting: [noOrder], jobs: [cancellableJob] })} pk={7} />);
+    fireEvent.click(bare.querySelectorAll("tbody tr")[0] as HTMLElement);
+    fireEvent.click(bare.querySelectorAll("tbody tr")[1] as HTMLElement);
+    expect(popups.openOrderDetail).not.toHaveBeenCalled();
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
-  it("a «Цуцлах» button inside the page form does not submit it: the click only opens the legacy page", () => {
+  it("no openLegacyEmployee call remains in WorkJobs.tsx and WorkOrders.tsx", () => {
+    const sources = import.meta.glob(["./WorkJobs.tsx", "./WorkOrders.tsx"], {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }) as Record<string, string>;
+    expect(Object.keys(sources)).toHaveLength(2);
+    for (const source of Object.values(sources)) {
+      expect(source).not.toContain("openLegacyEmployee");
+    }
+  });
+
+  it("a «Цуцлах» button inside the page form does not submit it: the click only opens the cancel pop-up", () => {
     const submit = vi.fn();
     render(
       <form

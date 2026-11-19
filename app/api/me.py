@@ -11,11 +11,12 @@ from typing import Any
 
 from accounts.models import User
 from checklists.services import lifecycle
-from django.http import Http404, HttpRequest
+from django.http import Http404, HttpRequest, HttpResponse
 from django.template.defaultfilters import floatformat
 from django.utils import timezone
 from employees import attention
 from employees.access import own_employee
+from employees.services import order_files, order_signing
 from employees.services.me_page import decided, me_facts
 from employees.templatetags.hr import thumb
 from leave.models import LeaveRequest, RequestStatus
@@ -26,6 +27,7 @@ from ninja.errors import HttpError
 from ninja.security import django_auth
 
 from api.errors import ApiError
+from api.popups import service_errors
 
 me_router = Router(tags=["me"])
 checklists_router = Router(tags=["checklists"])
@@ -139,6 +141,10 @@ class MeOut(Schema):
 
 class NoticeIn(Schema):
     key: str
+
+
+class OkOut(Schema):
+    ok: bool
 
 
 def _user(request: HttpRequest) -> User:
@@ -287,6 +293,21 @@ def dismiss_notice(request: HttpRequest, payload: NoticeIn) -> tuple[int, None]:
         raise HttpError(404, _NOT_FOUND)
     attention.dismiss(user, found.item)
     return 204, None
+
+
+@me_router.get("/signature", auth=django_auth)
+def my_signature_image(request: HttpRequest) -> HttpResponse:
+    """The signed-in user's own saved signature picture (only ever their own; 404 when none). Not logged."""
+    with service_errors():
+        payload = order_files.saved_signature_payload(_user(request))
+    return order_files.file_response(payload)
+
+
+@me_router.post("/signature/delete", auth=django_auth, response=OkOut)
+def my_signature_delete(request: HttpRequest) -> dict[str, bool]:
+    """Delete the user's own saved signature. Answers ok; the page refreshes its own query."""
+    order_signing.delete_saved_signature(_user(request))
+    return {"ok": True}
 
 
 @me_router.post("/requests/{pk}/withdraw", auth=django_auth, response={204: None})

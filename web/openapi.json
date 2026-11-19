@@ -3692,6 +3692,19 @@
         "title": "NoticeOut",
         "type": "object"
       },
+      "OkOut": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "OkOut",
+        "type": "object"
+      },
       "OldAbsenceOut": {
         "properties": {
           "date": {
@@ -3731,6 +3744,269 @@
           "password"
         ],
         "title": "OneTimeLoginOut",
+        "type": "object"
+      },
+      "OrderDetailActionsOut": {
+        "properties": {
+          "cancel_event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Event Id"
+          },
+          "cancel_order": {
+            "title": "Cancel Order",
+            "type": "boolean"
+          },
+          "edit": {
+            "title": "Edit",
+            "type": "boolean"
+          },
+          "pdf_url": {
+            "title": "Pdf Url",
+            "type": "string"
+          },
+          "sign": {
+            "title": "Sign",
+            "type": "boolean"
+          },
+          "upload": {
+            "title": "Upload",
+            "type": "boolean"
+          },
+          "word_url": {
+            "title": "Word Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "word_url",
+          "pdf_url",
+          "upload",
+          "edit",
+          "cancel_event_id",
+          "cancel_order",
+          "sign"
+        ],
+        "title": "OrderDetailActionsOut",
+        "type": "object"
+      },
+      "OrderDetailLinkRowOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link_text": {
+            "title": "Link Text",
+            "type": "string"
+          },
+          "order_pk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Pk"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "suffix": {
+            "title": "Suffix",
+            "type": "string"
+          },
+          "text_prefix": {
+            "title": "Text Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "reason",
+          "text_prefix",
+          "order_pk",
+          "link_text",
+          "suffix"
+        ],
+        "title": "OrderDetailLinkRowOut",
+        "type": "object"
+      },
+      "OrderDetailOut": {
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/OrderDetailActionsOut"
+          },
+          "awaiting_note": {
+            "title": "Awaiting Note",
+            "type": "string"
+          },
+          "cancel_rows": {
+            "items": {
+              "$ref": "#/components/schemas/OrderDetailLinkRowOut"
+            },
+            "title": "Cancel Rows",
+            "type": "array"
+          },
+          "change_rows": {
+            "items": {
+              "$ref": "#/components/schemas/OrderDetailRowOut"
+            },
+            "title": "Change Rows",
+            "type": "array"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "employee_pk": {
+            "title": "Employee Pk",
+            "type": "integer"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/OrderHistoryEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "order_heading": {
+            "title": "Order Heading",
+            "type": "string"
+          },
+          "order_rows": {
+            "items": {
+              "$ref": "#/components/schemas/OrderDetailRowOut"
+            },
+            "title": "Order Rows",
+            "type": "array"
+          },
+          "scan": {
+            "$ref": "#/components/schemas/OrderDetailScanOut"
+          },
+          "signing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderDetailSigningOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state_chip": {
+            "$ref": "#/components/schemas/ChipOut"
+          },
+          "status_chip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChipOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "employee_pk",
+          "employee_name",
+          "employee_code",
+          "status_chip",
+          "awaiting_note",
+          "change_rows",
+          "order_heading",
+          "state_chip",
+          "order_rows",
+          "scan",
+          "signing",
+          "cancel_rows",
+          "entries",
+          "actions"
+        ],
+        "title": "OrderDetailOut",
+        "type": "object"
+      },
+      "OrderDetailRowOut": {
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value",
+          "before",
+          "after"
+        ],
+        "title": "OrderDetailRowOut",
+        "type": "object"
+      },
+      "OrderDetailScanOut": {
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note",
+          "url"
+        ],
+        "title": "OrderDetailScanOut",
+        "type": "object"
+      },
+      "OrderDetailSigningOut": {
+        "properties": {
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "image_url"
+        ],
+        "title": "OrderDetailSigningOut",
         "type": "object"
       },
       "OrderHistoryEntryChangeOut": {
@@ -3822,6 +4098,73 @@
           "values"
         ],
         "title": "OrderPopupValuesIn",
+        "type": "object"
+      },
+      "OrderSignIn": {
+        "properties": {
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "remember": {
+            "default": false,
+            "title": "Remember",
+            "type": "boolean"
+          },
+          "signature": {
+            "default": "",
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "OrderSignIn",
+        "type": "object"
+      },
+      "OrderSignOut": {
+        "properties": {
+          "has_saved": {
+            "title": "Has Saved",
+            "type": "boolean"
+          },
+          "saved_url": {
+            "title": "Saved Url",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "has_saved",
+          "saved_url"
+        ],
+        "title": "OrderSignOut",
+        "type": "object"
+      },
+      "OrderSignResultOut": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "errors"
+        ],
+        "title": "OrderSignResultOut",
         "type": "object"
       },
       "OtherOrderOut": {
@@ -5952,6 +6295,235 @@
         ]
       }
     },
+    "/api/v1/employees/{pk}/orders/{order_id}/cancel": {
+      "get": {
+        "description": "The cancel pop-up of a registered order with no change behind it (the reason). 404 for a change's order, a\nsigned or pending one; 403 without the manage right.",
+        "operationId": "api_orders_order_cancel_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Cancel Form",
+        "tags": [
+          "employees"
+        ]
+      },
+      "post": {
+        "description": "Cancel the order with the posted reason. A missing reason answers 200 with ok false on the `reason` field; a\nservice refusal answers 200 with ok false as a form error. Nothing is written then.",
+        "operationId": "api_orders_order_cancel_submit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderPopupValuesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Cancel Submit",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/detail": {
+      "get": {
+        "description": "The whole order pop-up. Anyone who may see the employee may open it; the buttons follow the user's rights.",
+        "operationId": "api_orders_order_detail_view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetailOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Detail View",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/document": {
+      "get": {
+        "description": "The order filled from its Word template, as .docx (a draft to print and sign). 403 without the manage right.",
+        "operationId": "api_order_files_order_document_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Document Download",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/document/pdf": {
+      "get": {
+        "description": "The same order as a PDF. 403 without the manage right; a cancelled order is 404.",
+        "operationId": "api_order_files_order_document_pdf_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Document Pdf Download",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/v1/employees/{pk}/orders/{order_id}/edit": {
       "get": {
         "description": "The edit pop-up with the saved values (or a suggested number). 404 for a signed or cancelled order; 403 without\nthe manage right.",
@@ -6054,6 +6626,46 @@
         ]
       }
     },
+    "/api/v1/employees/{pk}/orders/{order_id}/file": {
+      "get": {
+        "description": "The signed scan of the order. Hire and rehire scans need the salary right (403 without it).",
+        "operationId": "api_order_files_order_file_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order File Download",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/v1/employees/{pk}/orders/{order_id}/history": {
       "get": {
         "description": "Who created, registered, edited, signed or cancelled this order, and when. Needs only the right to see the\nemployee (no manage right).",
@@ -6096,6 +6708,148 @@
           }
         ],
         "summary": "Order History View",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/sign": {
+      "get": {
+        "description": "The signing pop-up's data: the title with the order's number, and whether the user has a saved signature. 403\nwithout the signing switch or for a hire order whose salary the user may not see; 404 when not registered.",
+        "operationId": "api_orders_order_sign_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSignOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Sign Form",
+        "tags": [
+          "employees"
+        ]
+      },
+      "post": {
+        "description": "Sign the registered order (saved or drawn). A refusal that writes nothing answers 200 with ok false and the\nmessages; the signing is not wrapped in a transaction here (the service makes its own).",
+        "operationId": "api_orders_order_sign_submit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderSignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSignResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Sign Submit",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/signing-image": {
+      "get": {
+        "description": "The signature picture of a signed order. Anyone who may see the employee may see it; not logged.",
+        "operationId": "api_order_files_order_signing_image_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Signing Image Download",
         "tags": [
           "employees"
         ]
@@ -7122,6 +7876,55 @@
           }
         ],
         "summary": "Withdraw Request",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/signature": {
+      "get": {
+        "description": "The signed-in user's own saved signature picture (only ever their own; 404 when none). Not logged.",
+        "operationId": "api_me_my_signature_image",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "My Signature Image",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/signature/delete": {
+      "post": {
+        "description": "Delete the user's own saved signature. Answers ok; the page refreshes its own query.",
+        "operationId": "api_me_my_signature_delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "My Signature Delete",
         "tags": [
           "me"
         ]

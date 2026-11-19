@@ -18,7 +18,13 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setCsrf } from "./client";
 import type { ApiFailure } from "./mutate";
-import { useOrderHistory, useOrderPopup, useSubmitOrderEdit, useSubmitOrderUpload } from "./orders";
+import {
+  useOrderHistory,
+  useOrderPopup,
+  useSubmitOrderCancel,
+  useSubmitOrderEdit,
+  useSubmitOrderUpload,
+} from "./orders";
 
 const POPUP_OUT = {
   title: "Тушаал засах",
@@ -311,5 +317,66 @@ describe("order pop-up API", () => {
     await vi.waitFor(() => expect(work).toHaveBeenCalledTimes(2));
     // History is read-only: it is not among the keys a write refreshes.
     expect(history).toHaveBeenCalledTimes(1);
+  });
+
+  it("useOrderPopup cancel reads the cancel route of the order", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...POPUP_OUT, title: "Тушаал цуцлах" }));
+
+    const { result } = renderHook(() => useOrderPopup(5, 12, "cancel", true), { wrapper: wrapperFor(client) });
+    await vi.waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect((fetchMock.mock.calls[0][0] as Request).method).toBe("GET");
+    expect(urlOf(0).pathname).toBe("/api/v1/employees/5/orders/12/cancel");
+    expect(result.current.data?.title).toBe("Тушаал цуцлах");
+  });
+
+  it("useSubmitOrderCancel posts {values} to the cancel route", async () => {
+    setCsrf("tok");
+    fetchMock.mockResolvedValue(jsonResponse(200, OK_RESULT));
+    const values = { reason: "Буруу оруулсан" };
+
+    const { result } = renderHook(() => useSubmitOrderCancel(5, 12), { wrapper: wrapperFor(client) });
+    await act(async () => {
+      await result.current.mutateAsync({ values });
+    });
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/employees/5/orders/12/cancel");
+    expect(request.headers.get("X-CSRFToken")).toBe("tok");
+    expect(JSON.parse(await request.text())).toEqual({ values });
+  });
+
+  it("a successful order cancel invalidates the same keys as an event write", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, OK_RESULT));
+    const spy = vi.spyOn(client, "invalidateQueries");
+
+    const { result } = renderHook(() => useSubmitOrderCancel(5, 12), { wrapper: wrapperFor(client) });
+    await act(async () => {
+      await result.current.mutateAsync({ values: { reason: "Буруу" } });
+    });
+
+    expect(invalidatedKeys(spy)).toEqual([
+      { queryKey: ["employee", 5], exact: true },
+      { queryKey: ["employee", 5, "work"], exact: true },
+      { queryKey: ["employee", 5, "salary"], exact: true },
+      { queryKey: ["employee", 5, "activity"], exact: true },
+      { queryKey: ["today"] },
+      { queryKey: ["attention"] },
+    ]);
+  });
+
+  it("a refused order cancel (ok false) invalidates nothing", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { ok: false, field_errors: { reason: ["Шалтгаан заавал"] }, form_errors: [] }),
+    );
+    const spy = vi.spyOn(client, "invalidateQueries");
+
+    const { result } = renderHook(() => useSubmitOrderCancel(5, 12), { wrapper: wrapperFor(client) });
+    await act(async () => {
+      await result.current.mutateAsync({ values: { reason: "" } });
+    });
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });

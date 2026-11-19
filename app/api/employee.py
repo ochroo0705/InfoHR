@@ -149,13 +149,13 @@ class JobRowOut(Schema):
     status: str
     order_no: str  # «№ N / YYYY», «—» without an order
     cancel_note: str  # «(цуцалсан: № N)» when the order is cancelled and names its cancelling order, else ""
-    order_pk: int | None  # the row opens this order's popup (legacy)
+    order_pk: int | None  # the row opens this order's React pop-up
     order_chip: ChipOut | None
     period_text: str  # the period text, e.g. «2026-01-05 – одоо» or «2026-01-05 – 2026-06-30»
     period_note: str  # the grey note after the text, «(2026-08-01 буцна)» on a long leave, else ""
-    cancellable: bool  # «Цуцлах» button (legacy)
-    correctable: bool  # «Засвар» button (legacy)
-    clickable: bool  # the row opens its order's popup (legacy): the row has an order
+    cancellable: bool  # «Цуцлах» button, opens the React cancel pop-up
+    correctable: bool  # «Засвар» button, opens the React edit pop-up
+    clickable: bool  # the row opens its order's React pop-up: the row has an order
     order_no_muted: bool  # the order cell shows the grey «—» (no order, or an order without a number)
 
 
@@ -167,7 +167,7 @@ class WaitingOut(Schema):
     order_pk: int | None
     chip: ChipOut  # «Гарын үсэг хүлээж байна»
     cancellable: bool
-    clickable: bool  # the row opens its order's popup (legacy): the row has an order
+    clickable: bool  # the row opens its order's React pop-up: the row has an order
     order_no_muted: bool  # the order cell shows the grey «—»
 
 
@@ -190,12 +190,12 @@ class OtherOrderOut(Schema):
     cancel_prefix: str  # «(цуцлах тушаал: » when cancelled with a cancelling number, else ""
     cancel_number: str  # «№ N», the link to the cancelling order (legacy) when cancelled_by_pk is set, else plain text
     cancel_suffix: str  # «)» when cancel_prefix is set, else ""
-    cancelled_by_pk: int | None  # the cancelling order is one of ours (legacy popup)
+    cancelled_by_pk: int | None  # the cancelling order is one of ours (its React pop-up opens from the link)
     cancels: list[CancelOut]
     chip: ChipOut
     cancelled: bool  # struck-through row
-    can_edit: bool  # the row opens the edit popup (legacy)
-    can_upload: bool  # «Файл хавсаргах» in the actions menu (legacy)
+    can_edit: bool  # the row opens the React edit pop-up
+    can_upload: bool  # «Файл хавсаргах» in the actions menu, opens the React upload pop-up
     scan_url: str  # «Файл харах» target, "" when not shown
     word_url: str  # «Word татах», "" when not shown
     pdf_url: str  # «PDF татах», "" when not shown
@@ -695,9 +695,9 @@ def _other_order_out(row: dict[str, Any], employee_pk: int, can_manage: bool) ->
         "cancelled": cancelled,
         "can_edit": can_manage and order.state in (OrderState.PENDING, OrderState.REGISTERED),
         "can_upload": can_manage and order.state == OrderState.REGISTERED,
-        "scan_url": reverse("employees:order_file", args=[employee_pk, order.pk]) if scan else "",
-        "word_url": reverse("employees:order_document", args=[employee_pk, order.pk]) if documents else "",
-        "pdf_url": reverse("employees:order_document_pdf", args=[employee_pk, order.pk]) if documents else "",
+        "scan_url": f"/api/v1/employees/{employee_pk}/orders/{order.pk}/file" if scan else "",
+        "word_url": f"/api/v1/employees/{employee_pk}/orders/{order.pk}/document" if documents else "",
+        "pdf_url": f"/api/v1/employees/{employee_pk}/orders/{order.pk}/document/pdf" if documents else "",
     }
 
 

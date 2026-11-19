@@ -1,6 +1,5 @@
 import io
 import logging
-import re
 from datetime import date, timedelta
 from typing import Any
 from urllib.parse import urlencode
@@ -29,12 +28,11 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.vary import vary_on_headers
 from reports.staff_list import REPORT as STAFF_LIST
 
-from employees import access, attention, company_stats, palette, sections, signature_image
+from employees import access, attention, company_stats, palette, sections
 from employees import today as facts
 from employees.forms import (
     FORMS,
     AddressRowForm,
-    CancelEventForm,
     CreateLoginForm,
     EmployeeForm,
     HireAddressForm,
@@ -51,7 +49,6 @@ from employees.models import (
     Employee,
     HrOrder,
     JobRecord,
-    OrderSigning,
     OrderState,
     OrderType,
 )
@@ -60,7 +57,9 @@ from employees.services import (
     hire_page,
     history,
     logins,
+    order_detail_page,
     order_docs,
+    order_files,
     order_popups,
     order_register,
     order_signing,
@@ -86,7 +85,6 @@ from employees.services.detail_page import (
     needs_setup as _needs_setup,
 )
 from employees.services.history import HistoryError
-from employees.services.orders import OrderError
 from employees.services.page_writes import (  # noqa: F401  (tests and other modules import these names from here)
     DB_REFUSED,
     TABS,
@@ -886,91 +884,51 @@ def order_upload(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
 
 
 # --- On-screen signing (order-signing board): the pop-up, the signing POST, the saved signature pictures ---
-SAVED_MISSING = "Хадгалсан гарын үсэг алга. Шинээр зурна уу."
-TEMPLATE_BROKEN = "Тушаалын загвар олдсонгүй эсвэл эвдэрсэн байна."
+SAVED_MISSING = order_signing.SAVED_MISSING  # re-exported: the messages live in the signing service
+TEMPLATE_BROKEN = order_signing.TEMPLATE_BROKEN
 
 
-def _sign_input(post: Any, user: User) -> tuple[str, bytes, bool]:
-    """The picture to sign with: (method, PNG bytes, remember). A saved signature is read from the user's own row; a
-    drawn one is cleaned here (the service takes only the cleaned bytes)."""
-    mode = post.get("mode", "")
-    if mode == OrderSigning.Method.SAVED:
-        png = order_signing.saved_signature_png(user)
-        if png is None:
-            raise OrderError({"__all__": SAVED_MISSING})
-        return OrderSigning.Method.SAVED, png, False
-    if mode == OrderSigning.Method.DRAWN:
-        data = post.get("signature", "")
-        if not data:
-            raise signature_image.SignatureError(signature_image.DRAW_ERROR)
-        return OrderSigning.Method.DRAWN, signature_image.clean_signature_data_url(data), bool(post.get("remember"))
-    raise OrderError({"__all__": order_signing.METHOD_ERROR})
-
-
-def _sign_popup(request: HttpRequest, employee: Employee, order: HrOrder, errors: list[str]) -> HttpResponse:
+def _sign_popup(
+    request: HttpRequest, employee: Employee, order: HrOrder, errors: list[str], has_saved: bool
+) -> HttpResponse:
     context = {
         "employee": employee,
         "order": order,
         "action": request.path,
         "errors": errors,
-        "has_saved": order_signing.saved_signature_png(_user(request)) is not None,  # one source of truth
+        "has_saved": has_saved,
     }
     return render(request, "employees/_order_sign.html", context)
 
 
 @login_required
 def order_sign(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
-    """The signing pop-up of a registered order (GET), and the signing itself (POST, mode saved or drawn). The
-    switch is checked here (access.can_sign_orders); the service checks the order state and the salary rule."""
+    """The signing pop-up of a registered order (GET), and the signing itself (POST, mode saved or drawn). The checks
+    and the signing are in the signing service (order_signing.signing_state / submit_sign)."""
     employee, order = _order_for(request, pk, order_id)
     user = _user(request)
-    _require(access.can_sign_orders(user, order))
-    if order.state != OrderState.REGISTERED:
-        raise Http404  # only a registered order is signed; a signed or pending one is final or not yet ready
     if request.method != "POST":
-        _require(not access.signing_needs_salary_right(user, order))  # the same rule the POST and the button apply
-        return _sign_popup(request, employee, order, [])
-    errors: list[str] = []
-    try:
-        method, png, remember = _sign_input(request.POST, user)
-        order_signing.sign_order(order, by=user, png=png, method=method, remember=remember)
+        state = order_signing.signing_state(user, order)
+        return _sign_popup(request, employee, order, [], state.has_saved)
+    errors = order_signing.submit_sign(
+        user, order, request.POST.get("mode", ""), request.POST.get("signature", ""), bool(request.POST.get("remember"))
+    )
+    if not errors:
         return _done(employee)
-    except signature_image.SignatureError as error:
-        errors = [str(error)]
-    except OrderError as error:
-        errors = list(error.errors.values())
-    except order_docs.OrderDocError:  # the Word template is missing or broken: nothing was written
-        errors = [TEMPLATE_BROKEN]
-    return _sign_popup(request, employee, order, errors)
+    return _sign_popup(request, employee, order, errors, order_signing.saved_signature_png(user) is not None)
 
 
 @login_required
-def order_signing_image(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
+def order_signing_image(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     """The signature picture stamped on a signed order. Anyone who may see the employee may see it (_order_for)."""
     _employee, order = _order_for(request, pk, order_id)
-    signing = OrderSigning.objects.filter(order=order).first()
-    if signing is None or not signing.image:
-        raise Http404
-    try:
-        handle = signing.image.open("rb")
-    except FileNotFoundError:
-        raise Http404 from None
-    response = FileResponse(handle, content_type="image/png")
-    response["X-Content-Type-Options"] = "nosniff"
-    response["Cache-Control"] = "private, no-store"
-    return response
+    return order_files.file_response(order_files.signing_image_payload(order))
 
 
 @login_required
 def my_signature_image(request: HttpRequest) -> HttpResponse:
     """The user's own saved signature picture (only ever the requester's own, 404 when none)."""
-    png = order_signing.saved_signature_png(_user(request))
-    if png is None:
-        raise Http404
-    response = HttpResponse(png, content_type="image/png")
-    response["X-Content-Type-Options"] = "nosniff"
-    response["Cache-Control"] = "private, no-store"
-    return response
+    return order_files.file_response(order_files.saved_signature_payload(_user(request)))
 
 
 @login_required
@@ -989,37 +947,24 @@ def my_signature_delete(request: HttpRequest) -> HttpResponse:
     return response
 
 
-FILE_TYPES = ((b"%PDF-", "application/pdf", ".pdf"), (b"\x89PNG", "image/png", ".png"))
+FILE_TYPES = order_files.FILE_TYPES  # the scan's magic bytes now live in the service; kept importable here
 
 
-def _order_download(request: HttpRequest, pk: int, order_id: int, pdf: bool) -> FileResponse:
+def _order_download(request: HttpRequest, pk: int, order_id: int, pdf: bool) -> HttpResponse:
     """The order filled from its Word template, as .docx or .pdf (a draft to print and sign)."""
     employee, order = _order_for(request, pk, order_id)
-    _require(access.can_manage(_user(request)))
-    if order.state == OrderState.CANCELLED:
-        raise Http404
-    try:
-        data = (order_docs.render_pdf if pdf else order_docs.render_order)(order, _user(request))
-    except order_docs.OrderDocError:
-        raise Http404 from None
-    name = re.sub(r"[^\w-]", "_", order.number) if order.number else f"id{order.pk}"
-    response = FileResponse(
-        io.BytesIO(data),
-        as_attachment=True,
-        filename=f"tushaal-{name}.{'pdf' if pdf else 'docx'}",
-        content_type=order_docs.PDF_TYPE if pdf else order_docs.DOCX_TYPE,
-    )
-    record_export(request, "download_order", _order_label(order, employee))
-    return response
+    payload = order_files.document_payload(_user(request), order, pdf=pdf)
+    record_export(request, "download_order", order_files.order_label(order, employee))
+    return order_files.file_response(payload)
 
 
 @login_required
-def order_document(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
+def order_document(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     return _order_download(request, pk, order_id, pdf=False)
 
 
 @login_required
-def order_document_pdf(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
+def order_document_pdf(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     return _order_download(request, pk, order_id, pdf=True)
 
 
@@ -1099,34 +1044,7 @@ def orders_print_file(request: HttpRequest, token: str) -> FileResponse:
 def order_detail(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     """Everything about one order in a pop-up (opened from the register): facts, links, history, actions."""
     employee, order = _order_for(request, pk, order_id)
-    can_manage = access.can_manage(_user(request))
-    siblings = list(employee.hr_orders.order_by("-date", "-pk"))
-    job = order_docs.build_context(order, _user(request))  # department and position as the order document shows them
-    event = order.event
-    user = _user(request)
-    context = {
-        "can_sign": access.can_sign_orders(user, order)
-        and order.state == OrderState.REGISTERED
-        and not access.signing_needs_salary_right(user, order),
-        "signing": OrderSigning.objects.filter(order=order).first(),
-        "change_status": event.status(timezone.localdate()) if event else "effective",
-        "cancel_change": event is not None
-        and event.cancelled_at is None
-        and event.status(timezone.localdate()) in ("scheduled", "awaiting_signature")
-        and access.can_cancel(_user(request), event),
-        "employee": employee,
-        "order": order,
-        "can_manage": can_manage,
-        "can_open_scan": access.can_open_order_scan(_user(request), order),
-        "links": orders.cancellation_links(siblings)[order.pk],
-        "entries": order.activity.select_related("by").order_by("-at", "-id"),
-        "department": job["department"],
-        "position": job["position"],
-        # What the change changes, field by field ("before → after"); empty for a hire or a termination.
-        "change_rows": order_docs.change_rows(order, user),
-        "editable": can_manage and order.state in (OrderState.PENDING, OrderState.REGISTERED),
-    }
-    return render(request, "employees/_order_detail.html", context)
+    return render(request, "employees/_order_detail.html", order_detail_page.build(_user(request), employee, order))
 
 
 @login_required
@@ -1134,27 +1052,14 @@ def order_cancel(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     """Cancel one registered (not yet signed) order that has no change behind it (the hire order) with a reason.
     A change's order is cancelled together with the change (`event_cancel`)."""
     employee, order = _order_for(request, pk, order_id)
-    _require(access.can_manage(_user(request)))
-    if order.state != OrderState.REGISTERED or order.event_id is not None:
-        raise Http404  # pending: never issued; signed or cancelled: final; a change's order goes with its change
-    form = CancelEventForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        try:
-            orders.cancel_order(order, reason=form.cleaned_data["reason"], by=_user(request))
+    user = _user(request)
+    if request.method == "POST" and request.POST:  # an empty POST shows the unbound form, as before
+        ok, popup = order_popups.submit_cancel(user, employee, order, request.POST)
+        if ok:
             return _done(employee)
-        except OrderError as error:
-            form.add_error(None, "; ".join(error.errors.values()))
-    hint = (
-        "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана. Ажилд авсан бүртгэл өөрөө хэвээр үлдэнэ."
-    )
-    return _modal(
-        request,
-        f"Тушаал цуцлах: {order.get_order_type_display()} № {order.number}",
-        form,
-        request.path,
-        hint,
-        submit_label="Цуцлах",
-    )
+    else:
+        popup = order_popups.cancel_popup(user, employee, order)
+    return _modal(request, popup.title, popup.form, request.path, popup.hint, submit_label=order_popups.CANCEL_LABEL)
 
 
 @login_required
@@ -1166,29 +1071,14 @@ def order_history(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
 
 
 @login_required
-def order_file(request: HttpRequest, pk: int, order_id: int) -> FileResponse:
+def order_file(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     employee, order = _order_for(request, pk, order_id)  # visible employees only: anyone else gets 404
-    _require(access.can_open_order_scan(_user(request), order))  # hire and rehire scans need macs.view_salary (OQ-080)
-    if not order.file:
-        raise Http404
-    try:
-        handle = order.file.open("rb")
-    except FileNotFoundError:
-        raise Http404 from None
-    head = handle.read(8)
-    handle.seek(0)
-    content_type, ext = next(((t, e) for magic, t, e in FILE_TYPES if head.startswith(magic)), ("image/jpeg", ".jpg"))
-    response = FileResponse(handle, content_type=content_type)
-    response["X-Content-Type-Options"] = "nosniff"
-    response["Content-Disposition"] = f'inline; filename="order-{order.pk}{ext}"'
-    response["Cache-Control"] = "private, no-store"
-    record_export(request, "download_order", "Гарын үсэгтэй файл: " + _order_label(order, employee))
-    return response
+    payload = order_files.scan_payload(_user(request), order)  # hire and rehire scans need macs.view_salary (OQ-080)
+    record_export(request, "download_order", "Гарын үсэгтэй файл: " + order_files.order_label(order, employee))
+    return order_files.file_response(payload)
 
 
-def _order_label(order: HrOrder, employee: Employee) -> str:
-    """The order and its employee for the system log: the number and the employee code, never the name."""
-    return f"Тушаал № {order.number or 'дугаар байхгүй'}, ажилтны код {employee.code}"
+_order_label = order_files.order_label  # the log label; the views and the service share one text
 
 
 def _register_context(request: HttpRequest, *, batched: bool = False) -> dict[str, Any]:

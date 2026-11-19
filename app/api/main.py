@@ -14,6 +14,7 @@ from api.hire import hire_router, selfform_router
 from api.me import checklists_router, me_router
 from api.meta import meta_router
 from api.nav import nav_router
+from api.order_files import order_files_router
 from api.orders import orders_router
 from api.today import today_router
 
@@ -87,4 +88,5 @@ api.add_router("/employees", employee_router)
 api.add_router("/employees", employee_write_router)
 api.add_router("/employees", events_router)
 api.add_router("/employees", orders_router)
+api.add_router("/employees", order_files_router)
 api.add_router("/company", company_router)

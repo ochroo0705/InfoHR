@@ -1,6 +1,5 @@
 import type { EmployeeWorkOut } from "../../api/employee";
 import type { CorrectionPath } from "../../api/employeeWrites";
-import { openLegacyEmployee } from "../../lib/AppLink";
 import { ScrollFloat } from "../../widgets/Scrollbar";
 import { useCorrectionPopup } from "./CorrectionModal";
 import { useEmployeePopups } from "./EmployeePopups";
@@ -11,8 +10,8 @@ import { useEmployeePopups } from "./EmployeePopups";
 // order and hooks are copied from the templates. React renders only the strings and flags the API sends: `clickable`
 // (the row has an order), `order_no_muted` (the grey «—»), `is_cancelled` and `cancellable`. A job row's «Засвар» opens
 // the job correction pop-up (CorrectionModal, Task 16a). A row's «Цуцлах» opens the event cancel pop-up (the provider's
-// openEventCancel, with the event id from the API). The row click to the order still opens the Django employee page
-// (openLegacyEmployee, ruling D2): no fetch.
+// openEventCancel, with the event id from the API). A click on a row that has an order (`clickable` and an order pk)
+// opens that order's detail pop-up (openOrderDetail). A row without an order does nothing.
 
 type Work = EmployeeWorkOut;
 type Waiting = Work["waiting"][number];
@@ -34,13 +33,12 @@ function rowClass(base: string, clickable: boolean): string {
   return [base, clickable ? "cursor-pointer hover:bg-violet-50" : ""].filter(Boolean).join(" ");
 }
 
-function WaitingRow({ row, pk }: { row: Waiting; pk: number }) {
-  const { openEventCancel } = useEmployeePopups();
+function WaitingRow({ row }: { row: Waiting }) {
+  const { openEventCancel, openOrderDetail } = useEmployeePopups();
+  const orderPk = row.order_pk;
+  const onOpen = row.clickable && orderPk !== null ? () => openOrderDetail(orderPk) : undefined;
   return (
-    <tr
-      className={rowClass("", row.clickable)}
-      onClick={row.clickable ? () => openLegacyEmployee(pk) : undefined}
-    >
+    <tr className={rowClass("", onOpen !== undefined)} onClick={onOpen}>
       <td>{row.label}</td>
       <td className="whitespace-nowrap">{row.effective}</td>
       <td className="whitespace-nowrap">
@@ -67,21 +65,15 @@ function WaitingRow({ row, pk }: { row: Waiting; pk: number }) {
   );
 }
 
-function JobRow({
-  job,
-  pk,
-  onCorrect,
-}: {
-  job: Job;
-  pk: number;
-  onCorrect: (path: CorrectionPath) => void;
-}) {
+function JobRow({ job, onCorrect }: { job: Job; onCorrect: (path: CorrectionPath) => void }) {
   const recordId = job.pk;
-  const { openEventCancel } = useEmployeePopups();
+  const orderPk = job.order_pk;
+  const { openEventCancel, openOrderDetail } = useEmployeePopups();
+  const onOpen = job.clickable && orderPk !== null ? () => openOrderDetail(orderPk) : undefined;
   return (
     <tr
-      className={rowClass(job.is_cancelled ? "text-slate-400 line-through" : "", job.clickable)}
-      onClick={job.clickable ? () => openLegacyEmployee(pk) : undefined}
+      className={rowClass(job.is_cancelled ? "text-slate-400 line-through" : "", onOpen !== undefined)}
+      onClick={onOpen}
     >
       <td>
         {job.label}
@@ -165,7 +157,7 @@ export function WorkJobs({ work, pk }: { work: Work; pk: number }) {
               </thead>
               <tbody>
                 {work.waiting.map((row) => (
-                  <WaitingRow key={row.event_pk} row={row} pk={pk} />
+                  <WaitingRow key={row.event_pk} row={row} />
                 ))}
               </tbody>
             </table>
@@ -189,7 +181,7 @@ export function WorkJobs({ work, pk }: { work: Work; pk: number }) {
           </thead>
           <tbody>
             {work.jobs.map((job, index) => (
-              <JobRow key={job.pk ?? `c${index}`} job={job} pk={pk} onCorrect={openCorrection} />
+              <JobRow key={job.pk ?? `c${index}`} job={job} onCorrect={openCorrection} />
             ))}
           </tbody>
         </table>

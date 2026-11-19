@@ -16,13 +16,17 @@ from django.http import Http404
 from django.utils import timezone
 
 from employees import access
-from employees.forms import OrderFieldsForm, OrderUploadForm
+from employees.forms import CancelEventForm, OrderFieldsForm, OrderUploadForm
 from employees.models import Employee, HrOrder, OrderState
 from employees.services import orders
 from employees.services.orders import OrderError
 
 EDIT_HINT = "Дугаарыг автоматаар санал болгосон, шаардлагатай бол өөрчилнө үү."
 UPLOAD_TITLE = "Гарын үсэгтэй файл хавсаргах"
+CANCEL_HINT = (
+    "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана. Ажилд авсан бүртгэл өөрөө хэвээр үлдэнэ."
+)
+CANCEL_LABEL = "Цуцлах"
 EDITABLE_STATES = (OrderState.PENDING, OrderState.REGISTERED)
 
 
@@ -30,7 +34,7 @@ EDITABLE_STATES = (OrderState.PENDING, OrderState.REGISTERED)
 class OrderPopup:
     title: str
     hint: str
-    form: OrderFieldsForm | OrderUploadForm
+    form: OrderFieldsForm | OrderUploadForm | CancelEventForm
     order: HrOrder
 
 
@@ -109,6 +113,37 @@ def submit_upload(user: User, order: HrOrder, file: UploadedFile | None) -> tupl
     except OrderError as error:
         for message in error.errors.values():
             form.add_error(None, message)
+        return False, popup
+    return True, popup
+
+
+def _check_cancellable(user: User, employee: Employee, order: HrOrder) -> None:
+    _require_manage(user)
+    # pending: never issued; signed or cancelled: final; a change's order goes with its change
+    if order.employee_id != employee.pk or order.state != OrderState.REGISTERED or order.event_id is not None:
+        raise Http404
+
+
+def cancel_popup(user: User, employee: Employee, order: HrOrder, data: Mapping[str, str] | None = None) -> OrderPopup:
+    """The cancel pop-up of a registered order with no change behind it (the hire order). Unbound it asks for the
+    reason; bound (`data` given) it checks the posted reason."""
+    _check_cancellable(user, employee, order)
+    title = f"Тушаал цуцлах: {order.get_order_type_display()} № {order.number}"
+    form = CancelEventForm(data) if data is not None else CancelEventForm()
+    return OrderPopup(title, CANCEL_HINT, form, order)
+
+
+def submit_cancel(user: User, employee: Employee, order: HrOrder, data: Mapping[str, str]) -> tuple[bool, OrderPopup]:
+    """Check the reason and cancel the order. Returns (ok, popup). A missing reason goes onto the `reason` field, a
+    service refusal onto the form as a general message, and nothing is written."""
+    popup = cancel_popup(user, employee, order, data)
+    form = popup.form
+    if not isinstance(form, CancelEventForm) or not form.is_valid():
+        return False, popup
+    try:
+        orders.cancel_order(order, reason=form.cleaned_data["reason"], by=user)
+    except OrderError as error:
+        form.add_error(None, "; ".join(error.errors.values()))
         return False, popup
     return True, popup
 

@@ -7,10 +7,11 @@ import type { components } from "./schema";
 
 export type OrderHistoryOut = components["schemas"]["OrderHistoryOut"];
 
-// Which pop-up of an order: the edit (number, date, summary, issued by) or the scan upload (one file box).
-export type OrderPopupKind = "edit" | "upload";
+// Which pop-up of an order: the edit (number, date, summary, issued by), the scan upload (one file box) or the cancel
+// (the reason).
+export type OrderPopupKind = "edit" | "upload" | "cancel";
 
-// The edit or upload pop-up of one order. Kept only while open (gcTime 0), like useCorrectionForm.
+// The edit, upload or cancel pop-up of one order. Kept only while open (gcTime 0), like useCorrectionForm.
 export function useOrderPopup(pk: number, orderId: number, kind: OrderPopupKind, enabled: boolean) {
   return useQuery({
     queryKey: ["employee", pk, "order-popup", orderId, kind],
@@ -27,10 +28,36 @@ export function useOrderPopup(pk: number, orderId: number, kind: OrderPopupKind,
         });
         return unwrapQuery<HrPopupOut>(result, "order request failed");
       }
+      if (kind === "cancel") {
+        const result = await api.GET("/api/v1/employees/{pk}/orders/{order_id}/cancel", {
+          params: { path: { pk, order_id: orderId } },
+        });
+        return unwrapQuery<HrPopupOut>(result, "order request failed");
+      }
       const result = await api.GET("/api/v1/employees/{pk}/orders/{order_id}/upload", {
         params: { path: { pk, order_id: orderId } },
       });
       return unwrapQuery<HrPopupOut>(result, "order request failed");
+    },
+  });
+}
+
+// Cancels a registered order with the posted reason (field name `reason`). A refusal answers 200 with ok false and
+// writes nothing; nothing is invalidated then.
+export function useSubmitOrderCancel(pk: number, orderId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ values }: { values: Record<string, string> }) =>
+      postWithCsrfRetry<HrPopupResultOut>(queryClient, () =>
+        api.POST("/api/v1/employees/{pk}/orders/{order_id}/cancel", {
+          params: { path: { pk, order_id: orderId } },
+          body: { values },
+        }),
+      ),
+    onSuccess: (result) => {
+      if (result.ok) {
+        return invalidateOrderWrites(queryClient, pk);
+      }
     },
   });
 }

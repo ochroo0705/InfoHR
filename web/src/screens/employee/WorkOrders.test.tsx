@@ -17,6 +17,7 @@ const popups = vi.hoisted(() => ({
   openOrderEdit: vi.fn(),
   openOrderUpload: vi.fn(),
   openOrderHistory: vi.fn(),
+  openOrderDetail: vi.fn(),
 }));
 vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
 
@@ -125,10 +126,10 @@ describe("WorkOrders", () => {
     expect(heading.querySelector("span")?.textContent).toBe("1");
   });
 
-  it("shows the scan link through the legacy origin when the row has a scan_url", () => {
+  it("shows the scan link as the API path when the row has a scan_url", () => {
     render(<WorkOrders work={withOrders([ownOrder])} pk={7} />);
     const scan = screen.getByText("Файл харах").closest("a");
-    expect(scan?.getAttribute("href")).toBe("http://legacy.test/employees/7/order/5/file/");
+    expect(scan?.getAttribute("href")).toBe("/employees/7/order/5/file/");
     expect(scan?.getAttribute("target")).toBe("_blank");
   });
 
@@ -137,14 +138,12 @@ describe("WorkOrders", () => {
     expect(screen.queryByText("Файл харах")).toBeNull();
   });
 
-  it("points the Word and PDF links at the stubbed legacy origin", () => {
+  it("file, Word and PDF links are the API paths without legacyOrigin", () => {
     render(<WorkOrders work={withOrders([ownOrder])} pk={7} />);
-    expect(screen.getByText("Word татах").closest("a")?.getAttribute("href")).toBe(
-      "http://legacy.test/employees/7/order/5/document/",
-    );
-    expect(screen.getByText("PDF татах").closest("a")?.getAttribute("href")).toBe(
-      "http://legacy.test/employees/7/order/5/document/pdf/",
-    );
+    expect(screen.getByText("Word татах").closest("a")?.getAttribute("href")).toBe("/employees/7/order/5/document/");
+    expect(screen.getByText("PDF татах").closest("a")?.getAttribute("href")).toBe("/employees/7/order/5/document/pdf/");
+    expect(screen.getByText("Файл харах").closest("a")?.getAttribute("href")).not.toContain("legacy.test");
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("omits the Word and PDF links when their URLs are empty", () => {
@@ -227,7 +226,25 @@ describe("WorkOrders", () => {
     const link = screen.getByText("№ 9").closest("a");
     expect(link?.className).toBe("text-violet-700 hover:underline");
     fireEvent.click(link as Element);
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openOrderDetail).toHaveBeenCalledWith(12);
+    expect(popups.openOrderDetail).toHaveBeenCalledTimes(1);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("cancelled-by link opens that order's detail", () => {
+    const cancelled = {
+      ...ownOrder,
+      cancelled: true,
+      cancel_prefix: "(цуцлах тушаал: ",
+      cancel_number: "№ 9",
+      cancel_suffix: ")",
+      cancelled_by_pk: 12,
+    };
+    render(<WorkOrders work={withOrders([cancelled])} pk={7} />);
+    fireEvent.click(screen.getByText("№ 9"));
+    expect(popups.openOrderDetail).toHaveBeenCalledWith(12);
+    expect(popups.openOrderDetail).toHaveBeenCalledTimes(1);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("shows the cancelling number as plain text when the cancelling order is not one of ours", () => {
@@ -261,7 +278,8 @@ describe("WorkOrders", () => {
     expect(span?.textContent).toBe("(№ 4 тушаалыг цуцалсан: харах)");
     expect(span?.className).toBe("text-xs text-slate-500");
     fireEvent.click(screen.getByText("харах"));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openOrderDetail).toHaveBeenCalledWith(21);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("renders a MACS command row read-only, with no menu and the muted type", () => {

@@ -20,6 +20,7 @@ const FORBIDDEN = "Хандах эрх байхгүй.";
 const EDIT_PATH = "/api/v1/employees/7/orders/12/edit";
 const UPLOAD_PATH = "/api/v1/employees/7/orders/12/upload";
 const CANCEL_PATH = "/api/v1/employees/7/events/30/cancel";
+const ORDER_CANCEL_PATH = "/api/v1/employees/7/orders/12/cancel";
 
 function field(name: string, label: string, value: string, extra: Partial<PopupField> = {}): PopupField {
   return {
@@ -145,6 +146,7 @@ const button = (label: string) => within(mainDialog()).getByRole("button", { nam
 const EDIT: HrPopupTarget = { kind: "order-edit", orderId: 12 };
 const UPLOAD: HrPopupTarget = { kind: "order-upload", orderId: 12 };
 const CANCEL: HrPopupTarget = { kind: "event-cancel", eventId: 30 };
+const ORDER_CANCEL: HrPopupTarget = { kind: "order-cancel", orderId: 12 };
 
 beforeEach(() => {
   client = newClient();
@@ -329,6 +331,37 @@ describe("HrPopup: event cancel", () => {
 
     await screen.findByRole("heading", { name: "Цуцлах: Ажилд авах (2026-01-05)" });
     expect(boxOf("cancel_order_no")).toBeNull();
+  });
+});
+
+describe("HrPopup: order cancel", () => {
+  it("order-cancel loads the cancel form and posts reason", async () => {
+    loadOut = cancelForm();
+    renderPopup(ORDER_CANCEL);
+
+    await screen.findByRole("heading", { name: "Цуцлах: Ажилд авах (2026-01-05)" });
+    fireEvent.change(boxOf("reason") as HTMLInputElement, { target: { value: "Буруу бичсэн" } });
+    fireEvent.click(button("Цуцлах"));
+
+    await waitFor(() =>
+      expect(posted).toEqual([{ path: ORDER_CANCEL_PATH, body: { values: { reason: "Буруу бичсэн" } } }]),
+    );
+  });
+
+  it("order-cancel refusal keeps the text and shows the error", async () => {
+    loadOut = cancelForm();
+    saveAnswers = [result({ ok: false, field_errors: { reason: ["Шалтгаан заавал бөглөнө."] } })];
+    const onClose = renderPopup(ORDER_CANCEL);
+
+    await screen.findByRole("heading", { name: "Цуцлах: Ажилд авах (2026-01-05)" });
+    fireEvent.change(boxOf("reason") as HTMLInputElement, { target: { value: "Хүнд" } });
+    fireEvent.click(button("Цуцлах"));
+
+    await screen.findByText("Шалтгаан заавал бөглөнө.");
+    expect(boxOf("reason")?.closest("label")?.textContent).toContain("Шалтгаан заавал бөглөнө.");
+    expect(boxOf("reason")?.value).toBe("Хүнд");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(posted).toEqual([{ path: ORDER_CANCEL_PATH, body: { values: { reason: "Хүнд" } } }]);
   });
 });
 

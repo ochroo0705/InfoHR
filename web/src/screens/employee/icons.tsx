@@ -77,6 +77,79 @@ const PHONE = <path d="M5 3h3l1.5 4-2 1.2a9 9 0 0 0 4.3 4.3L13 10.5l4 1.5v3a2 2 
 // The close cross of the «Түүх» drawer (detail.html, data-drawer-close).
 const CLOSE = <path d="M6 6l12 12M18 6L6 18" />;
 
+// The footer icons of the order pop-up, copied from reports/_tool_icon.html (24 grid, stroke 1.8, drawn at 20px).
+// The Word and PDF pages, the paperclip (attach), the pencil and sheet (edit) and the ban circle (cancel).
+const WORD_PAGE = (
+  <>
+    <path d="M6 2.5h8l5 5v14H6z" />
+    <path d="M14 2.5v5h5" />
+  </>
+);
+
+const WORD = (
+  <>
+    {WORD_PAGE}
+    <path d="M8.6 11.5l1.5 7 1.9-5 1.9 5 1.5-7" />
+  </>
+);
+
+const PDF = (
+  <>
+    {WORD_PAGE}
+    <rect x="3" y="12.5" width="15" height="7.5" rx="1.5" fill="currentColor" />
+    <text
+      x="10.5"
+      y="18.3"
+      textAnchor="middle"
+      fontSize="6"
+      fontWeight="700"
+      fontFamily="Arial,sans-serif"
+      fill="var(--color-surface,#fff)"
+      stroke="none"
+    >
+      PDF
+    </text>
+  </>
+);
+
+const ATTACH = (
+  <path d="M20.5 11.5l-8.2 8.2a4.7 4.7 0 01-6.6-6.6l8.2-8.2a3.1 3.1 0 014.4 4.4l-8.2 8.2a1.6 1.6 0 01-2.2-2.2l7.5-7.5" />
+);
+
+const EDIT = (
+  <>
+    <path d="M4 20h4L19 9l-4-4L4 16z" />
+    <path d="M13 7l4 4" />
+  </>
+);
+
+const BAN = (
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M5.6 5.6l12.8 12.8" />
+  </>
+);
+
+export function WordIcon({ size = 20, stroke = 1.8 }: IconProps) {
+  return <Svg size={size} stroke={stroke} viewBox="0 0 24 24">{WORD}</Svg>;
+}
+
+export function PdfIcon({ size = 20, stroke = 1.8 }: IconProps) {
+  return <Svg size={size} stroke={stroke} viewBox="0 0 24 24">{PDF}</Svg>;
+}
+
+export function AttachIcon({ size = 20, stroke = 1.8 }: IconProps) {
+  return <Svg size={size} stroke={stroke} viewBox="0 0 24 24">{ATTACH}</Svg>;
+}
+
+export function EditIcon({ size = 20, stroke = 1.8 }: IconProps) {
+  return <Svg size={size} stroke={stroke} viewBox="0 0 24 24">{EDIT}</Svg>;
+}
+
+export function BanIcon({ size = 20, stroke = 1.8 }: IconProps) {
+  return <Svg size={size} stroke={stroke} viewBox="0 0 24 24">{BAN}</Svg>;
+}
+
 // Rail and tab-bar links: 16px, stroke 1.6.
 export function WorkIcon({ size = 16, stroke = 1.6 }: IconProps) {
   return <Svg size={size} stroke={stroke}>{WORK}</Svg>;

@@ -3,14 +3,17 @@ saved signature picture. Nothing is written unless every check passes; a refusal
 
 import hashlib
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from accounts.models import User
+from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.http import Http404
 from django.utils import timezone
 
-from employees import access, history_range
+from employees import access, history_range, signature_image
 from employees.models import Employee, HrOrder, OrderSigning, OrderState, SavedSignature
 from employees.services import order_docs, orders
 from employees.services.orders import OrderError
@@ -19,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 SIGN_NEEDS_SALARY = "Ажилд авах тушаалыг цалин харах эрхгүй хэрэглэгч гарын үсэг зурж болохгүй."
 METHOD_ERROR = "Гарын үсгийн арга буруу байна."
+SAVED_MISSING = "Хадгалсан гарын үсэг алга. Шинээр зурна уу."
+TEMPLATE_BROKEN = "Тушаалын загвар олдсонгүй эсвэл эвдэрсэн байна."
 SIGNED_MESSAGE = "гарын үсэг зурсан (дэлгэц дээр), түгжсэн"
 SIGNER_NAME_MAX = 100
 
@@ -151,3 +156,58 @@ def sign_order(order: HrOrder, *, by: User, png: bytes, method: str, remember: b
         _delete_stored(stored)  # the rows roll back with the transaction; the files do not
         raise
     return order
+
+
+@dataclass(frozen=True)
+class SignState:
+    """What the signing pop-up shows: the order's number and whether the user has a saved signature."""
+
+    number: str
+    has_saved: bool
+
+
+def _require_signer(user: User, order: HrOrder) -> None:
+    """The switch (PermissionDenied) and the registered state (404), in the order the pop-up has always checked them."""
+    if not access.can_sign_orders(user, order):
+        raise PermissionDenied
+    if order.state != OrderState.REGISTERED:
+        raise Http404  # only a registered order is signed; a signed or pending one is final or not yet ready
+
+
+def signing_state(user: User, order: HrOrder) -> SignState:
+    """The pop-up's data (GET). Also refuses a user who may not sign this order because of the salary rule."""
+    _require_signer(user, order)
+    if access.signing_needs_salary_right(user, order):  # the same rule the POST and the button apply
+        raise PermissionDenied
+    return SignState(number=order.number, has_saved=saved_signature_png(user) is not None)
+
+
+def _sign_input(user: User, mode: str, signature: str, remember: bool) -> tuple[str, bytes, bool]:
+    """The picture to sign with: (method, PNG bytes, remember). A saved signature is read from the user's own row; a
+    drawn one is cleaned here (sign_order takes only the cleaned bytes)."""
+    if mode == OrderSigning.Method.SAVED:
+        png = saved_signature_png(user)
+        if png is None:
+            raise OrderError({"__all__": SAVED_MISSING})
+        return OrderSigning.Method.SAVED, png, False
+    if mode == OrderSigning.Method.DRAWN:
+        if not signature:
+            raise signature_image.SignatureError(signature_image.DRAW_ERROR)
+        return OrderSigning.Method.DRAWN, signature_image.clean_signature_data_url(signature), bool(remember)
+    raise OrderError({"__all__": METHOD_ERROR})
+
+
+def submit_sign(user: User, order: HrOrder, mode: str, signature: str, remember: bool) -> list[str]:
+    """Sign a registered order from the pop-up (POST). Returns [] on success, else the messages to show. Refusals that
+    write nothing come back as messages; PermissionDenied and Http404 are raised for the switch and the state."""
+    _require_signer(user, order)
+    try:
+        method, png, remember = _sign_input(user, mode, signature, remember)
+        sign_order(order, by=user, png=png, method=method, remember=remember)
+    except signature_image.SignatureError as error:
+        return [str(error)]
+    except OrderError as error:
+        return list(error.errors.values())
+    except order_docs.OrderDocError:  # the Word template is missing or broken: nothing was written
+        return [TEMPLATE_BROKEN]
+    return []

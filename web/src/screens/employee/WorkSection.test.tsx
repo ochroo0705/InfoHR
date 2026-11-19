@@ -24,6 +24,9 @@ const popups = vi.hoisted(() => ({
   openOrderEdit: vi.fn(),
   openOrderUpload: vi.fn(),
   openOrderHistory: vi.fn(),
+  openOrderDetail: vi.fn(),
+  openOrderCancel: vi.fn(),
+  openOrderSign: vi.fn(),
 }));
 vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
 

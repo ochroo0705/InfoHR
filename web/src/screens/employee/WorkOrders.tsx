@@ -1,5 +1,4 @@
 import type { EmployeeWorkOut } from "../../api/employee";
-import { legacyOrigin, openLegacyEmployee } from "../../lib/AppLink";
 import { RowMenu } from "../../widgets/RowMenu";
 import { ScrollHost } from "../../widgets/Scrollbar";
 import { useEmployeePopups } from "./EmployeePopups";
@@ -8,9 +7,9 @@ import { useEmployeePopups } from "./EmployeePopups";
 // «Үйлдэл ▾» menu, then the MACS command rows (read-only). Classes, Mongolian text, element order and ids are copied
 // from the template. React renders only the strings and flags the API sends (number_muted, cancel segments, hire_note,
 // the link URLs, can_edit, can_upload). A row click (when can_edit), «Файл хавсаргах» and «Түүх» open the order pop-ups
-// of the provider with the order's pk. The cancel links (cancelled-by and cancels) still open the Django employee page
-// (openLegacyEmployee, ruling D2) until order detail is ported. Files and documents are Django downloads, so their URLs
-// go through legacyOrigin().
+// of the provider with the order's pk. The cancelled-by and cancels links open that order's detail pop-up (openOrderDetail).
+// The scan, Word and PDF links are the API paths the server sends (scan_url, word_url, pdf_url): plain anchors, no
+// legacy origin. The `pk` prop is still passed by WorkSection but no longer read here.
 
 type Work = EmployeeWorkOut;
 type Order = Work["orders"][number];
@@ -21,23 +20,6 @@ function ChipBadge({ chip }: { chip: Chip }) {
   return <span className={chip.tone}>{chip.label}</span>;
 }
 
-// A link that opens a legacy pop-up. Stops the click so the row's own click does not also fire.
-function LegacyLink({ pk, className, children }: { pk: number; className: string; children: string }) {
-  return (
-    <a
-      href="#"
-      className={className}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openLegacyEmployee(pk);
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
 // «Үйлдэл ▾» (`_orders.html` line 13-24): the shared row menu (widgets/RowMenu). The items are the template's.
 function ActionsMenu({ row }: { row: Order }) {
   const { openOrderUpload, openOrderHistory } = useEmployeePopups();
@@ -46,12 +28,7 @@ function ActionsMenu({ row }: { row: Order }) {
     <td className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
       <RowMenu>
         {row.scan_url && (
-          <a
-            href={legacyOrigin() + row.scan_url}
-            target="_blank"
-            rel="noopener"
-            className="block px-3 py-2 text-sm hover:bg-slate-50"
-          >
+          <a href={row.scan_url} target="_blank" rel="noopener" className="block px-3 py-2 text-sm hover:bg-slate-50">
             Файл харах
           </a>
         )}
@@ -67,12 +44,12 @@ function ActionsMenu({ row }: { row: Order }) {
           </button>
         )}
         {row.word_url && (
-          <a href={legacyOrigin() + row.word_url} className="block px-3 py-2 text-sm hover:bg-slate-50">
+          <a href={row.word_url} className="block px-3 py-2 text-sm hover:bg-slate-50">
             Word татах
           </a>
         )}
         {row.pdf_url && (
-          <a href={legacyOrigin() + row.pdf_url} className="block px-3 py-2 text-sm hover:bg-slate-50">
+          <a href={row.pdf_url} className="block px-3 py-2 text-sm hover:bg-slate-50">
             PDF татах
           </a>
         )}
@@ -91,9 +68,10 @@ function ActionsMenu({ row }: { row: Order }) {
 }
 
 // One of our orders (`{% if o %}` branch of the template).
-function OwnOrderRow({ row, pk }: { row: Order; pk: number }) {
-  const { openOrderEdit } = useEmployeePopups();
+function OwnOrderRow({ row }: { row: Order }) {
+  const { openOrderEdit, openOrderDetail } = useEmployeePopups();
   const orderPk = row.order_pk;
+  const cancelledBy = row.cancelled_by_pk;
   const rowClass = row.cancelled ? "text-slate-400 line-through" : row.can_edit ? "cursor-pointer hover:bg-violet-50" : "";
   return (
     <tr
@@ -121,10 +99,18 @@ function OwnOrderRow({ row, pk }: { row: Order; pk: number }) {
             {" "}
             <span className="text-xs no-underline">
               {row.cancel_prefix}
-              {row.cancelled_by_pk !== null ? (
-                <LegacyLink pk={pk} className="text-violet-700 hover:underline">
+              {cancelledBy !== null ? (
+                <a
+                  href="#"
+                  className="text-violet-700 hover:underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openOrderDetail(cancelledBy);
+                  }}
+                >
                   {row.cancel_number}
-                </LegacyLink>
+                </a>
               ) : (
                 row.cancel_number
               )}
@@ -137,9 +123,17 @@ function OwnOrderRow({ row, pk }: { row: Order; pk: number }) {
             {" "}
             <span className="text-xs text-slate-500">
               {c.text_prefix}
-              <LegacyLink pk={pk} className="text-violet-700 hover:underline">
+              <a
+                href="#"
+                className="text-violet-700 hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openOrderDetail(c.order_pk);
+                }}
+              >
                 {c.link_text}
-              </LegacyLink>
+              </a>
               {c.suffix}
             </span>
           </span>
@@ -170,7 +164,8 @@ function LegacyOrderRow({ row }: { row: Order }) {
 }
 
 // `warning` is the page's latched one-shot warning (WorkSection); without it the query's own value is used.
-export function WorkOrders({ work, pk, warning }: { work: Work; pk: number; warning?: string }) {
+// `pk` is accepted for the callers (WorkSection passes it) and is not read.
+export function WorkOrders({ work, warning }: { work: Work; pk?: number; warning?: string }) {
   const orderWarning = warning ?? work.order_warning;
   return (
     <>
@@ -197,7 +192,7 @@ export function WorkOrders({ work, pk, warning }: { work: Work; pk: number; warn
                   row.legacy ? (
                     <LegacyOrderRow key={`m${index}`} row={row} />
                   ) : (
-                    <OwnOrderRow key={row.order_pk} row={row} pk={pk} />
+                    <OwnOrderRow key={row.order_pk} row={row} />
                   ),
                 )}
               </tbody>

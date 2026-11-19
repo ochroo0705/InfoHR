@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
 
+from employees.forms import CancelEventForm
 from employees.models import ActivityEntry, ActivityKind, Employee, Event, EventType, HrOrder, OrderState, OrderType
 from employees.services import order_popups, orders
 
@@ -153,3 +154,77 @@ def test_history_title_names_type_and_number(hired: Employee) -> None:
     HrOrder.objects.filter(pk=order.pk).update(number="")
     order.refresh_from_db()
     assert order_popups.history_title(order) == "Тушаалын түүх: Ажилд орсон"
+
+
+CANCEL_HINT_TEXT = (
+    "Тушаал «цуцалсан» болж түүхэнд үлдэнэ, дугаар нь хэвээр хадгалагдана. Ажилд авсан бүртгэл өөрөө хэвээр үлдэнэ."
+)
+
+
+def test_cancel_popup_title_and_hint(hired: Employee, hr_user: User) -> None:
+    popup = order_popups.cancel_popup(hr_user, hired, hire_order(hired))
+    assert popup.title == "Тушаал цуцлах: Ажилд орсон № 1"
+    assert popup.hint == CANCEL_HINT_TEXT == order_popups.CANCEL_HINT
+    assert order_popups.CANCEL_LABEL == "Цуцлах"
+    assert isinstance(popup.form, CancelEventForm) and not popup.form.is_bound
+
+
+def test_cancel_popup_404_for_signed_pending_or_event_order(hired: Employee, hr_user: User) -> None:
+    order = hire_order(hired)
+    for state in (OrderState.SIGNED, OrderState.PENDING):
+        HrOrder.objects.filter(pk=order.pk).update(state=state)
+        order.refresh_from_db()
+        with pytest.raises(Http404):
+            order_popups.cancel_popup(hr_user, hired, order)
+    HrOrder.objects.filter(pk=order.pk).update(state=OrderState.REGISTERED)
+    order.refresh_from_db()
+    event = Event.objects.create(employee=hired, type=EventType.PROMOTION, effective=date(2026, 2, 1))
+    change = HrOrder.objects.create(
+        employee=hired, event=event, order_type=OrderType.POSITION, state=OrderState.REGISTERED,
+        number="41", number_key="41", date=date(2026, 2, 1),
+    )  # fmt: skip
+    with pytest.raises(Http404):
+        order_popups.cancel_popup(hr_user, hired, change)
+    with pytest.raises(Http404):
+        order_popups.submit_cancel(hr_user, hired, change, {"reason": "x"})
+    order.refresh_from_db()
+    assert order.state == OrderState.REGISTERED
+
+
+def test_cancel_popup_403_without_manage(hired: Employee, plain_user: User) -> None:
+    with pytest.raises(PermissionDenied):
+        order_popups.cancel_popup(plain_user, hired, hire_order(hired))
+    with pytest.raises(PermissionDenied):
+        order_popups.submit_cancel(plain_user, hired, hire_order(hired), {"reason": "x"})
+
+
+def test_submit_cancel_empty_reason_refused(hired: Employee, hr_user: User) -> None:
+    order = hire_order(hired)
+    ok, popup = order_popups.submit_cancel(hr_user, hired, order, {"reason": ""})
+    order.refresh_from_db()
+    assert ok is False
+    assert "reason" in popup.form.errors
+    assert order.state == OrderState.REGISTERED and order.cancel_reason == ""
+
+
+def test_submit_cancel_cancels_order_with_reason(hired: Employee, hr_user: User) -> None:
+    order = hire_order(hired)
+    ok, popup = order_popups.submit_cancel(hr_user, hired, order, {"reason": "Буруу бичсэн"})
+    order.refresh_from_db()
+    assert ok is True
+    assert order.state == OrderState.CANCELLED and order.cancel_reason == "Буруу бичсэн"
+    assert order.number == "1"
+    assert popup.form.is_bound
+
+
+def test_submit_cancel_order_error_goes_to_form_error(hired: Employee, hr_user: User, monkeypatch) -> None:
+    def refuse(*args, **kwargs):
+        raise orders.OrderError({"__all__": "Зөвхөн гарын үсэг зураагүй, бүртгэсэн тушаалыг цуцална."})
+
+    monkeypatch.setattr(order_popups.orders, "cancel_order", refuse)
+    order = hire_order(hired)
+    ok, popup = order_popups.submit_cancel(hr_user, hired, order, {"reason": "x"})
+    assert ok is False
+    assert popup.form.non_field_errors() == ["Зөвхөн гарын үсэг зураагүй, бүртгэсэн тушаалыг цуцална."]
+    order.refresh_from_db()
+    assert order.state == OrderState.REGISTERED
