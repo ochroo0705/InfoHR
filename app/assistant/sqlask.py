@@ -375,6 +375,13 @@ REFINE_INSTRUCTION = (
     "The chart block is the chart open now (empty for none). Keep it unless the instruction changes the chart type or "
     "grouping, asks for a chart, or asks for the table only — then use {\"type\": \"none\"}. When you change the "
     "columns, keep the chart's x and y names valid.\n"
+    "Every condition in the CURRENT query's WHERE clause stays unless the instruction explicitly removes or changes "
+    "it: adding a column that reports a condition NEVER replaces that filter. A join you add must not change the "
+    "number of rows (aggregate in a subquery or a scalar subquery). Leave counted as 'taken' (авсан) is only leave "
+    "whose START_DATE is on or before today.\n"
+    "When the instruction asks to show a value the CURRENT query already filters on (for example «whether they took "
+    "leave» when the WHERE clause requires that they did not), keep the filter and add the column. Remove the filter "
+    "only when the instruction asks for everyone or says to drop that condition.\n"
 )
 
 
@@ -397,7 +404,12 @@ def _refine_user(
     instruction and today."""
     parts = [_tagged("current", current_sql), _tagged("columns", ", ".join(columns)), _tagged("group", group)]
     parts.append(_tagged("chart", chart))
-    turns = list(history)[-REFINE_HISTORY_TURNS:]
+    everything = list(history)
+    turns = everything[-REFINE_HISTORY_TURNS:]
+    # The viewer's first line states what the table is for (its filters). It stays in view in a long tab.
+    first = next((i for i, (role, _text) in enumerate(everything) if role == "user"), None)
+    if first is not None and first < len(everything) - REFINE_HISTORY_TURNS:
+        turns = [everything[first], *turns]
     if turns:
         lines = "\n".join(f"{role}: {text[:REFINE_TEXT_CHARS]}" for role, text in turns)
         parts.append(_tagged("history", lines))

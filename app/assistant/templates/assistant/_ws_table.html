@@ -51,7 +51,7 @@ marked safe. Rows are drawn 100 at a time.{% endcomment %}
     <div class="flex flex-col gap-1">
       <details class="relative">
         <summary class="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm hover:bg-slate-50 [&::-webkit-details-marker]:hidden">{% include "reports/_tool_icon.html" with kind="columns" %}Багана сонгох</summary>
-        <form method="get" action="{{ table_url }}" hx-get="{{ table_url }}" hx-target="#ws-table-pane" hx-push-url="true" class="absolute left-0 top-full z-20 mt-1 grid max-h-80 w-64 gap-1 overflow-y-auto rounded-lg border border-slate-200 bg-surface p-3 shadow-lg">
+        <form method="get" action="{{ table_url }}" hx-get="{{ table_url }}" hx-target="#ws-table-pane" hx-push-url="true" class="absolute left-0 top-full z-40 mt-1 grid max-h-80 w-64 gap-1 overflow-y-auto rounded-lg border border-slate-200 bg-surface p-3 shadow-lg">
           {% for name, value in keep_cols %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
           {% for column in column_choices %}
           <label class="flex items-center gap-2"><input type="checkbox" name="cols" value="{{ column.name }}"{% if column.checked %} checked{% endif %}> {{ column.label }}</label>

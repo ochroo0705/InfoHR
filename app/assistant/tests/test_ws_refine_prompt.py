@@ -54,6 +54,12 @@ def test_refine_sends_current_sql_and_columns() -> None:
     assert "Change the CURRENT query" in system
     assert "ONE SELECT over the governed views only" in system
     assert "SELECT FIRST" in system  # the shared rules from SQL_INSTRUCTION are still there
+    # Kept filters, row-stable joins and "taken" leave (measured: dropped filters on add-a-column follow-ups).
+    assert "stays unless the instruction explicitly removes or changes it" in system
+    assert "NEVER replaces that filter" in system
+    assert "must not change the number of rows" in system
+    assert "START_DATE is on or before today" in system
+    assert "keep the filter and add the column" in system
     assert "<current>\n" + CURRENT + "\n</current>" in user
     assert "<columns>\nEMP_ID, CHILD_NAME\n</columns>" in user
     assert "<instruction>\n" + INSTRUCTION + "\n</instruction>" in user

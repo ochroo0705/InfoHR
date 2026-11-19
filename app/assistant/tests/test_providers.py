@@ -618,7 +618,14 @@ def test_claude_complete_json_returns_parsed_reply() -> None:
     body = json.loads(post.calls[0][1])
     assert body["system"] == JSON_SYSTEM
     assert body["messages"][0]["content"] == JSON_USER
-    assert body["max_tokens"] == 800
+    assert body["max_tokens"] == 2000
+
+
+def test_claude_reply_cut_off_at_max_tokens_says_so() -> None:
+    cut = json.dumps({"stop_reason": "max_tokens", "content": [{"type": "text", "text": '{"sql": "SELECT'}]}).encode()
+    provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=_Post(cut))
+    with pytest.raises(ProviderError, match="cut off at max_tokens=2000"):
+        provider.complete_json(JSON_SYSTEM, JSON_USER)
 
 
 @pytest.mark.parametrize("kind", ["groq", "claude"])
@@ -702,8 +709,8 @@ def test_claude_complete_json_default_request_is_byte_for_byte_unchanged() -> No
     ClaudeProvider(api_key="k", model="m", timeout=5, post=post).complete_json(JSON_SYSTEM, JSON_USER)
     expected = {
         "model": "m",
-        "max_tokens": 800,
-        "thinking": {"type": "disabled"},  # a thinking model otherwise spends the whole 800 on thinking
+        "max_tokens": 2000,
+        "thinking": {"type": "disabled"},  # a thinking model otherwise spends the whole budget on thinking
         "system": JSON_SYSTEM,
         "messages": [{"role": "user", "content": JSON_USER}],
     }
@@ -757,7 +764,7 @@ def test_claude_complete_json_schema_is_sent_as_text_in_system() -> None:
     assert body["system"].startswith(JSON_SYSTEM)
     assert json.dumps(SCHEMA_X, ensure_ascii=False) in body["system"]
     assert body["messages"][0]["content"] == JSON_USER
-    assert body["max_tokens"] == 800
+    assert body["max_tokens"] == 2000
 
 
 def test_gemini_complete_json_schema_argument_is_the_response_schema() -> None:

@@ -205,7 +205,7 @@
   .ptable thead th:last-child { border-top-right-radius: calc(.5rem - 1px); }
   /* Field grid soft box (UI_RULES §2e) edited since the page loaded: a violet left edge until Save or Cancel. */
   .f-changed .f-soft { box-shadow: inset 3px 0 0 var(--color-violet-500); }
-  body:has(.htmx-request)::before { opacity: 1; animation: hr-load 1.2s ease-out forwards; }
+  body:has(.htmx-request)::before, body[data-nav]::before { opacity: 1; animation: hr-load 1.2s ease-out forwards; }
   /* An open pop-up (fixed full-screen overlay) locks the page behind it; its panel keeps its own scroll. */
   body:has(.fixed.inset-0.z-50) { overflow: hidden; }
   .fixed.inset-0.z-50, .fixed.inset-0.z-50 > div { overscroll-behavior: contain; }
@@ -638,6 +638,10 @@ html.sbar-page-on::-webkit-scrollbar { display: none; }
 /* only the thickness animates; the length follows the scroll at once */
 .sbar-x .sbar-thumb { left: 0; bottom: 1px; height: 5px; transition: height .15s ease-out; }
 .sbar-y .sbar-thumb { top: 0; right: 1px; width: 5px; transition: width .15s ease-out; }
+/* The fill morphs into a classic thumb under the pointer (scrollbars.js morph()): length and place animate only for the
+   short moment after the pointer enters or leaves (.is-morph); while scrolling they follow at once. */
+.sbar-x.is-morph .sbar-thumb { transition: height .15s ease-out, width .22s ease-out, left .22s ease-out; }
+.sbar-y.is-morph .sbar-thumb { transition: width .15s ease-out, height .22s ease-out, top .22s ease-out; }
 .sbar-thumb::before { content: ""; position: absolute; z-index: 1; background: var(--color-violet-500); transition: width .15s, height .15s, background-color .15s; }
 .sbar-x .sbar-thumb::before { right: 0; top: 0; bottom: 0; width: 8px; }
 .sbar-y .sbar-thumb::before { left: 0; right: 0; bottom: 0; height: 8px; }
@@ -655,7 +659,7 @@ html.sbar-page-on::-webkit-scrollbar { display: none; }
 .sbar-fade-l { background: linear-gradient(90deg, var(--sbar-shade), transparent); }
 .sbar-fade-r { background: linear-gradient(270deg, var(--sbar-shade), transparent); }
 :root[data-theme="dark"] .sbar-fade { --sbar-shade: rgb(0 0 0 / .45); }
-@media (prefers-reduced-motion: reduce) { .sbar-fade, .sbar-x .sbar-thumb, .sbar-y .sbar-thumb, .sbar-thumb::before, .sbar-thumb::after, .sbar-rail::before { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sbar-fade, .sbar-x .sbar-thumb, .sbar-y .sbar-thumb, .sbar-x.is-morph .sbar-thumb, .sbar-y.is-morph .sbar-thumb, .sbar-thumb::before, .sbar-thumb::after, .sbar-rail::before { transition: none; } }
 
 /* Keyboard grid (grid_nav.js, UI_RULES §4): the cell cursor and a Shift range. Unlayered so it shows over row tints. */
 table[data-grid] td.is-cell-active { outline: 2px solid var(--color-violet-600); outline-offset: -2px; }
@@ -714,4 +718,8 @@ table[data-grid] td.is-popped > form.cell-pop :is(select, input[type="text"], in
 /* Grouped workspace table: one heading row per group (the group value, its row count), folding its rows. */
 #ws-table-pane tr.ws-group-row th { background: var(--color-slate-100); padding: .5rem .75rem; font-weight: 600; text-align: left; color: var(--color-slate-800); }
 #ws-table-pane tr.ws-group-row button[aria-expanded="false"] .ws-group-caret { display: inline-block; transform: rotate(-90deg); }
+/* The pane is only a programmatic focus target (workspace.js keeps the place after a swap); it sits inside the tab card, where its ring crossed the title row. Real controls inside keep theirs. */
+#ws-table-pane:focus-visible { outline: none; }
+/* While the «Үйлдэл ▾» menu is open the table ignores the mouse: a column header's native title tooltip drew over the menu's «Хүснэгтийг хаах». A click outside still closes the menu (document handler in workspace.js). The «Багана сонгох» menu lives inside the pane, so it is not affected. */
+body:has(details[data-ws-menu][open]) #ws-table-pane { pointer-events: none; }
 #ws-table-pane tbody[data-ws-group] tr:not(.ws-group-row) td:nth-child(2) { padding-left: 1.75rem; }

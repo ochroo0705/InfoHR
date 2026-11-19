@@ -209,6 +209,10 @@ def ws_close(request: HttpRequest, pk: int) -> HttpResponse:
     title = tab.title
     close(tab)
     messages.success(request, f"«{title}» хүснэгт хаагдлаа.")
+    # Closing another tab from the strip keeps the viewer on the tab they are on, like a browser.
+    keep = request.POST.get("current", "")
+    if keep.isdigit() and int(keep) != pk and WorkspaceTab.objects.filter(pk=int(keep), owner=user).exists():
+        return redirect("assistant:workspace_tab", int(keep))
     return redirect("assistant:workspace")
 
 

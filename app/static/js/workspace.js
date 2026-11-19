@@ -503,6 +503,26 @@
     });
   });
 
+  // A column header's native title tooltip is drawn by the system above the whole page, so no z-index keeps it off an open
+  // menu (it covered «Хүснэгтийг хаах»). While a menu is open the headers' titles are parked in data-title and put back
+  // on close; taking the title away also dismisses a tooltip that is already showing.
+  function parkTitles(park) {
+    document.querySelectorAll("#ws-table-pane [title], #ws-table-pane [data-parked-title]").forEach((n) => {
+      if (park && n.hasAttribute("title")) {
+        n.setAttribute("data-parked-title", n.getAttribute("title"));
+        n.removeAttribute("title");
+      } else if (!park && n.hasAttribute("data-parked-title")) {
+        n.setAttribute("title", n.getAttribute("data-parked-title"));
+        n.removeAttribute("data-parked-title");
+      }
+    });
+  }
+  document.addEventListener("toggle", (e) => {
+    if (e.target instanceof Element && e.target.matches("details[data-ws-menu]")) parkTitles(e.target.open);
+  }, true);
+  // A table swap while a menu is open (the menu closes on a click outside, then htmx swaps) must not leave titles parked.
+  document.body.addEventListener("htmx:afterSwap", () => { if (!document.querySelector("details[data-ws-menu][open]")) parkTitles(false); });
+
   // The current tab is scrolled into view in the strip (20 tabs do not fit).
   function showCurrentTab() {
     const current = document.querySelector("[data-ws-tabs] [aria-current]");

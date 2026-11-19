@@ -36,3 +36,7 @@ tools/
 
 # Editor local history (VS Code «Local History»): holds copies of .env with secrets
 .history/
+
+# Dev-server run logs and ad screenshots (2026-11-18): local only
+.tmp_runserver.log*
+docs/ad-shots/

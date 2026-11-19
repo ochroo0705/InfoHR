@@ -1,10 +1,16 @@
 {% comment %}The tab strip of the workspace page: one link per tab the viewer keeps (oldest first) in a strip that scrolls on its
-own, then «+ Шинэ» outside the strip so it is always in reach. The current tab is violet with aria-current (workspace.js
+own, then «+ Шинэ» outside the strip so it is always in reach. The current tab is joined to the panel below, with a violet top edge and aria-current; every tab has a × that closes it (the same confirm and endpoint as the menu's «Хүснэгтийг хаах») (workspace.js
 scrolls it into view). A count shows from 15 tabs on, because the limit is 20. Titles are escaped by Django.{% endcomment %}
 <div class="flex items-end gap-2 border-b border-slate-200">
   <nav aria-label="Хүснэгтүүд" data-ws-tabs class="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto [scrollbar-width:none]">
     {% for tab in tabs %}
-    <a href="{% url 'assistant:workspace_tab' tab.pk %}" title="{{ tab.title }}" class="max-w-56 shrink-0 truncate rounded-t-lg px-3 py-2 text-sm max-sm:py-3 {% if current and tab.pk == current.pk %}border-b-2 border-violet-600 font-medium text-violet-700{% else %}text-slate-600 hover:bg-slate-50{% endif %}"{% if current and tab.pk == current.pk %} aria-current="page"{% endif %}>{{ tab.title }}</a>
+    <div class="group flex max-w-56 shrink-0 items-center rounded-t-lg border border-b-0 {% if current and tab.pk == current.pk %}relative z-10 -mb-px border-slate-200 border-t-violet-600 border-t-2 bg-surface pb-px{% else %}border-transparent hover:bg-slate-50{% endif %}">
+      <a href="{% url 'assistant:workspace_tab' tab.pk %}" title="{{ tab.title }}" class="min-w-0 flex-1 truncate py-2 pl-3 pr-1 text-sm max-sm:py-3 {% if current and tab.pk == current.pk %}font-semibold text-violet-700{% else %}text-slate-600{% endif %}"{% if current and tab.pk == current.pk %} aria-current="page"{% endif %}>{{ tab.title }}</a>
+      <form method="post" action="{% url 'assistant:ws_close' tab.pk %}" data-confirm="Энэ хүснэгтийг хаах уу? Хадгалсан хувилбарууд устана." data-confirm-ok="Хаах" class="shrink-0 pr-1.5">{% csrf_token %}
+        {% if current %}<input type="hidden" name="current" value="{{ current.pk }}">{% endif %}
+        <button type="submit" aria-label="Хаах: {{ tab.title }}" title="Хаах" class="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-800 max-sm:h-8 max-sm:w-8"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="h-3 w-3"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </form>
+    </div>
     {% endfor %}
   </nav>
   {% if tabs|length >= 15 %}<span class="shrink-0 pb-2.5 text-xs text-slate-500">{{ tabs|length }} / {{ max_tabs }}</span>{% endif %}

@@ -49,6 +49,7 @@ describe("motion.css", () => {
 
   it("drives the loading bar from a data-loading attribute, not from an htmx class", () => {
     expect(motionCss).toContain("body[data-loading]::before");
+    expect(motionCss).toContain("body[data-nav]::before");
     expect(motionCss).not.toContain("body:has(.htmx-request)");
   });
 

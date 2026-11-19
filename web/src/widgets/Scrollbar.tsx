@@ -31,6 +31,8 @@ interface RailState {
   el: HTMLElement;
   thumb: HTMLElement;
   axis: Axis;
+  hot: boolean; // under the pointer or dragged: a classic thumb instead of the progress fill
+  morphT: number;
 }
 
 // A float rail sits just above the stacking layer its box lives in.
@@ -67,7 +69,7 @@ export function attachScrollbar(rig: Rig): () => void {
 
   function railState(el: HTMLElement | undefined, axis: Axis): RailState | undefined {
     const thumb = el?.querySelector<HTMLElement>(".sbar-thumb");
-    return el && thumb ? { el, thumb, axis } : undefined;
+    return el && thumb ? { el, thumb, axis, hot: false, morphT: 0 } : undefined;
   }
   const X = railState(rig.rails.x, "x");
   const Y = railState(rig.rails.y, "y");
@@ -78,17 +80,29 @@ export function attachScrollbar(rig: Rig): () => void {
     const view = page ? (x ? window.innerWidth : window.innerHeight) : x ? sc.clientWidth : sc.clientHeight;
     const full = x ? sc.scrollWidth : sc.scrollHeight;
     const track = x ? r.el.clientWidth : r.el.clientHeight;
-    return { view, full, track, max: Math.max(0, full - view) };
+    return { view, full, track, max: Math.max(0, full - view), len: Math.max(MIN, Math.min(track, (track * view) / Math.max(1, full))) };
   }
 
-  // Progress fill: starts at the share in view, grows to the whole rail at the end of the scroll.
+  // Two shapes: at rest a progress fill (starts at the share in view, grows to the whole rail at the end); under the
+  // pointer or while dragged a classic thumb (the share in view, at the scroll position). morph() animates the switch;
+  // scrolling itself is never animated.
   function fill(r: RailState) {
     const s = sizes(r);
-    const pos = r.axis === "x" ? sc.scrollLeft : sc.scrollTop;
-    const done = s.max > 0 ? pos / s.max : 0;
-    const start = Math.max(MIN, Math.min(s.track, (s.track * s.view) / Math.max(1, s.full)));
-    const px = Math.round(start + (s.track - start) * Math.min(1, done));
-    r.thumb.style[r.axis === "x" ? "width" : "height"] = `${px}px`;
+    const x = r.axis === "x";
+    const done = s.max > 0 ? Math.min(1, (x ? sc.scrollLeft : sc.scrollTop) / s.max) : 0;
+    const size = r.hot ? s.len : s.len + (s.track - s.len) * done;
+    const at = r.hot ? (s.track - s.len) * done : 0;
+    r.thumb.style[x ? "width" : "height"] = `${Math.round(size)}px`;
+    r.thumb.style[x ? "left" : "top"] = `${Math.round(at)}px`;
+  }
+
+  function morph(r: RailState, hot: boolean) {
+    if (r.hot === hot) return;
+    r.hot = hot;
+    r.el.classList.add("is-morph");
+    fill(r);
+    window.clearTimeout(r.morphT);
+    r.morphT = window.setTimeout(() => r.el.classList.remove("is-morph"), 260);
   }
 
   function show(r: RailState | undefined, on: boolean): boolean {
@@ -190,21 +204,59 @@ export function attachScrollbar(rig: Rig): () => void {
   let dragOff: (() => void) | null = null;  // removes the move and up listeners of a drag in progress
   cleanups.push(() => dragOff?.());
 
+  // Like a native bar: a press on the thumb grabs it where it was pressed (no jump) and dragging moves the box; a press
+  // on the empty track pages one screen towards the pointer, repeating while held until the thumb reaches the pointer.
   function drag(r: RailState, e: PointerEvent) {
     e.preventDefault();
     const x = r.axis === "x";
+    const coord = (ev: PointerEvent) => {
+      const rect = r.el.getBoundingClientRect();
+      return x ? ev.clientX - rect.left : ev.clientY - rect.top;
+    };
+    const thumbAt = (s: ReturnType<typeof sizes>): [number, number] => {
+      const done = s.max > 0 ? (x ? sc.scrollLeft : sc.scrollTop) / s.max : 0;
+      const from = (s.track - s.len) * Math.min(1, done);
+      return [from, from + s.len];
+    };
+    let pos = coord(e);
+    const t0 = thumbAt(sizes(r));
+    const onThumb = pos >= t0[0] && pos <= t0[1];
+    const grab = pos - t0[0];
+    let timer = 0;
+    const stop = () => {
+      window.clearTimeout(timer);
+      window.clearInterval(timer);
+      timer = 0;
+    };
+    const page = () => {
+      const s = sizes(r);
+      const t = thumbAt(s);
+      if (pos >= t[0] && pos <= t[1]) return stop(); // the thumb has reached the pointer
+      const step = (pos < t[0] ? -1 : 1) * s.view;
+      if (x) sc.scrollLeft += step;
+      else sc.scrollTop += step;
+    };
     const to = (ev: PointerEvent) => {
-      const rect = r.el.getBoundingClientRect(), s = sizes(r);
-      const at = (x ? ev.clientX - rect.left : ev.clientY - rect.top) - MIN / 2;
-      const v = Math.max(0, Math.min(1, at / Math.max(1, s.track - MIN))) * s.max;
+      pos = coord(ev);
+      if (!onThumb) return;
+      const s = sizes(r);
+      const v = Math.max(0, Math.min(1, (pos - grab) / Math.max(1, s.track - s.len))) * s.max;
       if (x) sc.scrollLeft = v;
       else sc.scrollTop = v;
     };
     r.el.classList.add("is-drag");
+    morph(r, true);
     r.el.setPointerCapture(e.pointerId);
-    to(e);
+    if (!onThumb) {
+      page();
+      timer = window.setTimeout(() => {
+        timer = window.setInterval(page, 70);
+      }, 380);
+    }
     const off = () => {
+      stop();
       r.el.classList.remove("is-drag");
+      morph(r, r.el.matches(":hover"));
       r.el.removeEventListener("pointermove", to);
       r.el.removeEventListener("pointerup", off);
       r.el.removeEventListener("pointercancel", off);
@@ -233,6 +285,8 @@ export function attachScrollbar(rig: Rig): () => void {
   for (const r of [X, Y]) {
     if (!r) continue;
     on(r.el, "pointerdown", (e) => drag(r, e as PointerEvent));
+    on(r.el, "pointerenter", () => morph(r, true));
+    on(r.el, "pointerleave", () => { if (!r.el.classList.contains("is-drag")) morph(r, false); });
     on(
       r.el,
       "wheel",

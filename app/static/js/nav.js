@@ -161,3 +161,40 @@
   systemDark.addEventListener('change', function () { applyTheme(); });
   applyTheme();
 })();
+
+// Page-switch loading bar (UI_RULES: loading bar). The bar used to show only for htmx requests,
+// so a plain link click showed nothing until the new page's own requests began. Now a same-site link click, or a plain
+// form send, sets body[data-nav] at once; input.css draws the bar from it. The new page replaces the document, so it needs
+// no off switch, except: a download or a click another script cancels (dropped by the zero-delay check), a page restored
+// from the back/forward cache, and an 8 s safety.
+(function () {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+  var timer = 0;
+  function start() {
+    document.body.setAttribute('data-nav', '');
+    clearTimeout(timer);
+    timer = setTimeout(stop, 8000);
+  }
+  function stop() {
+    clearTimeout(timer);
+    document.body.removeAttribute('data-nav');
+  }
+  document.addEventListener('click', function (e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target instanceof Element && e.target.closest('a[href]');
+    if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+    if (a.hasAttribute('hx-get') || a.hasAttribute('hx-post') || a.hasAttribute('hx-boost')) return; // htmx draws its own
+    var url;
+    try { url = new URL(a.href, location.href); } catch (err) { return; }
+    if (url.origin !== location.origin) return;
+    if (url.pathname === location.pathname && url.search === location.search) return; // same page, or only a #hash
+    setTimeout(function () { if (!e.defaultPrevented) start(); }, 0);
+  });
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!(f instanceof Element) || f.target === '_blank') return;
+    if (f.hasAttribute('hx-get') || f.hasAttribute('hx-post') || f.hasAttribute('hx-put') || f.hasAttribute('hx-delete')) return;
+    setTimeout(function () { if (!e.defaultPrevented) start(); }, 0);
+  });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) stop(); });
+})();

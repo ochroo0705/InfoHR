@@ -24,6 +24,10 @@ html.sbar-page-on::-webkit-scrollbar { display: none; }
 /* only the thickness animates; the length follows the scroll at once */
 .sbar-x .sbar-thumb { left: 0; bottom: 1px; height: 5px; transition: height .15s ease-out; }
 .sbar-y .sbar-thumb { top: 0; right: 1px; width: 5px; transition: width .15s ease-out; }
+/* The fill morphs into a classic thumb under the pointer (scrollbars.js morph()): length and place animate only for the
+   short moment after the pointer enters or leaves (.is-morph); while scrolling they follow at once. */
+.sbar-x.is-morph .sbar-thumb { transition: height .15s ease-out, width .22s ease-out, left .22s ease-out; }
+.sbar-y.is-morph .sbar-thumb { transition: width .15s ease-out, height .22s ease-out, top .22s ease-out; }
 .sbar-thumb::before { content: ""; position: absolute; z-index: 1; background: var(--color-violet-500); transition: width .15s, height .15s, background-color .15s; }
 .sbar-x .sbar-thumb::before { right: 0; top: 0; bottom: 0; width: 8px; }
 .sbar-y .sbar-thumb::before { left: 0; right: 0; bottom: 0; height: 8px; }
@@ -41,4 +45,4 @@ html.sbar-page-on::-webkit-scrollbar { display: none; }
 .sbar-fade-l { background: linear-gradient(90deg, var(--sbar-shade), transparent); }
 .sbar-fade-r { background: linear-gradient(270deg, var(--sbar-shade), transparent); }
 :root[data-theme="dark"] .sbar-fade { --sbar-shade: rgb(0 0 0 / .45); }
-@media (prefers-reduced-motion: reduce) { .sbar-fade, .sbar-x .sbar-thumb, .sbar-y .sbar-thumb, .sbar-thumb::before, .sbar-thumb::after, .sbar-rail::before { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sbar-fade, .sbar-x .sbar-thumb, .sbar-y .sbar-thumb, .sbar-x.is-morph .sbar-thumb, .sbar-y.is-morph .sbar-thumb, .sbar-thumb::before, .sbar-thumb::after, .sbar-rail::before { transition: none; } }

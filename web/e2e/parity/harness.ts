@@ -204,7 +204,7 @@ async function compare(
     // Idle twice, 300 ms apart: a refetch that starts on window focus can begin just after the first check.
     const idle = () =>
       page.waitForFunction(
-        () => !document.body.hasAttribute("data-loading") && !document.querySelector(".htmx-request"),
+        () => !document.body.hasAttribute("data-loading") && !document.body.hasAttribute("data-nav") && !document.querySelector(".htmx-request"),
         undefined,
         { timeout: 10_000 },
       );

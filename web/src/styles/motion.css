@@ -8,7 +8,7 @@
      is in flight. */
   body::before { content: ""; position: fixed; inset: 0 0 auto 0; z-index: 70; height: 3px; background: linear-gradient(90deg, var(--color-violet-600), var(--color-violet-300)); transform: scaleX(0); transform-origin: left; opacity: 0; pointer-events: none; }
   /* input.css 208 (trigger changed, see above) */
-  body[data-loading]::before { opacity: 1; animation: hr-load 1.2s ease-out forwards; }
+  body[data-loading]::before, body[data-nav]::before { opacity: 1; animation: hr-load 1.2s ease-out forwards; }
   /* input.css 212 */
   @keyframes hr-load { from { transform: scaleX(0); } to { transform: scaleX(.85); } }
   /* input.css 218-220 */

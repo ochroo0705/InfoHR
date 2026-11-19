@@ -139,19 +139,28 @@ describe("Scrollbar rails", () => {
       stubSizes(rail, { clientHeight: 200 });
       rail.getBoundingClientRect = rectOf(12, 200);
 
-      // Press at y=100: at = 100 - 14 = 86 of a track of 200 - 28 = 172, so the box goes to half of 300.
+      // The thumb is 200 x 100/400 = 50px long and starts at 0. A press on the empty track below it (y=100) pages one
+      // screen (the box is 100 high) and does not jump the thumb to the pointer.
       rail.dispatchEvent(pointer("pointerdown", 100));
       expect(setCapture).toHaveBeenCalledWith(1);
-      expect(box.scrollTop).toBe(150);
+      expect(box.scrollTop).toBe(100);
 
-      // Drag to y=172: 158 / 172 x 300, about 275.6.
+      // A track press is not a drag: moving the pointer on does not scroll further.
       rail.dispatchEvent(pointer("pointermove", 172));
-      expect(box.scrollTop).toBeCloseTo(275.6, 1);
+      expect(box.scrollTop).toBe(100);
+      rail.dispatchEvent(pointer("pointerup", 172));
+
+      // The thumb now spans 50..100. A press on it at y=75 grabs it 25px from its start without moving the box, and
+      // dragging to y=172 gives (172 - 25) / 150 x 300 = 294.
+      rail.dispatchEvent(pointer("pointerdown", 75));
+      expect(box.scrollTop).toBe(100);
+      rail.dispatchEvent(pointer("pointermove", 172));
+      expect(box.scrollTop).toBeCloseTo(294, 1);
 
       // Release: a later move no longer scrolls the box.
       rail.dispatchEvent(pointer("pointerup", 172));
       rail.dispatchEvent(pointer("pointermove", 0));
-      expect(box.scrollTop).toBeCloseTo(275.6, 1);
+      expect(box.scrollTop).toBeCloseTo(294, 1);
     } finally {
       proto.setPointerCapture = savedSet;
       proto.releasePointerCapture = savedRelease;

@@ -132,6 +132,31 @@ def test_new_close_rename_post_only_and_own_tabs(
     assert not WorkspaceTab.objects.filter(pk=tab.pk).exists()
 
 
+def test_close_from_the_strip_keeps_the_current_tab_and_every_tab_has_a_close_button(
+    db: None, client: Client, role_user, monkeypatch: pytest.MonkeyPatch, gate: dict[str, object]
+) -> None:
+    user = role_user("staff")
+    open_gate(monkeypatch, gate)
+    client.force_login(user)
+    first = new_tab(user, "Эхний")
+    second = new_tab(user, "Хоёр")
+
+    # Every tab in the strip carries its own close form, with the tab the viewer is on passed along.
+    page = client.get(reverse("assistant:workspace_tab", args=[first.pk])).content.decode()
+    assert page.count(reverse("assistant:ws_close", args=[first.pk])) >= 1
+    assert page.count(reverse("assistant:ws_close", args=[second.pk])) == 1
+    assert f'name="current" value="{first.pk}"' in page
+
+    # Closing the other tab leaves the viewer on the tab they are on, not on the newest one.
+    response = client.post(reverse("assistant:ws_close", args=[second.pk]), {"current": str(first.pk)})
+    assert response["Location"] == reverse("assistant:workspace_tab", args=[first.pk])
+    assert not WorkspaceTab.objects.filter(pk=second.pk).exists()
+
+    # Closing the tab the viewer is on, or naming a tab that is not theirs, falls back to the workspace.
+    response = client.post(reverse("assistant:ws_close", args=[first.pk]), {"current": str(first.pk)})
+    assert response["Location"] == reverse("assistant:workspace")
+
+
 def test_workspace_page_lists_own_tabs_and_opens_newest(
     db: None, client: Client, role_user, monkeypatch: pytest.MonkeyPatch, gate: dict[str, object]
 ) -> None:

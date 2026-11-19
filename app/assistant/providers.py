@@ -377,10 +377,14 @@ class ClaudeProvider(_Usage):
                 )
                 tokens_in = usage.get("input_tokens")
                 self._add_usage((tokens_in if isinstance(tokens_in, int) else 0) + cached, usage.get("output_tokens"))
+            if data.get("stop_reason") == "max_tokens":  # the JSON would be cut off mid-way: say so, not "bad JSON"
+                raise ProviderError(f"the reply was cut off at max_tokens={max_tokens}")
             text = "".join(b.get("text", "") for b in data["content"] if b.get("type") == "text")
             start, end = text.find("{"), text.rfind("}")  # tolerate a sentence or a code fence around the object
             return json.loads(text[start : end + 1])
         # from None: the original error may hold the key header, so it is not chained into a traceback.
+        except ProviderError:
+            raise
         except urllib.error.HTTPError as exc:
             detail = _api_detail(exc, self._api_key)
             raise ProviderError(f"HTTP {exc.code}" + (f": {detail}" if detail else "")) from None
@@ -414,8 +418,9 @@ class ClaudeProvider(_Usage):
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any] | None = None) -> Any:
         """A generic JSON call: the caller's system and user text in, the parsed reply object out. A schema is
-        sent as text in the system prompt (the Messages call here has no structured-output mode)."""
-        return self._call_json(_with_schema(system, schema), user, max_tokens=800)
+        sent as text in the system prompt (the Messages call here has no structured-output mode).
+        2000, not 800: an SQL reply with Mongolian column labels runs to 650+ tokens and a longer one was cut off."""
+        return self._call_json(_with_schema(system, schema), user, max_tokens=2000)
 
 
 def is_enabled() -> bool:

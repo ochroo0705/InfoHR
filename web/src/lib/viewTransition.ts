@@ -8,6 +8,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
+import { startNavBar } from "./navBar";
 import { anyUnsaved, confirmLeave } from "./unsaved";
 
 // Page cross-fade for the React app. Port of the same-origin View Transitions rules in styles/motion.css (input.css
@@ -59,6 +60,7 @@ export function useTransitionNavigate(): (to: string) => void {
   return useCallback(
     (to: string) => {
       const go = () => {
+        if (!staysOnPath(to, pathname)) startNavBar(); // the bar starts at the click, not when the data request does
         runViewTransition(() => {
           // flushSync commits the new route before the browser takes the "after" snapshot.
           flushSync(() => {

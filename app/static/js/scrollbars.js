@@ -59,7 +59,7 @@
       var r = el("sbar-rail sbar-" + axis + (kind === "host" ? "" : " sbar-fixed") + (page ? " sbar-page" : ""));
       var thumb = el("sbar-thumb");
       r.appendChild(thumb);
-      return { el: r, thumb: thumb, axis: axis };
+      return { el: r, thumb: thumb, axis: axis, hot: false, morphT: 0 };
     }
 
     if (kind === "host") {
@@ -87,14 +87,29 @@
       var view = page ? (x ? window.innerWidth : window.innerHeight) : (x ? sc.clientWidth : sc.clientHeight);
       var full = x ? sc.scrollWidth : sc.scrollHeight;
       var track = x ? r.el.clientWidth : r.el.clientHeight;
-      return { view: view, full: full, track: track, max: Math.max(0, full - view) };
+      return { view: view, full: full, track: track, max: Math.max(0, full - view), len: Math.max(MIN, Math.min(track, track * view / Math.max(1, full))) };
     }
 
-    function fill(r) {  // progress fill: starts at the share in view, grows to the whole rail at the end
-      var s = sizes(r);
-      var done = s.max > 0 ? (r.axis === "x" ? sc.scrollLeft : sc.scrollTop) / s.max : 0;
-      var start = Math.max(MIN, Math.min(s.track, s.track * s.view / Math.max(1, s.full)));
-      r.thumb.style[r.axis === "x" ? "width" : "height"] = Math.round(start + (s.track - start) * Math.min(1, done)) + "px";
+    // Two shapes: at rest a progress fill (starts at the share in view, grows to the whole rail at the end); under the
+    // pointer or while dragged a classic thumb (the share in view, sitting at the scroll position). r.hot picks the shape;
+    // morph() animates the switch, while scrolling itself is never animated.
+    function fill(r) {
+      var s = sizes(r), x = r.axis === "x";
+      var done = s.max > 0 ? Math.min(1, (x ? sc.scrollLeft : sc.scrollTop) / s.max) : 0;
+      var len = Math.max(MIN, Math.min(s.track, s.track * s.view / Math.max(1, s.full)));
+      var size = r.hot ? len : len + (s.track - len) * done;
+      var at = r.hot ? (s.track - len) * done : 0;
+      r.thumb.style[x ? "width" : "height"] = Math.round(size) + "px";
+      r.thumb.style[x ? "left" : "top"] = Math.round(at) + "px";
+    }
+
+    function morph(r, hot) {
+      if (r.hot === hot) return;
+      r.hot = hot;
+      r.el.classList.add("is-morph");
+      fill(r);
+      clearTimeout(r.morphT);
+      r.morphT = setTimeout(function () { r.el.classList.remove("is-morph"); }, 260);
     }
 
     function show(r, on) { r.el.classList.toggle("is-on", on); return on; }
@@ -149,21 +164,45 @@
       }
     };
 
-    // press anywhere on a rail and drag: the fill's end follows the pointer, so the box scrolls to that point
+    // Like a native bar: a press on the thumb grabs it where it was pressed (no jump) and dragging moves the box; a press on
+    // the empty track pages one screen towards the pointer, repeating while held until the thumb reaches the pointer.
     function drag(r, e) {
       e.preventDefault();
       var x = r.axis === "x";
+      function coord(ev) { var rect = r.el.getBoundingClientRect(); return x ? ev.clientX - rect.left : ev.clientY - rect.top; }
+      function thumbAt(s) {  // where the thumb starts and ends on the rail, in px
+        var done = s.max > 0 ? (x ? sc.scrollLeft : sc.scrollTop) / s.max : 0;
+        var from = (s.track - s.len) * Math.min(1, done);
+        return [from, from + s.len];
+      }
+      var s0 = sizes(r), pos = coord(e), t0 = thumbAt(s0);
+      var onThumb = pos >= t0[0] && pos <= t0[1];
+      var grab = pos - t0[0], timer = 0;
+      function page() {
+        var s = sizes(r), t = thumbAt(s);
+        if (pos >= t[0] && pos <= t[1]) return stop();  // the thumb has reached the pointer
+        var step = (pos < t[0] ? -1 : 1) * s.view;
+        if (x) sc.scrollLeft += step; else sc.scrollTop += step;
+      }
+      function stop() { clearTimeout(timer); clearInterval(timer); timer = 0; }
       function to(ev) {
-        var rect = r.el.getBoundingClientRect(), s = sizes(r);
-        var at = (x ? ev.clientX - rect.left : ev.clientY - rect.top) - MIN / 2;
-        var v = Math.max(0, Math.min(1, at / Math.max(1, s.track - MIN))) * s.max;
+        pos = coord(ev);
+        if (!onThumb) return;
+        var s = sizes(r);
+        var v = Math.max(0, Math.min(1, (pos - grab) / Math.max(1, s.track - s.len))) * s.max;
         if (x) sc.scrollLeft = v; else sc.scrollTop = v;
       }
       r.el.classList.add("is-drag");
+      morph(r, true);
       r.el.setPointerCapture(e.pointerId);
-      to(e);
+      if (!onThumb) {
+        page();
+        timer = setTimeout(function () { timer = setInterval(page, 70); }, 380);
+      }
       function up() {
+        stop();
         r.el.classList.remove("is-drag");
+        morph(r, r.el.matches(":hover"));
         r.el.removeEventListener("pointermove", to);
         r.el.removeEventListener("pointerup", up);
         r.el.removeEventListener("pointercancel", up);
@@ -174,6 +213,8 @@
     }
     ["x", "y"].forEach(function (a) {
       rails[a].el.addEventListener("pointerdown", function (e) { drag(rails[a], e); });
+      rails[a].el.addEventListener("pointerenter", function () { morph(rails[a], true); });
+      rails[a].el.addEventListener("pointerleave", function () { if (!rails[a].el.classList.contains("is-drag")) morph(rails[a], false); });
       rails[a].el.addEventListener("wheel", function (e) {  // a wheel over a float rail still scrolls its box
         if (kind === "float") { e.preventDefault(); sc.scrollBy(e.deltaX, e.deltaY); }
       }, { passive: false });

@@ -40,6 +40,7 @@ from assistant.sqlanswer import (
 from assistant.sqlask import SqlReply, ask_refine_sql_reply, ask_sql_reply
 from assistant.verified import examples_for
 from assistant.ws_chart import chart_spec_from_json, chart_spec_from_reply, chart_spec_to_json
+from assistant.ws_kept import MAX_SHOWN, dropped_conditions
 from assistant.ws_limits import MAX_TABS, MAX_VERSIONS
 from assistant.ws_run import base_columns, run_count
 from assistant.ws_sql import Spec, checked_group, spec_from_json, spec_to_json
@@ -178,6 +179,8 @@ def close(tab: WorkspaceTab) -> None:
 REFINED_TEXT = "Хүснэгтийг шинэчиллээ."  # the assistant's line after a refinement that worked, when no count is known
 UNDONE_TEXT = "Өмнөх хувилбар руу буцлаа."  # the assistant's line after an undo, when no count is known
 ROW_UNIT = "мөр"
+DROPPED_NOTE = " Анхаар: өмнөх нөхцөл хасагдсан эсвэл өөрчлөгдсөн байж магадгүй: "
+DROPPED_UNDO = ". Буруу бол «Буцаах» дарна уу."
 # Reasons are English (log and result). Each one that the viewer can be told about has a Mongolian stored line.
 CHANGED_REASON = "The table changed while you were asking."
 TAB_GONE_REASON = "The table was closed while you were asking."
@@ -210,6 +213,32 @@ def refined_line(before: int | None, after: int | None) -> str:
     if before is None:
         return f"{REFINED_TEXT[:-1]}: {after} {ROW_UNIT}."
     return f"{REFINED_TEXT[:-1]}: {before} → {after} {ROW_UNIT}."
+
+
+def dropped_note(old_sql: str, new_sql: str, before: int | None, after: int | None) -> str:
+    """A sentence for the assistant's line when the refined query lost a condition the old one had and shows at least
+    as many rows (a narrower result is what an added condition does, so it is not flagged). "" when nothing is lost."""
+    if before is not None and after is not None and after < before:
+        return ""
+    gone = dropped_conditions(old_sql, new_sql)
+    if not gone:
+        return ""
+    return DROPPED_NOTE + "; ".join(gone[:MAX_SHOWN]) + (" …" if len(gone) > MAX_SHOWN else "") + DROPPED_UNDO
+
+
+def failed_turns_removed(messages: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """The chat lines the model should see: a viewer line that got only a failure line back is left out with that
+    line, so a retry does not show the model the same question twice and the failure text is not data to it."""
+    fail = {PROVIDER_LINE, NOT_ANSWERABLE_LINE, REFUSED_LINE, BASE_LINE, OFF_LINE, UNAVAILABLE_LINE, NO_VIEWS_LINE}
+    fail |= {CHANGED_LINE, ERROR_LINE}
+    kept: list[tuple[str, str]] = []
+    for role, text in messages:
+        if role == "assistant" and text in fail:
+            if kept and kept[-1][0] == "user":
+                kept.pop()
+            continue
+        kept.append((role, text))
+    return kept
 
 
 def undone_line(total: int | None, unit: str = ROW_UNIT) -> str:
@@ -405,7 +434,8 @@ def refine_tab(
     one generic assistant line and no version. A tab closed meanwhile stores nothing and returns a refusal.
     """
     try:
-        history = [(message.role, message.text) for message in tab.messages.order_by("id")]  # before this turn's line
+        # Before this turn's line; failed exchanges left out (failed_turns_removed).
+        history = failed_turns_removed([(message.role, message.text) for message in tab.messages.order_by("id")])
         current = tab.current()
         base_pk = current.pk if current is not None else None
         if not _store_line(tab, text):
@@ -507,7 +537,7 @@ def _turn(
         sql,
         base_pk,
         first_build=False,
-        ok_line=refined_line(before, after),
+        ok_line=refined_line(before, after) + (dropped_note(current.sql, sql, before, after) if status == "ok" else ""),
         total=after,
         labels=labels,
         settings=_group_settings(group),
