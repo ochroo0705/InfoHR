@@ -404,6 +404,7 @@ def test_detail_hire_order_shape(hired: Employee, hr_user: User) -> None:
     assert [row["label"] for row in body["change_rows"]] == ["Хүчинтэй огноо", "Хэлтэс, албан тушаал"]
     assert body["change_rows"][1]["value"] == "Санхүү · Нягтлан"
     assert body["change_rows"][1]["before"] == "" and body["change_rows"][1]["after"] == ""
+    assert [row["arrow"] for row in body["change_rows"]] == [False, False]
     # The HR user has no salary right, so a hire scan is hidden (OQ-080).
     assert body["scan"] == {"note": "Зөвхөн цалингийн эрхтэй хэрэглэгч харна", "url": ""}
     assert body["signing"] is None and body["cancel_rows"] == []
@@ -426,9 +427,10 @@ def test_detail_change_order_rows_arrow_and_reason_rows(hired: Employee, hr_user
     assert rows[0]["label"] == "Хүчинтэй огноо"
     assert rows[0]["value"] == f"{_future():%Y-%m-%d}" and rows[0]["before"] == rows[0]["after"] == ""
     arrow = next(row for row in rows if row["after"] == "Ахлах нягтлан")
-    assert arrow["before"] == "Нягтлан" and arrow["value"] == ""
-    assert {"label": "Шалтгаан", "value": "Гүйцэтгэл", "before": "", "after": ""} in rows
-    assert {"label": "Тайлбар", "value": "Тест тайлбар", "before": "", "after": ""} in rows
+    assert arrow["before"] == "Нягтлан" and arrow["value"] == "" and arrow["arrow"] is True
+    assert [row["arrow"] for row in rows if row is not arrow] == [False] * (len(rows) - 1)
+    assert {"label": "Шалтгаан", "value": "Гүйцэтгэл", "before": "", "after": "", "arrow": False} in rows
+    assert {"label": "Тайлбар", "value": "Тест тайлбар", "before": "", "after": "", "arrow": False} in rows
     assert [row["label"] for row in rows][-2:] == ["Шалтгаан", "Тайлбар"]
     assert body["order_heading"].startswith("Тушаал № 16")
 

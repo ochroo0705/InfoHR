@@ -5,7 +5,7 @@ response from here (`file_response`), so the rights, the 404s and the headers ar
 import io
 import re
 from dataclasses import dataclass
-from typing import IO
+from typing import IO, cast
 
 from accounts.models import User
 from django.core.exceptions import PermissionDenied
@@ -102,11 +102,15 @@ def file_response(payload: FilePayload) -> HttpResponse:
     """The Django response for a payload, with the shared headers: nosniff always, and `Cache-Control: private,
     no-store` where the payload is private."""
     if payload.handle is not None:
-        response: HttpResponse = FileResponse(
-            payload.handle,
-            content_type=payload.content_type,
-            filename=payload.filename or None,
-            as_attachment=not payload.inline,
+        # FileResponse streams; django-stubs types it apart from HttpResponse, but callers treat both alike.
+        response = cast(
+            HttpResponse,
+            FileResponse(
+                payload.handle,
+                content_type=payload.content_type,
+                filename=payload.filename,
+                as_attachment=not payload.inline,
+            ),
         )
     else:
         response = HttpResponse(payload.data, content_type=payload.content_type)

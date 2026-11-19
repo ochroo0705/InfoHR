@@ -2647,6 +2647,8 @@ export interface components {
         OrderDetailRowOut: {
             /** After */
             after: string;
+            /** Arrow */
+            arrow: boolean;
             /** Before */
             before: string;
             /** Label */

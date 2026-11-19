@@ -11,6 +11,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.http import Http404
 from django.test import Client
+from django.utils import timezone
 from PIL import Image
 
 from employees.models import Employee, HrOrder, OrderSigning, OrderState
@@ -134,6 +135,21 @@ def test_signing_image_payload_404_without_signing(hired: Employee, actor: User)
     with pytest.raises(Http404):
         order_files.signing_image_payload(order)
     assert not OrderSigning.objects.filter(order=order).exists()
+
+
+def test_signing_image_payload_404_when_the_picture_is_gone_from_disk(hired: Employee, actor: User) -> None:
+    order = registered_hire(hired, actor)
+    OrderSigning.objects.create(
+        order=order,
+        signer=actor,
+        signer_name="Бат Дорж",
+        signed_at=timezone.now(),
+        method=OrderSigning.Method.DRAWN,
+        image="order-signings/gone-from-disk.png",  # the row names a file that is not on disk
+        pdf_sha256="a" * 64,
+    )
+    with pytest.raises(Http404):
+        order_files.signing_image_payload(order)
 
 
 def test_saved_signature_payload_only_own_and_404_when_none(hired: Employee, actor: User) -> None:

@@ -105,7 +105,7 @@ function Detail({
           <Fragment key={i}>
             <dt className={LABEL}>{row.label}</dt>
             <dd>
-              {row.value !== "" ? (
+              {!row.arrow ? (
                 row.value
               ) : (
                 <>

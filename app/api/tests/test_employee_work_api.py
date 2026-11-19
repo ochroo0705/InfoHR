@@ -388,11 +388,10 @@ def test_order_urls_are_api_paths_and_empty_when_hidden(hr_user: User, hired: Em
     rows = {r["order_pk"]: r for r in body["orders"]}
     row = rows[order.pk]
     # The scan and the documents each show only when their rule allows; a shown link is the API path.
-    assert (row["scan_url"] != "") is employee_access.can_open_order_scan(hr_user, order)
-    assert row["scan_url"] in ("", f"{base}/file")
-    assert row["word_url"] in ("", f"{base}/document")
-    assert row["pdf_url"] in ("", f"{base}/document/pdf")
-    assert (row["word_url"] != "") is (row["pdf_url"] != "")
+    assert employee_access.can_open_order_scan(hr_user, order) and employee_access.can_manage(hr_user)
+    assert row["scan_url"] == f"{base}/file"
+    assert row["word_url"] == f"{base}/document"
+    assert row["pdf_url"] == f"{base}/document/pdf"
     cancelled_row = rows[cancelled.pk]
     assert cancelled_row["scan_url"] == ""
     assert cancelled_row["word_url"] == ""

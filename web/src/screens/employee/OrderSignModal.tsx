@@ -64,6 +64,7 @@ export function OrderSignModal({ pk, orderId, open, onClose }: OrderSignModalPro
   const showSaved = () => {
     // Going back to the saved signature clears the drawing, as the legacy script did.
     padRef.current?.clear();
+    setRemember(false);
     setView("saved");
   };
 
@@ -185,6 +186,7 @@ export function OrderSignModal({ pk, orderId, open, onClose }: OrderSignModalPro
                     <button
                       type="button"
                       onClick={() => void deleteSignature()}
+                      disabled={deleteSaved.isPending}
                       className="rounded px-1.5 py-1 font-medium text-red-600 hover:bg-red-50"
                     >
                       Тийм
@@ -192,6 +194,7 @@ export function OrderSignModal({ pk, orderId, open, onClose }: OrderSignModalPro
                     <button
                       type="button"
                       onClick={() => setConfirmingDelete(false)}
+                      disabled={deleteSaved.isPending}
                       className="rounded px-1.5 py-1 hover:bg-slate-100"
                     >
                       Үгүй
@@ -204,7 +207,7 @@ export function OrderSignModal({ pk, orderId, open, onClose }: OrderSignModalPro
                   </button>
                   <button
                     type="submit"
-                    disabled={pending}
+                    disabled={pending || deleteSaved.isPending}
                     className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700 disabled:opacity-60"
                   >
                     Баталгаажуулж гарын үсэг зурах

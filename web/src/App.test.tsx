@@ -84,7 +84,7 @@ describe("App", () => {
 
 describe("index.html", () => {
   it("contains the pre-paint theme snippet from base.html line 7 verbatim", () => {
-    const snippet = readFileSync(basePath, "utf8").split("\n")[6];
+    const snippet = readFileSync(basePath, "utf8").split(/\r?\n/)[6];
     expect(snippet).toContain("<script>(function(){var t;");
     const index = readFileSync(indexPath, "utf8");
     expect(index).toContain(snippet);

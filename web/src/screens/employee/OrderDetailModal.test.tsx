@@ -37,16 +37,16 @@ function detail(overrides: Partial<OrderDetailOut> = {}): OrderDetailOut {
     status_chip: null,
     awaiting_note: "",
     change_rows: [
-      { label: "Хүчинтэй огноо", value: "2026-01-05", before: "", after: "" },
-      { label: "Хэлтэс, албан тушаал", value: "Хүний нөөц · Мэргэжилтэн", before: "", after: "" },
+      { label: "Хүчинтэй огноо", value: "2026-01-05", before: "", after: "", arrow: false },
+      { label: "Хэлтэс, албан тушаал", value: "Хүний нөөц · Мэргэжилтэн", before: "", after: "", arrow: false },
     ],
     order_heading: "Тушаал № 2026-01 / 2026",
     state_chip: { label: "Бүртгэгдсэн", tone: "rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-900" },
     order_rows: [
-      { label: "Төрөл", value: "Ажилд авах", before: "", after: "" },
-      { label: "Огноо", value: "2026-01-05", before: "", after: "" },
-      { label: "Агуулга", value: "Ажилд авах тушаал", before: "", after: "" },
-      { label: "Гаргасан", value: "Захирал", before: "", after: "" },
+      { label: "Төрөл", value: "Ажилд авах", before: "", after: "", arrow: false },
+      { label: "Огноо", value: "2026-01-05", before: "", after: "", arrow: false },
+      { label: "Агуулга", value: "Ажилд авах тушаал", before: "", after: "", arrow: false },
+      { label: "Гаргасан", value: "Захирал", before: "", after: "", arrow: false },
     ],
     scan: { note: "хавсаргаагүй", url: "" },
     signing: null,
@@ -141,9 +141,9 @@ describe("OrderDetailModal: drawing", () => {
       title: CHANGE_TITLE,
       status_chip: null,
       change_rows: [
-        { label: "Хүчинтэй огноо", value: "2026-03-01", before: "", after: "" },
-        { label: "Албан тушаал", value: "", before: "Нярав", after: "Ахлах нярав" },
-        { label: "Шалтгаан", value: "Дэвшсэн", before: "", after: "" },
+        { label: "Хүчинтэй огноо", value: "2026-03-01", before: "", after: "", arrow: false },
+        { label: "Албан тушаал", value: "", before: "Нярав", after: "Ахлах нярав", arrow: true },
+        { label: "Шалтгаан", value: "Дэвшсэн", before: "", after: "", arrow: false },
       ],
     });
     renderModal();

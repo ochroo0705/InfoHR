@@ -3951,6 +3951,10 @@
             "title": "After",
             "type": "string"
           },
+          "arrow": {
+            "title": "Arrow",
+            "type": "boolean"
+          },
           "before": {
             "title": "Before",
             "type": "string"
@@ -3968,7 +3972,8 @@
           "label",
           "value",
           "before",
-          "after"
+          "after",
+          "arrow"
         ],
         "title": "OrderDetailRowOut",
         "type": "object"

@@ -31,7 +31,7 @@ from recruitment.models import Candidate, Stage, Vacancy, VacancyStatus
 from recruitment.services import files as candidate_files
 from recruitment.services import pipeline
 
-from employees.models import CompanySettings, Employee, Event, EventType, HrOrder, OrderState
+from employees.models import CompanySettings, Employee, Event, EventType, HrOrder, OrderState, OrderType
 from employees.services import events, logins, macs_writes, orders, slots
 from employees.slot_kind import MAIN, TEMPORARY
 
@@ -44,6 +44,7 @@ def run(ctx: Ctx) -> None:
     ChecklistTemplate.objects.update(active=True)  # the starter templates, so the checklists below can start
     _children_and_gifts(ctx)
     _hire_orders(ctx)
+    _other_orders(ctx)
     _events(ctx)
     _slots(ctx)
     _recruitment(ctx)
@@ -142,6 +143,39 @@ def _hire_orders(ctx: Ctx) -> None:
     for i, order in enumerate(hires):
         if i < len(hires) - 5:
             scan = SimpleUploadedFile("hire-order.pdf", b"%PDF-1.4 demo hire order", content_type="application/pdf")
+            orders.attach_signed_file(order, scan, by=hr)
+
+
+# ---- «Бусад тушаал»: orders no change claims (old orders kept by number) ----
+
+
+def _other_orders(ctx: Ctx) -> None:
+    """Two older hire orders on Болд (an earlier stint of work, kept by its order number). The employee page claims only
+    the newest hire order for the hire row, so these list under «Бусад тушаал», the one place the order edit, history
+    and upload pop-ups open from. The parity specs and browser checks need such rows: one registered (edit, history,
+    scan upload) and one signed."""
+    hr, today, bold = ctx["hr"], ctx["today"], ctx["people"]["Болд"]
+    older = (
+        ("Д/101", OrderState.REGISTERED, today - timedelta(days=4000), "Анхны ажилд авсан"),
+        ("Д/102", OrderState.SIGNED, today - timedelta(days=4500), "Хуучин ажилд авсан"),
+    )
+    for number, state, day, summary in older:
+        order = HrOrder.objects.create(
+            employee=bold,
+            is_hire=True,
+            order_type=OrderType.HIRED,
+            state=OrderState.REGISTERED,  # a scan can be attached only to a registered order
+            number=number,
+            number_key=number.strip().casefold(),
+            date=day,
+            summary=summary,
+            issued_by="Захирал",
+            created_by=hr,
+        )
+        if state == OrderState.SIGNED:
+            scan = SimpleUploadedFile(
+                "other-order.pdf", b"%PDF-1.4 demo older hire order", content_type="application/pdf"
+            )
             orders.attach_signed_file(order, scan, by=hr)
 
 

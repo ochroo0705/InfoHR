@@ -91,6 +91,7 @@ class OrderDetailRowOut(Schema):
     value: str  # a plain fact; "" on an arrow row
     before: str  # arrow rows only ("before → after"); "" otherwise
     after: str
+    arrow: bool  # True on an arrow row ("before → after"); React draws the row by this flag, never by an empty value
 
 
 class OrderDetailScanOut(Schema):
@@ -310,11 +311,11 @@ def _api_path(employee: Employee, order: HrOrder, tail: str) -> str:
     return f"/api/v1/employees/{employee.pk}/orders/{order.pk}/{tail}"
 
 
-def _row(label: str, value: str = "", before: str = "", after: str = "") -> dict[str, str]:
-    return {"label": label, "value": value, "before": before, "after": after}
+def _row(label: str, value: str = "", before: str = "", after: str = "", arrow: bool = False) -> dict[str, Any]:
+    return {"label": label, "value": value, "before": before, "after": after, "arrow": arrow}
 
 
-def _change_rows(context: dict[str, Any], order: HrOrder) -> list[dict[str, str]]:
+def _change_rows(context: dict[str, Any], order: HrOrder) -> list[dict[str, Any]]:
     """«Өөрчлөлт»: the valid date, then the arrow rows (or the department and position of a hire), then the reason,
     the pension, the note and, for a cancelled change, the cancel reason. Same order as the template."""
     event = order.event
@@ -324,7 +325,7 @@ def _change_rows(context: dict[str, Any], order: HrOrder) -> list[dict[str, str]
         date_value = f"{order.date:%Y-%m-%d}" if order.date else "—"
     rows = [_row("Хүчинтэй огноо", value=date_value)]
     if context["change_rows"]:
-        rows += [_row(label, before=before, after=after) for label, before, after in context["change_rows"]]
+        rows += [_row(label, before=before, after=after, arrow=True) for label, before, after in context["change_rows"]]
     else:
         department = context["department"] or "—"
         position = context["position"] or "—"
