@@ -268,7 +268,13 @@ export interface FormFieldsProps {
   formId?: string;
   // Receives the first field's native control (boxed: input, textarea or a plain select; not Select, DatePicker or money).
   firstFieldRef?: RefObject<HTMLElement | null>;
+  // Boxed only: the names whose label spans both columns (`md:col-span-2`). Default ["reason"].
+  spanNames?: readonly string[];
+  // Boxed only: the error messages are inline spans (`text-xs text-red-600`), not block spans. Default false.
+  errorInline?: boolean;
 }
+
+const DEFAULT_SPAN_NAMES: readonly string[] = ["reason"];
 
 export function FormFields({
   fields,
@@ -279,6 +285,8 @@ export function FormFields({
   idPrefix,
   formId,
   firstFieldRef,
+  spanNames = DEFAULT_SPAN_NAMES,
+  errorInline = false,
 }: FormFieldsProps): ReactNode {
   const shownOf = (field: FormField) => values[field.name] ?? initialValue(field);
   // Stable across renders, so a native control's ref is not re-run on every render.
@@ -311,7 +319,10 @@ export function FormFields({
       {fields.map((field, index) => {
         const fieldErrors = errorsOf(errors, field.name);
         const invalid = fieldErrors.length > 0;
-        const labelClass = ["block text-sm", field.name === "reason" ? "md:col-span-2" : ""].filter(Boolean).join(" ");
+        const labelClass = ["block text-sm", spanNames.includes(field.name) ? "md:col-span-2" : ""]
+          .filter(Boolean)
+          .join(" ");
+        const errorClass = errorInline ? "text-xs text-red-600" : "block text-xs text-red-600";
         return (
           <label key={field.name} className={labelClass}>
             {field.label}
@@ -327,7 +338,7 @@ export function FormFields({
             />
             {field.help ? <span className="block text-xs text-slate-500">{field.help}</span> : null}
             {fieldErrors.map((message, i) => (
-              <span key={i} className="block text-xs text-red-600">
+              <span key={i} className={errorClass}>
                 {message}
               </span>
             ))}

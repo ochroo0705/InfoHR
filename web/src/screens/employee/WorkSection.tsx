@@ -29,7 +29,7 @@ export function WorkSection({ pk, setup }: { pk: number; setup: EmployeeHeadOut[
       {work ? (
         <>
           <SetupCard setup={setup} pk={pk} />
-          <WorkFacts work={work} pk={pk} />
+          <WorkFacts work={work} />
           <WorkJobs work={work} pk={pk} />
           <WorkOrders work={work} pk={pk} warning={warning} />
           <LeaveBlock work={work} pk={pk} />

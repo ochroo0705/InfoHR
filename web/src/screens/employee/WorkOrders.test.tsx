@@ -9,6 +9,17 @@ vi.mock("../../lib/AppLink", async (importOriginal) => {
   return { ...actual, openLegacyEmployee: vi.fn(), legacyOrigin: () => "http://legacy.test" };
 });
 
+// The own-order row, its «Файл хавсаргах» and «Түүх» call the pop-up openers from the provider. The test renders
+// WorkOrders alone, so the hook returns stubs.
+const popups = vi.hoisted(() => ({
+  openEvent: vi.fn(),
+  openEventCancel: vi.fn(),
+  openOrderEdit: vi.fn(),
+  openOrderUpload: vi.fn(),
+  openOrderHistory: vi.fn(),
+}));
+vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
+
 // A work payload as the API sends it. Only the fields this part reads matter; the rest is filled so the shape is complete.
 function work(overrides: Partial<EmployeeWorkOut> = {}): EmployeeWorkOut {
   return {
@@ -75,6 +86,7 @@ function withOrders(rows: object[], extra: Partial<EmployeeWorkOut> = {}): Emplo
 
 beforeEach(() => {
   vi.mocked(openLegacyEmployee).mockClear();
+  Object.values(popups).forEach((open) => open.mockClear());
 });
 
 afterEach(() => {
@@ -141,29 +153,59 @@ describe("WorkOrders", () => {
     expect(screen.queryByText("PDF татах")).toBeNull();
   });
 
-  it("shows the upload item only when can_upload, and it opens the legacy page", () => {
+  it("shows the upload item only when can_upload, and it opens the upload pop-up with the order's pk", () => {
     render(<WorkOrders work={withOrders([{ ...ownOrder, can_upload: true }])} pk={7} />);
     fireEvent.click(screen.getByText("Файл хавсаргах"));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openOrderUpload).toHaveBeenCalledWith(5);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
-  it("always shows the history item «Түүх», and it opens the legacy page", () => {
+  it("does not show the upload item without can_upload", () => {
+    render(<WorkOrders work={withOrders([ownOrder])} pk={7} />);
+    expect(screen.queryByText("Файл хавсаргах")).toBeNull();
+  });
+
+  it("an upload item on a row with no order pk calls no opener", () => {
+    render(<WorkOrders work={withOrders([{ ...ownOrder, order_pk: null, can_upload: true }])} pk={7} />);
+    fireEvent.click(screen.getByText("Файл хавсаргах"));
+    expect(popups.openOrderUpload).not.toHaveBeenCalled();
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("always shows the history item «Түүх», and it opens the history pop-up with the order's pk", () => {
     render(<WorkOrders work={withOrders([ownOrder])} pk={7} />);
     fireEvent.click(screen.getByText("Түүх"));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openOrderHistory).toHaveBeenCalledWith(5);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
-  it("gives an editable row its id, the hover classes and a click that opens the legacy page", () => {
+  it("a history item on a row with no order pk calls no opener", () => {
+    render(<WorkOrders work={withOrders([{ ...ownOrder, order_pk: null }])} pk={7} />);
+    fireEvent.click(screen.getByText("Түүх"));
+    expect(popups.openOrderHistory).not.toHaveBeenCalled();
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("gives an editable row its id, the hover classes and a click that opens the edit pop-up with the order's pk", () => {
     const { container } = render(<WorkOrders work={withOrders([{ ...ownOrder, can_edit: true }])} pk={7} />);
     const row = container.querySelector("#order-5");
     expect(row?.className).toBe("cursor-pointer hover:bg-violet-50");
     fireEvent.click(row as Element);
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openOrderEdit).toHaveBeenCalledWith(5);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("an editable row with no order pk calls no opener on click", () => {
+    const { container } = render(<WorkOrders work={withOrders([{ ...ownOrder, order_pk: null, can_edit: true }])} pk={7} />);
+    fireEvent.click(container.querySelector("tbody tr") as Element);
+    expect(popups.openOrderEdit).not.toHaveBeenCalled();
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("does not open anything on a row that cannot be edited", () => {
     const { container } = render(<WorkOrders work={withOrders([ownOrder])} pk={7} />);
     fireEvent.click(container.querySelector("#order-5") as Element);
+    expect(popups.openOrderEdit).not.toHaveBeenCalled();
     expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 

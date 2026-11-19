@@ -13,6 +13,17 @@ vi.mock("../../lib/AppLink", async (importOriginal) => {
   return { ...actual, openLegacyEmployee: vi.fn() };
 });
 
+// A row's «Цуцлах» calls the event cancel opener from the provider. The test renders SalarySection alone, so the hook
+// returns stubs.
+const popups = vi.hoisted(() => ({
+  openEvent: vi.fn(),
+  openEventCancel: vi.fn(),
+  openOrderEdit: vi.fn(),
+  openOrderUpload: vi.fn(),
+  openOrderHistory: vi.fn(),
+}));
+vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
+
 // The meta query: no user is signed in unless a test sets `perms` (the signed-in user's permission list).
 const meta = vi.hoisted(() => ({ perms: null as string[] | null }));
 vi.mock("../../shell/useMeta", () => ({
@@ -240,6 +251,7 @@ function mockSalary(data: EmployeeSalaryOut | undefined, error: unknown = null) 
 
 beforeEach(() => {
   vi.mocked(openLegacyEmployee).mockClear();
+  Object.values(popups).forEach((open) => open.mockClear());
   fetchMock.mockReset();
   meta.perms = null;
   pageForm = PAGE_FORM_SI;
@@ -371,12 +383,13 @@ describe("SalarySection", () => {
     expect(screen.queryByRole("button", { name: "Цалин тогтоох" })).toBeNull();
   });
 
-  it("a row's action button takes its label and class from the API and opens the legacy page", () => {
+  it("a row's action button takes its label and class from the API, and «Цуцлах» calls openEventCancel with the event id", () => {
     mockSalary(
       salary({
         rows: [
           row({
             pk: 1,
+            event_id: 21,
             period_text: "2030-01-01 –",
             scheduled: true,
             scheduled_label: "Төлөвлөсөн",
@@ -393,7 +406,30 @@ describe("SalarySection", () => {
     const cancel = screen.getByRole("button", { name: "Цуцлах" });
     expect(cancel.className).toBe("rounded px-2 py-1 text-red-600 hover:bg-red-50");
     fireEvent.click(cancel);
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openEventCancel).toHaveBeenCalledWith(21);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("a cancellable row with no event id (null) calls no opener", () => {
+    mockSalary(
+      salary({
+        rows: [row({ pk: 1, event_id: null, cancellable: true, correctable: false, action_label: "Цуцлах" })],
+        has_rows: true,
+      }),
+    );
+    renderWithPage(<SalarySection pk={7} />);
+    fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
+    expect(popups.openEventCancel).not.toHaveBeenCalled();
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("a correctable row's button still opens the correction pop-up, never the cancel opener", async () => {
+    mockSalary(salary({ rows: [row({ pk: 5, event_id: 21, correctable: true })], has_rows: true }));
+    renderWithPage(<SalarySection pk={7} />);
+    fireEvent.click(screen.getByRole("button", { name: "Засвар" }));
+    await screen.findByRole("heading", { name: "Цалин засварлах" });
+    expect(popups.openEventCancel).not.toHaveBeenCalled();
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("a row without an action label draws no button in its last cell", () => {

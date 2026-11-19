@@ -13,6 +13,16 @@ vi.mock("../../lib/AppLink", async (importOriginal) => {
   return { ...actual, openLegacyEmployee: vi.fn() };
 });
 
+// The «өөрчлөх» chips call the event opener from the provider. The test renders WorkFacts alone, so the hook returns stubs.
+const popups = vi.hoisted(() => ({
+  openEvent: vi.fn(),
+  openEventCancel: vi.fn(),
+  openOrderEdit: vi.fn(),
+  openOrderUpload: vi.fn(),
+  openOrderHistory: vi.fn(),
+}));
+vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
+
 // The meta query: no user is signed in unless a test sets `perms` (the signed-in user's permission list).
 const meta = vi.hoisted(() => ({ perms: null as string[] | null }));
 vi.mock("../../shell/useMeta", () => ({
@@ -238,6 +248,7 @@ function work(overrides: Partial<EmployeeWorkOut> = {}): EmployeeWorkOut {
 
 beforeEach(() => {
   vi.mocked(openLegacyEmployee).mockClear();
+  Object.values(popups).forEach((open) => open.mockClear());
   fetchMock.mockReset();
   meta.perms = null;
   pageForm = PAGE_FORM;
@@ -259,34 +270,48 @@ function valueOf(label: string): HTMLElement {
 
 describe("WorkFacts", () => {
   it("draws the four headings in the template's order", () => {
-    const { container } = renderWithPage(<WorkFacts work={work()} pk={7} />);
+    const { container } = renderWithPage(<WorkFacts work={work()} />);
     const headings = Array.from(container.querySelectorAll("h3")).map((h) => h.textContent);
     expect(headings).toEqual(["Албан тушаал, байршил", "Гэрээ", "Ажлын нөхцөл, цаг", "Хуучин системээс (MACS)"]);
   });
 
   it("shows the job values as text, and the contract end label", () => {
-    renderWithPage(<WorkFacts work={work()} pk={7} />);
+    renderWithPage(<WorkFacts work={work()} />);
     expect(valueOf("Албан тушаал").textContent).toContain("Мэргэжилтэн");
     expect(valueOf("Гэрээ дуусах").textContent).toBe("2027-01-04");
     expect(screen.getByText("2027-01-04", { selector: "span" }).getAttribute("data-field")).toBe("contract_end");
   });
 
-  it("the «өөрчлөлт» chips follow the transfer and contract flags, carry the template title and open the legacy page", () => {
-    renderWithPage(<WorkFacts work={work({ transfer_chip: true, contract_chip: true })} pk={7} />);
+  it("the «өөрчлөлт» chips follow the transfer and contract flags, carry the template title and open the event form", () => {
+    renderWithPage(<WorkFacts work={work({ transfer_chip: true, contract_chip: true })} />);
     const chips = screen.getAllByRole("button", { name: "өөрчлөх" });
     expect(chips).toHaveLength(4); // position, department, manager, contract
     expect(chips[0].getAttribute("title")).toBe("Өөрчлөлт бүртгэж солино (тушаалтай)");
     fireEvent.click(chips[0]);
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openEvent).toHaveBeenCalledWith("transfer");
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("the position, department and manager chips open the transfer event; the contract chip opens the contract event", () => {
+    renderWithPage(<WorkFacts work={work({ transfer_chip: true, contract_chip: true })} />);
+    const chips = screen.getAllByRole("button", { name: "өөрчлөх" });
+    fireEvent.click(chips[0]);
+    fireEvent.click(chips[1]);
+    fireEvent.click(chips[2]);
+    expect(popups.openEvent.mock.calls).toEqual([["transfer"], ["transfer"], ["transfer"]]);
+    fireEvent.click(chips[3]);
+    expect(popups.openEvent).toHaveBeenLastCalledWith("contract");
+    expect(popups.openEvent).toHaveBeenCalledTimes(4);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("no chip is drawn when neither flag is set", () => {
-    renderWithPage(<WorkFacts work={work()} pk={7} />);
+    renderWithPage(<WorkFacts work={work()} />);
     expect(screen.queryByRole("button", { name: "өөрчлөх" })).toBeNull();
   });
 
   it("without the manage right the fields are plain text: no soft box, no hire date", () => {
-    const { container } = renderWithPage(<WorkFacts work={work({ can_manage: false })} pk={7} />);
+    const { container } = renderWithPage(<WorkFacts work={work({ can_manage: false })} />);
     expect(container.querySelectorAll("input, select")).toHaveLength(0);
     expect(screen.queryByText("Анх ажилд орсон огноо")).toBeNull();
     expect(valueOf("Ажлын нөхцөл").textContent).toBe("Хэвийн");
@@ -294,7 +319,7 @@ describe("WorkFacts", () => {
 
   it("a foreign-key field is a combo text box showing its current option, as Django's select.js draws it", () => {
     const { container } = renderWithPage(
-      <WorkFacts work={work({ can_manage: true, office: fk("office", "Алба", "4", "Удирдлагын алба") })} pk={7} />,
+      <WorkFacts work={work({ can_manage: true, office: fk("office", "Алба", "4", "Удирдлагын алба") })} />,
     );
     const office = screen.getByLabelText("Алба") as HTMLInputElement;
     expect(office.tagName).toBe("INPUT");
@@ -310,7 +335,6 @@ describe("WorkFacts", () => {
     renderWithPage(
       <WorkFacts
         work={work({ can_manage: true, job_type: select("job_type", "Ажлын төрөл", "NonSesional", "Тогтмол", "Тогтмол") })}
-        pk={7}
       />,
     );
     const jobType = screen.getByLabelText("Ажлын төрөл") as HTMLSelectElement;
@@ -323,7 +347,7 @@ describe("WorkFacts", () => {
   });
 
   it("an empty foreign key is an empty text box, and an empty plain select keeps an empty option", () => {
-    renderWithPage(<WorkFacts work={work({ can_manage: true, job_type: select("job_type", "Ажлын төрөл") })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true, job_type: select("job_type", "Ажлын төрөл") })} />);
     expect((screen.getByLabelText("Алба") as HTMLInputElement).value).toBe("");
     const jobType = screen.getByLabelText("Ажлын төрөл") as HTMLSelectElement;
     expect(jobType.value).toBe("");
@@ -338,7 +362,6 @@ describe("WorkFacts", () => {
           first_hire_date: date("first_hire_date", "Анх ажилд орсон огноо", "2026-01-05"),
           probation_end: date("probation_end", "Туршилтын хугацаа дуусах", ""),
         })}
-        pk={7}
       />,
     );
     const hire = screen.getByLabelText("Анх ажилд орсон огноо") as HTMLInputElement;
@@ -357,12 +380,12 @@ describe("WorkFacts", () => {
   });
 
   it("the hire-date box is drawn only when the API sends it", () => {
-    renderWithPage(<WorkFacts work={work({ can_manage: true, first_hire_date: null })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true, first_hire_date: null })} />);
     expect(screen.queryByText("Анх ажилд орсон огноо")).toBeNull();
   });
 
   it("the MACS block shows the legacy values as sent", () => {
-    renderWithPage(<WorkFacts work={work({ macs_taken_leave: "Тийм", macs_last_order_text: "Ажилд авах" })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ macs_taken_leave: "Тийм", macs_last_order_text: "Ажилд авах" })} />);
     expect(valueOf("Урт амралттай").textContent).toBe("Тийм");
     expect(valueOf("Сүүлийн тушаалын агуулга").textContent).toBe("Ажилд авах");
   });
@@ -370,7 +393,7 @@ describe("WorkFacts", () => {
 
 describe("WorkFacts: boxes bound to the page form", () => {
   it("a loaded box is bound to the page form: form attribute, name and the server's choices", async () => {
-    renderWithPage(<WorkFacts work={work({ can_manage: true })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
     const jobType = screen.getByLabelText("Ажлын төрөл") as HTMLSelectElement;
     expect(jobType.name).toBe("job_type");
@@ -380,7 +403,7 @@ describe("WorkFacts: boxes bound to the page form", () => {
   });
 
   it("editing branch marks the page dirty and the save sends its pk", async () => {
-    renderWithPage(<WorkFacts work={work({ can_manage: true })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
     expect(bar().classList.contains("hidden")).toBe(true);
     pick("Салбар", "Дархан");
@@ -394,7 +417,7 @@ describe("WorkFacts: boxes bound to the page form", () => {
       status: 200,
       body: { ...OK_RESULT, ok: false, field_errors: { branch: ["Салбараа сонгоно уу."] }, loaded: "L2" },
     });
-    renderWithPage(<WorkFacts work={work({ can_manage: true })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
     pick("Салбар", "Дархан");
     saveNow();
@@ -407,7 +430,7 @@ describe("WorkFacts: boxes bound to the page form", () => {
       status: 200,
       body: { ...OK_RESULT, ok: false, conflicts: { branch: "Дархан" }, loaded: "L2" },
     });
-    renderWithPage(<WorkFacts work={work({ can_manage: true })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
     pick("Салбар", "Дархан");
     saveNow();
@@ -420,13 +443,13 @@ describe("WorkFacts: boxes bound to the page form", () => {
   });
 
   it("a viewer without the manage right gets no box and no page-form request", () => {
-    const { container } = renderWithPage(<WorkFacts work={work({ can_manage: false })} pk={7} />, false);
+    const { container } = renderWithPage(<WorkFacts work={work({ can_manage: false })} />, false);
     expect(container.querySelectorAll("input, select, textarea")).toHaveLength(0);
     expect(callsTo("/page-form")).toBe(0);
   });
 
   it("an emptied number box sends an empty value", async () => {
-    renderWithPage(<WorkFacts work={work({ can_manage: true })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
     fireEvent.change(screen.getByLabelText("Салбарт ажилласан жил"), { target: { value: "" } });
     saveNow();
@@ -434,7 +457,7 @@ describe("WorkFacts: boxes bound to the page form", () => {
   });
 
   it("a date box edit sends the typed ISO date", async () => {
-    renderWithPage(<WorkFacts work={work({ can_manage: true })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
     fireEvent.change(screen.getByLabelText("Туршилтын хугацаа дуусах"), { target: { value: "2027-03-01" } });
     saveNow();
@@ -443,7 +466,7 @@ describe("WorkFacts: boxes bound to the page form", () => {
 
   it("with canAdd (lists.manage_lists) a combo box still draws no add row, since no box has a quick-add URL", async () => {
     meta.perms = ["lists.manage_lists"];
-    renderWithPage(<WorkFacts work={work({ can_manage: true })} pk={7} />);
+    renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
     act(() => screen.getByLabelText("Салбар").focus());
     const list = screen.getByRole("listbox");

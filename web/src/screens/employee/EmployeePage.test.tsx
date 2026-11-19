@@ -15,6 +15,14 @@ vi.mock("../../lib/AppLink", async (importOriginal) => {
   return { ...actual, openLegacyEmployee: vi.fn() };
 });
 
+// The event pop-up is stubbed here: the page test checks which type the menu opens, not the form (EventModal.test covers it).
+vi.mock("./EventModal", async () => {
+  const { createElement } = await import("react");
+  return {
+    EventModal: (props: { type: string }) => createElement("div", { "data-testid": "event-modal", "data-type": props.type }),
+  };
+});
+
 vi.mock("../../widgets/confirm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../widgets/confirm")>();
   return { ...actual, confirm: vi.fn() };
@@ -228,12 +236,13 @@ describe("EmployeePage", () => {
     expect(container.querySelector("#tab-personal")).not.toBeNull();
   });
 
-  it("the event menu item calls openLegacyEmployee with the pk", async () => {
+  it("the event menu item opens the event pop-up for its type, not the legacy page", async () => {
     answerHead(200, head({ event_menu: [{ value: "transfer", label: "Албан тушаал солих" }] }));
     renderAt("/employees/7/", newClient());
     fireEvent.click(await screen.findByText("Өөрчлөлт бүртгэх ▾"));
     fireEvent.click(screen.getByRole("button", { name: "Албан тушаал солих" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(screen.getByTestId("event-modal").getAttribute("data-type")).toBe("transfer");
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("a 403 from the API renders the 403 screen", async () => {

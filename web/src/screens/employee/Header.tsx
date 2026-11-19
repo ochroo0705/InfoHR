@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { EmployeeHeadOut } from "../../api/employee";
-import { AppLink, openLegacyEmployee } from "../../lib/AppLink";
+import { AppLink } from "../../lib/AppLink";
 import { photoSrc, photoSrcSet } from "../../lib/photo";
 import { ClashChoice } from "./ClashChoice";
+import { useEmployeePopups } from "./EmployeePopups";
 import { LoginModal } from "./LoginModal";
 import { usePageField, usePageFormState } from "./PageForm";
 
 // Port of `#header` (employees/_header.html, _state.html, _activity_latest.html). Classes, Mongolian text, order, ids
 // and hooks are copied from the templates. For a manager the names, the code, the work phone and the e-mail are
 // edit-on-the-spot boxes of the page form (the `field` tag with the INLINE look, UI_RULES §2e), and the photo has its
-// own controls. The login is a pop-up of its own (LoginModal). Every other write (event menu) is a full page load into
-// Django (openLegacyEmployee, ruling D2).
+// own controls. The login is a pop-up of its own (LoginModal). The event menu opens the event pop-up for its type
+// (useEmployeePopups, Task 14).
 // React never works out a right or a state: it renders what the API sends.
 
 type Head = EmployeeHeadOut;
@@ -127,9 +128,9 @@ async function photoPreview(file: File, target: number): Promise<string | null> 
 export function Header({ head, onOpenActivity }: { head: Head; onOpenActivity: () => void }) {
   const { can, facts, state, latest_activity: latest, next_event: next } = head;
   const form = usePageFormState();
+  const { openEvent } = useEmployeePopups();
   const photo = head.photo_url;
   const manage = can.manage;
-  const edit = () => openLegacyEmployee(head.pk);
   // The login pop-up. Each open gets a new serial, so the pop-up starts afresh (the password step never lingers).
   const [login, setLogin] = useState({ serial: 0, open: false });
   const dash = (value: string) => value || "—";
@@ -332,7 +333,11 @@ export function Header({ head, onOpenActivity }: { head: Head; onOpenActivity: (
                       <button
                         key={item.value}
                         type="button"
-                        onClick={edit}
+                        onClick={(event) => {
+                          // The Django menu closes after a pick (_header.html: removeAttribute('open') on the details).
+                          event.currentTarget.closest("details")?.removeAttribute("open");
+                          openEvent(item.value);
+                        }}
                         className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
                       >
                         {item.label}

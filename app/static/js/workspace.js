@@ -397,6 +397,24 @@
     if (e.target instanceof Element && e.target.id === "ws-chat-pane") syncDock();
   });
 
+  // The wheel over the dock never reaches the page behind it: the chat log (or the SQL box) takes the scroll while it
+  // can move, and at its end the wheel is swallowed instead of passed on (CSS overscroll-behavior alone is not enough
+  // when the log has nothing to scroll, or a new wheel gesture starts at the end).
+  document.addEventListener("wheel", (e) => {
+    const pane = chatPane();
+    if (!pane || !(e.target instanceof Element) || !pane.contains(e.target) || e.ctrlKey) return;
+    let el = e.target;
+    while (el && el !== pane) {
+      if (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) {
+        const atTop = el.scrollTop <= 0;
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+        if ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom)) return; // this box can still scroll that way
+      }
+      el = el.parentElement;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
   // «Зөв гэж тэмдэглэх» (form[data-ws-verify]): one POST for the source answer; on success the button is replaced by the
   // «илгээлээ» line. A failure only enables the button again.
   document.addEventListener("submit", (e) => {
@@ -534,15 +552,25 @@
   // height: scrolled to the end, the last row stays just above the dock. (pb-44 in the template is the no-script fallback.)
   const dock = document.getElementById("ws-chat-pane");
   const dockSpace = dock && dock.closest("[data-ws-dock-space]");
+  // One scrollbar, not two. report_sticky.js ends every .ptable-fit frame at the bottom of the screen, so the page itself
+  // has nothing to scroll and the table's own scrollbar reaches every row. The dock floats over the bottom of the
+  // frame, so the frame gets blank space at its end (padding-bottom) as tall as the dock: scrolled to the end, the last
+  // row stops just above the dock. The frame is replaced when the table reloads, hence the refit after that swap.
   function fitDockSpace() {
     if (!dock || !dockSpace) return;
     const bottomGap = parseFloat(getComputedStyle(dock).bottom) || 0;
-    dockSpace.style.paddingBottom = Math.ceil(dock.offsetHeight + bottomGap + 16) + "px";
+    const band = Math.ceil(dock.offsetHeight + bottomGap + 16);
+    dockSpace.style.paddingBottom = "0px";
+    const frame = document.querySelector("#ws-table-pane .ptable-fit");
+    if (frame) frame.style.paddingBottom = band + "px";
   }
   if (dock && dockSpace) {
     fitDockSpace();
     if (window.ResizeObserver) new ResizeObserver(fitDockSpace).observe(dock);
     window.addEventListener("resize", fitDockSpace);
+    document.addEventListener("htmx:afterSettle", (e) => {
+      if (e.target instanceof Element && e.target.id === "ws-table-pane") fitDockSpace();
+    });
   }
   // A page shown from the browser's history may restore checkbox states: the bar follows the boxes it finds.
   window.addEventListener("pageshow", () => sync());

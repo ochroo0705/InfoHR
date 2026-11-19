@@ -5,8 +5,8 @@ version), so undo sits next to the reply it takes back. The current SQL is folde
 form posts to ws_ask and the fragment that comes back replaces the pane. While the answer is on its way, workspace.js
 copies the <template> below into the log (the sent line and a «working» line); a refused line comes back in the box.
 Line text and SQL are escaped by Django: nothing here is marked safe.{% endcomment %}
-<div class="flex flex-col gap-3 text-sm">
-  <div id="ws-chat-log" role="log" aria-live="polite" class="flex max-h-24 flex-col gap-2 overflow-y-auto group-data-[expanded]/dock:max-h-72 overscroll-contain empty:hidden has-[:not([hidden])]:pb-1">
+<div class="flex min-h-0 flex-col gap-3 text-sm">
+  <div id="ws-chat-log" role="log" aria-live="polite" class="flex min-h-[3rem] max-h-24 shrink flex-col gap-2 overflow-y-auto group-data-[expanded]/dock:max-h-72 overscroll-contain empty:hidden has-[:not([hidden])]:pb-1">
     {% for message in chat_messages %}
     <div class="flex {% if message.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
       <p class="max-w-[85%] break-words rounded-lg px-3 py-2 {% if message.role == 'user' %}bg-violet-100 text-slate-800{% else %}bg-slate-100 text-slate-800{% endif %}"><span class="sr-only">{% if message.role == 'user' %}Та: {% else %}Туслах: {% endif %}</span>{{ message.text }}</p>
@@ -42,7 +42,7 @@ Line text and SQL are escaped by Django: nothing here is marked safe.{% endcomme
   {% if chat_sql %}
   <details class="hidden group-data-[expanded]/dock:block">
     <summary class="cursor-pointer select-none text-violet-800">SQL харах</summary>
-    <pre class="mt-1 whitespace-pre-line break-words bg-slate-50 p-2 font-mono text-xs">{{ chat_sql }}</pre>
+    <pre class="mt-1 max-h-32 overflow-auto whitespace-pre-line break-words bg-slate-50 p-2 font-mono text-xs">{{ chat_sql }}</pre>
   </details>
   {% endif %}
 

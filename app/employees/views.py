@@ -2,7 +2,6 @@ import io
 import logging
 import re
 from datetime import date, timedelta
-from decimal import Decimal
 from typing import Any
 from urllib.parse import urlencode
 
@@ -12,7 +11,6 @@ from config import batching
 from config.params import id_param as _id_param
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.forms.utils import ErrorDict
 from django.http import (
     FileResponse,
     Http404,
@@ -39,11 +37,9 @@ from employees.forms import (
     CancelEventForm,
     CreateLoginForm,
     EmployeeForm,
-    EventForm,
     HireAddressForm,
     JobCorrectionForm,
     OrderFieldsForm,
-    OrderUploadForm,
     PersonalRowForm,
     SalaryCorrectionForm,
     SetSalaryForm,
@@ -53,8 +49,6 @@ from employees.models import (
     CompanySettings,
     Department,
     Employee,
-    Event,
-    EventType,
     HrOrder,
     JobRecord,
     OrderSigning,
@@ -62,11 +56,12 @@ from employees.models import (
     OrderType,
 )
 from employees.services import (
-    events,
+    event_page,
     hire_page,
     history,
     logins,
     order_docs,
+    order_popups,
     order_register,
     order_signing,
     orders,
@@ -90,8 +85,7 @@ from employees.services.detail_page import (  # noqa: F401  (tests import these 
 from employees.services.detail_page import (
     needs_setup as _needs_setup,
 )
-from employees.services.events import ALLOWED_FIELDS, SALARY_TYPES, EventError
-from employees.services.history import HistoryError, salary_on
+from employees.services.history import HistoryError
 from employees.services.orders import OrderError
 from employees.services.page_writes import (  # noqa: F401  (tests and other modules import these names from here)
     DB_REFUSED,
@@ -792,174 +786,30 @@ def personal_delete(request: HttpRequest, pk: int, kind: str, key: int) -> HttpR
 
 
 # --- Events ---
-# Types whose change can need an order (the service decides; a pay or leave change never does).
-ORDER_TYPES = frozenset(EventType.values) - {EventType.SALARY_CHANGE, EventType.LEAVE_START, EventType.LEAVE_RETURN}
-
-
-def _parse_day(value: str | None) -> date | None:
-    try:
-        return date.fromisoformat(value) if value else None
-    except ValueError:
-        return None
-
-
-def _event_initial(employee: Employee, type: str, effective: date, with_salary: bool) -> dict[str, Any]:
-    """The values in force on `effective`, so the form shows what would change."""
-    initial: dict[str, Any] = {"effective": effective}
-    job = history.job_on(employee, effective)
-    if job is not None:
-        for name in ALLOWED_FIELDS[type]:
-            initial[name] = getattr(job, f"{name}_id" if name in ("position", "department", "manager") else name)
-    current = salary_on(employee, effective) if with_salary else None
-    if current is not None:
-        initial["salary"] = current.base_salary
-    return initial
-
-
-def _event_summary(employee: Employee, form: EventForm) -> str:
-    """'Нягтлан → Ахлах нягтлан · 2026-11-01-нээс' for the values typed so far."""
-    data = getattr(form, "cleaned_data", {})
-    effective = data.get("effective")
-    job = history.job_on(employee, effective) if effective else None
-    if effective is None or job is None:
-        return ""
-    new = {f: data[f] for f in form.job_fields if f in data and getattr(job, f) != data[f]}
-    parts = [f"{d['old']} → {d['new']}" for d in events._diffs(job, new)]
-    salary = data.get("salary")
-    current = salary_on(employee, effective)
-    if form.with_salary and isinstance(salary, Decimal) and (current is None or current.base_salary != salary):
-        parts.append(f"{current.base_salary if current else '—'} → {salary}")
-    return f"{'; '.join(parts)} · {effective:%Y-%m-%d}-нээс" if parts else ""
-
-
 @login_required
 def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
-    employee, user, today = _employee_for(request, pk), _user(request), timezone.localdate()
-    if type not in EventType.values:
-        raise Http404
-    _require(access.can_record_event(user, type))
-    with_salary = access.can_manage_salary(user) and type in SALARY_TYPES
-    missing = events.start_placement_missing(employee)  # QC 1d: MACS-only employee with no department/position
-    effective: date | None
-    order_form = None
-    if type in ORDER_TYPES and orders.event_asks_for_order(type):
-        # A form rebuilt from an open one (kind change) keeps the order fields already typed, unvalidated.
-        typed_order = {
-            name: request.GET[f"order-{name}"]
-            for name in OrderFieldsForm.base_fields
-            if "prev_effective" in request.GET and f"order-{name}" in request.GET
-        }
-        order_form = OrderFieldsForm(request.POST or None, prefix="order", initial=typed_order)
-    # A date typed in an open form (GET), read by the form itself: DateField takes more formats than ISO.
-    typed_date: EventForm | None = None
-    if request.method == "GET" and request.GET.get("effective") and not request.GET.get("summary"):
-        typed_date = EventForm(
-            type, request.GET, with_salary=with_salary, start_missing=missing, user=user, employee=employee
-        )
-        typed_date.full_clean()
-    prev_value: str | None = None  # the hidden prev_effective, when it must differ from the form's date
+    employee, user = _employee_for(request, pk), _user(request)
     if request.method == "POST":
-        form = EventForm(
-            type, request.POST, with_salary=with_salary, start_missing=missing, user=user, employee=employee
-        )
-        if form.is_valid() and (order_form is None or order_form.is_valid()):
-            data = form.cleaned_data
-            salary = data.get("salary") if with_salary else None
-            current = salary_on(employee, data["effective"])
-            if salary is not None and type != EventType.SALARY_CHANGE and current and current.base_salary == salary:
-                salary = None  # the form is pre-filled with the current pay; untouched means no pay change
-            order_kwargs: dict[str, Any] = (
-                {
-                    "order_number": order_form.cleaned_data["number"],
-                    "order_date": order_form.cleaned_data["date"],
-                    "order_summary": order_form.cleaned_data["summary"],
-                    "order_issued_by": order_form.cleaned_data["issued_by"],
-                }
-                if order_form is not None
-                else {}
-            )
-            if type == EventType.TERMINATION:
-                from checklists.services import gate  # local: checklists imports employees
-
-                fired = data.get("fired_reason")
-                gate.prepare(
-                    employee, reason=str(fired.pk) if fired is not None else None, anchor_day=data["effective"], by=user
-                )
-                order_kwargs["offboarding_override"] = data.get("offboarding_override", "")
-            if type == EventType.REHIRE:
-                order_kwargs["slot_override"] = data.get("slot_override", "")
-            try:
-                event = events.record(
-                    employee,
-                    type=type,
-                    effective=data["effective"],
-                    changes={f: data[f] for f in form.job_fields},
-                    salary=salary,
-                    reason=data.get("reason", ""),
-                    fired_reason=data.get("fired_reason"),
-                    pension=bool(data.get("pension")),
-                    note=data["note"],
-                    by=user,
-                    expected_return=data.get("expected_return"),
-                    start_department=data.get("start_department"),
-                    start_position=data.get("start_position"),
-                    **order_kwargs,
-                )
-                _remember_warning(request, HrOrder.objects.filter(event=event).first())
-                return _done(employee)
-            except EventError as error:
-                for name, message in error.errors.items():
-                    if name.startswith("order_") and order_form is not None:
-                        order_form.add_service_errors({name: message})
-                    else:
-                        form.add_error(name if name in form.fields else None, message)
-        effective = form.cleaned_data.get("effective") if hasattr(form, "cleaned_data") else None
-        # The hidden prev_effective must be a real date or empty: the typed text would break the next date change.
-        if effective is not None:
-            prev_value = effective.isoformat()
-        else:
-            previous_valid = _parse_day(request.POST.get("prev_effective"))
-            prev_value = previous_valid.isoformat() if previous_valid else ""
-        summary = _event_summary(employee, form)
+        outcome = event_page.submit(user, employee, type, request.POST)
+        if outcome.ok:
+            _remember_warning(request, outcome.order)
+            return _done(employee)
+        page = outcome.page
+        if not request.POST and page.order_form is not None:
+            # The old view bound the order block only to a non-empty POST: an empty POST shows it unbound.
+            page.order_form = OrderFieldsForm(None, prefix="order")
     elif request.GET.get("summary"):
-        form = EventForm(
-            type, request.GET, with_salary=with_salary, start_missing=missing, user=user, employee=employee
-        )
-        form.full_clean()
-        return render(request, "employees/_event_summary.html", {"summary": _event_summary(employee, form)})
-    elif typed_date is not None and "effective" in typed_date.errors:
-        # A date typed but not real (2026-13-45): keep what was typed and show the error, never replace it with today.
-        # The hidden prev_effective stays the last real date, so a correction keeps what was typed meanwhile.
-        form = typed_date
-        # Only the date's own error: the other fields are untouched while the date is still being typed.
-        form._errors = ErrorDict((name, errs) for name, errs in typed_date.errors.items() if name == "effective")
-        effective = None
-        summary = ""
-        previous_valid = _parse_day(request.GET.get("prev_effective"))
-        prev_value = previous_valid.isoformat() if previous_valid else ""
+        summary = event_page.summary_line(user, employee, type, request.GET)
+        return render(request, "employees/_event_summary.html", {"summary": summary})
     else:
-        effective = typed_date.cleaned_data["effective"] if typed_date is not None else today
-        initial = _event_initial(employee, type, effective, with_salary)
-        initial["reason"] = request.GET.get("reason", "")
-        initial["note"] = request.GET.get("note", "")
-        previous = _parse_day(request.GET.get("prev_effective"))
-        if previous is not None:
-            # The date was changed in an open form: keep what the user edited, refill
-            # the rest with the values in force on the new date.
-            typed = EventForm(
-                type, request.GET, with_salary=with_salary, start_missing=missing, user=user, employee=employee
-            )
-            before = _event_initial(employee, type, previous, with_salary)
-            for name, field in typed.fields.items():
-                if name not in ("effective", "reason", "note") and name in request.GET:
-                    value = typed[name].data
-                    if field.has_changed(before.get(name), value):
-                        initial[name] = value
-        form = EventForm(
-            type, initial=initial, with_salary=with_salary, start_missing=missing, user=user, employee=employee
+        page = event_page.build_page(
+            user, employee, type, request.GET, prev_effective=request.GET.get("prev_effective")
         )
-        summary = ""
-    form.fields["effective"].widget.attrs.update(
+    # The htmx attributes need this request's path, so the view adds them. A date error makes the service set the
+    # text-box flag; it stays last, as the view always wrote it.
+    effective_attrs = page.form.fields["effective"].widget.attrs
+    datepicker = effective_attrs.pop("data-datepicker", None)
+    effective_attrs.update(
         {
             "hx-get": request.path,
             "hx-trigger": "change",
@@ -971,67 +821,35 @@ def event_form(request: HttpRequest, pk: int, type: str) -> HttpResponse:
             "hx-params": "not csrfmiddlewaretoken",
         }
     )
-    if form.is_bound and "effective" in form.errors:
-        # A date box would blank the value it cannot hold: a text box keeps it, and datepicker.js still enhances it.
-        form.fields["effective"].widget.input_type = "text"
-        form.fields["effective"].widget.attrs["data-datepicker"] = ""
-    placement = type in events.PLACEMENT_TYPES
+    if datepicker is not None:
+        effective_attrs["data-datepicker"] = datepicker
     context = {
-        "title": events.PLACEMENT_LABEL if placement else EventType(type).label,
+        "title": page.title,
         "kinds": [
-            (reverse("employees:event", args=[employee.pk, t.value]), t.label, t == type)
-            for t in events.PLACEMENT_TYPES
-        ]
-        if placement
-        else [],
-        "form": form,
-        "prev_effective": prev_value,
-        "order_form": order_form,
+            (reverse("employees:event", args=[employee.pk, value]), label, selected)
+            for value, label, selected in page.kinds
+        ],
+        "form": page.form,
+        "prev_effective": page.prev_effective,
+        "order_form": page.order_form,
         "action": request.path,
-        "summary": summary,
-        # Rebuilt from an open form (kind change or a failed save): no open animation.
-        "reload": request.method == "POST" or "prev_effective" in request.GET,
-        "when": "past" if effective and effective < today else "future" if effective and effective > today else "",
+        "summary": page.summary,
+        "reload": page.reload,
+        "when": page.when,
     }
     return render(request, "employees/_event_form.html", context)
 
 
 @login_required
 def event_cancel(request: HttpRequest, pk: int, event_id: int) -> HttpResponse:
-    employee = _employee_for(request, pk)
-    event: Event = get_object_or_404(employee.events, pk=event_id)
-    _require(access.can_cancel(_user(request), event))
-    if event.status(timezone.localdate()) not in ("scheduled", "awaiting_signature"):
-        raise Http404
-    order = HrOrder.objects.filter(event=event).first()
-    form = CancelEventForm(request.POST or None, signed=order is not None and order.state == OrderState.SIGNED)
-    if request.method == "POST" and form.is_valid():
-        try:
-            events.cancel(
-                event,
-                reason=form.cleaned_data["reason"],
-                by=_user(request),
-                cancel_order_no=form.cleaned_data.get("cancel_order_no", ""),
-            )
+    employee, user = _employee_for(request, pk), _user(request)
+    page = event_page.cancel_page(user, employee, event_id)
+    form = page.form
+    if request.method == "POST" and request.POST:  # an empty POST shows the unbound form, as before
+        ok, form = event_page.submit_cancel(user, employee, event_id, request.POST)
+        if ok:
             return _done(employee)
-        except EventError as error:
-            for name, message in error.errors.items():
-                form.add_error(name if name in form.fields else None, message)
-    hint = "Өөрчлөлт цуцлагдсан гэж түүхэнд үлдэнэ."
-    if order is not None:
-        hint = "Өөрчлөлт болон түүний тушаал цуцлагдсан гэж түүхэнд үлдэнэ."
-    if event.applied_at is not None:  # events.cancel undoes the job and salary rows of an applied change
-        hint += " Өөрчлөлт аль хэдийн бүртгэгдсэн бол ажилтны албан тушаал, цалин өмнөх утгад буцна."
-    if order is not None and order.state == OrderState.SIGNED:
-        hint += f" Цуцлах дугаар нь № {order.number} тушаалыг хүчингүй болгосон ШИНЭ тушаалын дугаар."
-    return _modal(
-        request,
-        f"Цуцлах: {event.get_type_display()} ({event.effective:%Y-%m-%d})",
-        form,
-        request.path,
-        hint,
-        submit_label="Цуцлах",
-    )
+    return _modal(request, page.title, form, request.path, page.hint, submit_label="Цуцлах")
 
 
 # --- Orders (тушаал) ---
@@ -1042,57 +860,29 @@ def _order_for(request: HttpRequest, pk: int, order_id: int) -> tuple[Employee, 
 
 @login_required
 def order_edit(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
-    employee, order = _order_for(request, pk, order_id)
-    _require(access.can_manage(_user(request)))
-    if order.state not in (OrderState.PENDING, OrderState.REGISTERED):
-        raise Http404  # signed and cancelled orders are final
-    suggested = ""
+    employee, order = _order_for(request, pk, order_id)  # a foreign order is a 404 before the manage right is checked
+    user = _user(request)
     if request.method == "POST":
-        form = OrderFieldsForm(request.POST, required=True, date_required=True)
-        if form.is_valid():
-            data = form.cleaned_data
-            try:
-                done = orders.register(
-                    order,
-                    number=data["number"],
-                    date=data["date"],
-                    summary=data["summary"],
-                    issued_by=data["issued_by"],
-                    by=_user(request),
-                )
-                _remember_warning(request, done)
-                return _done(employee)
-            except OrderError as error:
-                form.add_service_errors(error.errors)
+        ok, popup, done = order_popups.submit_edit(user, employee, order, request.POST)
+        if ok:
+            _remember_warning(request, done)
+            return _done(employee)
     else:
-        suggested = "" if order.number else orders.suggest_number(date.today())
-        form = OrderFieldsForm(
-            required=True,
-            date_required=True,
-            initial={
-                "number": order.number or suggested,
-                "date": order.date,
-                "summary": order.summary,
-                "issued_by": order.issued_by,
-            },
-        )
-    hint = "Дугаарыг автоматаар санал болгосон, шаардлагатай бол өөрчилнө үү." if suggested else ""
-    return _modal(request, f"Тушаал: {order.get_order_type_display()}", form, request.path, hint)
+        popup = order_popups.edit_popup(user, employee, order)
+    return _modal(request, popup.title, popup.form, request.path, popup.hint)
 
 
 @login_required
 def order_upload(request: HttpRequest, pk: int, order_id: int) -> HttpResponse:
     employee, order = _order_for(request, pk, order_id)
-    _require(access.can_manage(_user(request)))
-    form = OrderUploadForm(request.POST or None, request.FILES or None)
-    if request.method == "POST" and form.is_valid():
-        try:
-            orders.attach_signed_file(order, form.cleaned_data["file"], by=_user(request))
+    user = _user(request)
+    if request.method == "POST" and (request.POST or request.FILES):  # an empty POST shows the unbound form, as before
+        ok, popup = order_popups.submit_upload(user, order, request.FILES.get("file"))
+        if ok:
             return _done(employee)
-        except OrderError as error:
-            for message in error.errors.values():
-                form.add_error(None, message)
-    return _modal(request, "Гарын үсэгтэй файл хавсаргах", form, request.path)
+    else:
+        popup = order_popups.upload_popup(user, order)
+    return _modal(request, popup.title, popup.form, request.path)
 
 
 # --- On-screen signing (order-signing board): the pop-up, the signing POST, the saved signature pictures ---

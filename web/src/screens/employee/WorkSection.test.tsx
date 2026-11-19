@@ -16,6 +16,17 @@ vi.mock("../../api/employee", async (importOriginal) => {
   return { ...actual, useEmployeeWork: vi.fn() };
 });
 
+// The job, order, salary and fact rows call the pop-up openers from the provider. The section is rendered alone, so the
+// hook returns stubs.
+const popups = vi.hoisted(() => ({
+  openEvent: vi.fn(),
+  openEventCancel: vi.fn(),
+  openOrderEdit: vi.fn(),
+  openOrderUpload: vi.fn(),
+  openOrderHistory: vi.fn(),
+}));
+vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
+
 // A work payload with every field the Work tab reads, so each child renders from real data. Soft fields are plain text.
 function field(text: string) {
   return { kind: "text", value: text, choice: "", text };

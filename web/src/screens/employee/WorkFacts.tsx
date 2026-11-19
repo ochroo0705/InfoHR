@@ -1,12 +1,13 @@
 import type { EmployeeWorkOut, WorkFieldOut } from "../../api/employee";
-import { openLegacyEmployee } from "../../lib/AppLink";
 import { PageSoft, Soft } from "./Soft";
+import { useEmployeePopups } from "./EmployeePopups";
 
 // Port of the job and contract facts of `_tab_work.html`: «Албан тушаал, байршил», the second row (хавсарсан, Алба,
 // Хэсэг, Салбар), «Гэрээ», «Ажлын нөхцөл, цаг» and «Хуучин системээс (MACS)». The setup card (Task 11) comes before it,
 // and the waiting and history tables (WorkJobs) after it. Classes, Mongolian text, element order and data-field hooks
 // are copied from the template. React renders only the strings and flags the API sends: the widget for a soft box
-// comes from `kind` (select, date, number). Every write opens the Django employee page (openLegacyEmployee, ruling D2).
+// comes from `kind` (select, date, number). The «өөрчлөх» chips open the event form of their type (the provider's
+// openEvent: "transfer" or "contract").
 
 type Work = EmployeeWorkOut;
 
@@ -43,12 +44,13 @@ function Editable({ manage, field, width }: { manage: boolean; field: WorkFieldO
   return manage ? <BoundField field={field} width={width} /> : <>{field.text}</>;
 }
 
-// The «өөрчлөх» chip beside a field (`_change_chip.html`): a legacy pop-up, a full page load (ruling D2).
-function ChangeChip({ pk }: { pk: number }) {
+// The «өөрчлөх» chip beside a field (`_change_chip.html`): opens the event form of its type (`transfer` or `contract`).
+function ChangeChip({ type }: { type: "transfer" | "contract" }) {
+  const { openEvent } = useEmployeePopups();
   return (
     <button
       type="button"
-      onClick={() => openLegacyEmployee(pk)}
+      onClick={() => openEvent(type)}
       title={CHANGE_TITLE}
       className="ml-1 inline-flex items-center gap-1 rounded-md border border-violet-200 px-1.5 py-0.5 align-middle text-xs text-violet-700 hover:border-violet-400 hover:bg-violet-50"
     >
@@ -70,7 +72,7 @@ function ChangeChip({ pk }: { pk: number }) {
   );
 }
 
-export function WorkFacts({ work, pk }: { work: Work; pk: number }) {
+export function WorkFacts({ work }: { work: Work }) {
   const manage = work.can_manage;
   return (
     <>
@@ -80,21 +82,21 @@ export function WorkFacts({ work, pk }: { work: Work; pk: number }) {
           <dt className="text-slate-500">Албан тушаал</dt>
           <dd>
             {work.position}
-            {work.transfer_chip && <ChangeChip pk={pk} />}
+            {work.transfer_chip && <ChangeChip type="transfer" />}
           </dd>
         </div>
         <div data-field="department">
           <dt className="text-slate-500">Хэлтэс</dt>
           <dd>
             {work.department}
-            {work.transfer_chip && <ChangeChip pk={pk} />}
+            {work.transfer_chip && <ChangeChip type="transfer" />}
           </dd>
         </div>
         <div data-field="manager">
           <dt className="text-slate-500">Шууд удирдлага</dt>
           <dd>
             {work.manager}
-            {work.transfer_chip && <ChangeChip pk={pk} />}
+            {work.transfer_chip && <ChangeChip type="transfer" />}
           </dd>
         </div>
       </dl>
@@ -135,7 +137,7 @@ export function WorkFacts({ work, pk }: { work: Work; pk: number }) {
           <dd>
             <span data-field="contract_type">{work.contract_type}</span>{" "}
             <span data-field="contract_no">{work.contract_no}</span>
-            {work.contract_chip && <ChangeChip pk={pk} />}
+            {work.contract_chip && <ChangeChip type="contract" />}
           </dd>
         </div>
         <div data-field="contract_start">

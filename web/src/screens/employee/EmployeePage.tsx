@@ -7,6 +7,7 @@ import { Forbidden, NotFound } from "../../routes/ErrorPage";
 import { useMainWidth } from "../../shell/mainWidth";
 import { ActivityDrawer } from "./ActivityDrawer";
 import { readActivityOpen, writeActivityOpen } from "./activityStore";
+import { EmployeePopups } from "./EmployeePopups";
 import { Header } from "./Header";
 import { OneTimeLogin } from "./OneTimeLogin";
 import { PageFormElement, PageFormProvider } from "./PageForm";
@@ -57,7 +58,12 @@ function EmployeeView({ pk }: { pk: number }) {
     return null;
   }
 
-  return <EmployeeBody pk={pk} head={head} failed={!!employee.error} />;
+  // The pop-ups of the events and orders live here: the header's event menu and the work and salary rows open them.
+  return (
+    <EmployeePopups pk={pk}>
+      <EmployeeBody pk={pk} head={head} failed={!!employee.error} />
+    </EmployeePopups>
+  );
 }
 
 function EmployeeBody({ pk, head, failed }: { pk: number; head: EmployeeHeadOut; failed: boolean }) {

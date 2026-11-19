@@ -44,6 +44,7 @@ from ninja.security import django_auth
 
 from api.employee_writes import EmployeeFormChoiceOut, EmployeeFormFieldOut
 from api.errors import ApiError
+from api.popups import order_note
 
 hire_router = Router(tags=["employees"])
 selfform_router = Router(tags=["selfforms"])
@@ -312,17 +313,6 @@ def _section_names(forms: dict[str, BaseForm | None], refs: tuple[str, ...]) -> 
     return names
 
 
-def _order_note(order_form: BaseForm) -> str:
-    """The order block's note: the text after the heading's «· » in employees/_order_fields.html (the React block draws
-    the heading word «Тушаал» itself). The number is required on a hire (and on a change that needs an order); a blank
-    date means the effective date of the change."""
-    number = "дугаар заавал" if order_form.fields["number"].required else "тушаал шаардлагатай өөрчлөлтөд дугаар заавал"
-    note = number
-    if not order_form.fields["date"].required:
-        note += ", огноо хоосон бол өөрчлөлтийн огноо"
-    return note
-
-
 def _tabs(page: hire_page.HirePage) -> list[dict[str, Any]]:
     forms = _forms(page)
     tabs: list[dict[str, Any]] = []
@@ -333,7 +323,7 @@ def _tabs(page: hire_page.HirePage) -> list[dict[str, Any]]:
         for heading, kind, refs in sections:
             if kind == "order" and page.order_form is None:  # hire orders kept on paper: no order block
                 continue
-            note = _order_note(page.order_form) if kind == "order" and page.order_form is not None else ""
+            note = order_note(page.order_form) if kind == "order" and page.order_form is not None else ""
             shown.append({"heading": heading, "kind": kind, "names": _section_names(forms, refs), "note": note})
         tabs.append({"key": key, "label": label, "sections": shown})
     return tabs

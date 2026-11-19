@@ -47,7 +47,7 @@ the DOM after every swap. #ws-live is a live region outside both panes: a swappe
     </section>
   </div>
 
-    <aside id="ws-chat-pane" aria-label="Чат" class="group/dock fixed bottom-4 left-1/2 z-30 print:hidden max-h-[70vh] w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-surface p-3 shadow-xl" hx-on::before-swap="if (event.detail.xhr.getResponseHeader('X-Chat-Error')) { event.detail.shouldSwap = true; event.detail.isError = false; }"{% if current %} hx-get="{% url 'assistant:ws_chat' current.pk %}" hx-trigger="load"{% endif %}>
+    <aside id="ws-chat-pane" aria-label="Чат" class="group/dock fixed bottom-4 flex flex-col left-1/2 z-30 print:hidden max-h-[70vh] w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-surface p-3 shadow-xl" hx-on::before-swap="if (event.detail.xhr.getResponseHeader('X-Chat-Error')) { event.detail.shouldSwap = true; event.detail.isError = false; }"{% if current %} hx-get="{% url 'assistant:ws_chat' current.pk %}" hx-trigger="load"{% endif %}>
       {% if current %}<p class="text-slate-500">Чат ачаалж байна…</p>{% else %}<p class="text-slate-500">Чат энд харагдана.</p>{% endif %}
     </aside>
   </div>

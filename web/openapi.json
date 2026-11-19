@@ -2041,6 +2041,142 @@
         "title": "EmployeeWriteSectionIn",
         "type": "object"
       },
+      "EventFormIn": {
+        "properties": {
+          "prev_effective": {
+            "default": "",
+            "title": "Prev Effective",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "EventFormIn",
+        "type": "object"
+      },
+      "EventFormOut": {
+        "properties": {
+          "death_unset": {
+            "title": "Death Unset",
+            "type": "boolean"
+          },
+          "errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/EventKindOut"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "order_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Order Errors",
+            "type": "array"
+          },
+          "order_fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormFieldOut"
+            },
+            "title": "Order Fields",
+            "type": "array"
+          },
+          "order_note": {
+            "title": "Order Note",
+            "type": "string"
+          },
+          "prev_effective": {
+            "title": "Prev Effective",
+            "type": "string"
+          },
+          "reload": {
+            "title": "Reload",
+            "type": "boolean"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "when": {
+            "title": "When",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "kinds",
+          "fields",
+          "order_fields",
+          "order_note",
+          "summary",
+          "when",
+          "prev_effective",
+          "reload",
+          "death_unset",
+          "errors",
+          "form_errors",
+          "order_errors"
+        ],
+        "title": "EventFormOut",
+        "type": "object"
+      },
+      "EventKindOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "selected"
+        ],
+        "title": "EventKindOut",
+        "type": "object"
+      },
       "EventMenuItemOut": {
         "properties": {
           "label": {
@@ -2057,6 +2193,77 @@
           "label"
         ],
         "title": "EventMenuItemOut",
+        "type": "object"
+      },
+      "EventWriteIn": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "title": "EventWriteIn",
+        "type": "object"
+      },
+      "EventWriteResultOut": {
+        "properties": {
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "order_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Order Errors",
+            "type": "array"
+          },
+          "prev_effective": {
+            "title": "Prev Effective",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "when": {
+            "title": "When",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "field_errors",
+          "form_errors",
+          "order_errors",
+          "summary",
+          "prev_effective",
+          "when"
+        ],
+        "title": "EventWriteResultOut",
         "type": "object"
       },
       "FactsOut": {
@@ -2646,6 +2853,74 @@
         "title": "HolidayOut",
         "type": "object"
       },
+      "HrPopupOut": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeFormFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "multipart": {
+            "title": "Multipart",
+            "type": "boolean"
+          },
+          "submit_label": {
+            "title": "Submit Label",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "hint",
+          "submit_label",
+          "multipart",
+          "fields"
+        ],
+        "title": "HrPopupOut",
+        "type": "object"
+      },
+      "HrPopupResultOut": {
+        "properties": {
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "field_errors",
+          "form_errors"
+        ],
+        "title": "HrPopupResultOut",
+        "type": "object"
+      },
       "ItemOut": {
         "properties": {
           "anchor": {
@@ -2745,6 +3020,17 @@
             "title": "Department",
             "type": "string"
           },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
           "is_cancelled": {
             "title": "Is Cancelled",
             "type": "boolean"
@@ -2816,6 +3102,7 @@
         },
         "required": [
           "pk",
+          "event_id",
           "label",
           "scheduled",
           "is_cancelled",
@@ -3444,6 +3731,97 @@
           "password"
         ],
         "title": "OneTimeLoginOut",
+        "type": "object"
+      },
+      "OrderHistoryEntryChangeOut": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "old",
+          "new"
+        ],
+        "title": "OrderHistoryEntryChangeOut",
+        "type": "object"
+      },
+      "OrderHistoryEntryOut": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/OrderHistoryEntryChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by",
+          "at",
+          "message",
+          "changes"
+        ],
+        "title": "OrderHistoryEntryOut",
+        "type": "object"
+      },
+      "OrderHistoryOut": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/OrderHistoryEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "entries"
+        ],
+        "title": "OrderHistoryOut",
+        "type": "object"
+      },
+      "OrderPopupValuesIn": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "title": "OrderPopupValuesIn",
         "type": "object"
       },
       "OtherOrderOut": {
@@ -5165,6 +5543,222 @@
         ]
       }
     },
+    "/api/v1/employees/{pk}/events/{event_id}/cancel": {
+      "get": {
+        "description": "The cancel pop-up. 404 when the event is not cancellable (applied, cancelled) or is not the employee's; 403\nwithout the right to cancel it.",
+        "operationId": "api_events_event_cancel_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Event Cancel Form",
+        "tags": [
+          "employees"
+        ]
+      },
+      "post": {
+        "description": "Cancel the event. A refused form (no reason, a signed order without its cancel order number) answers 200 with\nok false and changes nothing.",
+        "operationId": "api_events_event_cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventWriteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Event Cancel",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/events/{type}": {
+      "post": {
+        "description": "Record the change. A refused or invalid form answers 200 with ok false and nothing is written; on success the\nMACS number-clash note is kept for the next employee page. For a refused save with an unreal date, the hidden\n`prev_effective` must travel inside `values` (the key \"prev_effective\"), as the page posts it, so the response keeps\nthe last real date.",
+        "operationId": "api_events_event_submit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventWriteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Event Submit",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/events/{type}/form": {
+      "post": {
+        "description": "The event form's state for the values typed so far. 404 for an unknown type or an employee outside the user's\nscope, 403 without the right to record this type. Nothing is written.",
+        "operationId": "api_events_event_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventFormIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Event Form",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/v1/employees/{pk}/job/{record_id}/correct": {
       "post": {
         "description": "Correct one job row; the reason is required. A refused correction answers 200 with ok false.",
@@ -5353,6 +5947,272 @@
           }
         ],
         "summary": "Employee Note Add",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/edit": {
+      "get": {
+        "description": "The edit pop-up with the saved values (or a suggested number). 404 for a signed or cancelled order; 403 without\nthe manage right.",
+        "operationId": "api_orders_order_edit_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Edit Form",
+        "tags": [
+          "employees"
+        ]
+      },
+      "post": {
+        "description": "Save the edit. A refused form answers 200 with ok false and changes nothing; a saved order keeps the MACS\nnumber-clash note for the next employee page.",
+        "operationId": "api_orders_order_edit_submit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderPopupValuesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Edit Submit",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/history": {
+      "get": {
+        "description": "Who created, registered, edited, signed or cancelled this order, and when. Needs only the right to see the\nemployee (no manage right).",
+        "operationId": "api_orders_order_history_view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderHistoryOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order History View",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/orders/{order_id}/upload": {
+      "get": {
+        "description": "The upload pop-up: one file box (multipart). 403 without the manage right.",
+        "operationId": "api_orders_order_upload_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Upload Form",
+        "tags": [
+          "employees"
+        ]
+      },
+      "post": {
+        "description": "Attach the signed scan. A missing, wrong or too big file, or an order that is not registered, answers 200 with\nok false and the message on the form; nothing is attached then. Uploads keep no MACS note.",
+        "operationId": "api_orders_order_upload_submit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "anyOf": [
+                      {
+                        "format": "binary",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "File"
+                  }
+                },
+                "title": "FileParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPopupResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Order Upload Submit",
         "tags": [
           "employees"
         ]

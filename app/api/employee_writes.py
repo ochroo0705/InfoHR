@@ -20,11 +20,9 @@ result. A missing right is 403 (code "forbidden"), a row outside the user's scop
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 from accounts.models import User
-from django.core.exceptions import PermissionDenied
 from django.forms import BaseForm
 from django.forms import Form as DjangoForm
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
@@ -32,7 +30,6 @@ from django.utils.datastructures import MultiValueDict
 from employees import access, sections, stale
 from employees.forms import CreateLoginForm
 from employees.models import Employee
-from employees.money import MoneyField
 from employees.services import page_writes
 from employees.services import personal_writes as pw
 from employees.services.detail_page import needs_setup
@@ -43,35 +40,16 @@ from ninja.files import UploadedFile
 from ninja.security import django_auth
 
 from api.errors import ApiError, form_error_payload
+from api.popups import FORBIDDEN as _FORBIDDEN
+from api.popups import NOT_FOUND as _NOT_FOUND
+from api.popups import EmployeeFormChoiceOut as EmployeeFormChoiceOut  # re-exported for api.hire
+from api.popups import EmployeeFormFieldOut, money_kinds, service_errors
 
 employee_write_router = Router(tags=["employees"])
 
-_NOT_FOUND = "Хуудас олдсонгүй"
-_FORBIDDEN = "Хандах эрх байхгүй."
 _BAD_VALUES = "Хадгалах мэдээлэл буруу байна."
 _PHOTO_FIELDS = ("photo", "photo_clear")  # the photo has its own part in the save, not a box in the form
 _STALE_FORM = "Хуудсыг дахин ачаалж, дахин оролдоно уу."  # a save without the snapshot the page showed
-
-
-class EmployeeFormChoiceOut(Schema):
-    value: str
-    label: str
-
-
-class EmployeeFormFieldOut(Schema):
-    name: str  # the HTML name the browser posts (the salary fields carry the «si-» prefix)
-    label: str
-    required: bool
-    kind: str  # checkbox | select | textarea | date | number | file | text
-    value: str  # the stored value as the browser would post it
-    checked: bool  # checkboxes only
-    placeholder: str
-    choice: str  # a select's shown label for the stored value, "" otherwise
-    combo: bool  # the select is drawn as a typing box (select.js)
-    choices: list[EmployeeFormChoiceOut]  # a select's options, blank entry included when the form has one
-    help: str
-    max_length: int | None
-    errors: list[str]
 
 
 class EmployeeFormPageOut(Schema):
@@ -152,39 +130,12 @@ def _require_personal(request: HttpRequest, pk: int) -> Employee:
     return employee
 
 
-@contextmanager
-def _correction_errors() -> Iterator[None]:
-    """A salary or job correction's rights are 403 (code "forbidden"); an unknown record or one of another employee is
-    404 in the API's own shape (the rules raise Http404 or PermissionDenied)."""
-    try:
-        yield
-    except Http404:
-        raise HttpError(404, _NOT_FOUND) from None
-    except PermissionDenied:
-        raise ApiError(403, [_FORBIDDEN], code="forbidden") from None
-
-
-def _plain_amount(value: str) -> str:
-    """A money value as the pop-up shows it: a whole amount without the ".00" tail ("2500000"), a real fraction kept
-    as stored ("2500000.50"). Anything that is not a number is returned unchanged."""
-    try:
-        amount = Decimal(value)
-    except InvalidOperation:
-        return value
-    if not amount.is_finite() or amount != amount.to_integral_value():
-        return value
-    return str(int(amount))
-
-
 def _correction_form_out(form: BaseForm, which: str) -> dict[str, Any]:
     """The pop-up of a correction. The amount is a MoneyField: its box takes the money kind, not a plain text box."""
     # A ModelForm (the job correction) is a BaseForm, not a Form; the describe helpers only read the form's fields.
     shown = cast(DjangoForm, form)
     fields = describe_form(shown)
-    for field in fields:
-        if isinstance(form.fields[str(field["name"])], MoneyField):
-            field["kind"] = "money"
-            field["value"] = _plain_amount(str(field["value"]))
+    money_kinds(form, fields)
     return {
         "title": page_writes.CORRECTION_TITLES[which],
         "fields": fields,
@@ -197,7 +148,7 @@ def _correction_form_out(form: BaseForm, which: str) -> dict[str, Any]:
 def _correction_get(request: HttpRequest, pk: int, which: str, record_id: int | None) -> dict[str, Any]:
     user = _user(request)
     employee = _scoped_employee(user, pk)
-    with _correction_errors():
+    with service_errors():
         form = page_writes.correction_form(user, employee, which, record_id)
     return _correction_form_out(form, which)
 
@@ -207,7 +158,7 @@ def _correction_post(
 ) -> dict[str, Any]:
     user = _user(request)
     employee = _scoped_employee(user, pk)
-    with _correction_errors():
+    with service_errors():
         result = page_writes.submit_correction(user, employee, which, record_id, payload.values)
     return _row_out(result)
 

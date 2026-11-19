@@ -14,6 +14,16 @@ vi.mock("../../lib/AppLink", async (importOriginal) => {
   return { ...actual, openLegacyEmployee: vi.fn() };
 });
 
+// The header calls the pop-up openers from the provider. The test renders the header alone, so the hook returns stubs.
+const popups = vi.hoisted(() => ({
+  openEvent: vi.fn(),
+  openEventCancel: vi.fn(),
+  openOrderEdit: vi.fn(),
+  openOrderUpload: vi.fn(),
+  openOrderHistory: vi.fn(),
+}));
+vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
+
 // fetch and Request are stubbed before the api client is imported (openapi-fetch captures fetch when it is created), as in
 // PageForm.test.tsx. createImageBitmap is not in jsdom: it is a mock that rejects unless a test sets it to resolve.
 const h = vi.hoisted(() => {
@@ -218,11 +228,21 @@ describe("Header", () => {
     expect(screen.getByRole("heading", { level: 1 }).parentElement?.querySelector("p")?.textContent).toBe("");
   });
 
-  it("the event menu item calls openLegacyEmployee with the pk", () => {
+  it("the event menu item opens the event pop-up for its type, not the legacy page", () => {
     renderHeader(head({ event_menu: [{ value: "transfer", label: "Албан тушаал солих" }] }));
     fireEvent.click(screen.getByText("Өөрчлөлт бүртгэх ▾"));
     fireEvent.click(screen.getByRole("button", { name: "Албан тушаал солих" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openEvent).toHaveBeenCalledWith("transfer");
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("the event menu closes after a pick, as the Django menu does", () => {
+    const { container } = renderHeader(head({ event_menu: [{ value: "transfer", label: "Албан тушаал солих" }] }));
+    const details = container.querySelector("details");
+    if (!details) throw new Error("no event menu");
+    details.setAttribute("open", "");
+    fireEvent.click(screen.getByRole("button", { name: "Албан тушаал солих" }));
+    expect(details.hasAttribute("open")).toBe(false);
   });
 
   it("the event menu is not shown when the API sends no items", () => {

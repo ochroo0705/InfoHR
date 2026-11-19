@@ -140,6 +140,7 @@ class ChipOut(Schema):
 
 class JobRowOut(Schema):
     pk: int | None  # the history row's job record (None for a cancelled change, which has none)
+    event_id: int | None  # the change behind the row (the «Цуцлах» link's id); None without one
     label: str
     scheduled: bool  # «Төлөвлөсөн» badge
     is_cancelled: bool  # struck-through row: position, department and status show «—»
@@ -597,6 +598,7 @@ def _job_out(job: Any, can_manage: bool) -> dict[str, Any]:
     period_text, period_note = _period_parts(job)
     return {
         "pk": getattr(job, "pk", None),
+        "event_id": getattr(job, "event_id", None),
         "label": job.label,
         "scheduled": bool(getattr(job, "scheduled", False)),
         "is_cancelled": cancelled,

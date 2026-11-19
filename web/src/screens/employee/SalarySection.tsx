@@ -1,15 +1,16 @@
 import { useEmployeeSalary } from "../../api/employee";
 import type { components } from "../../api/schema";
-import { openLegacyEmployee } from "../../lib/AppLink";
 import { PageSoft, Soft } from "./Soft";
 import { ScrollFloat } from "../../widgets/Scrollbar";
 import { useCorrectionPopup } from "./CorrectionModal";
+import { useEmployeePopups } from "./EmployeePopups";
 
 // Port of `employees/_tab_salary.html`: the pay heading with «Цалин тогтоох», the current pay, the pay history table and
 // the «Банк, даатгал» block. Classes, Mongolian text, element order and ids are copied from the template. React renders
 // only the strings and flags the API sends (current, missing_label, set_label, period_text, scheduled_label, action_label,
 // action_class, and each bank box's kind and value). «Цалин тогтоох» and a row's «Засвар» open the correction pop-up
-// (CorrectionModal, Task 16a). A row's «Цуцлах» still opens the Django employee page (openLegacyEmployee, ruling D2).
+// (CorrectionModal, Task 16a). A row's «Цуцлах» opens the event cancel pop-up (the provider's openEventCancel, with the
+// row's event id from the API).
 
 type Salary = components["schemas"]["EmployeeSalaryOut"];
 type BankField = components["schemas"]["EmployeeBankFieldOut"];
@@ -35,6 +36,7 @@ function BankBox({ field }: { field: BankField }) {
 
 function SalaryBody({ salary, pk }: { salary: Salary; pk: number }) {
   const { openCorrection, correctionModal } = useCorrectionPopup(pk);
+  const { openEventCancel } = useEmployeePopups();
   return (
     <>
       <div className="flex items-baseline gap-3">
@@ -94,10 +96,12 @@ function SalaryBody({ salary, pk }: { salary: Salary; pk: number }) {
                     {row.action_label && (
                       <button
                         type="button"
-                        onClick={() =>
-                          // «Засвар» (correctable) opens the pop-up; «Цуцлах» (cancellable) stays on the legacy page.
-                          row.correctable ? openCorrection(`salary/${row.pk}/correct`) : openLegacyEmployee(pk)
-                        }
+                        onClick={() => {
+                          // «Засвар» (correctable) opens the correction pop-up; «Цуцлах» (cancellable) opens the event
+                          // cancel pop-up, and only with the event id the API sends.
+                          if (row.correctable) openCorrection(`salary/${row.pk}/correct`);
+                          else if (row.cancellable && row.event_id != null) openEventCancel(row.event_id);
+                        }}
                         className={row.action_class}
                       >
                         {row.action_label}

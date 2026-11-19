@@ -3,14 +3,16 @@ import type { CorrectionPath } from "../../api/employeeWrites";
 import { openLegacyEmployee } from "../../lib/AppLink";
 import { ScrollFloat } from "../../widgets/Scrollbar";
 import { useCorrectionPopup } from "./CorrectionModal";
+import { useEmployeePopups } from "./EmployeePopups";
 
 // Port of the job/changes part of `_tab_work.html`: the «Гарын үсэг хүлээж буй өөрчлөлт» table (waiting rows), then the
 // «Ажлын түүх» table (job history). Both headings are included. The setup card, the job and contract facts (WorkFacts),
 // the orders block and the leave and checklist blocks are rendered by other parts. Classes, Mongolian text, element
 // order and hooks are copied from the templates. React renders only the strings and flags the API sends: `clickable`
 // (the row has an order), `order_no_muted` (the grey «—»), `is_cancelled` and `cancellable`. A job row's «Засвар» opens
-// the job correction pop-up (CorrectionModal, Task 16a). The other writes (cancel, row click to the order) still open
-// the Django employee page (openLegacyEmployee, ruling D2): no fetch.
+// the job correction pop-up (CorrectionModal, Task 16a). A row's «Цуцлах» opens the event cancel pop-up (the provider's
+// openEventCancel, with the event id from the API). The row click to the order still opens the Django employee page
+// (openLegacyEmployee, ruling D2): no fetch.
 
 type Work = EmployeeWorkOut;
 type Waiting = Work["waiting"][number];
@@ -33,6 +35,7 @@ function rowClass(base: string, clickable: boolean): string {
 }
 
 function WaitingRow({ row, pk }: { row: Waiting; pk: number }) {
+  const { openEventCancel } = useEmployeePopups();
   return (
     <tr
       className={rowClass("", row.clickable)}
@@ -52,7 +55,7 @@ function WaitingRow({ row, pk }: { row: Waiting; pk: number }) {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              openLegacyEmployee(pk);
+              openEventCancel(row.event_pk);
             }}
             className="rounded px-2 py-1 text-red-600 hover:bg-red-50"
           >
@@ -74,6 +77,7 @@ function JobRow({
   onCorrect: (path: CorrectionPath) => void;
 }) {
   const recordId = job.pk;
+  const { openEventCancel } = useEmployeePopups();
   return (
     <tr
       className={rowClass(job.is_cancelled ? "text-slate-400 line-through" : "", job.clickable)}
@@ -116,7 +120,7 @@ function JobRow({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              openLegacyEmployee(pk);
+              if (job.event_id !== null) openEventCancel(job.event_id);
             }}
             className="rounded px-2 py-1 text-red-600 hover:bg-red-50"
           >

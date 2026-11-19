@@ -321,6 +321,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/employees/{pk}/events/{event_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Event Cancel Form
+         * @description The cancel pop-up. 404 when the event is not cancellable (applied, cancelled) or is not the employee's; 403
+         *     without the right to cancel it.
+         */
+        get: operations["api_events_event_cancel_form"];
+        put?: never;
+        /**
+         * Event Cancel
+         * @description Cancel the event. A refused form (no reason, a signed order without its cancel order number) answers 200 with
+         *     ok false and changes nothing.
+         */
+        post: operations["api_events_event_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/events/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Event Submit
+         * @description Record the change. A refused or invalid form answers 200 with ok false and nothing is written; on success the
+         *     MACS number-clash note is kept for the next employee page. For a refused save with an unreal date, the hidden
+         *     `prev_effective` must travel inside `values` (the key "prev_effective"), as the page posts it, so the response keeps
+         *     the last real date.
+         */
+        post: operations["api_events_event_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/events/{type}/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Event Form
+         * @description The event form's state for the values typed so far. 404 for an unknown type or an employee outside the user's
+         *     scope, 403 without the right to record this type. Nothing is written.
+         */
+        post: operations["api_events_event_form"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{pk}/job/{record_id}/correct": {
         parameters: {
             query?: never;
@@ -396,6 +466,78 @@ export interface paths {
          * @description Add a note to the employee's activity log (a manager's right; 404 outside the user's scope, 403 without it).
          */
         post: operations["api_employee_writes_employee_note_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Edit Form
+         * @description The edit pop-up with the saved values (or a suggested number). 404 for a signed or cancelled order; 403 without
+         *     the manage right.
+         */
+        get: operations["api_orders_order_edit_form"];
+        put?: never;
+        /**
+         * Order Edit Submit
+         * @description Save the edit. A refused form answers 200 with ok false and changes nothing; a saved order keeps the MACS
+         *     number-clash note for the next employee page.
+         */
+        post: operations["api_orders_order_edit_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order History View
+         * @description Who created, registered, edited, signed or cancelled this order, and when. Needs only the right to see the
+         *     employee (no manage right).
+         */
+        get: operations["api_orders_order_history_view"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/employees/{pk}/orders/{order_id}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Upload Form
+         * @description The upload pop-up: one file box (multipart). 403 without the manage right.
+         */
+        get: operations["api_orders_order_upload_form"];
+        put?: never;
+        /**
+         * Order Upload Submit
+         * @description Attach the signed scan. A missing, wrong or too big file, or an order that is not registered, answers 200 with
+         *     ok false and the message on the form; nothing is attached then. Uploads keep no MACS note.
+         */
+        post: operations["api_orders_order_upload_submit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1672,12 +1814,93 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** EventFormIn */
+        EventFormIn: {
+            /**
+             * Prev Effective
+             * @default
+             */
+            prev_effective: string;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /** EventFormOut */
+        EventFormOut: {
+            /** Death Unset */
+            death_unset: boolean;
+            /** Errors */
+            errors: {
+                [key: string]: string[];
+            };
+            /** Fields */
+            fields: components["schemas"]["EmployeeFormFieldOut"][];
+            /** Form Errors */
+            form_errors: string[];
+            /** Kinds */
+            kinds: components["schemas"]["EventKindOut"][];
+            /** Order Errors */
+            order_errors: string[];
+            /** Order Fields */
+            order_fields: components["schemas"]["EmployeeFormFieldOut"][];
+            /** Order Note */
+            order_note: string;
+            /** Prev Effective */
+            prev_effective: string;
+            /** Reload */
+            reload: boolean;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+            /** When */
+            when: string;
+        };
+        /** EventKindOut */
+        EventKindOut: {
+            /** Label */
+            label: string;
+            /** Selected */
+            selected: boolean;
+            /** Value */
+            value: string;
+        };
         /** EventMenuItemOut */
         EventMenuItemOut: {
             /** Label */
             label: string;
             /** Value */
             value: string;
+        };
+        /** EventWriteIn */
+        EventWriteIn: {
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /** EventWriteResultOut */
+        EventWriteResultOut: {
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
+            /** Order Errors */
+            order_errors: string[];
+            /** Prev Effective */
+            prev_effective: string;
+            /** Summary */
+            summary: string;
+            /** When */
+            when: string;
         };
         /** FactsOut */
         FactsOut: {
@@ -1860,6 +2083,30 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** HrPopupOut */
+        HrPopupOut: {
+            /** Fields */
+            fields: components["schemas"]["EmployeeFormFieldOut"][];
+            /** Hint */
+            hint: string;
+            /** Multipart */
+            multipart: boolean;
+            /** Submit Label */
+            submit_label: string;
+            /** Title */
+            title: string;
+        };
+        /** HrPopupResultOut */
+        HrPopupResultOut: {
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
+        };
         /** ItemOut */
         ItemOut: {
             /** Anchor */
@@ -1899,6 +2146,8 @@ export interface components {
             correctable: boolean;
             /** Department */
             department: string;
+            /** Event Id */
+            event_id: number | null;
             /** Is Cancelled */
             is_cancelled: boolean;
             /** Label */
@@ -2136,6 +2385,40 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /** OrderHistoryEntryChangeOut */
+        OrderHistoryEntryChangeOut: {
+            /** Field */
+            field: string;
+            /** New */
+            new: string;
+            /** Old */
+            old: string;
+        };
+        /** OrderHistoryEntryOut */
+        OrderHistoryEntryOut: {
+            /** At */
+            at: string;
+            /** By */
+            by: string;
+            /** Changes */
+            changes: components["schemas"]["OrderHistoryEntryChangeOut"][];
+            /** Message */
+            message: string;
+        };
+        /** OrderHistoryOut */
+        OrderHistoryOut: {
+            /** Entries */
+            entries: components["schemas"]["OrderHistoryEntryOut"][];
+            /** Title */
+            title: string;
+        };
+        /** OrderPopupValuesIn */
+        OrderPopupValuesIn: {
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
         };
         /** OtherOrderOut */
         OtherOrderOut: {
@@ -2906,6 +3189,110 @@ export interface operations {
             };
         };
     };
+    api_events_event_cancel_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupOut"];
+                };
+            };
+        };
+    };
+    api_events_event_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventWriteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupResultOut"];
+                };
+            };
+        };
+    };
+    api_events_event_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventWriteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_events_event_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventFormIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventFormOut"];
+                };
+            };
+        };
+    };
     api_employee_writes_employee_job_correct: {
         parameters: {
             query?: never;
@@ -3003,6 +3390,132 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    api_orders_order_edit_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupOut"];
+                };
+            };
+        };
+    };
+    api_orders_order_edit_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderPopupValuesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupResultOut"];
+                };
+            };
+        };
+    };
+    api_orders_order_history_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderHistoryOut"];
+                };
+            };
+        };
+    };
+    api_orders_order_upload_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupOut"];
+                };
+            };
+        };
+    };
+    api_orders_order_upload_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+                order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** File */
+                    file?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrPopupResultOut"];
+                };
             };
         };
     };

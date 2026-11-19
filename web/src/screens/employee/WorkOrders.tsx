@@ -2,13 +2,15 @@ import type { EmployeeWorkOut } from "../../api/employee";
 import { legacyOrigin, openLegacyEmployee } from "../../lib/AppLink";
 import { RowMenu } from "../../widgets/RowMenu";
 import { ScrollHost } from "../../widgets/Scrollbar";
+import { useEmployeePopups } from "./EmployeePopups";
 
 // Port of `_orders.html` («Бусад тушаал»): the one-shot warning, then our orders with their state chip and the
 // «Үйлдэл ▾» menu, then the MACS command rows (read-only). Classes, Mongolian text, element order and ids are copied
 // from the template. React renders only the strings and flags the API sends (number_muted, cancel segments, hire_note,
-// the link URLs, can_edit, can_upload). Every write or pop-up (row click, «Түүх», «Файл хавсаргах», cancel links)
-// opens the Django employee page (openLegacyEmployee, ruling D2): no fetch. Files and documents are Django downloads,
-// so their URLs go through legacyOrigin().
+// the link URLs, can_edit, can_upload). A row click (when can_edit), «Файл хавсаргах» and «Түүх» open the order pop-ups
+// of the provider with the order's pk. The cancel links (cancelled-by and cancels) still open the Django employee page
+// (openLegacyEmployee, ruling D2) until order detail is ported. Files and documents are Django downloads, so their URLs
+// go through legacyOrigin().
 
 type Work = EmployeeWorkOut;
 type Order = Work["orders"][number];
@@ -37,7 +39,9 @@ function LegacyLink({ pk, className, children }: { pk: number; className: string
 }
 
 // «Үйлдэл ▾» (`_orders.html` line 13-24): the shared row menu (widgets/RowMenu). The items are the template's.
-function ActionsMenu({ row, pk }: { row: Order; pk: number }) {
+function ActionsMenu({ row }: { row: Order }) {
+  const { openOrderUpload, openOrderHistory } = useEmployeePopups();
+  const orderPk = row.order_pk;
   return (
     <td className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
       <RowMenu>
@@ -54,7 +58,9 @@ function ActionsMenu({ row, pk }: { row: Order; pk: number }) {
         {row.can_upload && (
           <button
             type="button"
-            onClick={() => openLegacyEmployee(pk)}
+            onClick={() => {
+              if (orderPk !== null) openOrderUpload(orderPk);
+            }}
             className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
           >
             Файл хавсаргах
@@ -72,7 +78,9 @@ function ActionsMenu({ row, pk }: { row: Order; pk: number }) {
         )}
         <button
           type="button"
-          onClick={() => openLegacyEmployee(pk)}
+          onClick={() => {
+            if (orderPk !== null) openOrderHistory(orderPk);
+          }}
           className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
         >
           Түүх
@@ -84,12 +92,14 @@ function ActionsMenu({ row, pk }: { row: Order; pk: number }) {
 
 // One of our orders (`{% if o %}` branch of the template).
 function OwnOrderRow({ row, pk }: { row: Order; pk: number }) {
+  const { openOrderEdit } = useEmployeePopups();
+  const orderPk = row.order_pk;
   const rowClass = row.cancelled ? "text-slate-400 line-through" : row.can_edit ? "cursor-pointer hover:bg-violet-50" : "";
   return (
     <tr
-      id={row.order_pk !== null ? `order-${row.order_pk}` : undefined}
+      id={orderPk !== null ? `order-${orderPk}` : undefined}
       className={rowClass}
-      onClick={row.can_edit ? () => openLegacyEmployee(pk) : undefined}
+      onClick={row.can_edit && orderPk !== null ? () => openOrderEdit(orderPk) : undefined}
     >
       <td className="whitespace-nowrap">
         {row.number_muted ? <span className="text-slate-400">{row.number}</span> : row.number}
@@ -138,7 +148,7 @@ function OwnOrderRow({ row, pk }: { row: Order; pk: number }) {
       <td>
         <ChipBadge chip={row.chip} />
       </td>
-      <ActionsMenu row={row} pk={pk} />
+      <ActionsMenu row={row} />
     </tr>
   );
 }

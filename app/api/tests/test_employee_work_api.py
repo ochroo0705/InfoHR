@@ -13,7 +13,17 @@ from django.contrib.auth.models import Group
 from django.test import Client
 from django.utils import timezone
 from employees import access as employee_access
-from employees.models import ChangeType, Employee, Event, EventType, HrOrder, LeaveKind, OrderState, OrderType
+from employees.models import (
+    ChangeType,
+    Employee,
+    Event,
+    EventType,
+    HrOrder,
+    JobRecord,
+    LeaveKind,
+    OrderState,
+    OrderType,
+)
 from employees.services import history, macs_writes
 from employees.tests.conftest import hire_values, link_login
 from employees.tests.test_events import rec
@@ -216,6 +226,17 @@ def test_job_rows_send_clickable_and_the_grey_dash_as_flags(hr_user: User, hired
         assert row["order_no_muted"] == (row["order_no"] == "—")
         if row["is_cancelled"]:
             assert row["cancellable"] is False
+
+
+def test_job_row_carries_event_id_of_its_change(hr_user: User, hired: Employee) -> None:
+    event = rec(hired, hr_user, "leave_start", date(2026, 2, 1), reason=LeaveKind.values[0])
+    body = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/work").json()
+    leave_job = JobRecord.objects.get(employee=hired, event=event)
+    row = next(r for r in body["jobs"] if r["pk"] == leave_job.pk)
+    assert row["event_id"] == event.pk
+    for r in body["jobs"]:
+        if r["pk"] is not None:  # the initial hire job: the model's own event_id (what the template's «Цуцлах» reads)
+            assert r["event_id"] == JobRecord.objects.get(pk=r["pk"]).event_id
 
 
 def test_long_leave_sends_its_note_as_its_own_field(hr_user: User, hired: Employee) -> None:

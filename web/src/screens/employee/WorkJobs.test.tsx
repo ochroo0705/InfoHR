@@ -11,6 +11,16 @@ vi.mock("../../lib/AppLink", async (importOriginal) => {
   return { ...actual, openLegacyEmployee: vi.fn() };
 });
 
+// The job and waiting rows call the pop-up openers from the provider. The test renders WorkJobs alone, so the hook returns stubs.
+const popups = vi.hoisted(() => ({
+  openEvent: vi.fn(),
+  openEventCancel: vi.fn(),
+  openOrderEdit: vi.fn(),
+  openOrderUpload: vi.fn(),
+  openOrderHistory: vi.fn(),
+}));
+vi.mock("./EmployeePopups", () => ({ useEmployeePopups: () => popups }));
+
 // fetch is stubbed before the api client is imported (the «Засвар» pop-up loads its form through it), as in RowModal.test.
 const h = vi.hoisted(() => {
   const fetchMock = vi.fn();
@@ -58,6 +68,7 @@ function work(overrides: Partial<EmployeeWorkOut> = {}): EmployeeWorkOut {
 // A history row without an order: no popup (clickable false), the grey dash (order_no_muted true).
 const scheduledJob = {
   pk: 2,
+  event_id: null,
   label: "Албан тушаал солигдсон",
   scheduled: true,
   is_cancelled: false,
@@ -79,6 +90,7 @@ const scheduledJob = {
 const cancellableJob = {
   ...scheduledJob,
   pk: 3,
+  event_id: 31,
   label: "Хэлтэс солигдсон",
   scheduled: false,
   order_pk: null,
@@ -95,6 +107,7 @@ const defaultChip = { label: "Хүчингүй", tone: "rounded-full bg-slate-20
 
 beforeEach(() => {
   vi.mocked(openLegacyEmployee).mockClear();
+  Object.values(popups).forEach((open) => open.mockClear());
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (input: unknown) => {
     const request = input as Request;
@@ -119,12 +132,20 @@ describe("WorkJobs", () => {
     expect(badge.className).toContain("no-underline");
   });
 
-  it("a cancellable row shows «Цуцлах», and a click calls openLegacyEmployee with the pk", () => {
+  it("a cancellable row shows «Цуцлах», and a click calls openEventCancel with the row's event id", () => {
     render(<WorkJobs work={work({ jobs: [cancellableJob] })} pk={7} />);
     const button = screen.getByRole("button", { name: "Цуцлах" });
     expect(button.className).toContain("text-red-600");
     fireEvent.click(button);
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openEventCancel).toHaveBeenCalledWith(31);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
+  });
+
+  it("a job row with no event id (null) shows «Цуцлах», but a click calls no opener", () => {
+    render(<WorkJobs work={work({ jobs: [{ ...cancellableJob, event_id: null }] })} pk={7} />);
+    fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
+    expect(popups.openEventCancel).not.toHaveBeenCalled();
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("a struck-through row never shows «Цуцлах», even when the flag is set", () => {
@@ -177,7 +198,7 @@ describe("WorkJobs", () => {
     expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
-  it("a waiting row shows its chip and «Цуцлах» when cancellable", () => {
+  it("a waiting row shows its chip and «Цуцлах» when cancellable, and calls openEventCancel with event_pk", () => {
     const waiting = {
       event_pk: 9,
       label: "Гэрээ сунгасан",
@@ -197,7 +218,8 @@ describe("WorkJobs", () => {
     expect(screen.getByText("Гарын үсэг хүлээж байна").className).toContain("bg-amber-50");
     expect(screen.getByText("2027-02-01")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openEventCancel).toHaveBeenCalledWith(9);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("no waiting rows: the waiting heading and table are not drawn", () => {
@@ -254,7 +276,7 @@ describe("WorkJobs", () => {
       </form>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openEventCancel).toHaveBeenCalledWith(31);
     expect(submit).not.toHaveBeenCalled();
   });
 });
@@ -278,10 +300,11 @@ describe("WorkJobs: «Засвар» opens the job correction pop-up (Task 16a)"
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("«Цуцлах» keeps opening the legacy page, not the pop-up", () => {
+  it("«Цуцлах» opens the event cancel pop-up, not the legacy page and not the correction pop-up", () => {
     renderWithClient(<WorkJobs work={work({ jobs: [cancellableJob] })} pk={7} />);
     fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(popups.openEventCancel).toHaveBeenCalledWith(31);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

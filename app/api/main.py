@@ -9,10 +9,12 @@ from api.company import company_router
 from api.employee import employee_router
 from api.employee_writes import employee_write_router
 from api.errors import ApiError
+from api.events import events_router
 from api.hire import hire_router, selfform_router
 from api.me import checklists_router, me_router
 from api.meta import meta_router
 from api.nav import nav_router
+from api.orders import orders_router
 from api.today import today_router
 
 API_VERSION = 1  # bumped when the API changes shape in a way a client must notice (GET /api/v1/meta reports it)
@@ -83,4 +85,6 @@ api.add_router("/employees", hire_router)  # before employee_router: /employees/
 api.add_router("/selfforms", selfform_router)
 api.add_router("/employees", employee_router)
 api.add_router("/employees", employee_write_router)
+api.add_router("/employees", events_router)
+api.add_router("/employees", orders_router)
 api.add_router("/company", company_router)
