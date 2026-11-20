@@ -262,7 +262,7 @@ export function DropMenu({
           onClick={onPanelClick}
           className={cn(
             "nav-panel z-50 mt-1.5 p-1.5 text-slate-700 [animation:pal-in_.12s_ease-out]",
-            placement === "strip" ? "fixed top-14" : "absolute right-2 top-full",
+            placement === "strip" ? "fixed top-14 max-sm:top-[6.25rem]" :"absolute right-2 top-full",
             panelWidth,
           )}
         >

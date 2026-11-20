@@ -211,7 +211,9 @@ async function compare(
     await idle();
     await page.waitForTimeout(300);
     await idle();
-    const masks = mask?.map((selector) => page.locator(selector));
+    // The Django floating «Асуух» button has no React counterpart until the assistant shell is ported (EXPECTED_DIFFS).
+    await page.addStyleTag({ content: "[data-assistant-fab]{visibility:hidden !important}" });
+    const masks =mask?.map((selector) => page.locator(selector));
     return clip
       ? page.locator(clip).first().screenshot({ animations: "disabled", caret: "hide", mask: masks })
       : page.screenshot({ fullPage: true, animations: "disabled", caret: "hide", mask: masks });

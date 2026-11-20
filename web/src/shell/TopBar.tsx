@@ -50,10 +50,10 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-40 bg-slate-800 text-white shadow-sm">
       <NavMenuProvider stripRef={stripRef}>
-        <nav className="flex h-14 items-stretch gap-1 px-4 text-sm sm:px-6">
+        <nav className="flex flex-wrap items-stretch gap-1 px-4 text-sm sm:h-14 sm:flex-nowrap sm:px-6">
           <TLink
             to="/"
-            className="mr-2 flex shrink-0 items-center whitespace-nowrap text-base font-extrabold tracking-tight sm:mr-4 sm:text-lg"
+            className="mr-2 flex shrink-0 items-center whitespace-nowrap text-base font-extrabold tracking-tight max-sm:mr-auto max-sm:min-h-14 sm:mr-4 sm:text-lg"
           >
             MACS&nbsp;<span className="text-violet-300">Human Capital</span>
           </TLink>
@@ -61,7 +61,7 @@ export function TopBar() {
           <ScrollFloat
             data-nav=""
             boxRef={stripRef}
-            className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto xl:gap-1 [scrollbar-width:none]"
+            className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto max-sm:order-last max-sm:h-11 max-sm:basis-full max-sm:border-t max-sm:border-white/10 xl:gap-1 [scrollbar-width:none]"
           >
             {(groups ?? []).map((group) =>
               group.items.length === 1 ? (

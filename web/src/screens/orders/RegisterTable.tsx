@@ -144,12 +144,20 @@ export function RegisterTable({
           <tr
             key={row.key}
             className={cn(
-              "cursor-pointer border-t border-slate-100 hover:bg-violet-50",
+              "cursor-pointer border-t border-slate-100 hover:bg-violet-50 focus-visible:bg-violet-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-violet-500",
               row.cancelled && "text-slate-400 line-through",
             )}
-            // Row click, as the Django `<tr hx-get>` / `onclick` (parity): no separate keyboard path is added. A row
-            // with opens=employee keeps the router navigation (useTransitionNavigate).
+            // Row click as the Django `<tr hx-get>` / `onclick`, plus a keyboard path Django lacks (accessibility,
+            // deliberate extra): the row is a tab stop and Enter or Space opens it. Keys from the row's own checkbox
+            // are ignored (target check). A row with opens=employee keeps the router navigation.
+            tabIndex={0}
             onClick={() => openRow(row)}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              openRow(row);
+            }}
           >
             {canManage && (
               <td className="w-8" onClick={(event) => event.stopPropagation()}>

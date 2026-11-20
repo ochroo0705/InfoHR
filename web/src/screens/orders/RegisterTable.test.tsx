@@ -218,6 +218,28 @@ describe("RegisterTable", () => {
     expect(props.onOpen).not.toHaveBeenCalled();
   });
 
+  it("a row is a tab stop and Enter or Space opens it", () => {
+    const { getByText, props } = renderTable();
+    const row = getByText("Ажилд авах").closest("tr")!;
+
+    expect(row.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(row, { key: "Enter" });
+    fireEvent.keyDown(row, { key: " " });
+    expect(props.onOpen).toHaveBeenCalledTimes(2);
+    expect(props.onOpen).toHaveBeenCalledWith(REGISTERED);
+
+    fireEvent.keyDown(row, { key: "a" });
+    expect(props.onOpen).toHaveBeenCalledTimes(2);
+  });
+
+  it("a key pressed on the row's checkbox does not open the row", () => {
+    const { getAllByLabelText, props } = renderTable();
+
+    fireEvent.keyDown(getAllByLabelText("Тушаал сонгох")[0], { key: " " });
+    fireEvent.keyDown(getAllByLabelText("Тушаал сонгох")[0], { key: "Enter" });
+    expect(props.onOpen).not.toHaveBeenCalled();
+  });
+
   it("checkbox click does not open the row", () => {
     const { getAllByLabelText, props } = renderTable();
 
