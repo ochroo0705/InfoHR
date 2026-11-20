@@ -382,6 +382,14 @@ REFINE_INSTRUCTION = (
     "When the instruction asks to show a value the CURRENT query already filters on (for example «whether they took "
     "leave» when the WHERE clause requires that they did not), keep the filter and add the column. Remove the filter "
     "only when the instruction asks for everyone or says to drop that condition.\n"
+    "When the instruction ADDS more rows to what the table shows (words like «нэмж харуул», «бас», «мөн», «мөн "
+    "харуул», «also», «add»: another person, another group, the other extreme such as the shortest after the "
+    "longest), the result must show the old rows AND the new ones: join the CURRENT query's selection condition and "
+    "the new one with OR inside ONE parenthesis, as (old selection OR new selection). Keep the old selection exactly "
+    "as it is; do not replace it. Every other condition (the department, WORKING, the scope the instruction named "
+    "earlier such as «энэ хэлтэс») stays outside that parenthesis and applies to both parts, so the added rows come "
+    "from the same group as the old ones. A «most/least» value (MIN or MAX over a column) is computed over that same "
+    "group, never over the whole table: repeat the group's condition inside the sub-query. Do not use UNION.\n"
 )
 
 

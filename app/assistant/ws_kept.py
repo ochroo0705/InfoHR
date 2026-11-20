@@ -37,20 +37,40 @@ def _conditions(where: exp.Expr) -> list[exp.Expr]:
     return [where]
 
 
-def dropped_conditions(old_sql: str, new_sql: str) -> list[str]:
-    """The top-level WHERE conditions of old_sql that appear nowhere in new_sql (as written SQL, cut short)."""
+def _dropped_parts(old_sql: str, new_sql: str) -> tuple[exp.Expr | None, list[exp.Expr]]:
+    """The old query's SELECT and its top-level WHERE parts that appear nowhere in new_sql. Never raises."""
     try:
         old = sqlglot.parse_one(old_sql, dialect=Firebird)
         new = sqlglot.parse_one(new_sql, dialect=Firebird)
         old_where = old.args.get("where") if isinstance(old, exp.Select) else None
         if old_where is None:
-            return []
+            return None, []
         present = {_normal(node) for node in new.walk() if isinstance(node, exp.Condition)}
-        gone = []
-        for part in _conditions(old_where.this):
-            if _normal(part) not in present:
-                text = part.sql(dialect=Firebird, comments=False)
-                gone.append(text if len(text) <= MAX_CHARS else text[: MAX_CHARS - 1] + "…")
-        return gone
+        return old, [part for part in _conditions(old_where.this) if _normal(part) not in present]
     except Exception:
-        return []
+        return None, []
+
+
+def dropped_conditions(old_sql: str, new_sql: str) -> list[str]:
+    """The top-level WHERE conditions of old_sql that appear nowhere in new_sql (as written SQL, cut short)."""
+    _select, parts = _dropped_parts(old_sql, new_sql)
+    gone = []
+    for part in parts:
+        text = part.sql(dialect=Firebird, comments=False)
+        gone.append(text if len(text) <= MAX_CHARS else text[: MAX_CHARS - 1] + "…")
+    return gone
+
+
+def dropped_columns(old_sql: str, new_sql: str) -> list[str]:
+    """Upper-case names of the columns the lost conditions are about, first seen first, each once. A condition
+    names its own columns; a condition that only has them inside a sub-query (NOT EXISTS(...)) gives those."""
+    select, parts = _dropped_parts(old_sql, new_sql)
+    names: list[str] = []
+    for part in parts:
+        columns = list(part.find_all(exp.Column))
+        own = [column for column in columns if column.find_ancestor(exp.Select) is select]
+        for column in own or columns:
+            name = column.name.upper()
+            if name and name not in names:
+                names.append(name)
+    return names

@@ -482,8 +482,9 @@ def test_reply_names_the_row_counts(
 
     content = _ask(client, tab, "Хэлтсийг нэм").content.decode()
 
-    assert WorkspaceMessage.objects.filter(tab=tab).order_by("id").last().text == "Хүснэгтийг шинэчиллээ: 98 → 12 мөр."
-    assert "Хүснэгтийг шинэчиллээ: 98 → 12 мөр." in content
+    line = "Хүснэгтийг шинэчиллээ: 98 мөр байсан, одоо 12 мөр байна."
+    assert WorkspaceMessage.objects.filter(tab=tab).order_by("id").last().text == line
+    assert line in content
     assert "нэг ч мөр үлдсэнгүй" not in content
 
 
@@ -498,7 +499,7 @@ def test_zero_rows_after_a_refinement_shows_the_caution_line(
 
     content = _ask(client, tab, "Зөвхөн удирдлага").content.decode()
 
-    assert "Хүснэгтийг шинэчиллээ: 98 → 0 мөр." in content
+    assert "Хүснэгтийг шинэчиллээ: 98 мөр байсан, одоо 0 мөр байна." in content
     assert "нэг ч мөр үлдсэнгүй" in content
     assert "«Буцаах» товчоор" in content  # two versions now: the caution line points at undo
     # The caution belongs to the answer that caused it: a plain reload of the pane does not repeat it.

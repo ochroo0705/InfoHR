@@ -174,3 +174,58 @@ def test_every_truth_runs_on_the_database(db_user_of: Any) -> None:
     for case in SQL_CASES:
         rows = case.truth(users[case.role])
         assert isinstance(rows, list), case.question
+
+
+# ---- the two-turn refine set ----------------------------------------------------------------------------------------
+
+
+def test_refine_cases_are_well_formed() -> None:
+    from assistant.sqleval import REFINE_CASES
+
+    assert len(REFINE_CASES) >= 6
+    pairs = [(case.first, case.followup) for case in REFINE_CASES]
+    assert len(pairs) == len(set(pairs))
+    for case in REFINE_CASES:
+        assert case.role in SQL_ROLES and case.first.strip() and case.followup.strip() and case.note
+    assert any("нэмж" in case.followup or "бас" in case.followup or "мөн" in case.followup for case in REFINE_CASES)
+    assert any("үлдээ" in case.followup for case in REFINE_CASES)  # narrowing controls: not every follow-up adds
+
+
+def test_tenure_extremes_include_ties_and_skip_people_without_a_date() -> None:
+    from datetime import date
+    from types import SimpleNamespace
+
+    from assistant.sqleval import _tenure_extremes
+
+    def person(pk: int, day: date | None) -> Any:
+        return SimpleNamespace(pk=pk, first_hire_date=day)
+
+    people = [
+        person(1, date(2001, 1, 1)),
+        person(2, date(2001, 1, 1)),
+        person(3, date(2020, 5, 5)),
+        person(4, date(2010, 1, 1)),
+        person(5, None),
+    ]
+    assert _tenure_extremes(people, longest=True, shortest=False) == {1, 2}
+    assert _tenure_extremes(people, longest=False, shortest=True) == {3}
+    assert _tenure_extremes(people, longest=True, shortest=True) == {1, 2, 3}
+    assert _tenure_extremes([], longest=True, shortest=True) == set()
+
+
+@pytest.mark.django_db
+def test_every_refine_truth_runs_on_the_database(db_user_of: Any) -> None:
+    from assistant.sqleval import REFINE_CASES
+
+    users = {role: db_user_of(role) for role in SQL_ROLES}
+    for case in REFINE_CASES:
+        assert isinstance(case.truth(users[case.role]), list), case.first
+
+
+def test_command_refine_refuses_without_yes_spend(monkeypatch: pytest.MonkeyPatch) -> None:
+    def no_provider_please() -> None:
+        raise AssertionError("the provider must not be asked without --yes-spend")
+
+    monkeypatch.setattr(assistant_eval, "get_provider", no_provider_please)
+    with pytest.raises(CommandError, match="yes-spend"):
+        call_command("assistant_eval", refine=True)

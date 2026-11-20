@@ -359,6 +359,116 @@ SQL_CASES: tuple[SqlCase, ...] = (
 )
 
 
+# ---- two-turn cases: a table is asked for, then refined (the workspace tab path) ------------------------------------
+
+
+@dataclass(frozen=True)
+class RefineCase:
+    """A question that opens a table and a follow-up line that refines it. The truth is the rows of the table after
+    the follow-up; the compare kind is "set" and the compare looks at the first column only (EMP_ID).
+    `note` says what the follow-up must do, for the eval's output."""
+
+    first: str
+    followup: str
+    role: str
+    truth: Callable[[User], list[tuple[object, ...]]]
+    note: str
+
+
+DEPARTMENT = "Борлуулалт"  # a department with many people in the test data copy, used by the department cases
+
+
+def _tenure_extremes(people: list[Employee], *, longest: bool, shortest: bool) -> set[int]:
+    """Ids of the people with the earliest first hire date (longest-serving) and/or the latest (shortest-serving),
+    ties included, people with no hire date left out (the same as MIN and MAX in SQL)."""
+    dated = [(e.pk, e.first_hire_date) for e in people if e.first_hire_date is not None]
+    if not dated:
+        return set()
+    earliest = min(day for _pk, day in dated)
+    latest = max(day for _pk, day in dated)
+    return {pk for pk, day in dated if (longest and day == earliest) or (shortest and day == latest)}
+
+
+def _in_department(people: list[Employee]) -> list[Employee]:
+    return [e for e in people if e.department is not None and e.department.name == DEPARTMENT]
+
+
+def _ids(pks: Iterable[int]) -> list[tuple[object, ...]]:
+    return [(pk,) for pk in pks]
+
+
+def _r_longest_then_add_shortest(user: User) -> list[tuple[object, ...]]:
+    return _ids(_tenure_extremes(_working(user), longest=True, shortest=True))
+
+
+def _r_department_longest_then_add_shortest(user: User) -> list[tuple[object, ...]]:
+    return _ids(_tenure_extremes(_in_department(_working(user)), longest=True, shortest=True))
+
+
+def _r_working_women_then_add_men(user: User) -> list[tuple[object, ...]]:
+    return _ids(e.pk for e in _working(user) if e.gender in ("F", "M"))
+
+
+def _r_department_working_then_add_women_elsewhere(user: User) -> list[tuple[object, ...]]:
+    people = _working(user)
+    wanted = {e.pk for e in _in_department(people)} | {e.pk for e in people if e.gender == "F"}
+    return _ids(wanted)
+
+
+def _r_working_then_only_women(user: User) -> list[tuple[object, ...]]:
+    return _ids(e.pk for e in _working(user) if e.gender == "F")
+
+
+def _r_department_then_only_longest(user: User) -> list[tuple[object, ...]]:
+    return _ids(_tenure_extremes(_in_department(_working(user)), longest=True, shortest=False))
+
+
+REFINE_CASES: tuple[RefineCase, ...] = (
+    RefineCase(
+        "Одоо ажиллаж байгаа ажилтнуудаас хамгийн удаан ажилласан хүний ажилтны кодыг гарга.",
+        "хамгийн бага хугацаагаар ажилласан хүнийг нэмж харуул",
+        "hr",
+        _r_longest_then_add_shortest,
+        "add the other extreme: both, company-wide",
+    ),
+    RefineCase(
+        f"{DEPARTMENT} хэлтсийн одоо ажиллаж байгаа хамгийн удаан ажилласан ажилтны кодыг гарга.",
+        "хамгийн бага жил ажилласан ажилтныг нэмж харуул",
+        "hr",
+        _r_department_longest_then_add_shortest,
+        "add the other extreme: both, inside the department only",
+    ),
+    RefineCase(
+        "Одоо ажиллаж байгаа эмэгтэй ажилтнуудын ажилтны кодыг гарга.",
+        "эрэгтэй ажилтнуудыг бас нэм",
+        "hr",
+        _r_working_women_then_add_men,
+        "add another group: working women and working men",
+    ),
+    RefineCase(
+        f"{DEPARTMENT} хэлтсийн одоо ажиллаж байгаа ажилтнуудын ажилтны кодыг гарга.",
+        "бусад хэлтсийн одоо ажиллаж байгаа эмэгтэйчүүдийг мөн харуул",
+        "hr",
+        _r_department_working_then_add_women_elsewhere,
+        "add a second group: the department, or working women",
+    ),
+    RefineCase(
+        "Одоо ажиллаж байгаа ажилтнуудын ажилтны кодыг гарга.",
+        "зөвхөн эмэгтэйчүүдийг үлдээ",
+        "hr",
+        _r_working_then_only_women,
+        "narrow, not add: working women only",
+    ),
+    RefineCase(
+        f"{DEPARTMENT} хэлтсийн одоо ажиллаж байгаа ажилтнуудын ажилтны кодыг гарга.",
+        "тэднээс хамгийн удаан ажилласан хүнийг л үлдээ",
+        "hr",
+        _r_department_then_only_longest,
+        "narrow, not add: the longest-serving of the department",
+    ),
+)
+
+
 # ---- the checker -----------------------------------------------------------------------------------------------------
 
 
@@ -382,6 +492,39 @@ def _key(row: Iterable[object]) -> tuple[str, ...]:
 def _shown(rows: Iterable[Iterable[object]]) -> str:
     text = "; ".join(" | ".join(_key(row)) for row in rows)
     return text if len(text) <= 160 else text[:157] + "..."
+
+
+def check_refine_case(case: RefineCase, user: User, provider: Provider, host: Host | None = None) -> SqlResult:
+    """Opens a tab with the first line, refines it with the follow-up (both through ws_service.refine_tab, the path the
+    chat uses) and compares the rows of the final SQL with the case's truth. Needs the database for the tab (the eval
+    runs inside a transaction it rolls back)."""
+    from hr_sql.host import HrHost
+    from sqlcore.runner import Refused, run_question
+
+    from assistant import ws_service
+
+    day = _today()
+    tab = ws_service.new_tab(user)
+    for line in (case.first, case.followup):
+        result = ws_service.refine_tab(user, tab, line, day, provider, host)
+        if result.status != "ok":
+            return SqlResult(False, f"{result.status} after «{line}»: {result.reason}")
+    version = tab.current()
+    if version is None:
+        return SqlResult(False, "no version after the follow-up")
+    outcome = run_question(host if host is not None else HrHost(), user, version.sql)
+    if isinstance(outcome, Refused):
+        return SqlResult(False, f"final query refused: {outcome.reason}")
+    got = outcome.result.rows
+    want = case.truth(user)
+    # Only the employee code (the first column) is compared: the table may add name columns of its own.
+    if {_key(row)[:1] for row in got} == {_key(row)[:1] for row in want}:
+        return SqlResult(True, f"{len(got)} row(s), as expected ({case.note})")
+    sql = " ".join(version.sql.split())
+    sql = sql if len(sql) <= 300 else sql[:297] + "..."
+    return SqlResult(
+        False, f"{case.note}: expected {_shown(want) or 'no rows'}; got {_shown(got) or 'no rows'}; sql {sql}"
+    )
 
 
 def check_sql_case(case: SqlCase, user: User, provider: Provider, host: Host | None = None) -> SqlResult:

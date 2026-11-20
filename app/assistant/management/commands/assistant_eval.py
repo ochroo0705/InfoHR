@@ -20,6 +20,7 @@ from accounts.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
+from employees.models import CompanySettings
 from leave.models import LeaveSettings
 
 from assistant import learning
@@ -33,7 +34,7 @@ from assistant.plan import Plan
 from assistant.providers import Provider, get_provider
 from assistant.role_users import make_role_user
 from assistant.services import FIELD_HINTS, PLAN_ENTRIES, QUESTION_LIMIT, phrases_for
-from assistant.sqleval import SQL_CASES, SQL_ROLES, check_sql_case
+from assistant.sqleval import REFINE_CASES, SQL_CASES, SQL_ROLES, check_refine_case, check_sql_case
 from assistant.tables import can_open_table
 from assistant.words import FilterWords, offered_words
 
@@ -124,10 +125,15 @@ class Command(BaseCommand):
             help="Only the shipped cases: no local tests, and no learned examples sent to the provider.",
         )
         parser.add_argument("--sql", action="store_true", help="Score the SQL accuracy set instead (needs Firebird).")
-        parser.add_argument("--yes-spend", action="store_true", help="Allow the provider calls of --sql.")
+        parser.add_argument(
+            "--refine",
+            action="store_true",
+            help="Score the two-turn refine set instead: a table is opened, then refined (needs Firebird).",
+        )
+        parser.add_argument("--yes-spend", action="store_true", help="Allow the provider calls of --sql and --refine.")
 
     def handle(self, *args: Any, **options: Any) -> None:
-        if options["sql"]:
+        if options["sql"] or options["refine"]:
             self._run_sql(options)
             return
         provider = get_provider()
@@ -261,18 +267,31 @@ class Command(BaseCommand):
         below_mark = False
         total_passed = total = 0
         with transaction.atomic():
+            # The switch is on for this run only: the transaction is rolled back, so the saved setting is not changed.
+            settings = CompanySettings.get()
+            settings.governed_sql_enabled = True
+            settings.save(update_fields=["governed_sql_enabled"])
             for role in roles:
                 user = _role_user(role)
                 passed = count = 0
-                for case in (c for c in SQL_CASES if c.role == role):
-                    result = check_sql_case(case, user, provider)
-                    passed += result.passed
-                    count += 1
-                    self.stdout.write(f"{_status(result.passed)} sql {role} | {case.question} | {result.reason}")
+                if options["refine"]:
+                    for rcase in (c for c in REFINE_CASES if c.role == role):
+                        result = check_refine_case(rcase, user, provider)
+                        passed += result.passed
+                        count += 1
+                        steps = f"{rcase.first} -> {rcase.followup}"
+                        self.stdout.write(f"{_status(result.passed)} refine {role} | {steps} | {result.reason}")
+                else:
+                    for case in (c for c in SQL_CASES if c.role == role):
+                        result = check_sql_case(case, user, provider)
+                        passed += result.passed
+                        count += 1
+                        self.stdout.write(f"{_status(result.passed)} sql {role} | {case.question} | {result.reason}")
                 below_mark = below_mark or not _pct_ok(passed, count)
                 total_passed += passed
                 total += count
-                self.stdout.write(f"{role}: {passed}/{count} sql cases")
+                kind = "refine" if options["refine"] else "sql"
+                self.stdout.write(f"{role}: {passed}/{count} {kind} cases")
             transaction.set_rollback(True)  # nothing the eval made is kept
         self.stdout.write(f"Overall: {total_passed}/{total} sql cases")
         if below_mark:

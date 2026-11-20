@@ -40,7 +40,8 @@ from assistant.sqlanswer import (
 from assistant.sqlask import SqlReply, ask_refine_sql_reply, ask_sql_reply
 from assistant.verified import examples_for
 from assistant.ws_chart import chart_spec_from_json, chart_spec_from_reply, chart_spec_to_json
-from assistant.ws_kept import MAX_SHOWN, dropped_conditions
+from assistant.ws_kept import MAX_SHOWN, dropped_columns
+from assistant.ws_labels import view_labels
 from assistant.ws_limits import MAX_TABS, MAX_VERSIONS
 from assistant.ws_run import base_columns, run_count
 from assistant.ws_sql import Spec, checked_group, spec_from_json, spec_to_json
@@ -179,8 +180,10 @@ def close(tab: WorkspaceTab) -> None:
 REFINED_TEXT = "Хүснэгтийг шинэчиллээ."  # the assistant's line after a refinement that worked, when no count is known
 UNDONE_TEXT = "Өмнөх хувилбар руу буцлаа."  # the assistant's line after an undo, when no count is known
 ROW_UNIT = "мөр"
-DROPPED_NOTE = " Анхаар: өмнөх нөхцөл хасагдсан эсвэл өөрчлөгдсөн байж магадгүй: "
-DROPPED_UNDO = ". Буруу бол «Буцаах» дарна уу."
+DROPPED_NOTE = " Анхаар: "  # the plain-words note (what it is about follows); no SQL is ever shown to the viewer
+DROPPED_ABOUT = "Өмнөх шүүлтүүр ({names}) шинэ хүснэгтэд хэвээр үлдээгүй байж магадгүй."
+DROPPED_ABOUT_UNNAMED = "Өмнөх шүүлтүүрийн нэг нь шинэ хүснэгтэд хэвээр үлдээгүй байж магадгүй."
+DROPPED_UNDO = " Буруу бол «Буцаах» дарна уу."
 # Reasons are English (log and result). Each one that the viewer can be told about has a Mongolian stored line.
 CHANGED_REASON = "The table changed while you were asking."
 TAB_GONE_REASON = "The table was closed while you were asking."
@@ -211,19 +214,31 @@ def refined_line(before: int | None, after: int | None) -> str:
     if after is None:
         return REFINED_TEXT
     if before is None:
-        return f"{REFINED_TEXT[:-1]}: {after} {ROW_UNIT}."
-    return f"{REFINED_TEXT[:-1]}: {before} → {after} {ROW_UNIT}."
+        return f"{REFINED_TEXT[:-1]}: {after} {ROW_UNIT} байна."
+    if before == after:
+        return f"{REFINED_TEXT[:-1]}: {after} {ROW_UNIT} хэвээр байна."
+    return f"{REFINED_TEXT[:-1]}: {before} {ROW_UNIT} байсан, одоо {after} {ROW_UNIT} байна."
 
 
-def dropped_note(old_sql: str, new_sql: str, before: int | None, after: int | None) -> str:
-    """A sentence for the assistant's line when the refined query lost a condition the old one had and shows at least
-    as many rows (a narrower result is what an added condition does, so it is not flagged). "" when nothing is lost."""
+def dropped_note(
+    old_sql: str,
+    new_sql: str,
+    before: int | None,
+    after: int | None,
+    labels: dict[str, str] | None = None,
+) -> str:
+    """A plain-words sentence for the assistant's line when the refined query lost a condition the old one had and
+    shows at least as many rows (a narrower result is what an added condition does, so it is not flagged). It names
+    what the lost condition was about by the column labels (never SQL); a column without a label is left out, and a
+    note with no label at all says only that a filter may be gone. "" when nothing is lost."""
     if before is not None and after is not None and after < before:
         return ""
-    gone = dropped_conditions(old_sql, new_sql)
-    if not gone:
+    names = dropped_columns(old_sql, new_sql)
+    if not names:
         return ""
-    return DROPPED_NOTE + "; ".join(gone[:MAX_SHOWN]) + (" …" if len(gone) > MAX_SHOWN else "") + DROPPED_UNDO
+    shown = list(dict.fromkeys(labels[name] for name in names if labels and name in labels))[:MAX_SHOWN]
+    about = DROPPED_ABOUT.format(names=", ".join(shown)) if shown else DROPPED_ABOUT_UNNAMED
+    return DROPPED_NOTE + about + DROPPED_UNDO
 
 
 def failed_turns_removed(messages: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -529,6 +544,9 @@ def _turn(
             logger.warning("workspace count failed (%s)", type(error).__name__)
         after = _total(user, sql, governed)[0]
         labels = _carried_labels(current.labels, labels)
+    note = ""
+    if status == "ok":
+        note = dropped_note(current.sql, sql, before, after, _filter_labels(user, governed, current.sql))
     return _finish(
         tab,
         text,
@@ -537,12 +555,22 @@ def _turn(
         sql,
         base_pk,
         first_build=False,
-        ok_line=refined_line(before, after) + (dropped_note(current.sql, sql, before, after) if status == "ok" else ""),
+        ok_line=refined_line(before, after) + note,
         total=after,
         labels=labels,
         settings=_group_settings(group),
         chart=chart,
     )
+
+
+def _filter_labels(user: User, governed: Host, sql: str) -> dict[str, str]:
+    """Mongolian column labels (label_mn of the governed views the SQL names) for the plain-words dropped-filter note.
+    {} when they cannot be found: the note then does not name the columns. Never raises."""
+    try:
+        return view_labels(governed.catalogue_for(user).views, sql)
+    except Exception as error:
+        logger.warning("workspace labels failed (%s)", type(error).__name__)
+        return {}
 
 
 def _group_settings(group: str) -> str:
