@@ -1,0 +1,98 @@
+<title>MACS Human Capital брошюр</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one A4 sheet. Red header band, then a two-column body: AI story left, screenshots right; feature grid; contact strip. Single print look on purpose. */
+:root{
+  --ink:#1d1f26; --muted:#5b5f6b; --line:#e3e0e4; --paper:#ffffff;
+  --brand:#c0352b; --brand-deep:#8f2219; --tint:#fbefed; --ground:#e9e7ea;
+  --display:"Golos Text",ui-sans-serif,system-ui,sans-serif;
+  --body:"Golos Text",ui-sans-serif,system-ui,sans-serif;
+  color-scheme:light;
+}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
+  padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet{background:var(--paper);width:210mm;max-width:100%;min-height:297mm;margin:0 auto;box-shadow:0 2px 18px rgba(40,20,20,.12);display:flex;flex-direction:column}
+header{background:var(--brand);color:#fff;padding:9mm 12mm 8mm;display:grid;gap:3mm}
+.brand{font-family:var(--display);font-weight:700;font-size:12pt;letter-spacing:.02em}
+.brand span{opacity:.75;font-weight:500}
+h1{font-family:var(--display);font-weight:800;font-size:26pt;letter-spacing:-.01em;line-height:1.12;margin:0;text-wrap:balance}
+.lead{font-size:11.5pt;line-height:1.45;margin:0;max-width:160mm;color:#fff}
+.pain{font-size:12pt;font-weight:600;margin:0;color:#fff;opacity:.85}
+main{padding:8mm 12mm 0;display:grid;gap:8mm;flex:1;align-content:space-between}
+.hero{display:grid;grid-template-columns:.8fr 1.4fr;gap:7mm;align-items:start}
+.ask{background:var(--tint);border-radius:3mm;padding:4mm 5mm;font-size:10.5pt;line-height:1.45}
+.ask b{display:block;font-size:7.5pt;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-deep);margin-bottom:1.5mm}
+h2{font-family:var(--display);font-weight:500;font-size:13pt;margin:0;text-wrap:balance;color:var(--brand-deep)}
+.points{display:grid;gap:3.5mm;margin:0;padding:0;list-style:none}
+.points li{font-size:10.5pt;line-height:1.4;color:var(--muted)}
+.points strong{display:block;color:var(--ink);font-size:11.5pt;margin-bottom:.5mm}
+.col{display:grid;gap:4.5mm;min-width:0}
+figure{margin:0;display:grid;gap:1.5mm;min-width:0}
+figure img{display:block;width:100%;border:1px solid var(--line);border-radius:2mm}
+figcaption{font-size:9.5pt;color:var(--muted)}
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm 6mm;border-top:1px solid var(--line);padding-top:5mm}
+.features h3{font-size:11pt;margin:0 0 1mm;color:var(--ink);text-wrap:balance}
+.features p{font-size:10pt;line-height:1.4;margin:0;color:var(--muted)}
+footer{margin-top:6mm;background:var(--ink);color:#fff;padding:6mm 12mm;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4mm}
+footer .cta{font-family:var(--display);font-weight:500;font-size:12pt}
+footer .contact{font-size:9.5pt;opacity:.9}
+@media (max-width:640px){
+  .hero,.features{grid-template-columns:1fr}
+  h1{font-size:20pt}
+  .sheet{min-height:0}
+}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff;padding:0}
+  .sheet{box-shadow:none;width:210mm;height:296mm;min-height:0;overflow:hidden}
+  header,footer,.ask{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+
+<div class="sheet">
+  <header>
+    <div class="brand">MACS <span>Human Capital</span></div>
+    <h1>Хүний нөөцөө асуултаар удирд</h1>
+    <p class="pain">Нэг тайлангийн төлөө Excel-д өдөржин суух, программист хүлээх үе дууслаа.</p>
+    <p class="lead">Хиймэл оюун ухаантай вэб хүний нөөцийн систем. Асуултаа монголоор бичээд хариултаа хүснэгт, графикаар ав. MACS ERP-д багтаж ирнэ.</p>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="col">
+        <div class="ask"><b>Жишээ асуулт</b>«Энэ жил 5-аас дээш жил ажилласан, ээлжийн амралтаа аваагүй ажилтнуудыг хэлтсээр нь гарга»</div>
+        <h2>AI таны оронд тайлан бэлдэнэ</h2>
+        <ul class="points">
+          <li><strong>Асуугаад хүснэгтээ ав</strong>Монголоор бичсэн асуултаас секундэд хүснэгт гарна. Чатаар цааш нарийвчилж, Excel рүү гаргана.</li>
+          <li><strong>Өөрийн AI-гаа холбо</strong>Claude зэрэг AI туслахаа холбоод (MCP) график, дүгнэлттэй тойм бэлдүүлнэ.</li>
+          <li><strong>Удирдлага дүр зургаа нэг дор харна</strong>Хүн хүч, шилжилт хөдөлгөөн, амралтын тоймыг хэн нэгнээс хүсэлгүй өөрөө авна.</li>
+          <li><strong>Нууц мэдээлэл хамгаалагдана</strong>Хүн бүр, AI ч бас зөвхөн өөрт зөвшөөрөгдсөнийг харна.</li>
+        </ul>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="workspace.png" alt="AI ажлын талбар: асуулт, чат ба хэлтсээр бүлэглэсэн хүснэгт">
+          <figcaption>Хоёр асуултаар хэлтсээр бүлэглэсэн жагсаалт бэлэн.</figcaption>
+        </figure>
+        <figure>
+          <img src="mcp.png" alt="Claude-ийн бэлдсэн хүний нөөцийн тойм">
+          <figcaption>Claude нэг хүсэлтээр бэлдсэн хүний нөөцийн тойм.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="features" aria-label="Боломжууд">
+      <div><h3>Ирц автоматаар</h3><p>Timetry-тэй холбогдож ирц, чөлөө өөрөө орно.</p></div>
+      <div><h3>Тушаал дэлгэц дээр</h3><p>Загвараас үүсгэж, гарын үсгээр баталж, PDF гаргана.</p></div>
+      <div><h3>Ажилтны бүх мэдээлэл</h3><p>Хувийн хэрэг, гэрээ, амралт нэг хуудсанд.</p></div>
+      <div><h3>Ажилд авахаас чөлөөлөх хүртэл</h3><p>Сонгон шалгаруулалт, шилжилт, хийх алхмууд.</p></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="cta">Үнэгүй танилцуулга аваарай</div>
+    <div class="contact">[Компанийн нэр] · [Утас] · [И-мэйл] · [Вэб хаяг]</div>
+  </footer>
+</div>
