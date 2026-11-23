@@ -26,6 +26,15 @@ describe("isPorted", () => {
     expect(isPorted("/employees/new/?candidate=3")).toBe(true);
   });
 
+  it("treats both log pages as ported, and their Excel exports as Django-only", () => {
+    expect(isPorted("/logs/")).toBe(true);
+    expect(isPorted("/logs/?q=test&kind=note")).toBe(true);
+    expect(isPorted("/logs/system/")).toBe(true);
+    expect(isPorted("/logs/system/?category=auth")).toBe(true);
+    expect(isPorted("/api/v1/logs/employee/export")).toBe(false);
+    expect(isPorted("/api/v1/logs/system/export?q=test")).toBe(false);
+  });
+
   it("needs the trailing slash for the add-employee page, like the other ported routes", () => {
     expect(isPorted("/employees/new")).toBe(false);
     expect(isPorted("/employees/company")).toBe(false);

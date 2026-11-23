@@ -3433,6 +3433,525 @@
         "title": "LeavePeriodOut",
         "type": "object"
       },
+      "LogChangeOut": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "old",
+          "new"
+        ],
+        "title": "LogChangeOut",
+        "type": "object"
+      },
+      "LogChipOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "LogChipOut",
+        "type": "object"
+      },
+      "LogEmployeeOptionsOut": {
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/LogOptionOut"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/LogOptionOut"
+            },
+            "title": "Kinds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kinds",
+          "areas"
+        ],
+        "title": "LogEmployeeOptionsOut",
+        "type": "object"
+      },
+      "LogEmployeeOut": {
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LogChipOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "options": {
+            "$ref": "#/components/schemas/LogEmployeeOptionsOut"
+          },
+          "query": {
+            "$ref": "#/components/schemas/LogEmployeeQueryOut"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LogEmployeeRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "tabs": {
+            "$ref": "#/components/schemas/LogTabsOut"
+          }
+        },
+        "required": [
+          "rows",
+          "next_offset",
+          "query",
+          "chip",
+          "options",
+          "tabs",
+          "address"
+        ],
+        "title": "LogEmployeeOut",
+        "type": "object"
+      },
+      "LogEmployeeQueryOut": {
+        "properties": {
+          "area": {
+            "title": "Area",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "date_from": {
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "title": "Date To",
+            "type": "string"
+          },
+          "emp": {
+            "title": "Emp",
+            "type": "string"
+          },
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "oldest": {
+            "title": "Oldest",
+            "type": "boolean"
+          },
+          "q": {
+            "title": "Q",
+            "type": "string"
+          },
+          "system": {
+            "title": "System",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "q",
+          "emp",
+          "employee",
+          "by",
+          "kinds",
+          "area",
+          "field",
+          "date_from",
+          "date_to",
+          "system",
+          "oldest"
+        ],
+        "title": "LogEmployeeQueryOut",
+        "type": "object"
+      },
+      "LogEmployeeRowOut": {
+        "properties": {
+          "by_name": {
+            "title": "By Name",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/LogChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "integer"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_correction": {
+            "title": "Is Correction",
+            "type": "boolean"
+          },
+          "is_note": {
+            "title": "Is Note",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_class": {
+            "title": "Kind Class",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "time",
+          "employee_id",
+          "employee_name",
+          "employee_code",
+          "by_name",
+          "kind",
+          "kind_label",
+          "kind_class",
+          "is_note",
+          "is_correction",
+          "message",
+          "changes",
+          "order_id"
+        ],
+        "title": "LogEmployeeRowOut",
+        "type": "object"
+      },
+      "LogOptionOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "LogOptionOut",
+        "type": "object"
+      },
+      "LogSystemOptionsOut": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/LogOptionOut"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/LogOptionOut"
+            },
+            "title": "Categories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "categories",
+          "actions"
+        ],
+        "title": "LogSystemOptionsOut",
+        "type": "object"
+      },
+      "LogSystemOut": {
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "options": {
+            "$ref": "#/components/schemas/LogSystemOptionsOut"
+          },
+          "query": {
+            "$ref": "#/components/schemas/LogSystemQueryOut"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LogSystemRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "tabs": {
+            "$ref": "#/components/schemas/LogTabsOut"
+          }
+        },
+        "required": [
+          "rows",
+          "next_offset",
+          "query",
+          "options",
+          "tabs",
+          "address"
+        ],
+        "title": "LogSystemOut",
+        "type": "object"
+      },
+      "LogSystemQueryOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "date_from": {
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "title": "Date To",
+            "type": "string"
+          },
+          "ip": {
+            "title": "Ip",
+            "type": "string"
+          },
+          "oldest": {
+            "title": "Oldest",
+            "type": "boolean"
+          },
+          "q": {
+            "title": "Q",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "q",
+          "categories",
+          "action",
+          "by",
+          "target",
+          "ip",
+          "date_from",
+          "date_to",
+          "oldest"
+        ],
+        "title": "LogSystemQueryOut",
+        "type": "object"
+      },
+      "LogSystemRowOut": {
+        "properties": {
+          "action_label": {
+            "title": "Action Label",
+            "type": "string"
+          },
+          "actor_name": {
+            "title": "Actor Name",
+            "type": "string"
+          },
+          "category_label": {
+            "title": "Category Label",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/LogChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ip": {
+            "title": "Ip",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "target_label": {
+            "title": "Target Label",
+            "type": "string"
+          },
+          "target_type": {
+            "title": "Target Type",
+            "type": "string"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "time",
+          "actor_name",
+          "category_label",
+          "action_label",
+          "target_type",
+          "target_label",
+          "message",
+          "changes",
+          "ip"
+        ],
+        "title": "LogSystemRowOut",
+        "type": "object"
+      },
+      "LogTabsOut": {
+        "properties": {
+          "employee": {
+            "title": "Employee",
+            "type": "boolean"
+          },
+          "export": {
+            "title": "Export",
+            "type": "boolean"
+          },
+          "system": {
+            "title": "System",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "employee",
+          "system",
+          "export"
+        ],
+        "title": "LogTabsOut",
+        "type": "object"
+      },
       "LoginIn": {
         "properties": {
           "password": {
@@ -9499,6 +10018,564 @@
         "summary": "Employee Work",
         "tags": [
           "employees"
+        ]
+      }
+    },
+    "/api/v1/logs/employee": {
+      "get": {
+        "description": "One batch of the employee log, newest first unless `oldest`. Unknown or junk filter values are dropped.",
+        "operationId": "api_logs_employee_log",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "emp",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Emp",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "employee",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Employee",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "by",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "area",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Area",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "field",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Field",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "system",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "System",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "oldest",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Oldest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogEmployeeOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Log",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/v1/logs/employee/export": {
+      "get": {
+        "description": "The employee log as an Excel file: every row the screen shows for this address. Needs view and export rights.",
+        "operationId": "api_logs_employee_export",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "emp",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Emp",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "employee",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Employee",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "by",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "area",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Area",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "field",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Field",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "system",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "System",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "oldest",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Oldest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Export",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/v1/logs/system": {
+      "get": {
+        "description": "One batch of the system log, newest first unless `oldest`. Unknown or junk filter values are dropped.",
+        "operationId": "api_logs_system_log",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "by",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ip",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Ip",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "oldest",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Oldest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogSystemOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "System Log",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/v1/logs/system/export": {
+      "get": {
+        "description": "The system log as an Excel file: every row the screen shows for this address. Needs audit and export rights.",
+        "operationId": "api_logs_system_export",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "by",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ip",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Ip",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "oldest",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Oldest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "System Export",
+        "tags": [
+          "logs"
         ]
       }
     },

@@ -5,7 +5,6 @@ Filters live in the address and rows load in batches (UI_RULES §4, §4b, §5).
 
 import dataclasses
 from typing import Any
-from urllib.parse import urlencode
 
 from accounts.audit import ACTIONS, Category, record_export
 from accounts.models import User
@@ -15,57 +14,35 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.http import require_GET
 from django.views.decorators.vary import vary_on_headers
-from employees import access
-from employees.models import ActivityKind, Employee
+from employees.models import ActivityKind
 
 from logs import export
-from logs.employee_query import EmployeeLogFilter, filtered, page, parse_filter
-from logs.system_query import SystemLogFilter, parse_system_filter, system_page
-from logs.system_query import filtered as filtered_system
-
-EXPORT_PERM = "accounts.export_lists"  # the Excel file and its button
-AREA_LABELS = (
-    ("salary", "Цалин"),
-    ("personal", "Хувийн мэдээлэл"),
-    ("orders", "Тушаал"),
-    ("notes", "Тэмдэглэл"),
+from logs.employee_query import page, parse_filter
+from logs.page_rules import (
+    AREA_LABELS,
+    EXPORT_PERM,
+    employee_workbook,
+    system_workbook,
 )
+from logs.page_rules import (
+    employee_address as _address,
+)
+from logs.page_rules import (
+    system_address as _system_address,
+)
+from logs.page_rules import (
+    visible_chip as _visible_chip,
+)
+from logs.system_query import parse_system_filter, system_page
+
 ROW_COLSPAN = 5
 
 
 def _user(request: HttpRequest) -> User:
     assert isinstance(request.user, User)
     return request.user
-
-
-def _address(f: EmployeeLogFilter) -> str:
-    """The cleaned filters as a query string: what the page shows, never the raw text the user typed into the URL."""
-    pairs: list[tuple[str, str]] = []
-    if f.q:
-        pairs.append(("q", f.q))
-    if f.emp:
-        pairs.append(("emp", f.emp))
-    if f.employee is not None:
-        pairs.append(("employee", str(f.employee)))
-    if f.by:
-        pairs.append(("by", f.by))
-    pairs.extend(("kind", kind) for kind in f.kinds)
-    if f.area:
-        pairs.append(("area", f.area))
-    if f.field:
-        pairs.append(("field", f.field))
-    if f.date_from is not None:
-        pairs.append(("from", f.date_from.isoformat()))
-    if f.date_to is not None:
-        pairs.append(("to", f.date_to.isoformat()))
-    if f.system_only:
-        pairs.append(("system", "1"))
-    if f.oldest_first:
-        pairs.append(("oldest", "1"))
-    return urlencode(pairs)
 
 
 @login_required
@@ -124,29 +101,6 @@ def employee_log(request: HttpRequest) -> HttpResponse:
 SYSTEM_ROW_COLSPAN = 7
 
 
-def _system_address(f: SystemLogFilter) -> str:
-    """The cleaned system-log filters as a query string (never the raw text typed into the URL)."""
-    pairs: list[tuple[str, str]] = []
-    if f.q:
-        pairs.append(("q", f.q))
-    pairs.extend(("category", category) for category in f.categories)
-    if f.action:
-        pairs.append(("action", f.action))
-    if f.by:
-        pairs.append(("by", f.by))
-    if f.target:
-        pairs.append(("target", f.target))
-    if f.ip:
-        pairs.append(("ip", f.ip))
-    if f.date_from is not None:
-        pairs.append(("from", f.date_from.isoformat()))
-    if f.date_to is not None:
-        pairs.append(("to", f.date_to.isoformat()))
-    if f.oldest_first:
-        pairs.append(("oldest", "1"))
-    return urlencode(pairs)
-
-
 @login_required
 @require_GET
 @vary_on_headers("HX-Request")
@@ -194,13 +148,6 @@ def system_log(request: HttpRequest) -> HttpResponse:
     return response
 
 
-def _visible_chip(user: User, f: EmployeeLogFilter) -> Employee | None:
-    """The employee named by the filter if the user may see them; otherwise the filter is dropped and None returned."""
-    chip = access.visible_employees(user).filter(pk=f.employee).first() if f.employee is not None else None
-    f.employee = chip.pk if chip is not None else None
-    return chip
-
-
 @login_required
 @require_GET
 def employee_xlsx(request: HttpRequest) -> HttpResponse:
@@ -210,14 +157,7 @@ def employee_xlsx(request: HttpRequest) -> HttpResponse:
         raise PermissionDenied
     f = parse_filter(request.GET)
     _visible_chip(user, f)
-    tally = export.Tally()
-    today = timezone.localdate().isoformat()
-    response = export.workbook_response(
-        f"employee-log-{today}.xlsx",
-        export.EMPLOYEE_HEADERS,
-        export.capped_rows(filtered(user, f), export.employee_row, tally),
-        export.EMPLOYEE_WIDTHS,
-    )
+    response, tally = employee_workbook(user, f)
     record_export(
         request,
         "export_log",
@@ -236,14 +176,7 @@ def system_xlsx(request: HttpRequest) -> HttpResponse:
     if not user.has_perm("accounts.view_audit") or not user.has_perm(EXPORT_PERM):
         raise PermissionDenied
     f = parse_system_filter(request.GET)
-    tally = export.Tally()
-    today = timezone.localdate().isoformat()
-    response = export.workbook_response(
-        f"system-log-{today}.xlsx",
-        export.SYSTEM_HEADERS,
-        export.capped_rows(filtered_system(f), export.system_row, tally),
-        export.SYSTEM_WIDTHS,
-    )
+    response, tally = system_workbook(f)
     record_export(
         request,
         "export_log",

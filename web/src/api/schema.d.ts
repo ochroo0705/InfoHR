@@ -1006,6 +1006,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/logs/employee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Log
+         * @description One batch of the employee log, newest first unless `oldest`. Unknown or junk filter values are dropped.
+         */
+        get: operations["api_logs_employee_log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/logs/employee/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Export
+         * @description The employee log as an Excel file: every row the screen shows for this address. Needs view and export rights.
+         */
+        get: operations["api_logs_employee_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/logs/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * System Log
+         * @description One batch of the system log, newest first unless `oldest`. Unknown or junk filter values are dropped.
+         */
+        get: operations["api_logs_system_log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/logs/system/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * System Export
+         * @description The system log as an Excel file: every row the screen shows for this address. Needs audit and export rights.
+         */
+        get: operations["api_logs_system_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -2821,6 +2901,181 @@ export interface components {
             row_class: string;
             /** Taken */
             taken: string;
+        };
+        /** LogChangeOut */
+        LogChangeOut: {
+            /** Field */
+            field: string;
+            /** New */
+            new: string;
+            /** Old */
+            old: string;
+        };
+        /** LogChipOut */
+        LogChipOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /** LogEmployeeOptionsOut */
+        LogEmployeeOptionsOut: {
+            /** Areas */
+            areas: components["schemas"]["LogOptionOut"][];
+            /** Kinds */
+            kinds: components["schemas"]["LogOptionOut"][];
+        };
+        /** LogEmployeeOut */
+        LogEmployeeOut: {
+            /** Address */
+            address: string;
+            chip: components["schemas"]["LogChipOut"] | null;
+            /** Next Offset */
+            next_offset: number | null;
+            options: components["schemas"]["LogEmployeeOptionsOut"];
+            query: components["schemas"]["LogEmployeeQueryOut"];
+            /** Rows */
+            rows: components["schemas"]["LogEmployeeRowOut"][];
+            tabs: components["schemas"]["LogTabsOut"];
+        };
+        /** LogEmployeeQueryOut */
+        LogEmployeeQueryOut: {
+            /** Area */
+            area: string;
+            /** By */
+            by: string;
+            /** Date From */
+            date_from: string;
+            /** Date To */
+            date_to: string;
+            /** Emp */
+            emp: string;
+            /** Employee */
+            employee: number | null;
+            /** Field */
+            field: string;
+            /** Kinds */
+            kinds: string[];
+            /** Oldest */
+            oldest: boolean;
+            /** Q */
+            q: string;
+            /** System */
+            system: boolean;
+        };
+        /** LogEmployeeRowOut */
+        LogEmployeeRowOut: {
+            /** By Name */
+            by_name: string;
+            /** Changes */
+            changes: components["schemas"]["LogChangeOut"][];
+            /** Date */
+            date: string;
+            /** Employee Code */
+            employee_code: string;
+            /** Employee Id */
+            employee_id: number;
+            /** Employee Name */
+            employee_name: string;
+            /** Id */
+            id: number;
+            /** Is Correction */
+            is_correction: boolean;
+            /** Is Note */
+            is_note: boolean;
+            /** Kind */
+            kind: string;
+            /** Kind Class */
+            kind_class: string;
+            /** Kind Label */
+            kind_label: string;
+            /** Message */
+            message: string;
+            /** Order Id */
+            order_id: number | null;
+            /** Time */
+            time: string;
+        };
+        /** LogOptionOut */
+        LogOptionOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** LogSystemOptionsOut */
+        LogSystemOptionsOut: {
+            /** Actions */
+            actions: components["schemas"]["LogOptionOut"][];
+            /** Categories */
+            categories: components["schemas"]["LogOptionOut"][];
+        };
+        /** LogSystemOut */
+        LogSystemOut: {
+            /** Address */
+            address: string;
+            /** Next Offset */
+            next_offset: number | null;
+            options: components["schemas"]["LogSystemOptionsOut"];
+            query: components["schemas"]["LogSystemQueryOut"];
+            /** Rows */
+            rows: components["schemas"]["LogSystemRowOut"][];
+            tabs: components["schemas"]["LogTabsOut"];
+        };
+        /** LogSystemQueryOut */
+        LogSystemQueryOut: {
+            /** Action */
+            action: string;
+            /** By */
+            by: string;
+            /** Categories */
+            categories: string[];
+            /** Date From */
+            date_from: string;
+            /** Date To */
+            date_to: string;
+            /** Ip */
+            ip: string;
+            /** Oldest */
+            oldest: boolean;
+            /** Q */
+            q: string;
+            /** Target */
+            target: string;
+        };
+        /** LogSystemRowOut */
+        LogSystemRowOut: {
+            /** Action Label */
+            action_label: string;
+            /** Actor Name */
+            actor_name: string;
+            /** Category Label */
+            category_label: string;
+            /** Changes */
+            changes: components["schemas"]["LogChangeOut"][];
+            /** Date */
+            date: string;
+            /** Id */
+            id: number;
+            /** Ip */
+            ip: string;
+            /** Message */
+            message: string;
+            /** Target Label */
+            target_label: string;
+            /** Target Type */
+            target_type: string;
+            /** Time */
+            time: string;
+        };
+        /** LogTabsOut */
+        LogTabsOut: {
+            /** Employee */
+            employee: boolean;
+            /** Export */
+            export: boolean;
+            /** System */
+            system: boolean;
         };
         /** LoginIn */
         LoginIn: {
@@ -5334,6 +5589,128 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EmployeeWorkOut"];
                 };
+            };
+        };
+    };
+    api_logs_employee_log: {
+        parameters: {
+            query?: {
+                q?: string;
+                emp?: string;
+                employee?: string;
+                by?: string;
+                area?: string;
+                field?: string;
+                from?: string;
+                to?: string;
+                kind?: string[] | null;
+                system?: string;
+                oldest?: string;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogEmployeeOut"];
+                };
+            };
+        };
+    };
+    api_logs_employee_export: {
+        parameters: {
+            query?: {
+                q?: string;
+                emp?: string;
+                employee?: string;
+                by?: string;
+                area?: string;
+                field?: string;
+                from?: string;
+                to?: string;
+                kind?: string[] | null;
+                system?: string;
+                oldest?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_logs_system_log: {
+        parameters: {
+            query?: {
+                q?: string;
+                by?: string;
+                target?: string;
+                ip?: string;
+                action?: string;
+                from?: string;
+                to?: string;
+                category?: string[] | null;
+                oldest?: string;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogSystemOut"];
+                };
+            };
+        };
+    };
+    api_logs_system_export: {
+        parameters: {
+            query?: {
+                q?: string;
+                by?: string;
+                target?: string;
+                ip?: string;
+                action?: string;
+                from?: string;
+                to?: string;
+                category?: string[] | null;
+                oldest?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

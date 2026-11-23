@@ -15,6 +15,8 @@ import { HirePage } from "./screens/hire/HirePage";
 import { SlotsPage } from "./screens/slots/SlotsPage";
 import { SelfFormListPage } from "./screens/selfforms/SelfFormListPage";
 import { SelfFormShowPage } from "./screens/selfforms/SelfFormShowPage";
+import { EmployeeLogPage } from "./screens/logs/EmployeeLogPage";
+import { SystemLogPage } from "./screens/logs/SystemLogPage";
 import { Landing } from "./routes/Landing";
 import { WelcomeRoute } from "./routes/WelcomeRoute";
 import { ConfirmProvider } from "./widgets/confirm";
@@ -60,6 +62,8 @@ export default function App() {
           <Route path="/employees/self-forms/" element={<SelfFormListPage />} />
           <Route path="/employees/self-forms/:pk/" element={<SelfFormShowPage />} />
           <Route path="/employees/:pk/" element={<EmployeePage />} />
+          <Route path="/logs/" element={<EmployeeLogPage />} />
+          <Route path="/logs/system/" element={<SystemLogPage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />
         </Route>

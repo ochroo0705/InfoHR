@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEmployeeActivity } from "../../api/employee";
 import type { components } from "../../api/schema";
@@ -357,7 +358,14 @@ describe("ActivityDrawer", () => {
 
   it("shows the log link only when the batch carries one", () => {
     givenPages([batch([entry()], { log_url: "/logs/?employee=7" })]);
-    renderDrawer();
+    // /logs/ is a ported path, so the link renders through AppLink, which needs a router (as EmployeePage.test.tsx does).
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <ActivityDrawer pk={7} count={3} canManage={false} open onClose={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
 
     const link = screen.getByRole("link", { name: "Бүрэн харах" });
     expect(link.getAttribute("href")).toBe("/logs/?employee=7");

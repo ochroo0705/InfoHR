@@ -34,6 +34,7 @@ from ninja.errors import HttpError
 from ninja.security import django_auth
 
 from api.errors import ApiError
+from api.params import batch_offset
 from api.popups import FORBIDDEN, NOT_FOUND, request_user
 
 order_register_router = Router(tags=["orders"])
@@ -176,11 +177,6 @@ def _row_out(row: RegisterRow, can_manage: bool) -> OrderRegisterRowOut:
     )
 
 
-def _offset(raw: str) -> int:
-    """A non-negative number, else 0 (a bad or negative offset starts at the first batch, never an error)."""
-    return int(raw) if raw.isdecimal() and len(raw) <= 18 else 0
-
-
 @order_register_router.get("/register", response=OrderRegisterOut, auth=django_auth)
 def order_register_batch(
     request: HttpRequest,
@@ -198,7 +194,7 @@ def order_register_batch(
     )
     today = timezone.localdate()
     options = order_register_page.filter_options(today)
-    start = _offset(offset)
+    start = batch_offset(offset)
     size = batching.LIST_BATCH  # read at call time so tests can shrink the batch
     rows, more = order_register.register_page(
         user,
