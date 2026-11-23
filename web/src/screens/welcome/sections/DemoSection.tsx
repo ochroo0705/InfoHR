@@ -1,5 +1,11 @@
 import { useGSAP } from "@gsap/react";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { submitDemoRequest } from "../../../api/welcome";
 import type { ApiFailure } from "../../../api/mutate";
 import { copy } from "../copy";
@@ -12,12 +18,32 @@ type Problems = Partial<Record<Field, string>>;
 type FieldElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
 // Visual order. The first invalid field in this order gets the focus after a failed submit.
-const FIELD_ORDER: Field[] = ["email", "name", "organisation", "phone", "size_band", "note"];
+const FIELD_ORDER: Field[] = [
+  "email",
+  "name",
+  "organisation",
+  "phone",
+  "size_band",
+  "note",
+];
 const REQUIRED: Field[] = ["email", "name", "organisation"];
 // Same limits as the server (api/welcome). Counted after trimming.
-const MAX_LENGTH: Partial<Record<Field, number>> = { email: 254, name: 120, organisation: 200, phone: 40, note: 2000 };
+const MAX_LENGTH: Partial<Record<Field, number>> = {
+  email: 254,
+  name: 120,
+  organisation: 200,
+  phone: 40,
+  note: 2000,
+};
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const EMPTY: Values = { email: "", name: "", organisation: "", phone: "", size_band: "", note: "" };
+const EMPTY: Values = {
+  email: "",
+  name: "",
+  organisation: "",
+  phone: "",
+  size_band: "",
+  note: "",
+};
 const REQUIRED_MESSAGE: Record<"email" | "name" | "organisation", string> = {
   email: copy.form.errors.emailRequired,
   name: copy.form.errors.nameRequired,
@@ -41,7 +67,11 @@ function validate(values: Values): Problems {
   }
   for (const field of FIELD_ORDER) {
     const max = MAX_LENGTH[field];
-    if (max !== undefined && values[field].length > max && found[field] === undefined) {
+    if (
+      max !== undefined &&
+      values[field].length > max &&
+      found[field] === undefined
+    ) {
       found[field] = copy.form.errors.tooLong;
     }
   }
@@ -80,7 +110,7 @@ function labelKey(field: Field): keyof typeof copy.form.labels {
   return field;
 }
 
-// The demo request form. Light tone, the page's last call to action. Static by default; the only motion is the
+// The demo request form. Dark tone, so the page ends in the same mood it opened with. The page's last call to action. Static by default; the only motion is the
 // thank-you fade, and only when canAnimate().
 export function DemoSection() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -109,7 +139,11 @@ export function DemoSection() {
       try {
         registerGsap();
         // fromTo applies the hidden start state when it is created; the thank-you is visible in the markup otherwise.
-        gsap.fromTo(el, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: EASE });
+        gsap.fromTo(
+          el,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.4, ease: EASE },
+        );
       } catch {
         // If GSAP fails, drop any inline start state so the thank-you stays visible.
         try {
@@ -156,7 +190,8 @@ export function DemoSection() {
   }
 
   function change(field: Field) {
-    return (event: ChangeEvent<FieldElement>) => update(field, event.target.value);
+    return (event: ChangeEvent<FieldElement>) =>
+      update(field, event.target.value);
   }
 
   function setRef(field: Field) {
@@ -183,7 +218,10 @@ export function DemoSection() {
     sendingRef.current = true;
     setSending(true);
     try {
-      await submitDemoRequest({ ...clean, contact_ref: contactRef.current?.value ?? "" });
+      await submitDemoRequest({
+        ...clean,
+        contact_ref: contactRef.current?.value ?? "",
+      });
       // The sending guard stays set: the form is replaced, so nothing can be sent again from this page.
       // Measure the card before the form is swapped out, so the thank-you keeps the same height (no layout jump).
       const card = cardRef.current;
@@ -196,7 +234,9 @@ export function DemoSection() {
       setSending(false);
       const failure = error as Partial<ApiFailure>;
       const fromServer: Problems = {};
-      const generic: string[] = Array.isArray(failure.formErrors) ? [...failure.formErrors] : [];
+      const generic: string[] = Array.isArray(failure.formErrors)
+        ? [...failure.formErrors]
+        : [];
       for (const [key, messages] of Object.entries(failure.fieldErrors ?? {})) {
         if (!Array.isArray(messages) || messages.length === 0) {
           continue;
@@ -242,170 +282,207 @@ export function DemoSection() {
   }
 
   return (
-    <section id="demo" data-tone="light" className="w-demo" ref={sectionRef}>
+    <section id="demo" data-tone="dark" className="w-demo" ref={sectionRef}>
       <div className="w-container">
-        <h2 className="w-demo-title" id="demo-title">
-          {copy.form.title}
-        </h2>
-        <div
-          className="w-demo-card"
-          ref={cardRef}
-          style={cardHeight !== undefined ? { minHeight: `${cardHeight}px` } : undefined}
-        >
-          {done ? (
-            <div role="status" className="w-demo-thanks" tabIndex={-1} ref={thanksRef}>
-              <h3 className="w-demo-thanks-title">{copy.form.thanksTitle}</h3>
-              <p className="w-demo-thanks-text">{copy.form.thanksText}</p>
-            </div>
-          ) : (
-            <form className="w-demo-form" noValidate onSubmit={onSubmit} aria-labelledby="demo-title">
-              <p className="w-demo-note-required">{copy.form.requiredNote}</p>
-              <div className="w-demo-grid">
-                <div className="w-demo-field">
-                  <FieldLabel field="email" required />
-                  <input
-                    id="demo-email"
-                    className="w-demo-input"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    maxLength={MAX_LENGTH.email}
-                    required
-                    aria-required="true"
-                    aria-invalid={invalid("email")}
-                    aria-describedby={describedBy("email")}
-                    value={values.email}
-                    onChange={change("email")}
-                    ref={setRef("email")}
-                  />
-                  {errorFor("email")}
-                </div>
-                <div className="w-demo-field">
-                  <FieldLabel field="name" required />
-                  <input
-                    id="demo-name"
-                    className="w-demo-input"
-                    name="name"
-                    type="text"
-                    autoComplete="name"
-                    maxLength={MAX_LENGTH.name}
-                    required
-                    aria-required="true"
-                    aria-invalid={invalid("name")}
-                    aria-describedby={describedBy("name")}
-                    value={values.name}
-                    onChange={change("name")}
-                    ref={setRef("name")}
-                  />
-                  {errorFor("name")}
-                </div>
-                <div className="w-demo-field">
-                  <FieldLabel field="organisation" required />
-                  <input
-                    id="demo-organisation"
-                    className="w-demo-input"
-                    name="organisation"
-                    type="text"
-                    autoComplete="organization"
-                    maxLength={MAX_LENGTH.organisation}
-                    required
-                    aria-required="true"
-                    aria-invalid={invalid("organisation")}
-                    aria-describedby={describedBy("organisation")}
-                    value={values.organisation}
-                    onChange={change("organisation")}
-                    ref={setRef("organisation")}
-                  />
-                  {errorFor("organisation")}
-                </div>
-                <div className="w-demo-field">
-                  <FieldLabel field="phone" required={false} />
-                  <input
-                    id="demo-phone"
-                    className="w-demo-input"
-                    name="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    maxLength={MAX_LENGTH.phone}
-                    aria-invalid={invalid("phone")}
-                    aria-describedby={describedBy("phone")}
-                    value={values.phone}
-                    onChange={change("phone")}
-                    ref={setRef("phone")}
-                  />
-                  <p className="w-demo-hint" id="demo-phone-hint">
-                    {copy.form.optionalPhone}
-                  </p>
-                  {errorFor("phone")}
-                </div>
-                <div className="w-demo-field">
-                  <FieldLabel field="size_band" required={false} />
-                  <select
-                    id="demo-size_band"
-                    className="w-demo-input"
-                    name="size_band"
-                    aria-invalid={invalid("size_band")}
-                    aria-describedby={describedBy("size_band")}
-                    value={values.size_band}
-                    onChange={change("size_band")}
-                    ref={setRef("size_band")}
-                  >
-                    <option value="">{copy.form.sizeNone}</option>
-                    {copy.form.sizeBands.map((band) => (
-                      <option key={band} value={band}>
-                        {band}
-                      </option>
-                    ))}
-                  </select>
-                  {errorFor("size_band")}
-                </div>
-                <div className="w-demo-field w-demo-wide">
-                  <FieldLabel field="note" required={false} />
-                  <textarea
-                    id="demo-note"
-                    className="w-demo-input w-demo-textarea"
-                    name="note"
-                    rows={4}
-                    maxLength={MAX_LENGTH.note}
-                    aria-invalid={invalid("note")}
-                    aria-describedby={describedBy("note")}
-                    value={values.note}
-                    onChange={change("note")}
-                    ref={setRef("note")}
-                  />
-                  {errorFor("note")}
-                </div>
-              </div>
-
-              {/* Honeypot: off-screen, out of the tab order, hidden from assistive tech. Bots fill it; people never see it. */}
-              <input
-                ref={contactRef}
-                className="w-demo-hp"
-                type="text"
-                name="contact_ref"
+        <div className="w-demo-layout">
+          <div className="w-demo-aside">
+          <span className="w-demo-mark" aria-hidden="true">
+            №
+          </span>
+            <h2 className="w-demo-title" id="demo-title">
+              {copy.form.title}
+            </h2>
+            <p className="w-demo-intro">{copy.form.intro}</p>
+            <h3 className="w-demo-next-title">{copy.form.nextTitle}</h3>
+            <ol className="w-demo-next">
+              {copy.form.nextSteps.map((text) => (
+                <li key={text}>{text}</li>
+              ))}
+            </ol>
+          </div>
+          <div
+            className="w-demo-card"
+            ref={cardRef}
+            style={
+              cardHeight !== undefined
+                ? { minHeight: `${cardHeight}px` }
+                : undefined
+            }
+          >
+            {done ? (
+              <div
+                role="status"
+                className="w-demo-thanks"
                 tabIndex={-1}
-                autoComplete="off"
-                aria-hidden="true"
-                defaultValue=""
-              />
-
-              <div className="w-demo-alert" role="alert">
-                {submitFailed ? <p className="w-demo-alert-text">{copy.form.errors.submitFailed}</p> : null}
-                {formErrors.map((text, index) => (
-                  <p className="w-demo-alert-text" key={`${index}-${text}`}>
-                    {text}
-                  </p>
-                ))}
+                ref={thanksRef}
+              >
+                <h3 className="w-demo-thanks-title">{copy.form.thanksTitle}</h3>
+                <p className="w-demo-thanks-text">{copy.form.thanksText}</p>
               </div>
+            ) : (
+              <form
+                className="w-demo-form"
+                noValidate
+                onSubmit={onSubmit}
+                aria-labelledby="demo-title"
+              >
+                <p className="w-demo-note-required">{copy.form.requiredNote}</p>
+                <div className="w-demo-grid">
+                  <div className="w-demo-field">
+                    <FieldLabel field="email" required />
+                    <input
+                      id="demo-email"
+                      className="w-demo-input"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      maxLength={MAX_LENGTH.email}
+                      required
+                      aria-required="true"
+                      aria-invalid={invalid("email")}
+                      aria-describedby={describedBy("email")}
+                      value={values.email}
+                      onChange={change("email")}
+                      ref={setRef("email")}
+                    />
+                    {errorFor("email")}
+                  </div>
+                  <div className="w-demo-field">
+                    <FieldLabel field="name" required />
+                    <input
+                      id="demo-name"
+                      className="w-demo-input"
+                      name="name"
+                      type="text"
+                      autoComplete="name"
+                      maxLength={MAX_LENGTH.name}
+                      required
+                      aria-required="true"
+                      aria-invalid={invalid("name")}
+                      aria-describedby={describedBy("name")}
+                      value={values.name}
+                      onChange={change("name")}
+                      ref={setRef("name")}
+                    />
+                    {errorFor("name")}
+                  </div>
+                  <div className="w-demo-field">
+                    <FieldLabel field="organisation" required />
+                    <input
+                      id="demo-organisation"
+                      className="w-demo-input"
+                      name="organisation"
+                      type="text"
+                      autoComplete="organization"
+                      maxLength={MAX_LENGTH.organisation}
+                      required
+                      aria-required="true"
+                      aria-invalid={invalid("organisation")}
+                      aria-describedby={describedBy("organisation")}
+                      value={values.organisation}
+                      onChange={change("organisation")}
+                      ref={setRef("organisation")}
+                    />
+                    {errorFor("organisation")}
+                  </div>
+                  <div className="w-demo-field">
+                    <FieldLabel field="phone" required={false} />
+                    <input
+                      id="demo-phone"
+                      className="w-demo-input"
+                      name="phone"
+                      type="tel"
+                      autoComplete="tel"
+                      maxLength={MAX_LENGTH.phone}
+                      aria-invalid={invalid("phone")}
+                      aria-describedby={describedBy("phone")}
+                      value={values.phone}
+                      onChange={change("phone")}
+                      ref={setRef("phone")}
+                    />
+                    <p className="w-demo-hint" id="demo-phone-hint">
+                      {copy.form.optionalPhone}
+                    </p>
+                    {errorFor("phone")}
+                  </div>
+                  <div className="w-demo-field">
+                    <FieldLabel field="size_band" required={false} />
+                    <select
+                      id="demo-size_band"
+                      className="w-demo-input"
+                      name="size_band"
+                      aria-invalid={invalid("size_band")}
+                      aria-describedby={describedBy("size_band")}
+                      value={values.size_band}
+                      onChange={change("size_band")}
+                      ref={setRef("size_band")}
+                    >
+                      <option value="">{copy.form.sizeNone}</option>
+                      {copy.form.sizeBands.map((band) => (
+                        <option key={band} value={band}>
+                          {band}
+                        </option>
+                      ))}
+                    </select>
+                    {errorFor("size_band")}
+                  </div>
+                  <div className="w-demo-field w-demo-wide">
+                    <FieldLabel field="note" required={false} />
+                    <textarea
+                      id="demo-note"
+                      className="w-demo-input w-demo-textarea"
+                      name="note"
+                      rows={4}
+                      maxLength={MAX_LENGTH.note}
+                      aria-invalid={invalid("note")}
+                      aria-describedby={describedBy("note")}
+                      value={values.note}
+                      onChange={change("note")}
+                      ref={setRef("note")}
+                    />
+                    {errorFor("note")}
+                  </div>
+                </div>
 
-              <div className="w-demo-actions">
-                <button type="submit" className="w-button w-demo-submit" disabled={sending} aria-busy={sending}>
-                  {copy.form.submit}
-                </button>
-                <p className="w-demo-privacy">{copy.form.privacy}</p>
-              </div>
-            </form>
-          )}
+                {/* Honeypot: off-screen, out of the tab order, hidden from assistive tech. Bots fill it; people never see it. */}
+                <input
+                  ref={contactRef}
+                  className="w-demo-hp"
+                  type="text"
+                  name="contact_ref"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  defaultValue=""
+                />
+
+                <div className="w-demo-alert" role="alert">
+                  {submitFailed ? (
+                    <p className="w-demo-alert-text">
+                      {copy.form.errors.submitFailed}
+                    </p>
+                  ) : null}
+                  {formErrors.map((text, index) => (
+                    <p className="w-demo-alert-text" key={`${index}-${text}`}>
+                      {text}
+                    </p>
+                  ))}
+                </div>
+
+                <div className="w-demo-actions">
+                  <button
+                    type="submit"
+                    className="w-button w-demo-submit"
+                    disabled={sending}
+                    aria-busy={sending}
+                  >
+                    {copy.form.submit}
+                  </button>
+                  <p className="w-demo-privacy">{copy.form.privacy}</p>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </section>

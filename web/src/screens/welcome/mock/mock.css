@@ -301,12 +301,18 @@
   border-color: #92400e;
 }
 
-/* Narrow frames (phones): the name sits above its track so all 21 days keep a readable width. */
+/* Narrow frames (phones): the name sits above its track and the calendar keeps a readable width, 21 days at 20 px
+   each, and scrolls sideways inside the frame (the real calendar scrolls the same way). */
 @container (max-width: 480px) {
+  .mock-leave {
+    overflow-x: auto;
+  }
+
   .mock-leave-row,
   .mock-leave-row--head {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.2em;
+    min-width: 440px;
   }
 }
 

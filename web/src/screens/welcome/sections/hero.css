@@ -81,6 +81,7 @@
 .welcome .w-hero-lead {
   max-width: 36ch;
   margin: 20px 0 0;
+  text-wrap: balance;
   color: var(--w-muted);
   font-size: clamp(1rem, 0.95rem + 0.3vw, 1.2rem);
   line-height: 1.55;

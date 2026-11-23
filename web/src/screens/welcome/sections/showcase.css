@@ -46,6 +46,7 @@
 .welcome .w-showcase-text {
   max-width: 36ch;
   margin: 14px 0 0;
+  text-wrap: pretty;
   color: var(--w-muted);
   font-size: clamp(1rem, 0.95rem + 0.3vw, 1.15rem);
   line-height: 1.55;
@@ -55,20 +56,46 @@
   min-width: 0;
 }
 
-/* Step dots: only used in the pinned stage. Decorative, so hidden from assistive technology. */
+/* Step buttons: only used in the pinned stage, where they jump to a step. The button is a 44 px touch target; the
+   dot is drawn by its ::before. */
 .welcome .w-showcase-indicator {
   display: none;
 }
 
 .welcome .w-showcase-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.welcome .w-showcase-dot::before {
+  content: "";
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--w-line);
+  transition: transform 0.2s ease-out, background-color 0.2s ease-out;
 }
 
-.welcome .w-showcase-dot.is-active {
+.welcome .w-showcase-dot:hover::before {
+  background: var(--w-muted);
+  transform: scale(1.5);
+}
+
+.welcome .w-showcase-dot.is-active::before {
   background: var(--w-primary);
+  transform: scale(1.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome .w-showcase-dot::before {
+    transition: none;
+  }
 }
 
 @media (min-width: 960px) {
@@ -85,14 +112,14 @@
 
 /* Pinned stage: the four articles share one grid cell and fade in turn. Only the JS-set aria-hidden marks the
    inactive ones; they then ignore the pointer. */
-/* Pinned mode is CSS sticky, not a JS pin: the track is four viewports tall, so its scroll distance is three
-   viewports; the stage sticks to the top of the viewport for the whole track. No pin spacer, no layout shift. */
+/* Pinned mode is CSS sticky, not a JS pin: the track is three and a half viewports tall, so its scroll distance is
+   two and a half viewports; the stage sticks to the top of the viewport for the whole track. No pin spacer, no layout shift. */
 .welcome .w-showcase--pinned {
   padding-block: 0;
 }
 
 .welcome .w-showcase--pinned .w-showcase-track {
-  height: calc(100dvh * 4);
+  height: calc(100dvh * 3.5);
 }
 
 .welcome .w-showcase--pinned .w-showcase-stage {
@@ -136,8 +163,9 @@
 .welcome .w-showcase--pinned .w-showcase-indicator {
   display: flex;
   order: 2;
-  gap: 8px;
-  margin-top: 32px;
+  gap: 0;
+  margin-top: 16px;
+  margin-left: -14px;
 }
 
 /* The mock is the wide column on every step, so the alternating sides keep it large: on even steps the caption

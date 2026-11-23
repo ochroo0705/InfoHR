@@ -75,11 +75,11 @@ describe("WelcomePage", () => {
     expect(screen.getByText(copy.footer.email)).toBeTruthy();
   });
 
-  it("places the sections in order inside main: hero, proof, showcase, more, demo", () => {
+  it("places the sections in order inside main: hero, showcase, more, fit, faq, demo", () => {
     render(<WelcomePage />);
 
     const main = screen.getByTestId("welcome-page");
-    const ids = ["hero", "proof", "showcase", "more", "demo"];
+    const ids = ["hero", "showcase", "more", "fit", "faq", "demo"];
     let previous: Element = main;
     for (const id of ids) {
       const section = document.getElementById(id);
@@ -161,13 +161,5 @@ describe("WelcomePage with reduced motion", () => {
     expect(container.querySelectorAll('[style*="opacity: 0"]')).toHaveLength(0);
     expect(container.querySelectorAll('[style*="visibility: hidden"]')).toHaveLength(0);
     expect(container.querySelector(".pin-spacer")).toBeNull();
-  });
-
-  it("shows the final proof counter value 500", () => {
-    stubReducedMotion();
-    const { container } = render(<WelcomePage />);
-
-    const counter = container.querySelector<HTMLElement>("[data-proof-value]");
-    expect(counter?.textContent).toBe("500");
   });
 });

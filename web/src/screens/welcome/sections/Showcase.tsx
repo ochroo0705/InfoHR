@@ -29,15 +29,15 @@ const PHONE_QUERY = "(max-width: 767.98px) and (prefers-reduced-motion: no-prefe
 
 // The pinned timeline is four time units long (its progress is 0..1, so progress = time / 4). Each step holds fully
 // visible on a plateau. Only short windows around the boundaries at time 1, 2 and 3 cross over:
-//   outgoing: fades out from boundary - 0.16 to boundary - 0.02
-//   incoming: fades in from boundary + 0.02 to boundary + 0.16
-// The 0.04 gap between the two keeps the articles from overlapping, and the empty slivers stay short.
+//   outgoing: fades out from boundary - 0.28 to boundary - 0.02
+//   incoming: fades in from boundary to boundary + 0.26
+// The 0.02 gap between the two keeps the articles from overlapping, and the empty sliver stays as short as it can.
 const STEP_COUNT = STEPS.length;
 const TIMELINE_LENGTH = STEP_COUNT;
 const BOUNDARIES = [1, 2, 3];
-const FADE = 0.14;
-const FADE_OUT_LEAD = 0.16;
-const FADE_IN_LAG = 0.02;
+const FADE = 0.26;
+const FADE_OUT_LEAD = 0.28;
+const FADE_IN_LAG = 0;
 
 // The animated parts of each mock, found by their data-anim hooks. Each hook sits in one article.
 interface Targets {
@@ -94,8 +94,18 @@ function setActive(articles: HTMLElement[], dots: HTMLElement[], index: number) 
       article.setAttribute("aria-hidden", "true");
     }
   });
-  dots.forEach((dot, i) => dot.classList.toggle("is-active", i === index));
+  dots.forEach((dot, i) => {
+    dot.classList.toggle("is-active", i === index);
+    if (i === index) {
+      dot.setAttribute("aria-current", "step");
+    } else {
+      dot.removeAttribute("aria-current");
+    }
+  });
 }
+
+// The scroll progress at the middle of each step's plateau: the same resting points the snap uses.
+const PLATEAU = [0.125, 0.375, 0.625, 0.875];
 
 // Builds the scrubbed pinned timeline: only the crossfades between the four articles, nothing else.
 // Every tween has both ends written out, so its start never depends on the DOM at the moment it first renders.
@@ -153,14 +163,14 @@ function buildStepTimelines(t: Targets): gsap.core.Timeline[] {
     .fromTo(
       t.orderRows,
       { x: -12, opacity: 0 },
-      { x: 0, opacity: 1, duration: 0.3, stagger: 0.05, immediateRender: false },
+      { x: 0, opacity: 1, duration: 0.45, stagger: 0.07, immediateRender: false },
       0,
     )
     .fromTo(
       t.orderPreview,
       { scaleY: 0.4, opacity: 0 },
-      { scaleY: 1, opacity: 1, transformOrigin: "50% 0%", duration: 0.35, immediateRender: false },
-      0.15,
+      { scaleY: 1, opacity: 1, transformOrigin: "50% 0%", duration: 0.5, immediateRender: false },
+      0.25,
     );
 
   const leave = gsap
@@ -168,7 +178,7 @@ function buildStepTimelines(t: Targets): gsap.core.Timeline[] {
     .fromTo(
       t.leaveBars,
       { scaleX: 0 },
-      { scaleX: 1, transformOrigin: "0 50%", duration: 0.4, stagger: 0.06, immediateRender: false },
+      { scaleX: 1, transformOrigin: "0 50%", duration: 0.6, stagger: 0.09, immediateRender: false },
       0,
     );
 
@@ -177,18 +187,18 @@ function buildStepTimelines(t: Targets): gsap.core.Timeline[] {
     .fromTo(
       t.todayCards,
       { y: 16, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.35, stagger: 0.08, immediateRender: false },
+      { y: 0, opacity: 1, duration: 0.5, stagger: 0.12, immediateRender: false },
       0,
     );
 
   const assistant = gsap
     .timeline({ paused: true, defaults: { ease: EASE } })
-    .fromTo(t.question, { x: 8, opacity: 0 }, { x: 0, opacity: 1, duration: 0.25, immediateRender: false }, 0)
+    .fromTo(t.question, { x: 8, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, immediateRender: false }, 0)
     .fromTo(
       t.assistantRows,
       { opacity: 0 },
-      { opacity: 1, duration: 0.2, stagger: 0.05, immediateRender: false },
-      0.25,
+      { opacity: 1, duration: 0.3, stagger: 0.08, immediateRender: false },
+      0.4,
     );
 
   return [orders, leave, today, assistant];
@@ -245,6 +255,7 @@ function restoreVisible(root: HTMLElement, articles: HTMLElement[], dots: HTMLEl
   }
   for (const dot of dots) {
     dot.classList.remove("is-active");
+    dot.removeAttribute("aria-current");
   }
 }
 
@@ -254,6 +265,8 @@ function restoreVisible(root: HTMLElement, articles: HTMLElement[], dots: HTMLEl
 // Phones with motion: each step reveals once as it enters the viewport. The static markup is complete on its own.
 export function Showcase() {
   const sectionRef = useRef<HTMLElement>(null);
+  // Set only while the pinned stage runs: scrolls the page to the resting point of one step. The step buttons call it.
+  const goToStep = useRef<((index: number) => void) | null>(null);
 
   useGSAP(
     () => {
@@ -310,17 +323,22 @@ export function Showcase() {
             trigger: track,
             start: "top top",
             end: "bottom bottom",
-            scrub: 0.6,
+            scrub: 1,
             animation: pinned,
             // A scroll that stops between two steps glides to the nearest resting point: the middle of each plateau.
             snap: {
               snapTo: [0, 0.125, 0.375, 0.625, 0.875, 1],
-              duration: { min: 0.2, max: 0.6 },
-              delay: 0.1,
+              duration: { min: 0.4, max: 1 },
+              delay: 0.15,
               ease: "power1.inOut",
             },
             onUpdate: (self) => activate(stepAt(self.progress)),
           });
+          const created = trigger;
+          goToStep.current = (index: number) => {
+            const top = created.start + PLATEAU[index] * (created.end - created.start);
+            window.scrollTo({ top, behavior: canAnimate() ? "smooth" : "auto" });
+          };
           // Step 1 is drawn once when the showcase first reaches the viewport, before the stage sticks.
           entrance = ScrollTrigger.create({
             trigger: root,
@@ -374,7 +392,9 @@ export function Showcase() {
           }
           for (const dot of dots) {
             dot.classList.remove("is-active");
+            dot.removeAttribute("aria-current");
           }
+          goToStep.current = null;
         };
       });
 
@@ -423,9 +443,16 @@ export function Showcase() {
       <div className="w-showcase-track">
         <div className="w-showcase-stage">
           <div className="w-container">
-            <div className="w-showcase-indicator" aria-hidden="true">
-              {STEPS.map((step) => (
-                <span key={step.key} className="w-showcase-dot" />
+            {/* Shown only while the pinned stage runs, where it is the way to jump between steps. */}
+            <div className="w-showcase-indicator" role="group" aria-label={copy.showcase.stepsLabel}>
+              {STEPS.map((step, index) => (
+                <button
+                  key={step.key}
+                  type="button"
+                  className="w-showcase-dot"
+                  aria-label={copy.showcase.steps[index].title}
+                  onClick={() => goToStep.current?.(index)}
+                />
               ))}
             </div>
             <div className="w-showcase-steps">

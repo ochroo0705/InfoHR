@@ -1,0 +1,43 @@
+/* FAQ: light tone. Colours come from the --w-* variables set by .welcome [data-tone="light"] in welcome.css. */
+
+.welcome .w-faq {
+  background: var(--w-bg);
+  color: var(--w-text);
+  padding-block: 72px;
+}
+
+.welcome .w-faq-title {
+  margin: 0;
+  font-size: clamp(1.6rem, 1.3rem + 1.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.welcome .w-faq-list {
+  max-width: 760px;
+  margin-top: 32px;
+  border-bottom: 1px solid var(--w-line);
+}
+
+.welcome .w-faq-item {
+  border-top: 1px solid var(--w-line);
+}
+
+.welcome .w-faq-q {
+  min-height: 44px;
+  padding-block: 16px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.welcome .w-faq-a {
+  max-width: 62ch;
+  margin: 0 0 20px;
+  color: var(--w-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}

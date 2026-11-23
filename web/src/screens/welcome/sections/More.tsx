@@ -12,7 +12,7 @@ function clearInline(cards: HTMLElement[]) {
   }
 }
 
-// "More" cards: a small grid of the other things MACS Human Capital does. Light tone.
+// "More": a short two-column list of the other things MACS Human Capital does, separated by thin rules. Light tone.
 // Static by default: every card is fully visible in the markup. Motion (one soft reveal as the grid scrolls in)
 // runs only when canAnimate(). Hidden states are set from JavaScript after the trigger exists.
 export function More() {
@@ -77,7 +77,6 @@ export function More() {
         <ul className="w-more-grid">
           {copy.more.cards.map((card, index) => (
             <li key={`${index}-${card.title}`} className="w-more-card" data-more-card>
-              <span className="w-more-index">{String(index + 1).padStart(2, "0")}</span>
               <h3 className="w-more-card-title">{card.title}</h3>
               <p className="w-more-card-text">{card.text}</p>
             </li>

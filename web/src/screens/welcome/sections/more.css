@@ -15,55 +15,29 @@
   text-wrap: balance;
 }
 
-/* One column on phones, two from 640 px, four from 1024 px (the copy has four cards). */
+/* One column on phones, two from 768 px. A list with a thin rule above each item, not a grid of boxes. */
 .welcome .w-more-grid {
   display: grid;
-  gap: 16px;
+  gap: 0 56px;
   grid-template-columns: minmax(0, 1fr);
   margin: 32px 0 0;
   padding: 0;
   list-style: none;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .welcome .w-more-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1024px) {
-  .welcome .w-more-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 .welcome .w-more-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
   min-width: 0;
-  padding: 24px;
-  border: 1px solid var(--w-line);
-  border-radius: 12px;
-  background: var(--w-surface);
-}
-
-/* A restrained geometric mark: a short teal rule above the number. */
-.welcome .w-more-card::before {
-  content: "";
-  display: block;
-  width: 24px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--w-primary);
-}
-
-.welcome .w-more-index {
-  color: var(--w-muted);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
+  padding-block: 24px;
+  border-top: 1px solid var(--w-line);
 }
 
 .welcome .w-more-card-title {
@@ -75,6 +49,7 @@
 }
 
 .welcome .w-more-card-text {
+  max-width: 52ch;
   margin: 0;
   color: var(--w-muted);
   font-size: 15px;

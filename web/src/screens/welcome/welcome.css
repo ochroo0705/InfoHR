@@ -1,5 +1,5 @@
 /* /welcome palette. Scoped to .welcome only; the app palette in styles/tokens.css is not touched.
-   Dark tone: the hero and the pinned showcase. Light tone: everything from "More" down. */
+   Dark tone: the hero, the pinned showcase, the demo form and the footer. Light tone: the "More" list. */
 .welcome {
   --w-bg: #FAFAF7;
   --w-surface: #FFFFFF;
@@ -194,4 +194,29 @@
   color: var(--w-muted);
   align-self: center;
   font-size: 14px;
+}
+
+/* Back-to-top button: fixed to the corner, above the sections. It sits outside every data-tone block, so it uses the
+   page's own primary colours and reads on both the dark and the light sections. */
+.welcome .w-top {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 999px;
+  color: var(--w-on-primary);
+  background: var(--w-primary);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
+  cursor: pointer;
+}
+
+.welcome .w-top:hover {
+  filter: brightness(1.1);
 }

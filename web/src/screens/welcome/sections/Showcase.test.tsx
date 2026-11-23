@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { copy } from "../copy";
 import { ScrollTrigger, gsap } from "../motion";
@@ -112,12 +112,12 @@ function opacityOf(el: HTMLElement): number {
 
 beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-  // jsdom has no layout, so the track would measure 0 high. The pinned scroll distance is 300% of the viewport, which
-  // needs a track four viewports tall. Only the track is stubbed; every other element keeps jsdom's answer.
+  // jsdom has no layout, so the track would measure 0 high. The pinned scroll distance is 250% of the viewport, which
+  // needs a track three and a half viewports tall. Only the track is stubbed; every other element keeps jsdom's answer.
   const realRect = Element.prototype.getBoundingClientRect;
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
     if (this.classList.contains("w-showcase-track")) {
-      const height = window.innerHeight * 4;
+      const height = window.innerHeight * 3.5;
       return { x: 0, y: 0, top: 0, left: 0, right: 0, width: 0, height, bottom: height, toJSON() {} } as DOMRect;
     }
     return realRect.call(this);
@@ -228,7 +228,7 @@ describe("Showcase (pinned path, 768px and up with a tall viewport)", () => {
     expect(scrubbed?.trigger === container.querySelector(".w-showcase-track")).toBe(true);
     expect(scrubbed?.start).toBe("top top");
     expect(scrubbed?.end).toBe("bottom bottom");
-    expect(scrubbed?.scrub).toBe(0.6);
+    expect(scrubbed?.scrub).toBe(1);
     // ScrollTrigger may fill in its own defaults for these, so the check is that none of them is switched on.
     expect(scrubbed?.pin).toBeFalsy();
     expect(scrubbed?.pinSpacing).toBeFalsy();
@@ -559,6 +559,22 @@ describe("Showcase (pinned choreography)", () => {
     expect(minis[3].paused()).toBe(false);
     expect(minis[1].paused()).toBe(true);
     expect(minis[1].progress()).toBe(0);
+  });
+
+  it("makes the step dots labelled buttons that scroll to the middle of a step's plateau", () => {
+    stubMatchMedia(PINNED_CLAUSES);
+    const { container } = render(<Showcase />);
+    const dots = Array.from(container.querySelectorAll<HTMLButtonElement>("button.w-showcase-dot"));
+    const scrollTo = vi.mocked(window.scrollTo);
+
+    expect(dots).toHaveLength(4);
+    expect(dots.map((dot) => dot.getAttribute("aria-label"))).toEqual(copy.showcase.steps.map((step) => step.title));
+    expect(dots[0].getAttribute("aria-current")).toBe("step");
+
+    scrollTo.mockClear();
+    fireEvent.click(dots[2]);
+
+    expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: expect.any(Number) }));
   });
 });
 

@@ -1,16 +1,53 @@
 {% extends "base.html" %}
 {% block title %}Нэвтрэх{% endblock %}
 {% block content %}
-<div class="mx-auto mt-16 max-w-sm rounded-xl bg-surface p-8 shadow-sm border border-slate-200">
-  <h1 class="text-xl font-semibold mb-6">MACS Human Capital — Нэвтрэх</h1>
-  <form method="post" class="space-y-4">{% csrf_token %}
-    {% if locked %}<p class="text-sm text-red-600">{{ lock_message }}</p>
-    {% elif form.errors %}<p class="text-sm text-red-600">Нэвтрэх нэр эсвэл нууц үг буруу байна.</p>{% endif %}
-    <label class="block text-sm" for="id_username">Нэвтрэх нэр
-      <input id="id_username" name="username" autofocus required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"></label>
-    <label class="block text-sm" for="id_password">Нууц үг
-      <input id="id_password" type="password" name="password" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"></label>
-    <button class="w-full rounded-lg bg-violet-600 py-2 text-white hover:bg-violet-700">Нэвтрэх</button>
-  </form>
+<div class="mx-auto mt-10 max-w-sm sm:mt-16">
+  <div class="mb-6 flex flex-col items-center text-center">
+    {# Brand mark: a rounded tile with a stylised person, in the app's accent colour. #}
+    <span class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-sm" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/></svg>
+    </span>
+    <h1 class="text-2xl font-extrabold tracking-tight">MACS&nbsp;<span class="text-violet-600">Human Capital</span></h1>
+    <p class="mt-1 text-sm text-slate-500">Хүний нөөцийн нэгдсэн систем</p>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-surface p-6 shadow-sm sm:p-8">
+    <h2 class="mb-5 text-lg font-semibold">Нэвтрэх</h2>
+    <form method="post" id="login-form" class="space-y-4">{% csrf_token %}
+      {% if locked %}<p role="alert" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v5M10 13.8v.1"/></svg><span>{{ lock_message }}</span></p>
+      {% elif form.errors %}<p role="alert" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v5M10 13.8v.1"/></svg><span>Нэвтрэх нэр эсвэл нууц үг буруу байна.</span></p>{% endif %}
+      <label class="block text-sm font-medium" for="id_username">Нэвтрэх нэр
+        <input id="id_username" name="username" autofocus required autocomplete="username" autocapitalize="none" spellcheck="false" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base font-normal focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/25"></label>
+      <label class="block text-sm font-medium" for="id_password">Нууц үг
+        <span class="relative mt-1 block">
+          <input id="id_password" type="password" name="password" required autocomplete="current-password" class="w-full rounded-lg border border-slate-300 py-2 pl-3 pr-11 text-base font-normal focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/25">
+          <button type="button" id="pw-toggle" aria-label="Нууц үг харуулах" aria-pressed="false" class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-slate-500 hover:text-slate-800">
+            <svg data-eye-on viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10z"/><circle cx="10" cy="10" r="2.5"/></svg>
+            <svg data-eye-off hidden viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l14 14M8.2 5a8.6 8.6 0 0 1 1.8-.5c5.5 0 8.5 5.5 8.5 5.5a14 14 0 0 1-2.4 3M5.4 6.6A14 14 0 0 0 1.5 10S4.5 15.5 10 15.5a8.4 8.4 0 0 0 3.3-.7M8.4 8.4a2.5 2.5 0 0 0 3.2 3.2"/></svg>
+          </button>
+        </span></label>
+      <button id="login-submit" class="w-full rounded-lg bg-violet-600 py-2.5 font-medium text-white hover:bg-violet-700 disabled:opacity-70">Нэвтрэх</button>
+    </form>
+  </div>
+
+  <p class="mt-5 text-center text-sm text-slate-500">Нууц үгээ мартсан бол системийн администратортай холбогдоно уу.</p>
 </div>
+<script>
+(function () {
+  var pw = document.getElementById('id_password'), tg = document.getElementById('pw-toggle');
+  var form = document.getElementById('login-form'), go = document.getElementById('login-submit');
+  if (tg && pw) tg.addEventListener('click', function () {
+    var show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    tg.setAttribute('aria-pressed', show ? 'true' : 'false');
+    tg.setAttribute('aria-label', show ? 'Нууц үг нуух' : 'Нууц үг харуулах');
+    tg.querySelector('[data-eye-on]').hidden = show;
+    tg.querySelector('[data-eye-off]').hidden = !show;
+  });
+  if (form && go) form.addEventListener('submit', function () {
+    // Disabled after the click so a double click cannot post twice; the page reloads on the answer.
+    setTimeout(function () { go.disabled = true; go.textContent = 'Нэвтэрч байна…'; }, 0);
+  });
+})();
+</script>
 {% endblock %}

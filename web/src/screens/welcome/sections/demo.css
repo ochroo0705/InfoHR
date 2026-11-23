@@ -1,4 +1,4 @@
-/* Demo request section. Light tone: the colours come from the .welcome root's [data-tone="light"] block. */
+/* Demo request section. Dark tone: the colours come from the .welcome [data-tone="dark"] block. */
 
 .welcome .w-demo {
   padding-block: clamp(56px, 8vw, 96px);
@@ -6,8 +6,64 @@
   color: var(--w-text);
 }
 
+/* Desktop: the explanation sits beside the form; below 900 px it stacks above it. */
+.welcome .w-demo-layout {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .welcome .w-demo-layout {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
+    gap: 56px;
+  }
+}
+
+/* The order-number sign from the HR orders register, drawn as an outline: the one product mark on the page. */
+.welcome .w-demo-mark {
+  display: block;
+  margin: 0 0 4px -0.04em;
+  font-size: clamp(96px, 14vw, 168px);
+  font-weight: 700;
+  line-height: 0.85;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--w-accent) 60%, transparent);
+  user-select: none;
+}
+
+.welcome .w-demo-intro {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--w-muted);
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.welcome .w-demo-next-title {
+  margin: 28px 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.welcome .w-demo-next {
+  max-width: 44ch;
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.welcome .w-demo-next li::marker {
+  color: var(--w-primary);
+  font-weight: 700;
+}
+
 .welcome .w-demo-title {
-  margin: 0 0 24px;
+  margin: 0 0 16px;
   font-size: clamp(28px, 4vw, 40px);
   line-height: 1.2;
   font-weight: 700;

@@ -75,7 +75,7 @@ describe("DemoSection", () => {
 
     const section = sectionOf(container);
     expect(section.id).toBe("demo");
-    expect(section.getAttribute("data-tone")).toBe("light");
+    expect(section.getAttribute("data-tone")).toBe("dark");
   });
 
   it("shows the required messages for blank fields and calls nothing", () => {
