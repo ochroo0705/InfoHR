@@ -87,6 +87,33 @@ def test_or_widening_that_keeps_the_old_selection_is_not_flagged() -> None:
     assert dropped_note(old, replaced, 1, 1) != ""  # a lost department filter is still named
 
 
+def test_refine_prompt_keeps_what_this_department_points_at() -> None:
+    from assistant.sqlask import REFINE_INSTRUCTION
+
+    assert "«энэ хэлтэс»" in REFINE_INSTRUCTION
+    assert "choose them again with a sub-query" in REFINE_INSTRUCTION
+    assert "each department" in REFINE_INSTRUCTION
+
+
+def test_dropped_first_n_is_noted_when_the_result_grew() -> None:
+    from assistant.ws_kept import dropped_row_limit
+
+    top = "SELECT FIRST 1 DEPARTMENT_NAME, AVG(X) AS A FROM GOV_EMPLOYEES GROUP BY DEPARTMENT_NAME ORDER BY A DESC"
+    each = (
+        "SELECT E.DEPARTMENT_NAME, E.LAST_NAME FROM GOV_EMPLOYEES AS E WHERE E.HIRE_DATE = "
+        "(SELECT MIN(E2.HIRE_DATE) FROM GOV_EMPLOYEES AS E2 WHERE E2.DEPARTMENT_NAME = E.DEPARTMENT_NAME)"
+    )
+    kept = "SELECT FIRST 1 DEPARTMENT_NAME, LAST_NAME FROM GOV_EMPLOYEES ORDER BY HIRE_DATE"
+    assert dropped_row_limit(top, each)
+    assert not dropped_row_limit(top, kept)
+    assert not dropped_row_limit(each, top)
+    assert not dropped_row_limit("not sql (", each)
+    note = dropped_note(top, each, 1, 20)
+    assert "эхний мөр" in note and "Буцаах" in note
+    assert "FIRST" not in note and "SELECT" not in note
+    assert dropped_note(top, each, 20, 1) == ""  # a narrower result is not flagged
+
+
 def test_refined_line_is_plain_words() -> None:
     from assistant.ws_service import refined_line
 
@@ -121,3 +148,53 @@ def test_first_viewer_line_stays_in_the_prompt_of_a_long_tab() -> None:
     assert f"line {REFINE_HISTORY_TURNS + 4}" in prompt
     short = _refine_user("SELECT 1", ("A",), history[-3:], "next", date(2026, 11, 18), "")
     assert "THE FIRST QUESTION" not in short  # nothing is added when the first line is not in the history at all
+
+
+def test_prompt_groups_a_person_with_their_records() -> None:
+    from assistant.sqlask import _system
+
+    text = _system("catalogue", ())
+    assert "ажилчдыг хүүхдүүдтэй нь" in text
+    assert "set group_by to EMP_ID" in text
+    assert "ONE ROW PER RECORD" in text
+
+
+def test_a_refine_case_can_name_the_group_it_expects() -> None:
+    from assistant.sqleval import REFINE_CASES
+
+    grouped = [case for case in REFINE_CASES if case.group]
+    assert grouped and all(case.group == case.group.upper() for case in grouped)
+
+
+def test_a_query_naming_a_child_cannot_become_an_approved_example() -> None:
+    from assistant.admin import _names_a_person
+
+    assert _names_a_person("SELECT EMP_ID FROM GOV_CHILDREN WHERE CHILD_NAME = 'Анхбаяр'")
+    assert _names_a_person("SELECT EMP_ID FROM GOV_CHILDREN WHERE CHILD_SURNAME LIKE 'Сүр%'")
+    assert not _names_a_person("SELECT EMP_ID, CHILD_NAME FROM GOV_CHILDREN WHERE GENDER = 'F'")
+
+
+def test_top_n_ascending_sort_puts_empty_values_last() -> None:
+    from assistant.sqlask import nulls_last_under_first
+
+    first = nulls_last_under_first("SELECT FIRST 1 E.LAST_NAME FROM GOV_EMPLOYEES AS E ORDER BY E.HIRE_DATE")
+    assert "ORDER BY E.HIRE_DATE NULLS LAST" in first and first.upper().count("NULLS") == 1
+    mixed = nulls_last_under_first("SELECT FIRST 3 A FROM T ORDER BY B ASC, C DESC")
+    assert "B ASC NULLS LAST" in mixed and "C DESC" in mixed and "C DESC NULLS" not in mixed
+    inner = nulls_last_under_first("SELECT X FROM T WHERE D = (SELECT FIRST 1 D FROM T ORDER BY D)")
+    assert "ORDER BY D NULLS LAST" in inner
+
+
+def test_nulls_last_leaves_other_queries_alone() -> None:
+    from assistant.sqlask import nulls_last_under_first
+
+    plain = "SELECT A FROM T ORDER BY B"  # no limit: a plain sorted list keeps its order
+    assert nulls_last_under_first(plain) == plain
+    desc = "SELECT FIRST 1 A FROM T ORDER BY B DESC"
+    assert nulls_last_under_first(desc) == desc
+    assert nulls_last_under_first("SELECT FIRST 1 A FROM T") == "SELECT FIRST 1 A FROM T"
+    garbage = "SELECT FIRST ORDER BY ((("
+    assert nulls_last_under_first(garbage) == garbage
+    again = nulls_last_under_first("SELECT FIRST 1 A FROM T ORDER BY B NULLS LAST")
+    assert again.upper().count("NULLS LAST") == 1  # already last: not doubled
+

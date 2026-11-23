@@ -656,9 +656,18 @@ def _table_body(request: HttpRequest, user: User, source: _Source, columns: tupl
         # Every row is in one group (a list filtered to one department): a heading would only repeat that value.
         sections, group_index = [], -1
     if group_index >= 0:  # the group column is the section heading, not a column of every row
-        headers = headers[:group_index] + headers[group_index + 1 :]
+        left_out = {group_index}
+        name_indexes = _person_name_indexes(result.columns, group_index)
+        if name_indexes:  # grouped by employee: the heading is the person's name and the name columns would only repeat
+            for section in sections:
+                section["title"] = _person_title(section["rows"][0], name_indexes, str(section["title"]))  # type: ignore[index]
+            left_out |= set(name_indexes)
+        headers = [header for index, header in enumerate(headers) if index not in left_out]
         for section in sections:
-            section["rows"] = [row[:group_index] + row[group_index + 1 :] for row in section["rows"]]
+            section["rows"] = [
+                [cell for index, cell in enumerate(row) if index not in left_out]
+                for row in section["rows"]  # type: ignore[attr-defined]
+            ]
         if headers:
             headers[0]["after_number"] = False
     first = page * PAGE_SIZE + 1 if shown else 0
@@ -687,6 +696,25 @@ def _table_body(request: HttpRequest, user: User, source: _Source, columns: tupl
 
 
 EMPTY_GROUP_TEXT = "Тодорхойгүй"  # the heading of the group whose value is empty
+PERSON_ID = "EMP_ID"  # a table grouped by this column is grouped by employee
+PERSON_NAME_COLUMNS = ("LAST_NAME", "FIRST_NAME")  # the family name first, as the staff list writes a name
+
+
+def _person_name_indexes(columns: Sequence[str], group_index: int) -> list[int]:
+    """The positions of the employee's name columns when the table is grouped by employee (EMP_ID), in writing order;
+    [] for any other grouping or when the result has no name column. The id fixes the name, so these columns only
+    repeat inside a group."""
+    if str(columns[group_index]).upper() != PERSON_ID:
+        return []
+    upper = [str(name).upper() for name in columns]
+    return [upper.index(name) for name in PERSON_NAME_COLUMNS if name in upper]
+
+
+def _person_title(first_row: list[dict[str, object]], name_indexes: list[int], code: str) -> str:
+    """«Family Given · code» for the heading of one employee, from the group's first row; the code alone when the
+    name cells are empty."""
+    name = " ".join(str(first_row[index]["text"]).strip() for index in name_indexes).strip()
+    return f"{name} · {code}" if name else code
 
 
 def _sections(

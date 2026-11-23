@@ -654,3 +654,50 @@ def test_one_group_holding_every_row_shows_a_plain_table(
 
     assert "data-ws-group-toggle" not in html
     assert html.count("data-ws-row") == 3
+
+
+def test_table_grouped_by_employee_names_the_heading_and_drops_the_repeated_name_columns(
+    db: None, client: Client, role_user, gate, host: FakeHost
+) -> None:
+    user = role_user("staff")
+    columns = ("EMP_ID", "LAST_NAME", "FIRST_NAME", "BIRTH_DATE")
+    gate["views"] = (View("GOV_EMPLOYEES", "Employees", tuple(Column(name, name) for name in columns)),)
+    host.catalogue_for = lambda user: Catalogue(views=gate["views"])  # type: ignore[method-assign]
+    host.columns = columns
+    host.rows = [
+        (1767, "Ганбаатарын", "Наранбаатар", "2012-11-04"),
+        (1767, "Ганбаатарын", "Наранбаатар", "2013-09-23"),
+        (1768, "Мөнхийн", "Мөнхзул", "2021-04-26"),
+    ]
+    sql = "SELECT EMP_ID, LAST_NAME, FIRST_NAME, BIRTH_DATE FROM GOV_EMPLOYEES"
+    tab = _tab(user, sql, json.dumps({"group_by": "EMP_ID"}))
+    client.force_login(user)
+
+    html = _pane(client, _url(tab))
+
+    assert "Ганбаатарын Наранбаатар · 1767" in html and "Мөнхийн Мөнхзул · 1768" in html
+    assert html.count("data-ws-group-toggle") == 2
+    assert html.count("data-ws-row") == 3  # every row is still shown
+    assert ">Наранбаатар<" not in html  # no child row repeats the name; it sits in the heading (and its attribute)
+    assert 'data-label="LAST_NAME"' not in html and 'data-label="FIRST_NAME"' not in html
+    assert "2013-09-23" in html  # the record's own columns stay
+
+
+def test_table_grouped_by_another_column_keeps_its_name_columns(
+    db: None, client: Client, role_user, gate, host: FakeHost
+) -> None:
+    user = role_user("staff")
+    columns = ("DEPARTMENT_NAME", "LAST_NAME", "FIRST_NAME")
+    gate["views"] = (View("GOV_EMPLOYEES", "Employees", tuple(Column(name, name) for name in columns)),)
+    host.catalogue_for = lambda user: Catalogue(views=gate["views"])  # type: ignore[method-assign]
+    host.columns = columns
+    host.rows = [("A", "Ганбаатарын", "Наранбаатар"), ("B", "Мөнхийн", "Мөнхзул")]
+    sql = "SELECT DEPARTMENT_NAME, LAST_NAME, FIRST_NAME FROM GOV_EMPLOYEES"
+    tab = _tab(user, sql, json.dumps({"group_by": "DEPARTMENT_NAME"}))
+    client.force_login(user)
+
+    html = _pane(client, _url(tab))
+
+    assert "Наранбаатар" in html and html.count("data-ws-row") == 2
+    assert " · " not in html.split("data-ws-group-toggle", 1)[1].split("</button>", 1)[0]
+

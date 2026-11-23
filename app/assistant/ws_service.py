@@ -40,7 +40,7 @@ from assistant.sqlanswer import (
 from assistant.sqlask import SqlReply, ask_refine_sql_reply, ask_sql_reply
 from assistant.verified import examples_for
 from assistant.ws_chart import chart_spec_from_json, chart_spec_from_reply, chart_spec_to_json
-from assistant.ws_kept import MAX_SHOWN, dropped_columns
+from assistant.ws_kept import MAX_SHOWN, dropped_columns, dropped_row_limit
 from assistant.ws_labels import view_labels
 from assistant.ws_limits import MAX_TABS, MAX_VERSIONS
 from assistant.ws_run import base_columns, run_count
@@ -183,6 +183,7 @@ ROW_UNIT = "мөр"
 DROPPED_NOTE = " Анхаар: "  # the plain-words note (what it is about follows); no SQL is ever shown to the viewer
 DROPPED_ABOUT = "Өмнөх шүүлтүүр ({names}) шинэ хүснэгтэд хэвээр үлдээгүй байж магадгүй."
 DROPPED_ABOUT_UNNAMED = "Өмнөх шүүлтүүрийн нэг нь шинэ хүснэгтэд хэвээр үлдээгүй байж магадгүй."
+DROPPED_LIMIT = "Өмнөх хүснэгт зөвхөн эхний мөр(үүд)ийг харуулж байсан, одоо бүх мөрийг харуулж байж магадгүй."
 DROPPED_UNDO = " Буруу бол «Буцаах» дарна уу."
 # Reasons are English (log and result). Each one that the viewer can be told about has a Mongolian stored line.
 CHANGED_REASON = "The table changed while you were asking."
@@ -233,6 +234,8 @@ def dropped_note(
     note with no label at all says only that a filter may be gone. "" when nothing is lost."""
     if before is not None and after is not None and after < before:
         return ""
+    if dropped_row_limit(old_sql, new_sql) and (before is None or after is None or after > before):
+        return DROPPED_NOTE + DROPPED_LIMIT + DROPPED_UNDO
     names = dropped_columns(old_sql, new_sql)
     if not names:
         return ""

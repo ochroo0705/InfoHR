@@ -1,7 +1,7 @@
 # Draft. English from the model labels in app/macs/models.py (Department). Mongolian drafted from the same labels; check
 # the wording. Signed only by the domain owner (reviewed_by and reviewed_on stay empty until then).
 
-description = "One row per department (хэлтэс) of the organisation, every department listed. The row shows the department number and name, and HEADCOUNT: how many people in that department you may see who still work here."
+description = "One row per department record (хэлтэс) of the organisation, every department listed. The row shows the department number and name, and HEADCOUNT of that one record. Two records can share a name, so this view is NOT the way to answer how many people work in a department: for that, COUNT(*) from GOV_EMPLOYEES with WORKING = 1 and DEPARTMENT_NAME = the name."
 description_mn = "Байгууллагын хэлтэс бүрийн нэг мөр, бүх хэлтэс жагсаалтад орно. Мөрөнд хэлтсийн дугаар, нэр, ба HEADCOUNT харагдана: тухайн хэлтсийн, та харах эрхтэй, одоо ажиллаж буй хүний тоо."
 
 rules = [
@@ -20,6 +20,9 @@ rules = [
     # Join key: GOV_EMPLOYEES carries the department name only, not the number.
     # app/hr_sql/views.py (GOV_EMPLOYEES statement: DEPARTMENT_NAME)
     "Departments are linked to GOV_EMPLOYEES by DEPARTMENT_NAME, not by a number, because GOV_EMPLOYEES does not carry the department number.",
+    # Department names are not unique: the copy of the old MACS data has four names that two departments share.
+    # app/macs/models.py (Department.name is not unique); app/hr_sql/views.py (GOV_DEPARTMENTS: one row per department id)
+    "Two departments can have the same name; each is its own row with its own HEADCOUNT (for example one name with 15 people on one row and 1 on another). To answer how many people work in a department by name, give ONE number: either SUM(HEADCOUNT) grouped by DEPARTMENT_NAME, or COUNT(*) from GOV_EMPLOYEES filtered on that DEPARTMENT_NAME and WORKING = 1. Never show the same department name on two result rows.",
 ]
 reviewed_by = ""
 reviewed_on = ""
@@ -40,7 +43,7 @@ synonyms = ["department", "unit", "dept", "name"]
 
 [[columns]]
 name = "HEADCOUNT"
-description = "Number of people in this department you may see who still work here; can be lower than the true size (see the rules)"
+description = "Number of people in this ONE department record you may see who still work here; a name shared by two records is split over two rows, so do not use it for the size of a department by name (count GOV_EMPLOYEES instead)"
 description_mn = "Тухайн хэлтэст харах эрхтэй, одоо ажиллаж буй хүний тоо; жинхэнэ хэмжээнээс бага байж болно (дүрмийг үз)"
 label_mn = "Ажилтны тоо"
 synonyms = ["headcount", "staff count", "number of staff", "size", "how many"]

@@ -204,6 +204,11 @@ SQL_INSTRUCTION = (
     "write COUNT with GROUP BY as usual. Leave it \"\" for a plain list with no split, and for one number. Leave it "
     "\"\" when the question names ONE value of that column (one department, one branch, one position): «Програм "
     "хангамжийн хэлтсийн ажилтнууд» is a plain list filtered to that department, not a split.\n"
+    "- «X-ийг Y-тэй нь харуул» (show the people WITH THEIR children, leave, orders, jobs: «ажилчдыг хүүхдүүдтэй нь», "
+    "\"employees with their children\") is a split too: each person has several records. Keep ONE ROW PER RECORD "
+    "(per child, per leave), select the person's id column (EMP_ID) first, then the person's name columns, then "
+    "the record's columns, ORDER BY EMP_ID, and set group_by to EMP_ID so each person is one heading. Never repeat "
+    "the person on a flat list without group_by.\n"
     "- Example: «Хэлтсээр нь ажилтнуудыг гарга» -> SELECT DEPARTMENT_NAME, LAST_NAME, FIRST_NAME, POSITION_NAME FROM "
     "GOV_EMPLOYEES WHERE WORKING = 1 ORDER BY DEPARTMENT_NAME, FIRST_NAME with group_by DEPARTMENT_NAME. "
     "«Хэлтэс бүрт хэдэн ажилтан байна» -> a COUNT per department with group_by \"\".\n"
@@ -287,13 +292,46 @@ def fold_like(sql: str) -> str:
         return sql
 
 
+def nulls_last_under_first(sql: str) -> str:
+    """The query with every ascending sort of a FIRST n / ROWS n select ending in NULLS LAST.
+
+    Firebird sorts empty (NULL) values first in an ascending sort, so «the longest-serving» written as
+    ``SELECT FIRST 1 … ORDER BY HIRE_DATE`` picks a person with no hire date. A top-n list never wants the empty
+    values first, so this fixes the whole class whatever the model wrote. A descending sort already puts them last.
+    The query is returned unchanged when it has no limit, no ascending sort or cannot be parsed."""
+    upper = sql.upper()
+    if "ORDER BY" not in upper or ("FIRST" not in upper and "ROWS" not in upper):
+        return sql
+    try:
+        tree = sqlglot.parse_one(sql, read=Firebird)
+    except (sqlglot.errors.SqlglotError, ValueError, TypeError, RecursionError):
+        return sql
+    changed = False
+    for select in tree.find_all(exp.Select):
+        order = select.args.get("order")
+        if not select.args.get("limit") or order is None:
+            continue
+        for term in order.expressions:
+            ascending = isinstance(term, exp.Ordered) and not term.args.get("desc")
+            if ascending and term.args.get("nulls_first") is not False:
+                term.set("nulls_first", False)
+                changed = True
+    if not changed:
+        return sql
+    try:
+        return tree.sql(dialect=Firebird)
+    except (sqlglot.errors.SqlglotError, ValueError, TypeError, RecursionError):
+        return sql
+
+
 def _sql_from_reply(reply: Any) -> str:
-    """The query text from a reply: the stripped "sql" string with every LIKE made case-insensitive (fold_like), cut
-    to MAX_SQL_CHARS. ProviderError otherwise."""
+    """The query text from a reply: the stripped "sql" string with every LIKE made case-insensitive (fold_like) and
+    every top-n ascending sort ending in NULLS LAST (nulls_last_under_first), cut to MAX_SQL_CHARS. ProviderError
+    otherwise."""
     if not isinstance(reply, dict) or not isinstance(reply.get("sql"), str):
         raise ProviderError("the model reply does not match the SQL schema")
     sql: str = reply["sql"].strip()
-    return fold_like(sql[:MAX_SQL_CHARS])[:MAX_SQL_CHARS]
+    return nulls_last_under_first(fold_like(sql[:MAX_SQL_CHARS]))[:MAX_SQL_CHARS]
 
 
 def _labels_from_reply(reply: Any) -> dict[str, str]:
@@ -390,6 +428,12 @@ REFINE_INSTRUCTION = (
     "earlier such as «энэ хэлтэс») stays outside that parenthesis and applies to both parts, so the added rows come "
     "from the same group as the old ones. A «most/least» value (MIN or MAX over a column) is computed over that same "
     "group, never over the whole table: repeat the group's condition inside the sub-query. Do not use UNION.\n"
+    "Words that point at what the table shows now («энэ хэлтэс», «тэр хэлтэс», «уг ажилтан», «эдгээр», «this "
+    "department», «them») mean THOSE rows, not every group of that kind. When the CURRENT query chose them with "
+    "FIRST n, ORDER BY or HAVING (for example the department with the highest average), the new query must choose "
+    "them again with a sub-query that repeats that choice, such as E.DEPARTMENT_NAME IN (SELECT FIRST 1 "
+    "DEPARTMENT_NAME … GROUP BY DEPARTMENT_NAME ORDER BY … DESC), and then apply the new instruction inside them. "
+    "Never turn «энэ хэлтэс» into «each department» (a correlated sub-query on the row's own department).\n"
 )
 
 

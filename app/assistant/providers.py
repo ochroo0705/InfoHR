@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
@@ -217,6 +218,32 @@ def _http_post(url: str, body: bytes, headers: dict[str, str], timeout: int) -> 
         return bytes(resp.read())
 
 
+RETRY_PAUSE = 1.0  # seconds before the one retry of a failed call
+
+
+def _worth_retrying(error: "ProviderError") -> bool:
+    """A failure a second try can fix: an overloaded or busy API (408, 429, 5xx), a timeout, a dropped connection or a
+    reply that was not usable JSON. Not a refused key or request (other 4xx), and not a reply cut off at max_tokens."""
+    text = str(error)
+    if text.startswith("HTTP "):
+        code = text[5:8]
+        return code in ("408", "429") or code.startswith("5")
+    return not text.startswith("the reply was cut off")
+
+
+def _once_more(call: Callable[[], Any]) -> Any:
+    """Runs call(); when it raises a ProviderError worth a second try, waits RETRY_PAUSE and runs it once more. The
+    provider's own message is not logged (it can hold detail from the API)."""
+    try:
+        return call()
+    except ProviderError as error:
+        if not _worth_retrying(error):
+            raise
+        logger.warning("The assistant retried one failed provider call.")
+        time.sleep(RETRY_PAUSE)
+        return call()
+
+
 class _OpenAICompatProvider(_Usage):
     """An OpenAI-compatible chat API, in JSON mode. Uses only the standard library. Subclasses set name and url."""
 
@@ -237,6 +264,10 @@ class _OpenAICompatProvider(_Usage):
         self._post = post if post is not None else _http_post
 
     def _call_json(self, system: str, user: str) -> Any:
+        """One chat call in JSON mode, tried a second time when the first failed in a way a retry can fix."""
+        return _once_more(lambda: self._call_json_once(system, user))
+
+    def _call_json_once(self, system: str, user: str) -> Any:
         """One chat call in JSON mode; returns the parsed reply object."""
         body = json.dumps(
             {
@@ -345,6 +376,10 @@ class ClaudeProvider(_Usage):
         self._post = post if post is not None else _http_post
 
     def _call_json(self, system: str, user: str, max_tokens: int) -> Any:
+        """One Messages call, tried a second time when the first failed in a way a retry can fix."""
+        return _once_more(lambda: self._call_json_once(system, user, max_tokens))
+
+    def _call_json_once(self, system: str, user: str, max_tokens: int) -> Any:
         """One Messages call; returns the JSON object found in the text reply."""
         body = json.dumps(
             {

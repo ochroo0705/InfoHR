@@ -628,6 +628,70 @@ def test_claude_reply_cut_off_at_max_tokens_says_so() -> None:
         provider.complete_json(JSON_SYSTEM, JSON_USER)
 
 
+@pytest.fixture(autouse=True)
+def _no_retry_pause(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("assistant.providers.RETRY_PAUSE", 0)
+
+
+class _Seq:
+    """A fake HTTP post that gives its steps one after another: bytes are a reply, an exception is raised."""
+
+    def __init__(self, *steps: bytes | BaseException) -> None:
+        self.steps = list(steps)
+        self.calls = 0
+
+    def __call__(self, url: str, body: bytes, headers: dict[str, str], timeout: int) -> bytes:
+        self.calls += 1
+        step = self.steps.pop(0)
+        if isinstance(step, BaseException):
+            raise step
+        return step
+
+
+def _http(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(CLAUDE_URL, code, "x", Message(), None)
+
+
+def test_busy_api_is_retried_once_and_the_second_reply_is_used() -> None:
+    post = _Seq(_http(529), _claude_reply('{"a": 1}'))
+    provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=post)
+    assert provider.complete_json(JSON_SYSTEM, JSON_USER) == {"a": 1}
+    assert post.calls == 2
+
+
+def test_unusable_reply_is_retried_once() -> None:
+    post = _Seq(_groq_reply("not json"), _groq_reply('{"a": 1}'))
+    provider = GroqProvider(api_key="k", model="m", timeout=5, post=post)
+    assert provider.complete_json(JSON_SYSTEM, JSON_USER) == {"a": 1}
+    assert post.calls == 2
+
+
+def test_timeout_twice_is_one_retry_then_provider_error() -> None:
+    post = _Seq(TimeoutError("slow"), TimeoutError("slow"), TimeoutError("slow"))
+    provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=post)
+    with pytest.raises(ProviderError):
+        provider.complete_json(JSON_SYSTEM, JSON_USER)
+    assert post.calls == 2
+
+
+@pytest.mark.parametrize("code", [400, 401, 403, 404])
+def test_refused_request_is_not_retried(code: int) -> None:
+    post = _Seq(_http(code), _claude_reply('{"a": 1}'))
+    provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=post)
+    with pytest.raises(ProviderError, match=str(code)):
+        provider.complete_json(JSON_SYSTEM, JSON_USER)
+    assert post.calls == 1
+
+
+def test_reply_cut_off_at_max_tokens_is_not_retried() -> None:
+    cut = json.dumps({"stop_reason": "max_tokens", "content": [{"type": "text", "text": '{"sql": "SELECT'}]}).encode()
+    post = _Seq(cut, _claude_reply('{"a": 1}'))
+    provider = ClaudeProvider(api_key="k", model="m", timeout=5, post=post)
+    with pytest.raises(ProviderError, match="cut off"):
+        provider.complete_json(JSON_SYSTEM, JSON_USER)
+    assert post.calls == 1
+
+
 @pytest.mark.parametrize("kind", ["groq", "claude"])
 def test_complete_json_bad_reply_is_provider_error(kind: str) -> None:
     provider: Any

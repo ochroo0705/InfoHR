@@ -111,8 +111,10 @@ JOIN GOV_SCOPE w ON w.EMP_ID = e.{_col(Employee, "id")}
 LEFT JOIN {dep} d ON d.{_col(Department, "id")} = e.{_col(Employee, "department")}
 LEFT JOIN {branch} b ON b.{_col(Branch, "id")} = e.{_col(Employee, "branch")}
 LEFT JOIN {pos} p ON p.{_col(Position, "id")} = e.{_col(Employee, "position")}"""  # noqa: S608 (names come from the models, checked by _PLAIN)
-    children = f"""CREATE OR ALTER VIEW GOV_CHILDREN (CHILD_ID, EMP_ID, BIRTH_DATE, GENDER) AS
-SELECT f.{_col(FamilyRow, "id")}, f.{_col(FamilyRow, "employee")}, f.{_col(FamilyRow, "birth_date")},
+    children = f"""CREATE OR ALTER VIEW GOV_CHILDREN (CHILD_ID, EMP_ID, CHILD_NAME, CHILD_SURNAME, BIRTH_DATE,
+GENDER) AS
+SELECT f.{_col(FamilyRow, "id")}, f.{_col(FamilyRow, "employee")}, f.{_col(FamilyRow, "given_name")},
+f.{_col(FamilyRow, "surname")}, f.{_col(FamilyRow, "birth_date")},
 CASE r.{_col(FamilyRelation, "fm_type")} WHEN 'son' THEN 'M' WHEN 'daughter' THEN 'F' END
 FROM {fam} f
 JOIN {rel} r ON r.{_col(FamilyRelation, "id")} = f.{_col(FamilyRow, "relation")}

@@ -13,6 +13,7 @@ Cells are compared as text: None is "", Decimal and float are shown without trai
 Columns are compared by position, so a question names the columns it wants, in order.
 """
 
+import json
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -155,6 +156,16 @@ def _t_employees_with_children_count(user: User) -> list[tuple[object, ...]]:
 
 def _t_children_total(user: User) -> list[tuple[object, ...]]:
     return [(len(_children(user)),)]
+
+
+def _t_children_names(user: User) -> list[tuple[object, ...]]:
+    return [(child.employee_id, child.given_name) for child in _children(user)]
+
+
+def _t_longest_serving_with_two_children(user: User) -> list[tuple[object, ...]]:
+    counts = Counter(child.employee_id for child in _children(user))
+    people = [e for e in _working(user) if counts[e.pk] >= 2]
+    return _ids(_tenure_extremes(people, longest=True, shortest=False))
 
 
 def _t_children_per_employee(user: User) -> list[tuple[object, ...]]:
@@ -309,6 +320,16 @@ SQL_CASES: tuple[SqlCase, ...] = (
     SqlCase("Хүүхэдтэй хэдэн ажилтан байна?", "hr", _t_employees_with_children_count, "scalar"),
     SqlCase("Хүүхдийн нийт тоо хэд вэ?", "hr", _t_children_total, "scalar"),
     SqlCase("Ажилтан бүрийн хүүхдийн тоог гарга.", "hr", _t_children_per_employee, "set"),
+    SqlCase(
+        "Одоо ажиллаж байгаа, дор хаяж 2 хүүхэдтэй ажилтнуудаас хамгийн удаан ажилласан хүний "
+        "ажилтны кодыг ганц багана болгон гарга.",
+        "hr",
+        _t_longest_serving_with_two_children,
+        "set",
+    ),
+    SqlCase(
+        "Зөвхөн хоёр багана гарга: ажилтны код, хүүхдийн нэр. Хүүхэд бүрээр нэг мөр.", "hr", _t_children_names, "set"
+    ),
     SqlCase("5-аас доош насны хүүхэд хэд вэ?", "hr", _t_children_under_5, "scalar"),
     SqlCase("18-аас доош насны хүүхэд хэд вэ?", "hr", _t_children_under_18, "scalar"),
     SqlCase("Одоо ажиллаж байгаа хэдэн ажилтан хүүхэдтэй вэ?", "hr", _t_working_with_children_count, "scalar"),
@@ -373,6 +394,7 @@ class RefineCase:
     role: str
     truth: Callable[[User], list[tuple[object, ...]]]
     note: str
+    group: str = ""  # when set: the column the final table must group its rows under (upper case), else not checked
 
 
 DEPARTMENT = "Борлуулалт"  # a department with many people in the test data copy, used by the department cases
@@ -423,6 +445,29 @@ def _r_department_then_only_longest(user: User) -> list[tuple[object, ...]]:
     return _ids(_tenure_extremes(_in_department(_working(user)), longest=True, shortest=False))
 
 
+def _r_top_department_then_its_longest(user: User) -> list[tuple[object, ...]]:
+    """The department (by name) with the highest average tenure among working people with a hire date, then the
+    longest-serving working people of that department."""
+    today = _today()
+    by_name: dict[str, list[Employee]] = {}
+    for e in _working(user):
+        if e.first_hire_date is not None and e.department is not None:
+            by_name.setdefault(e.department.name, []).append(e)
+    if not by_name:
+        return []
+
+    def average(people: list[Employee]) -> float:
+        return sum((today - e.first_hire_date).days for e in people) / len(people)
+
+    top = max(by_name.values(), key=average)
+    return _ids(_tenure_extremes(top, longest=True, shortest=False))
+
+
+def _r_working_with_children(user: User) -> list[tuple[object, ...]]:
+    with_children = {child.employee_id for child in _children(user)}
+    return _ids(with_children & _working_ids(user))
+
+
 REFINE_CASES: tuple[RefineCase, ...] = (
     RefineCase(
         "Одоо ажиллаж байгаа ажилтнуудаас хамгийн удаан ажилласан хүний ажилтны кодыг гарга.",
@@ -451,6 +496,21 @@ REFINE_CASES: tuple[RefineCase, ...] = (
         "hr",
         _r_department_working_then_add_women_elsewhere,
         "add a second group: the department, or working women",
+    ),
+    RefineCase(
+        "хамгийн өндөр дундаж ажилласан жилтэй хэлтсийг харуул",
+        "энэ хэлтэсд хамгийн удаан ажилласан ажилтныг харуул, ажилтны кодыг эхний баганад гарга",
+        "hr",
+        _r_top_department_then_its_longest,
+        "«this department» means the top department, not each department",
+    ),
+    RefineCase(
+        "Одоо ажиллаж байгаа ажилтнуудын ажилтны кодыг гарга.",
+        "хүүхэдтэй ажилчдыг хүүхдүүдтэй нь харуул",
+        "hr",
+        _r_working_with_children,
+        "«with their children»: one row per child, grouped by employee",
+        group="EMP_ID",
     ),
     RefineCase(
         "Одоо ажиллаж байгаа ажилтнуудын ажилтны кодыг гарга.",
@@ -519,6 +579,13 @@ def check_refine_case(case: RefineCase, user: User, provider: Provider, host: Ho
     want = case.truth(user)
     # Only the employee code (the first column) is compared: the table may add name columns of its own.
     if {_key(row)[:1] for row in got} == {_key(row)[:1] for row in want}:
+        if case.group:
+            try:
+                shown = str(json.loads(version.settings or "{}").get("group_by", "")).upper()
+            except (ValueError, AttributeError):
+                shown = ""
+            if shown != case.group:
+                return SqlResult(False, f"{case.note}: rows are right but the table groups by {shown or 'nothing'}")
         return SqlResult(True, f"{len(got)} row(s), as expected ({case.note})")
     sql = " ".join(version.sql.split())
     sql = sql if len(sql) <= 300 else sql[:297] + "..."

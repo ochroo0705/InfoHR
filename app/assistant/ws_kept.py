@@ -61,6 +61,17 @@ def dropped_conditions(old_sql: str, new_sql: str) -> list[str]:
     return gone
 
 
+def dropped_row_limit(old_sql: str, new_sql: str) -> bool:
+    """True when the old query kept only its first n rows (FIRST n / ROWS n) and the new query has no such limit at
+    its top level: «the top department» can quietly become «every department». Never raises."""
+    try:
+        old = sqlglot.parse_one(old_sql, dialect=Firebird)
+        new = sqlglot.parse_one(new_sql, dialect=Firebird)
+        return bool(old.args.get("limit")) and not new.args.get("limit")
+    except Exception:
+        return False
+
+
 def dropped_columns(old_sql: str, new_sql: str) -> list[str]:
     """Upper-case names of the columns the lost conditions are about, first seen first, each once. A condition
     names its own columns; a condition that only has them inside a sub-query (NOT EXISTS(...)) gives those."""

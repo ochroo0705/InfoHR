@@ -238,7 +238,7 @@ class HelpExampleAdmin(ModelAdmin):  # type: ignore[misc]
 
 
 # Column names that hold a person's name, and the ones that hold a person's or a record's number (EMP_ID, CHILD_ID ...).
-_NAME_COLUMNS = frozenset({"FIRST_NAME", "LAST_NAME"})
+_NAME_COLUMNS = frozenset({"FIRST_NAME", "LAST_NAME", "CHILD_NAME", "CHILD_SURNAME"})
 
 
 def _names_a_person(sql: str) -> bool:

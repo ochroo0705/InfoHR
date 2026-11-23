@@ -16,6 +16,8 @@ rules = [
     # app/hr_sql/views.py (GOV_CHILDREN statement, GOV_SCOPE filter)
     "Only children of employees you may see appear.",
     "Join to GOV_EMPLOYEES on EMP_ID.",
+    # The child's name is personal data: the whole view is only offered with the personal right (hr_sql/catalogue.py).
+    "CHILD_NAME is the child's own name; the parent's name is FIRST_NAME and LAST_NAME in GOV_EMPLOYEES. To show people with their children list one row per child and select CHILD_NAME.",
 ]
 reviewed_by = "Ochroo"
 reviewed_on = "2026-11-12"
@@ -33,6 +35,20 @@ description = "Employee number of the parent (links to GOV_EMPLOYEES)"
 description_mn = "Эцэг/эх ажилтны дугаар (GOV_EMPLOYEES-тэй холбогдоно)"
 label_mn = "Ажилтны дугаар"
 synonyms = ["parent", "employee"]
+
+[[columns]]
+name = "CHILD_NAME"
+description = "Child's given name as written in the family record"
+description_mn = "Хүүхдийн нэр (гэр бүлийн бүртгэлд бичигдсэнээр)"
+label_mn = "Хүүхдийн нэр"
+synonyms = ["name", "given name", "нэр"]
+
+[[columns]]
+name = "CHILD_SURNAME"
+description = "Child's surname (овог) as written in the family record; may be empty"
+description_mn = "Хүүхдийн овог (гэр бүлийн бүртгэлд бичигдсэнээр); хоосон байж болно"
+label_mn = "Хүүхдийн овог"
+synonyms = ["surname", "family name", "овог"]
 
 [[columns]]
 name = "BIRTH_DATE"
