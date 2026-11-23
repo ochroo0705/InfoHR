@@ -6,6 +6,7 @@ import { AppLink } from "../lib/AppLink";
 import { TLink } from "../lib/viewTransition";
 import { ScrollFloat } from "../widgets/Scrollbar";
 import { NavMenu, NavMenuProvider, type NavGroupData } from "./NavMenu";
+import { usePalettePanel } from "./palette/PalettePanelContext";
 import { ThemeMenu } from "./ThemeMenu";
 import { UserMenu } from "./UserMenu";
 import { useMeta } from "./useMeta";
@@ -38,6 +39,7 @@ export function TopBar() {
   const { pathname } = useLocation();
   const stripRef = useRef<HTMLDivElement>(null);
   const { data: groups } = useNav(pathname);
+  const palette = usePalettePanel();
 
   // The active item scrolls into view after every page load (base.html line 88): once the strip has the groups for
   // the current location. A new location gives a new groups list, so the effect runs again for it.
@@ -92,6 +94,7 @@ export function TopBar() {
             type="button"
             data-palette-open=""
             aria-label="Хайх"
+            onClick={palette.toggle}
             className="flex shrink-0 items-center gap-2 px-3 text-white/70 hover:bg-white/10 hover:text-white"
           >
             <svg

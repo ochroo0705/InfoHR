@@ -4,8 +4,9 @@ Only holders of `employees.manage_position_slots` open it (403 for others). The 
 the log) live in `employees.services.slots`; this module only draws the pages and the pop-up forms.
 """
 
+from dataclasses import asdict
 from datetime import date
-from typing import Any, cast
+from typing import Any
 
 from accounts.models import User
 from config import batching
@@ -20,20 +21,15 @@ from macs.models import Branch, NazgRow, Position
 
 from employees.forms import StyledForm
 from employees.models import CompanySettings
-from employees.services import slots
+from employees.services import slot_page, slots
+from employees.services.slot_page import MAX_YEAR, MIN_YEAR
+from employees.services.slot_page import exists_message as _exists_message
+from employees.services.slot_page import year_param as _year_param
 from employees.slot_kind import MAIN, TEMPORARY
 
-MIN_YEAR, MAX_YEAR = 2000, 2100
 KIND_CHOICES = [(MAIN, slots.KIND_LABELS[MAIN]), (TEMPORARY, slots.KIND_LABELS[TEMPORARY])]
 
 manage_slots = permission_required("employees.manage_position_slots", raise_exception=True)
-
-
-def _year_param(raw: str | None, default: int) -> int:
-    """A year from the query string; anything that is not a four-digit year in range is the default."""
-    if raw and len(raw) == 4 and raw.isdecimal() and MIN_YEAR <= int(raw) <= MAX_YEAR:
-        return int(raw)
-    return default
 
 
 def _done() -> HttpResponse:
@@ -64,14 +60,6 @@ class SlotForm(StyledForm):
         return data
 
 
-def _exists_message(holder: NazgRow) -> str:
-    return (
-        f"Ийм мөр аль хэдийн байна ({cast(Position, holder.position).name}, {cast(Branch, holder.branch).name}, "
-        f"{slots.KIND_LABELS.get(holder.kind, holder.kind)}, {holder.year} он: орон тоо {holder.qty}). "
-        "Шинэ мөр нэмэхгүй, жагсаалтаас тэр мөрийг нээж засна уу."
-    )
-
-
 def _modal(request: HttpRequest, form: SlotForm, row: NazgRow | None) -> HttpResponse:
     context = {
         "form": form,
@@ -89,33 +77,20 @@ def _initial(row: NazgRow) -> dict[str, Any]:
 
 
 def _used_on(year: int) -> date:
-    """The day the screen counts people on: today for the current year, else the year's first day (so the people who
-    work at any time in that year are counted, as the hire check counts people who start later in the year)."""
-    today = timezone.localdate()
-    return today if year == today.year else date(year, 1, 1)
+    return slot_page.used_on(year, timezone.localdate())
 
 
 @login_required
 @manage_slots
 @require_GET
 def slot_list(request: HttpRequest) -> HttpResponse:
-    this_year = timezone.localdate().year
-    year = _year_param(request.GET.get("year"), this_year)
-    rows = list(
-        NazgRow.objects.filter(year=year)
-        .select_related("position", "branch")
-        .order_by("position__name", "branch__name", "kind", "pk")
-    )
-    used = slots.used_by_key(year, _used_on(year))
-    lines: list[dict[str, Any]] = []
-    for row in rows:
-        count = used.get((row.position_id, row.branch_id, row.kind), 0)
-        lines.append({"row": row, "posts": row.qty, "used": count, "free": row.qty - count})
-    totals = {
-        "posts": sum(line["posts"] for line in lines),
-        "used": sum(line["used"] for line in lines),
-        "free": sum(line["free"] for line in lines),
-    }
+    today = timezone.localdate()
+    year = _year_param(request.GET.get("year"), today.year)
+    slot_lines = slot_page.slot_lines(year, today, on=_used_on(year))
+    lines: list[dict[str, Any]] = [
+        {"row": line.row, "posts": line.posts, "used": line.used, "free": line.free} for line in slot_lines
+    ]
+    totals = asdict(slot_page.totals(slot_lines))
     batch = batching.window(request, lines)
     context = {
         "year": year,

@@ -18,6 +18,9 @@ from api.nav import nav_router
 from api.order_files import order_files_router
 from api.order_register import order_register_router
 from api.orders import orders_router
+from api.palette import palette_router
+from api.selfforms import selfform_list_router
+from api.slots import slot_router
 from api.today import today_router
 
 API_VERSION = 1  # bumped when the API changes shape in a way a client must notice (GET /api/v1/meta reports it)
@@ -86,6 +89,7 @@ api.add_router("/me", me_router)
 api.add_router("/checklists", checklists_router)
 api.add_router("/employees", hire_router)  # before employee_router: /employees/new is not a pk
 api.add_router("/selfforms", selfform_router)
+api.add_router("/selfforms", selfform_list_router)
 api.add_router("/employees", employee_router)
 api.add_router("/employees", employee_write_router)
 api.add_router("/employees", events_router)
@@ -93,6 +97,8 @@ api.add_router("/employees", orders_router)
 api.add_router("/employees", order_files_router)
 api.add_router("/orders", order_register_router)
 api.add_router("/company", company_router)
+api.add_router("/slots", slot_router)
+api.add_router("/palette", palette_router)
 
 if "welcome" in settings.INSTALLED_APPS:
     from welcome.api import welcome_router  # imports welcome.models, which needs the app installed

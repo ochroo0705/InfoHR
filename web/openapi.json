@@ -4875,6 +4875,290 @@
         "title": "OtherOrderOut",
         "type": "object"
       },
+      "PaletteGroupOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/PaletteRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "count",
+          "total",
+          "rows",
+          "note"
+        ],
+        "title": "PaletteGroupOut",
+        "type": "object"
+      },
+      "PaletteOpenOut": {
+        "properties": {
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee"
+          },
+          "event_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Type"
+          },
+          "kind": {
+            "enum": [
+              "page",
+              "popup",
+              "legacy"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "popup": {
+            "anyOf": [
+              {
+                "enum": [
+                  "order_detail",
+                  "event",
+                  "slot_add"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Popup"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "kind",
+          "path",
+          "popup",
+          "employee",
+          "order",
+          "event_type",
+          "year"
+        ],
+        "title": "PaletteOpenOut",
+        "type": "object"
+      },
+      "PaletteOut": {
+        "properties": {
+          "empty": {
+            "title": "Empty",
+            "type": "boolean"
+          },
+          "empty_text": {
+            "title": "Empty Text",
+            "type": "string"
+          },
+          "fallback": {
+            "items": {
+              "$ref": "#/components/schemas/PaletteRowOut"
+            },
+            "title": "Fallback",
+            "type": "array"
+          },
+          "fallback_heading": {
+            "title": "Fallback Heading",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/PaletteGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          }
+        },
+        "required": [
+          "groups",
+          "empty",
+          "empty_text",
+          "fallback_heading",
+          "fallback"
+        ],
+        "title": "PaletteOut",
+        "type": "object"
+      },
+      "PalettePieceOut": {
+        "properties": {
+          "hit": {
+            "title": "Hit",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "hit"
+        ],
+        "title": "PalettePieceOut",
+        "type": "object"
+      },
+      "PaletteRowOut": {
+        "properties": {
+          "code": {
+            "items": {
+              "$ref": "#/components/schemas/PalettePieceOut"
+            },
+            "title": "Code",
+            "type": "array"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "initials": {
+            "title": "Initials",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "person",
+              "page",
+              "calendar",
+              "action",
+              "order",
+              "more"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "left": {
+            "title": "Left",
+            "type": "boolean"
+          },
+          "lines": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/PalettePieceOut"
+              },
+              "type": "array"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "open": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaletteOpenOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "title": {
+            "items": {
+              "$ref": "#/components/schemas/PalettePieceOut"
+            },
+            "title": "Title",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "ref",
+          "open",
+          "title",
+          "code",
+          "lines",
+          "initials",
+          "left",
+          "day"
+        ],
+        "title": "PaletteRowOut",
+        "type": "object"
+      },
       "PanelOut": {
         "properties": {
           "can_cancel": {
@@ -5136,6 +5420,524 @@
         "title": "RequestOut",
         "type": "object"
       },
+      "SelfFormActionNoticeOut": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "success",
+              "error"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "tone"
+        ],
+        "title": "SelfFormActionNoticeOut",
+        "type": "object"
+      },
+      "SelfFormActionOut": {
+        "properties": {
+          "notice": {
+            "$ref": "#/components/schemas/SelfFormActionNoticeOut"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "show": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelfFormShowOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "notice",
+          "show"
+        ],
+        "title": "SelfFormActionOut",
+        "type": "object"
+      },
+      "SelfFormBranchOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "SelfFormBranchOut",
+        "type": "object"
+      },
+      "SelfFormCreateFormOut": {
+        "properties": {
+          "branch_required": {
+            "title": "Branch Required",
+            "type": "boolean"
+          },
+          "branches": {
+            "items": {
+              "$ref": "#/components/schemas/SelfFormBranchOut"
+            },
+            "title": "Branches",
+            "type": "array"
+          },
+          "default_hours": {
+            "title": "Default Hours",
+            "type": "integer"
+          },
+          "help": {
+            "$ref": "#/components/schemas/SelfFormCreateHelpOut"
+          },
+          "labels": {
+            "$ref": "#/components/schemas/SelfFormCreateLabelsOut"
+          },
+          "max_hours": {
+            "title": "Max Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "branches",
+          "branch_required",
+          "default_hours",
+          "max_hours",
+          "labels",
+          "help"
+        ],
+        "title": "SelfFormCreateFormOut",
+        "type": "object"
+      },
+      "SelfFormCreateHelpOut": {
+        "properties": {
+          "hours": {
+            "title": "Hours",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "hours"
+        ],
+        "title": "SelfFormCreateHelpOut",
+        "type": "object"
+      },
+      "SelfFormCreateIn": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hours"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "title": "SelfFormCreateIn",
+        "type": "object"
+      },
+      "SelfFormCreateLabelsOut": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "hours": {
+            "title": "Hours",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "branch",
+          "hours"
+        ],
+        "title": "SelfFormCreateLabelsOut",
+        "type": "object"
+      },
+      "SelfFormCreateOut": {
+        "properties": {
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelfFormNoticeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "show_path": {
+            "title": "Show Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "id",
+          "show_path",
+          "field_errors",
+          "form_errors",
+          "notice"
+        ],
+        "title": "SelfFormCreateOut",
+        "type": "object"
+      },
+      "SelfFormDecisionOut": {
+        "properties": {
+          "employee_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee Path"
+          },
+          "hr_note": {
+            "title": "Hr Note",
+            "type": "string"
+          },
+          "reject_reason": {
+            "title": "Reject Reason",
+            "type": "string"
+          },
+          "reviewed_by": {
+            "title": "Reviewed By",
+            "type": "string"
+          },
+          "reviewed_label": {
+            "title": "Reviewed Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewed_label",
+          "reviewed_by",
+          "reject_reason",
+          "hr_note",
+          "employee_path"
+        ],
+        "title": "SelfFormDecisionOut",
+        "type": "object"
+      },
+      "SelfFormExtendIn": {
+        "properties": {
+          "hours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hours"
+          }
+        },
+        "title": "SelfFormExtendIn",
+        "type": "object"
+      },
+      "SelfFormListOut": {
+        "properties": {
+          "form": {
+            "$ref": "#/components/schemas/SelfFormCreateFormOut"
+          },
+          "intro": {
+            "title": "Intro",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/SelfFormListRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "waiting",
+          "form",
+          "intro"
+        ],
+        "title": "SelfFormListOut",
+        "type": "object"
+      },
+      "SelfFormListRowOut": {
+        "properties": {
+          "badge": {
+            "title": "Badge",
+            "type": "string"
+          },
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "hire_path": {
+            "title": "Hire Path",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "show_path": {
+            "title": "Show Path",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "when_kind": {
+            "title": "When Kind",
+            "type": "string"
+          },
+          "when_label": {
+            "title": "When Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "branch",
+          "state",
+          "badge",
+          "when_label",
+          "when_kind",
+          "show_path",
+          "hire_path"
+        ],
+        "title": "SelfFormListRowOut",
+        "type": "object"
+      },
+      "SelfFormNoticeOut": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "SelfFormNoticeOut",
+        "type": "object"
+      },
+      "SelfFormShowOut": {
+        "properties": {
+          "badge": {
+            "title": "Badge",
+            "type": "string"
+          },
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "can_extend": {
+            "title": "Can Extend",
+            "type": "boolean"
+          },
+          "can_revoke": {
+            "title": "Can Revoke",
+            "type": "boolean"
+          },
+          "created_label": {
+            "title": "Created Label",
+            "type": "string"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelfFormDecisionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "default_hours": {
+            "title": "Default Hours",
+            "type": "integer"
+          },
+          "hire_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hire Path"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "purged": {
+            "title": "Purged",
+            "type": "boolean"
+          },
+          "qr_svg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Svg"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "state_key": {
+            "title": "State Key",
+            "type": "string"
+          },
+          "when_label": {
+            "title": "When Label",
+            "type": "string"
+          },
+          "when_title": {
+            "enum": [
+              "Илгээсэн",
+              "Дуусах",
+              ""
+            ],
+            "title": "When Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "state",
+          "badge",
+          "state_key",
+          "branch",
+          "created_label",
+          "when_label",
+          "when_title",
+          "purged",
+          "link",
+          "qr_svg",
+          "can_extend",
+          "can_revoke",
+          "default_hours",
+          "hire_path",
+          "decision"
+        ],
+        "title": "SelfFormShowOut",
+        "type": "object"
+      },
       "SetupItemOut": {
         "properties": {
           "auto": {
@@ -5231,6 +6033,331 @@
           "orders"
         ],
         "title": "ShortcutsOut",
+        "type": "object"
+      },
+      "SlotIdOptionOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "SlotIdOptionOut",
+        "type": "object"
+      },
+      "SlotKindOptionOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "SlotKindOptionOut",
+        "type": "object"
+      },
+      "SlotListOut": {
+        "properties": {
+          "empty_text": {
+            "title": "Empty Text",
+            "type": "string"
+          },
+          "enforce": {
+            "title": "Enforce",
+            "type": "boolean"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/SlotRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "settings_url": {
+            "title": "Settings Url",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/SlotTotalsOut"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "rows",
+          "next_offset",
+          "totals",
+          "enforce",
+          "settings_url",
+          "empty_text"
+        ],
+        "title": "SlotListOut",
+        "type": "object"
+      },
+      "SlotOptionsOut": {
+        "properties": {
+          "branches": {
+            "items": {
+              "$ref": "#/components/schemas/SlotIdOptionOut"
+            },
+            "title": "Branches",
+            "type": "array"
+          },
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/SlotKindOptionOut"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "max_year": {
+            "title": "Max Year",
+            "type": "integer"
+          },
+          "min_year": {
+            "title": "Min Year",
+            "type": "integer"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/SlotIdOptionOut"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "positions",
+          "branches",
+          "kinds",
+          "year",
+          "min_year",
+          "max_year",
+          "hint"
+        ],
+        "title": "SlotOptionsOut",
+        "type": "object"
+      },
+      "SlotRowOut": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "branch_id": {
+            "title": "Branch Id",
+            "type": "integer"
+          },
+          "free": {
+            "title": "Free",
+            "type": "integer"
+          },
+          "free_class": {
+            "title": "Free Class",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "position_id": {
+            "title": "Position Id",
+            "type": "integer"
+          },
+          "posts": {
+            "title": "Posts",
+            "type": "integer"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "position",
+          "position_id",
+          "branch",
+          "branch_id",
+          "kind",
+          "kind_label",
+          "posts",
+          "used",
+          "free",
+          "free_class"
+        ],
+        "title": "SlotRowOut",
+        "type": "object"
+      },
+      "SlotTotalsOut": {
+        "properties": {
+          "free": {
+            "title": "Free",
+            "type": "integer"
+          },
+          "posts": {
+            "title": "Posts",
+            "type": "integer"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "posts",
+          "used",
+          "free"
+        ],
+        "title": "SlotTotalsOut",
+        "type": "object"
+      },
+      "SlotWriteIn": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "kind": {
+            "default": "",
+            "title": "Kind",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "title": "SlotWriteIn",
+        "type": "object"
+      },
+      "SlotWriteResultOut": {
+        "properties": {
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "id",
+          "field_errors",
+          "form_errors"
+        ],
+        "title": "SlotWriteResultOut",
         "type": "object"
       },
       "StateOut": {
@@ -8937,6 +10064,225 @@
         ]
       }
     },
+    "/api/v1/palette": {
+      "get": {
+        "description": "The palette's groups for the typed query. `more` is «show all» only when it is \"1\"; `recent` and `from` are\nre-checked by the service.",
+        "operationId": "api_palette_palette_answer_api",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "more",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "More",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Recent",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "From",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaletteOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Palette Answer Api",
+        "tags": [
+          "palette"
+        ]
+      }
+    },
+    "/api/v1/selfforms": {
+      "get": {
+        "description": "The list rows (newest first, in the user's scope), the waiting count and the create form's description.\n403 without the manage right, 401 without a login.",
+        "operationId": "api_selfforms_selfform_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfFormListOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selfform List",
+        "tags": [
+          "selfforms"
+        ]
+      },
+      "post": {
+        "description": "Create an employee self-form link. Refused (ok false, status 200) when the form is invalid or the service\nrefuses the create; nothing is written then. 403 without the manage right.",
+        "operationId": "api_selfforms_selfform_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfFormCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfFormCreateOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selfform Create",
+        "tags": [
+          "selfforms"
+        ]
+      }
+    },
+    "/api/v1/selfforms/{pk}": {
+      "get": {
+        "description": "One self-form link with its state, the link itself (a secret, so the answer is no-store) and the HR decision.\n403 without the manage right, 404 (code not_found) outside the user's scope.",
+        "operationId": "api_selfforms_selfform_show_api",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfFormShowOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selfform Show Api",
+        "tags": [
+          "selfforms"
+        ]
+      }
+    },
+    "/api/v1/selfforms/{pk}/extend": {
+      "post": {
+        "description": "Add hours to an open or expired link. A refusal (bad hours, not open, purged) answers ok false with the\nservice's text and writes nothing. 403 without the manage right, 404 outside the user's scope.",
+        "operationId": "api_selfforms_selfform_extend_api",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfFormExtendIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfFormActionOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selfform Extend Api",
+        "tags": [
+          "selfforms"
+        ]
+      }
+    },
     "/api/v1/selfforms/{pk}/reject": {
       "post": {
         "description": "HR rejects a submitted self-form for good; the reason is kept on the invitation. A blank reason or a form that\nis not waiting for HR is refused with ok false. 403 without the manage right, 404 outside the user's scope.",
@@ -8980,6 +10326,44 @@
           }
         ],
         "summary": "Hire Reject",
+        "tags": [
+          "selfforms"
+        ]
+      }
+    },
+    "/api/v1/selfforms/{pk}/revoke": {
+      "post": {
+        "description": "Cancel the link so the employee cannot fill it any more. A refusal (already revoked, confirmed, ...) answers\nok false with the service's text. 403 without the manage right, 404 outside the user's scope.",
+        "operationId": "api_selfforms_selfform_revoke_api",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfFormActionOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selfform Revoke Api",
         "tags": [
           "selfforms"
         ]
@@ -9030,6 +10414,214 @@
         "summary": "Hire Send Back",
         "tags": [
           "selfforms"
+        ]
+      }
+    },
+    "/api/v1/slots": {
+      "get": {
+        "operationId": "api_slots_slot_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Year",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlotListOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Slot List",
+        "tags": [
+          "slots"
+        ]
+      },
+      "post": {
+        "description": "Add a slot row. Refused (ok false, status 200) when the form is invalid or the key is already held.",
+        "operationId": "api_slots_slot_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlotWriteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlotWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Slot Create",
+        "tags": [
+          "slots"
+        ]
+      }
+    },
+    "/api/v1/slots/options": {
+      "get": {
+        "operationId": "api_slots_slot_options",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Year",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlotOptionsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Slot Options",
+        "tags": [
+          "slots"
+        ]
+      }
+    },
+    "/api/v1/slots/{pk}": {
+      "post": {
+        "description": "Change row `pk`; 404 for an unknown pk. The same refusals as the add.",
+        "operationId": "api_slots_slot_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlotWriteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlotWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Slot Update",
+        "tags": [
+          "slots"
+        ]
+      }
+    },
+    "/api/v1/slots/{pk}/delete": {
+      "post": {
+        "description": "Delete row `pk`; 404 for an unknown pk. A refused delete (the database login lacks the grant) is ok false.",
+        "operationId": "api_slots_slot_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlotWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Slot Delete",
+        "tags": [
+          "slots"
         ]
       }
     },

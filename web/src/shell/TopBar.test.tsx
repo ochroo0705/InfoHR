@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useNavigate } from "react-router";
 import { api } from "../api/client";
 import { TopBar } from "./TopBar";
+import { AssistantPanel } from "./palette/AssistantPanel";
+import { PalettePanelProvider } from "./palette/PalettePanelContext";
+import { PalettePopupsContext } from "./palette/PalettePopups";
 
 vi.mock("../api/client", () => ({
   api: { GET: vi.fn() },
@@ -67,6 +70,13 @@ const SIGNED_IN = {
 function mockApi(groupsFor: (path: string) => unknown[], meta: unknown = META) {
   vi.mocked(api.GET).mockImplementation((async (url: string, init?: { params?: { query?: { path?: string } } }) => {
     if (url === "/api/v1/meta") return { data: meta, response: { status: 200 } };
+    // The assistant panel's search answers with an empty list; the nav answers with the groups.
+    if (url === "/api/v1/palette") {
+      return {
+        data: { empty: false, empty_text: "", fallback: [], fallback_heading: "", groups: [] },
+        response: { status: 200, ok: true },
+      };
+    }
     return { data: groupsFor(init?.params?.query?.path ?? ""), response: { status: 200 } };
   }) as never);
 }
@@ -75,7 +85,11 @@ function wrap(children: ReactNode, path = "/employees/") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>{children}</MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
+        <PalettePanelProvider>
+          <PalettePopupsContext.Provider value={{ open: () => {} }}>{children}</PalettePopupsContext.Provider>
+        </PalettePanelProvider>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -104,6 +118,26 @@ describe("TopBar", () => {
     cleanup();
     if (originalScrollIntoView) Element.prototype.scrollIntoView = originalScrollIntoView;
     else delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  it("TopBar button opens the panel, and a second press closes it", async () => {
+    mockApi(() => [SINGLE], SIGNED_IN);
+    const { container } = render(
+      wrap(
+        <>
+          <TopBar />
+          <AssistantPanel />
+        </>,
+      ),
+    );
+    const aside = container.querySelector<HTMLElement>("[data-assistant-panel]");
+    expect(aside?.hidden).toBe(true);
+    await screen.findByRole("button", { name: "Хайх" });
+    await waitFor(() => expect(container.querySelector('[data-nav-trigger="ui:user"]')).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Хайх" }));
+    expect(aside?.hidden).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Хайх" }));
+    expect(aside?.getAttribute("data-leaving")).not.toBeNull();
   });
 
   it("renders the brand text", async () => {

@@ -1258,6 +1258,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/palette": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Palette Answer Api
+         * @description The palette's groups for the typed query. `more` is «show all» only when it is "1"; `recent` and `from` are
+         *     re-checked by the service.
+         */
+        get: operations["api_palette_palette_answer_api"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/selfforms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Selfform List
+         * @description The list rows (newest first, in the user's scope), the waiting count and the create form's description.
+         *     403 without the manage right, 401 without a login.
+         */
+        get: operations["api_selfforms_selfform_list"];
+        put?: never;
+        /**
+         * Selfform Create
+         * @description Create an employee self-form link. Refused (ok false, status 200) when the form is invalid or the service
+         *     refuses the create; nothing is written then. 403 without the manage right.
+         */
+        post: operations["api_selfforms_selfform_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/selfforms/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Selfform Show Api
+         * @description One self-form link with its state, the link itself (a secret, so the answer is no-store) and the HR decision.
+         *     403 without the manage right, 404 (code not_found) outside the user's scope.
+         */
+        get: operations["api_selfforms_selfform_show_api"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/selfforms/{pk}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selfform Extend Api
+         * @description Add hours to an open or expired link. A refusal (bad hours, not open, purged) answers ok false with the
+         *     service's text and writes nothing. 403 without the manage right, 404 outside the user's scope.
+         */
+        post: operations["api_selfforms_selfform_extend_api"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/selfforms/{pk}/reject": {
         parameters: {
             query?: never;
@@ -1279,6 +1368,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/selfforms/{pk}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selfform Revoke Api
+         * @description Cancel the link so the employee cannot fill it any more. A refusal (already revoked, confirmed, ...) answers
+         *     ok false with the service's text. 403 without the manage right, 404 outside the user's scope.
+         */
+        post: operations["api_selfforms_selfform_revoke_api"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/selfforms/{pk}/send-back": {
         parameters: {
             query?: never;
@@ -1294,6 +1404,84 @@ export interface paths {
          *     HR is refused with ok false and nothing is written. 403 without the manage right, 404 outside the user's scope.
          */
         post: operations["api_hire_hire_send_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Slot List */
+        get: operations["api_slots_slot_list"];
+        put?: never;
+        /**
+         * Slot Create
+         * @description Add a slot row. Refused (ok false, status 200) when the form is invalid or the key is already held.
+         */
+        post: operations["api_slots_slot_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/slots/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Slot Options */
+        get: operations["api_slots_slot_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/slots/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Slot Update
+         * @description Change row `pk`; 404 for an unknown pk. The same refusals as the add.
+         */
+        post: operations["api_slots_slot_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/slots/{pk}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Slot Delete
+         * @description Delete row `pk`; 404 for an unknown pk. A refused delete (the database login lacks the grant) is ok false.
+         */
+        post: operations["api_slots_slot_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3138,6 +3326,86 @@ export interface components {
             /** Word Url */
             word_url: string;
         };
+        /** PaletteGroupOut */
+        PaletteGroupOut: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+            /** Note */
+            note: string;
+            /** Rows */
+            rows: components["schemas"]["PaletteRowOut"][];
+            /** Title */
+            title: string;
+            /** Total */
+            total: number | null;
+        };
+        /** PaletteOpenOut */
+        PaletteOpenOut: {
+            /** Employee */
+            employee: number | null;
+            /** Event Type */
+            event_type: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "page" | "popup" | "legacy";
+            /** Order */
+            order: number | null;
+            /** Path */
+            path: string;
+            /** Popup */
+            popup: ("order_detail" | "event" | "slot_add") | null;
+            /** Year */
+            year: number | null;
+        };
+        /** PaletteOut */
+        PaletteOut: {
+            /** Empty */
+            empty: boolean;
+            /** Empty Text */
+            empty_text: string;
+            /** Fallback */
+            fallback: components["schemas"]["PaletteRowOut"][];
+            /** Fallback Heading */
+            fallback_heading: string;
+            /** Groups */
+            groups: components["schemas"]["PaletteGroupOut"][];
+        };
+        /** PalettePieceOut */
+        PalettePieceOut: {
+            /** Hit */
+            hit: boolean;
+            /** Text */
+            text: string;
+        };
+        /** PaletteRowOut */
+        PaletteRowOut: {
+            /** Code */
+            code: components["schemas"]["PalettePieceOut"][];
+            /** Day */
+            day: string;
+            /** Initials */
+            initials: string;
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "person" | "page" | "calendar" | "action" | "order" | "more";
+            /** Left */
+            left: boolean;
+            /** Lines */
+            lines: components["schemas"]["PalettePieceOut"][][];
+            open: components["schemas"]["PaletteOpenOut"] | null;
+            /** Ref */
+            ref: string | null;
+            /** Title */
+            title: components["schemas"]["PalettePieceOut"][];
+        };
         /** PanelOut */
         PanelOut: {
             /** Can Cancel */
@@ -3243,6 +3511,177 @@ export interface components {
             /** Working Days */
             working_days: number;
         };
+        /** SelfFormActionNoticeOut */
+        SelfFormActionNoticeOut: {
+            /** Text */
+            text: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "success" | "error";
+        };
+        /** SelfFormActionOut */
+        SelfFormActionOut: {
+            notice: components["schemas"]["SelfFormActionNoticeOut"];
+            /** Ok */
+            ok: boolean;
+            show: components["schemas"]["SelfFormShowOut"] | null;
+        };
+        /** SelfFormBranchOut */
+        SelfFormBranchOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+        };
+        /** SelfFormCreateFormOut */
+        SelfFormCreateFormOut: {
+            /** Branch Required */
+            branch_required: boolean;
+            /** Branches */
+            branches: components["schemas"]["SelfFormBranchOut"][];
+            /** Default Hours */
+            default_hours: number;
+            help: components["schemas"]["SelfFormCreateHelpOut"];
+            labels: components["schemas"]["SelfFormCreateLabelsOut"];
+            /** Max Hours */
+            max_hours: number;
+        };
+        /** SelfFormCreateHelpOut */
+        SelfFormCreateHelpOut: {
+            /** Hours */
+            hours: string;
+            /** Label */
+            label: string;
+        };
+        /** SelfFormCreateIn */
+        SelfFormCreateIn: {
+            /** Branch */
+            branch?: number | null;
+            /** Hours */
+            hours?: number | null;
+            /** Label */
+            label?: string | null;
+        };
+        /** SelfFormCreateLabelsOut */
+        SelfFormCreateLabelsOut: {
+            /** Branch */
+            branch: string;
+            /** Hours */
+            hours: string;
+            /** Label */
+            label: string;
+        };
+        /** SelfFormCreateOut */
+        SelfFormCreateOut: {
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Id */
+            id: number | null;
+            notice: components["schemas"]["SelfFormNoticeOut"] | null;
+            /** Ok */
+            ok: boolean;
+            /** Show Path */
+            show_path: string;
+        };
+        /** SelfFormDecisionOut */
+        SelfFormDecisionOut: {
+            /** Employee Path */
+            employee_path: string | null;
+            /** Hr Note */
+            hr_note: string;
+            /** Reject Reason */
+            reject_reason: string;
+            /** Reviewed By */
+            reviewed_by: string;
+            /** Reviewed Label */
+            reviewed_label: string;
+        };
+        /** SelfFormExtendIn */
+        SelfFormExtendIn: {
+            /** Hours */
+            hours?: string | null;
+        };
+        /** SelfFormListOut */
+        SelfFormListOut: {
+            form: components["schemas"]["SelfFormCreateFormOut"];
+            /** Intro */
+            intro: string;
+            /** Rows */
+            rows: components["schemas"]["SelfFormListRowOut"][];
+            /** Waiting */
+            waiting: number;
+        };
+        /** SelfFormListRowOut */
+        SelfFormListRowOut: {
+            /** Badge */
+            badge: string;
+            /** Branch */
+            branch: string;
+            /** Hire Path */
+            hire_path: string;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Show Path */
+            show_path: string;
+            /** State */
+            state: string;
+            /** When Kind */
+            when_kind: string;
+            /** When Label */
+            when_label: string;
+        };
+        /** SelfFormNoticeOut */
+        SelfFormNoticeOut: {
+            /** Text */
+            text: string;
+        };
+        /** SelfFormShowOut */
+        SelfFormShowOut: {
+            /** Badge */
+            badge: string;
+            /** Branch */
+            branch: string;
+            /** Can Extend */
+            can_extend: boolean;
+            /** Can Revoke */
+            can_revoke: boolean;
+            /** Created Label */
+            created_label: string;
+            decision: components["schemas"]["SelfFormDecisionOut"] | null;
+            /** Default Hours */
+            default_hours: number;
+            /** Hire Path */
+            hire_path: string | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string;
+            /** Purged */
+            purged: boolean;
+            /** Qr Svg */
+            qr_svg: string | null;
+            /** State */
+            state: string;
+            /** State Key */
+            state_key: string;
+            /** When Label */
+            when_label: string;
+            /**
+             * When Title
+             * @enum {string}
+             */
+            when_title: "Илгээсэн" | "Дуусах" | "";
+        };
         /** SetupItemOut */
         SetupItemOut: {
             /** Auto */
@@ -3279,6 +3718,116 @@ export interface components {
             orders: boolean;
             /** Record Leave */
             record_leave: boolean;
+        };
+        /** SlotIdOptionOut */
+        SlotIdOptionOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+        };
+        /** SlotKindOptionOut */
+        SlotKindOptionOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** SlotListOut */
+        SlotListOut: {
+            /** Empty Text */
+            empty_text: string;
+            /** Enforce */
+            enforce: boolean;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Rows */
+            rows: components["schemas"]["SlotRowOut"][];
+            /** Settings Url */
+            settings_url: string;
+            totals: components["schemas"]["SlotTotalsOut"];
+            /** Year */
+            year: number;
+        };
+        /** SlotOptionsOut */
+        SlotOptionsOut: {
+            /** Branches */
+            branches: components["schemas"]["SlotIdOptionOut"][];
+            /** Hint */
+            hint: string;
+            /** Kinds */
+            kinds: components["schemas"]["SlotKindOptionOut"][];
+            /** Max Year */
+            max_year: number;
+            /** Min Year */
+            min_year: number;
+            /** Positions */
+            positions: components["schemas"]["SlotIdOptionOut"][];
+            /** Year */
+            year: number;
+        };
+        /** SlotRowOut */
+        SlotRowOut: {
+            /** Branch */
+            branch: string;
+            /** Branch Id */
+            branch_id: number;
+            /** Free */
+            free: number;
+            /** Free Class */
+            free_class: string;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Kind Label */
+            kind_label: string;
+            /** Position */
+            position: string;
+            /** Position Id */
+            position_id: number;
+            /** Posts */
+            posts: number;
+            /** Used */
+            used: number;
+        };
+        /** SlotTotalsOut */
+        SlotTotalsOut: {
+            /** Free */
+            free: number;
+            /** Posts */
+            posts: number;
+            /** Used */
+            used: number;
+        };
+        /** SlotWriteIn */
+        SlotWriteIn: {
+            /** Branch */
+            branch?: number | null;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+            /** Position */
+            position?: number | null;
+            /** Qty */
+            qty?: number | null;
+            /** Year */
+            year?: number | null;
+        };
+        /** SlotWriteResultOut */
+        SlotWriteResultOut: {
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Id */
+            id: number | null;
+            /** Ok */
+            ok: boolean;
         };
         /** StateOut */
         StateOut: {
@@ -5079,6 +5628,123 @@ export interface operations {
             };
         };
     };
+    api_palette_palette_answer_api: {
+        parameters: {
+            query?: {
+                q?: string;
+                more?: string;
+                recent?: string;
+                from?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaletteOut"];
+                };
+            };
+        };
+    };
+    api_selfforms_selfform_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfFormListOut"];
+                };
+            };
+        };
+    };
+    api_selfforms_selfform_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelfFormCreateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfFormCreateOut"];
+                };
+            };
+        };
+    };
+    api_selfforms_selfform_show_api: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfFormShowOut"];
+                };
+            };
+        };
+    };
+    api_selfforms_selfform_extend_api: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelfFormExtendIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfFormActionOut"];
+                };
+            };
+        };
+    };
     api_hire_hire_reject: {
         parameters: {
             query?: never;
@@ -5105,6 +5771,28 @@ export interface operations {
             };
         };
     };
+    api_selfforms_selfform_revoke_api: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfFormActionOut"];
+                };
+            };
+        };
+    };
     api_hire_hire_send_back: {
         parameters: {
             query?: never;
@@ -5127,6 +5815,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HireDecisionOut"];
+                };
+            };
+        };
+    };
+    api_slots_slot_list: {
+        parameters: {
+            query?: {
+                year?: string;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotListOut"];
+                };
+            };
+        };
+    };
+    api_slots_slot_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotWriteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_slots_slot_options: {
+        parameters: {
+            query?: {
+                year?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotOptionsOut"];
+                };
+            };
+        };
+    };
+    api_slots_slot_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotWriteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_slots_slot_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotWriteResultOut"];
                 };
             };
         };

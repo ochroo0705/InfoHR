@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
 import { PageScrollbar } from "../widgets/Scrollbar";
+import { AssistantPanel } from "./palette/AssistantPanel";
+import { PalettePanelProvider } from "./palette/PalettePanelContext";
+import { PalettePopups } from "./palette/PalettePopups";
 import { DEFAULT_MAIN_WIDTH, MainWidthContext } from "./mainWidth";
 import { TopBar } from "./TopBar";
 import { watchSystem } from "./theme";
@@ -15,13 +18,18 @@ export function AppShell() {
 
   return (
     <MainWidthContext.Provider value={setWidth}>
-      <TopBar />
-      <PageScrollbar />
-      <div id="page">
-        <main className={`mx-auto ${width ?? DEFAULT_MAIN_WIDTH} py-6`}>
-          <Outlet />
-        </main>
-      </div>
+      <PalettePanelProvider>
+        <PalettePopups>
+          <TopBar />
+          <PageScrollbar />
+          <div id="page">
+            <main className={`mx-auto ${width ?? DEFAULT_MAIN_WIDTH} py-6`}>
+              <Outlet />
+            </main>
+          </div>
+          <AssistantPanel />
+        </PalettePopups>
+      </PalettePanelProvider>
     </MainWidthContext.Provider>
   );
 }

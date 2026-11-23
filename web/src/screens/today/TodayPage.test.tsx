@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ItemOut, TodayOut, TodayViewOut } from "../../api/today";
 import { Landing } from "../../routes/Landing";
+import { PalettePanelContext, type PalettePanelApi } from "../../shell/palette/PalettePanelContext";
 import { useMeta } from "../../shell/useMeta";
 import { TodayPage } from "./TodayPage";
 
@@ -86,11 +87,15 @@ function stubApi({ today, viewList = [], status = 200 }: { today: TodayOut; view
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // TodayHeader reads the assistant panel from its context; the page tests only need a stand-in for it.
+  const palette: PalettePanelApi = { open: vi.fn(), close: vi.fn(), toggle: vi.fn(), isOpen: false, openedByUser: false, session: 0 };
   const result = render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <TodayPage />
-      </MemoryRouter>
+      <PalettePanelContext.Provider value={palette}>
+        <MemoryRouter>
+          <TodayPage />
+        </MemoryRouter>
+      </PalettePanelContext.Provider>
     </QueryClientProvider>,
   );
   return { ...result, client };

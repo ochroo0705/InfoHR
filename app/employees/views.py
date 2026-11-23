@@ -20,14 +20,14 @@ from django.http import (
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-from django.urls import Resolver404, resolve, reverse
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.vary import vary_on_headers
 from reports.staff_list import REPORT as STAFF_LIST
 
-from employees import access, attention, company_stats, palette, sections
+from employees import access, attention, company_stats, sections
 from employees import today as facts
 from employees.forms import (
     FORMS,
@@ -62,6 +62,7 @@ from employees.services import (
     order_signing,
     orders,
     page_writes,
+    palette_answer,
     personal_rows,
     print_jobs,
     records,
@@ -1155,21 +1156,6 @@ def _register_label(query: order_register_page.RegisterQuery, options: order_reg
 
 
 # --- Ctrl+K command palette ---
-def _palette_page_pk(path: str) -> int | None:
-    """The pk of the employee record the palette was opened on, from the page path the browser sends. Only the
-    employee detail page counts (matched by the resolver, not by the text); anything else is None."""
-    if not path or len(path) > palette.FROM_LIMIT:
-        return None
-    try:
-        match = resolve(path)
-    except Resolver404:
-        return None
-    if match.app_name != "employees" or match.url_name != "detail":
-        return None
-    pk = match.kwargs.get("pk")
-    return pk if isinstance(pk, int) else None
-
-
 @login_required
 @require_GET
 def palette_search(request: HttpRequest) -> HttpResponse:
@@ -1177,17 +1163,14 @@ def palette_search(request: HttpRequest) -> HttpResponse:
     because the answer depends on who asks (what they may open or see)."""
     user = _user(request)
     q = request.GET.get("q", "")
-    today = timezone.localdate()
-    more = request.GET.get("more") == "1"  # «show all»: up to PEOPLE_MORE_LIMIT people instead of PEOPLE_LIMIT
-    people, people_total = palette.find_people(
-        user, q, today, palette.PEOPLE_MORE_LIMIT if more else palette.PEOPLE_LIMIT
+    result = palette_answer.answer(
+        user,
+        q=q,
+        more=request.GET.get("more") == "1",  # «show all»: up to PEOPLE_MORE_LIMIT people instead of PEOPLE_LIMIT
+        recent_raw=request.GET.get("recent", ""),  # the browser's remembered items; the service re-checks each one
+        from_path=request.GET.get("from", ""),  # the page the palette opened on
+        today=timezone.localdate(),
     )
-    single = people[0] if len(people) == 1 else None  # the person's own actions only when exactly one person matched
-    # The remembered items are shown only in the empty box; the browser sends them, the server re-checks each one.
-    recent = palette.recent(user, palette.parse_refs(request.GET.get("recent", "")), today) if not q.split() else []
-    # On an employee's record page the empty box starts with that person's actions. A typed query never has this group.
-    page_pk = None if q.split() else _palette_page_pk(request.GET.get("from", ""))
-    current = palette.current(user, page_pk, today) if page_pk is not None else None
     # The assistant's «Асуух» row. Local import: the assistant app imports employees.palette.
     from assistant.providers import is_enabled
     from assistant.services import QUESTION_LIMIT, looks_like_question
@@ -1200,19 +1183,19 @@ def palette_search(request: HttpRequest) -> HttpResponse:
             "ask_on": ask_on,
             "ask_first": ask_on and looks_like_question(q),  # a question: the row goes first and Enter asks it
             "ask_q": q[:QUESTION_LIMIT],
-            "recent": recent,
-            "current": current,
-            "current_actions": palette.person_actions(user, current) if current else [],
-            "screens": palette.screens(user, q),
-            "fixed_urls": palette.fixed_urls(user),  # only these pages get a data-palette-ref (what can be recalled)
-            "actions": palette.actions(user, q),
-            "people": people,
-            "people_total": people_total,  # every match; the header shows «shown / total» when some are left out
-            "people_more": not more and people_total > len(people),  # offer «show all»
-            "words": q[: palette.QUERY_LIMIT].split(),  # highlighted in the rows; empty for the empty box
-            "orders": palette.orders(user, q),
-            "person": single,
-            "person_actions": palette.person_actions(user, single) if single else [],
+            "recent": result.recent,
+            "current": result.current,
+            "current_actions": result.current_actions,
+            "screens": result.screens,
+            "fixed_urls": result.fixed_urls,  # only these pages get a data-palette-ref (what can be recalled)
+            "actions": result.actions,
+            "people": result.people,
+            "people_total": result.people_total,  # every match; the header shows «shown / total» when some are left out
+            "people_more": result.people_more,  # offer «show all»
+            "words": result.words,  # highlighted in the rows; empty for the empty box
+            "orders": result.orders,
+            "person": result.single,
+            "person_actions": result.person_actions,
         },
     )
     response["Cache-Control"] = "no-store"

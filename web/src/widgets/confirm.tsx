@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { usePresence } from "../lib/presence";
+import { popModal, pushModal, type StackEntry } from "./modalLogic";
 
 // The in-app confirm (port of window.hrConfirm, app/static/js/modal.js; UI_RULES §6). It replaces the browser's own
 // box. Escape, an outside click or «Болих» resolve false; «Тийм» (or opts.ok) resolves true. Focus starts on the
@@ -85,6 +86,23 @@ function ConfirmDialog({ pending, onAnswer }: { pending: Pending | null; onAnswe
   const cancelRef = useRef<HTMLButtonElement>(null);
   const okRef = useRef<HTMLButtonElement>(null);
   const downOnOverlay = useRef(false);
+
+  // While the question is on the screen (also while its exit plays) it is on the pop-up stack, so the palette's Ctrl+K and
+  // Escape see an open pop-up and stay away from it.
+  // `leaving` is read live, so a pop-up underneath ignores Escape while this question's exit plays.
+  const leavingRef = useRef(false);
+  leavingRef.current = presence.leaving;
+  useEffect(() => {
+    if (!presence.mounted) return;
+    const entry: StackEntry = {
+      closable: true,
+      get leaving() {
+        return leavingRef.current;
+      },
+    };
+    pushModal(entry);
+    return () => popModal(entry);
+  }, [presence.mounted]);
 
   // Focus starts on cancel once the dialog is mounted (the mount can come a render after open turns true). A replaced
   // question (a new `pending`) starts on cancel again, too.

@@ -163,6 +163,10 @@
 /* input.css 476-477 (unlayered): docked assistant panel slide */
 @keyframes hr-slide-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes hr-slide-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(24px); } }
+/* input.css 478-479 (unlayered): the docked panel's slide rules. Copied here for the React panel (AssistantPanel.tsx), which
+   keeps the id and the data attributes of base.html. A page-load open (data-no-enter) does not slide in. */
+#assistant-panel:not([hidden]):not([data-no-enter]):not([data-leaving]) { animation: hr-slide-in var(--dur-in) var(--ease-out); }
+#assistant-panel[data-leaving] { animation: hr-slide-out var(--dur-out) var(--ease-in) forwards; }
 
 /* input.css 482-493 (unlayered): page cross-fade (plan 2026-11-08-selection-motion, task 10). A same-origin page-to-page load
    fades with the View Transitions API. Unlayered, because @view-transition and ::view-transition-* are not layerable. The

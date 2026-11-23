@@ -46,7 +46,7 @@
     <tbody>
       {% for row in rows %}
       <tr class="my-2 block cursor-pointer rounded-lg border border-slate-200 hover:bg-violet-50 md:my-0 md:table-row md:rounded-none md:border-0 md:border-t md:border-slate-200"
-          onclick="location.href='{{ row.show_url }}'">
+          onclick="location.href='{{ row.show_path }}'">
         <td class="block py-2 pl-3 pr-3 font-medium md:table-cell md:pl-0">{{ row.invitation.label }}</td>
         <td class="block px-3 pb-1 text-slate-600 md:table-cell md:px-0 md:py-2">
           <span class="text-xs text-slate-500 md:hidden">Салбар: </span>{{ row.invitation.branch.name|default:"—" }}
@@ -55,10 +55,10 @@
           <span class="rounded-full px-2 py-0.5 text-xs {{ row.badge }}">{{ row.state }}</span>
         </td>
         <td class="block px-3 pb-1 text-slate-600 md:table-cell md:px-0 md:py-2">
-          {% if row.when %}<span class="text-xs text-slate-500 md:hidden">{% if row.hire_url %}Илгээсэн: {% else %}Дуусах: {% endif %}</span>{{ row.when|date:"Y-m-d H:i" }}{% endif %}
+          {% if row.when %}<span class="text-xs text-slate-500 md:hidden">{% if row.hire_path %}Илгээсэн: {% else %}Дуусах: {% endif %}</span>{{ row.when|date:"Y-m-d H:i" }}{% endif %}
         </td>
         <td class="block px-3 pb-3 text-left md:table-cell md:px-0 md:py-2 md:text-right">
-          {% if row.hire_url %}<a href="{{ row.hire_url }}" onclick="event.stopPropagation()" class="text-violet-700 hover:underline">Нээх</a>{% endif %}
+          {% if row.hire_path %}<a href="{{ row.hire_path }}" onclick="event.stopPropagation()" class="text-violet-700 hover:underline">Нээх</a>{% endif %}
         </td>
       </tr>
       {% empty %}

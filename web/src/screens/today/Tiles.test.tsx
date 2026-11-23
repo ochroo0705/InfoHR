@@ -2,8 +2,19 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import type { TodayOut } from "../../api/today";
+import { PalettePanelContext, type PalettePanelApi } from "../../shell/palette/PalettePanelContext";
 import { Tiles } from "./Tiles";
 import { TodayHeader } from "./TodayHeader";
+
+// TodayHeader reads the assistant panel from its context; these tests only need a stand-in for it.
+const palette: PalettePanelApi = {
+  open: vi.fn(),
+  close: vi.fn(),
+  toggle: vi.fn(),
+  isOpen: false,
+  openedByUser: false,
+  session: 0,
+};
 
 vi.mock("./AttentionTile", () => ({
   AttentionTile: () => <a id="attention-tile" href="#attention" />,
@@ -27,9 +38,11 @@ function makeData(overrides: Partial<TodayOut> = {}): TodayOut {
 
 function renderHeader(data: TodayOut) {
   return render(
-    <MemoryRouter>
-      <TodayHeader data={data} />
-    </MemoryRouter>,
+    <PalettePanelContext.Provider value={palette}>
+      <MemoryRouter>
+        <TodayHeader data={data} />
+      </MemoryRouter>
+    </PalettePanelContext.Provider>,
   );
 }
 
@@ -60,11 +73,11 @@ describe("TodayHeader", () => {
     expect(screen.queryByText("Ажилтан нэмэх")).toBeNull();
   });
 
-  it("always shows «Хайх» and opens the palette popup on click", () => {
+  it("always shows «Хайх» and toggles the assistant panel on click", () => {
     renderHeader(makeData({ shortcuts: { add_employee: false, record_leave: false, orders: false } }));
     const button = screen.getByRole("button", { name: /Хайх/ });
     fireEvent.click(button);
-    expect(window.location.href).toBe("http://dj/employees/today/#open=palette");
+    expect(palette.toggle).toHaveBeenCalledTimes(1);
   });
 
   it("hides «Миний хуудас →» when has_own_page is false", () => {

@@ -287,6 +287,12 @@ def test_only_the_documented_helpers_are_new() -> None:
     assert selfform_ops == {
         ("/api/v1/selfforms/{pk}/send-back", "post"),
         ("/api/v1/selfforms/{pk}/reject", "post"),
+        # step 3e: the self-form list screen (app/api/selfforms.py)
+        ("/api/v1/selfforms", "get"),
+        ("/api/v1/selfforms", "post"),
+        ("/api/v1/selfforms/{pk}", "get"),
+        ("/api/v1/selfforms/{pk}/extend", "post"),
+        ("/api/v1/selfforms/{pk}/revoke", "post"),
     }
     assert {"get"} == set(paths["/api/v1/employees/check-register"])
     assert {"get"} == set(paths["/api/v1/employees/districts"])

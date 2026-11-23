@@ -3,7 +3,7 @@ import { useLocation } from "react-router";
 import type { OrderRegisterOut, OrderRegisterRowOut } from "../../api/orderRegister";
 import { cn } from "../../lib/utils";
 import { useTransitionNavigate } from "../../lib/viewTransition";
-import { useMoreSentinel } from "./useMoreSentinel";
+import { useMoreSentinel } from "../../lib/useMoreSentinel";
 
 // The register table (orders/_order_register_rows.html) and its rows (_order_register_items.html). Classes, Mongolian
 // text and element order are copied from the templates. React decides nothing: the number and date text, the chip

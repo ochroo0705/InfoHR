@@ -19,17 +19,25 @@ class Batch[T]:
     next_query: str  # the query string of the next batch; "" when this is the last one
 
 
+def window_at[T](items: list[T], offset: int, size: int | None = None) -> tuple[list[T], bool]:
+    """The slice of `items` that starts at `offset`, and whether more items follow it. Needs no request: the API
+    passes the offset it read from its own query string."""
+    size = size or LIST_BATCH  # read at call time so tests can shrink the batch
+    return items[offset : offset + size], offset + size < len(items)
+
+
 def window[T](request: HttpRequest, items: list[T], size: int | None = None) -> Batch[T]:
     size = size or LIST_BATCH  # read at call time so tests can shrink the batch
     raw = request.GET.get("offset", "")
     htmx = request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
     offset = int(raw) if htmx and raw.isdecimal() and len(raw) <= 18 else 0  # isdigit() accepts «²», int() does not
+    shown, more = window_at(items, offset, size)
     next_query = ""
-    if offset + size < len(items):
+    if more:
         params = request.GET.copy()
         params["offset"] = str(offset + size)
         next_query = params.urlencode()
-    return Batch(items[offset : offset + size], offset, next_query)
+    return Batch(shown, offset, next_query)
 
 
 def paged[T](
