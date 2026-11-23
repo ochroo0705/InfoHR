@@ -55,7 +55,8 @@ export async function login(page: Page, base: string): Promise<void> {
   await page.locator("#id_username").fill(username);
   await page.locator("#id_password").fill(password);
   // The React button stays disabled until the CSRF token arrives; click() waits for it.
-  await page.locator("form button").click();
+  // React's login form also has a show-password toggle button, so match the submit button only.
+  await page.locator("form button:not([type='button'])").click();
   await page.waitForURL((url) => url.origin === base && !url.pathname.startsWith("/login"));
 }
 
