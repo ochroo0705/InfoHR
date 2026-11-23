@@ -65,6 +65,33 @@
         ],
         "createdAt": "2026-11-18T02:47:09.668Z",
         "reason": "Claude: parity port of selfform/_review_panel.html (violet border and fill are the existing Django class strings; project rule 'Django is the reference'); flat violet accent, no gradient. Not user confirmed."
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".superpowers/brainstorm/781-1795398417/content/landing-theme-hero.html"
+        ],
+        "createdAt": "2026-11-23T01:47:35.078Z",
+        "reason": "Claude: throwaway brainstorm mockup; tiny text is scaled-down thumbnails of product screens, not body copy. Not user confirmed."
+      },
+      {
+        "rule": "undersized-ui-text",
+        "value": "*",
+        "files": [
+          ".superpowers/brainstorm/781-1795398417/content/landing-theme-hero.html"
+        ],
+        "createdAt": "2026-11-23T01:47:49.414Z",
+        "reason": "Claude: throwaway brainstorm mockup; the small text is scaled-down thumbnails of product screens, not real UI. Not user confirmed."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "web/src/screens/welcome/mock/mock.css"
+        ],
+        "createdAt": "2026-11-23T02:59:58.040Z",
+        "reason": "Claude: Today mockup reproduces the real product's attention lines (border-l-4 in web/src/screens/today/AttentionGroup.tsx); fidelity, not decoration. Not user confirmed."
       }
     ]
   }

@@ -9,6 +9,7 @@ export const PORTED: RegExp[] = [
   /^\/employees\/new\/$/,
   /^\/me\/$/,
   /^\/password\/change$/,
+  /^\/welcome\/?$/,
 ];
 
 // True when the path (without query string or hash) is served by the React app.

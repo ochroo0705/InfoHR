@@ -1397,6 +1397,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/welcome/demo-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Demo Request */
+        post: operations["welcome_api_create_demo_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1589,6 +1606,49 @@ export interface components {
         CsrfOut: {
             /** Token */
             token: string;
+        };
+        /** DemoRequestIn */
+        DemoRequestIn: {
+            /**
+             * Contact Ref
+             * @default
+             */
+            contact_ref: string;
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Organisation
+             * @default
+             */
+            organisation: string;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string;
+            /**
+             * Size Band
+             * @default
+             */
+            size_band: string;
+        };
+        /** DemoRequestOut */
+        DemoRequestOut: {
+            /** Ok */
+            ok: boolean;
         };
         /** EmployeeActivityChangeOut */
         EmployeeActivityChangeOut: {
@@ -2628,6 +2688,8 @@ export interface components {
                 [key: string]: boolean;
             };
             user: components["schemas"]["UserOut"] | null;
+            /** Welcome Enabled */
+            welcome_enabled: boolean;
         };
         /** NavGroupOut */
         NavGroupOut: {
@@ -5169,6 +5231,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodayViewOut"][];
+                };
+            };
+        };
+    };
+    welcome_api_create_demo_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemoRequestIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRequestOut"];
                 };
             };
         };

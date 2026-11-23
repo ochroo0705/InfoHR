@@ -1,6 +1,7 @@
 """Django settings for MACS Human Capital. Secrets and per-machine values come from ../.env."""
 
 from pathlib import Path
+from typing import Any, cast
 
 import django_stubs_ext
 import environ
@@ -179,6 +180,26 @@ elif DB_ENGINE == "firebird":
     }
 else:
     raise ImproperlyConfigured(f"DB_ENGINE must be 'postgres' or 'firebird', not {DB_ENGINE!r}.")
+
+# Public welcome page with the demo-request form (app/welcome). Off by default; the app is loaded only when the flag is on.
+PUBLIC_WELCOME = env.bool("PUBLIC_WELCOME", default=False)
+if PUBLIC_WELCOME:
+    INSTALLED_APPS = [*INSTALLED_APPS, "welcome"]
+
+# Demo-request mail (app/welcome). Save-first: a request is stored even when mail fails or is not configured.
+DEMO_REQUEST_NOTIFY = [a.strip() for a in env.list("DEMO_REQUEST_NOTIFY", default=[]) if a.strip()]  # who gets a mail per new demo request
+EMAIL_HOST = env.str("EMAIL_HOST", default="")  # empty = mail not configured; the request is still saved
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="MACS Human Capital <noreply@localhost>")
+# Abuse limits for the public demo-request endpoint (app/welcome), per window of 3600 s. The per-IP limit applies only
+# to publicly routable addresses; the store cap and the mail budget are global.
+WELCOME_PER_IP_LIMIT = env.int("WELCOME_PER_IP_LIMIT", default=10)
+WELCOME_MAIL_BUDGET = env.int("WELCOME_MAIL_BUDGET", default=30)  # mails per window; beyond it requests are stored, not mailed
+WELCOME_STORE_CAP = env.int("WELCOME_STORE_CAP", default=300)  # stored requests per window; beyond it answer 429
 
 # HR-owned table prefix in a shared database: IHR_ on Firebird (MACS already has HR_* tables), empty on PostgreSQL.
 HR_TABLE_PREFIX = env.str("DJANGO_HR_TABLE_PREFIX", default="IHR_" if DB_ENGINE == "firebird" else "")
@@ -422,3 +443,20 @@ UNFOLD = {
         ],
     },
 }
+
+# Demo requests from the public welcome page (app/welcome). Shown only when that app is installed.
+if PUBLIC_WELCOME:
+    cast(dict[str, Any], UNFOLD["SIDEBAR"])["navigation"].append(
+        {
+            "title": "Нийтийн хуудас",
+            "collapsible": True,
+            "items": [
+                {
+                    "title": "Демо хүсэлтүүд",
+                    "icon": "contact_mail",
+                    "link": reverse_lazy("admin:welcome_demorequest_changelist"),
+                    "permission": lambda request: request.user.has_perm("welcome.view_demorequest"),
+                },
+            ],
+        },
+    )

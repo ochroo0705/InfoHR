@@ -1,0 +1,197 @@
+/* /welcome palette. Scoped to .welcome only; the app palette in styles/tokens.css is not touched.
+   Dark tone: the hero and the pinned showcase. Light tone: everything from "More" down. */
+.welcome {
+  --w-bg: #FAFAF7;
+  --w-surface: #FFFFFF;
+  --w-text: #1C2326;
+  --w-primary: #0F6B63;
+  --w-accent: #B45309;
+  --w-tint: #E3F1EF;
+  --w-danger: #C2352B;
+  --w-on-primary: #FFFFFF;
+  /* Derived lines and muted text are declared in each tone block too: a custom property resolves where it is
+     declared, so a dark element must not inherit a value built from the light text colour. */
+  --w-line: color-mix(in srgb, #1C2326 14%, transparent);
+  --w-muted: color-mix(in srgb, #1C2326 70%, transparent);
+
+  font-family: "Golos Text", ui-sans-serif, system-ui, sans-serif;
+  color: var(--w-text);
+  background: var(--w-bg);
+}
+
+.welcome [data-tone="dark"] {
+  --w-bg: #13191A;
+  --w-surface: #1A2224;
+  --w-text: #E6EBEA;
+  --w-primary: #5CC2B6;
+  --w-accent: #F2B84B;
+  --w-tint: #1D3532;
+  --w-danger: #F87171;
+  --w-on-primary: #0D1516;
+  --w-line: color-mix(in srgb, #E6EBEA 14%, transparent);
+  --w-muted: color-mix(in srgb, #E6EBEA 70%, transparent);
+}
+
+.welcome [data-tone="light"] {
+  --w-bg: #FAFAF7;
+  --w-surface: #FFFFFF;
+  --w-text: #1C2326;
+  --w-primary: #0F6B63;
+  --w-accent: #B45309;
+  --w-tint: #E3F1EF;
+  --w-danger: #C2352B;
+  --w-on-primary: #FFFFFF;
+  --w-line: color-mix(in srgb, #1C2326 14%, transparent);
+  --w-muted: color-mix(in srgb, #1C2326 70%, transparent);
+}
+
+/* Layout helpers: equal side gutters, 16 px minimum on phones, no horizontal scroll at 375 px. */
+.welcome .w-container {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: clamp(16px, 4vw, 40px);
+}
+
+.welcome :focus-visible {
+  outline: 2px solid var(--w-primary);
+  outline-offset: 2px;
+}
+
+/* Touch targets: links and buttons are at least 44 px tall. */
+.welcome .w-link,
+.welcome .w-button,
+.welcome .w-footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
+}
+
+.welcome .w-topbar {
+  background: var(--w-bg);
+  color: var(--w-text);
+  border-bottom: 1px solid var(--w-line);
+}
+
+.welcome .w-topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+}
+
+.welcome .w-brand {
+  min-width: 0;
+  color: var(--w-primary);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.welcome .w-topbar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  row-gap: 8px;
+  column-gap: 8px;
+}
+
+.welcome .w-link {
+  color: var(--w-text);
+  padding-inline: 10px;
+  font-size: 14px;
+}
+
+.welcome .w-button {
+  color: var(--w-on-primary);
+  background: var(--w-primary);
+  border-radius: 8px;
+  padding-inline: 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Narrow phones: the top bar stays on one row. Gaps and padding shrink, the brand drops to 14 px and never wraps.
+   The links and the button keep their 44 px height; only their side padding and font size get smaller. */
+@media (max-width: 480px) {
+  .welcome .w-topbar-inner {
+    gap: 8px;
+  }
+
+  .welcome .w-brand {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .welcome .w-topbar-nav {
+    flex-wrap: nowrap;
+    column-gap: 2px;
+  }
+
+  .welcome .w-link {
+    padding-inline: 8px;
+    font-size: 13px;
+  }
+
+  .welcome .w-button {
+    padding-inline: 12px;
+    font-size: 13px;
+  }
+}
+
+/* Below 360 px the brand steps down to 13 px so the row can still hold one line at 340 px. */
+@media (max-width: 359.98px) {
+  .welcome .w-brand {
+    font-size: 13px;
+  }
+}
+
+/* Only below 340 px may the bar wrap onto two rows. This is the fallback from the earlier fix. */
+@media (max-width: 339.98px) {
+  .welcome .w-brand {
+    white-space: normal;
+  }
+
+  .welcome .w-topbar-nav {
+    flex-wrap: wrap;
+  }
+}
+
+.welcome .w-footer {
+  background: var(--w-bg);
+  color: var(--w-text);
+  border-top: 1px solid var(--w-line);
+  padding-block: 32px;
+}
+
+.welcome .w-footer-inner {
+  display: grid;
+  gap: 12px;
+}
+
+.welcome .w-footer-company {
+  font-weight: 700;
+  margin: 0;
+}
+
+.welcome .w-footer-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.welcome .w-footer-link {
+  color: var(--w-primary);
+  padding-inline: 0;
+}
+
+.welcome .w-footer-hours {
+  color: var(--w-muted);
+  align-self: center;
+  font-size: 14px;
+}

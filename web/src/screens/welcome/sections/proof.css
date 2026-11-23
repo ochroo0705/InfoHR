@@ -1,0 +1,69 @@
+/* Proof: dark tone. Colours come from the --w-* variables set by .welcome [data-tone="dark"] in welcome.css. */
+
+.welcome .w-proof {
+  position: relative;
+  background: var(--w-bg);
+  color: var(--w-text);
+  /* The bottom is kept modest: the showcase follows directly, and its own top padding adds to this gap. */
+  padding-block: 48px 48px;
+}
+
+.welcome .w-proof-inner {
+  display: grid;
+  gap: 20px;
+  align-items: center;
+}
+
+.welcome .w-proof-line {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--w-muted);
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.15rem);
+  line-height: 1.55;
+}
+
+.welcome .w-proof-counter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+/* min-width reserves three digits, so the counter does not shift the label while it counts. */
+.welcome .w-proof-value {
+  display: inline-block;
+  min-width: 3ch;
+  color: var(--w-accent);
+  font-size: clamp(3rem, 2rem + 5vw, 5.5rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.welcome .w-proof-label {
+  color: var(--w-text);
+  font-size: 16px;
+}
+
+/* The final number for screen readers. Visually hidden, but still in the accessibility tree. */
+.welcome .w-proof-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .welcome .w-proof-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 40px;
+  }
+}

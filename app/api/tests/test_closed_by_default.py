@@ -1,6 +1,7 @@
 import re
 
 import pytest
+from django.conf import settings
 from django.test import Client
 
 from api.main import api
@@ -11,6 +12,8 @@ ALLOWED = {
     ("/api/v1/auth/login", "post"),
     ("/api/v1/meta", "get"),
 }
+if "welcome" in settings.INSTALLED_APPS:
+    ALLOWED.add(("/api/v1/welcome/demo-requests", "post"))
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 PATH_PARAM = re.compile(r"\{[^}]+\}")
 

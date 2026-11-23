@@ -1,0 +1,449 @@
+/* Product mockups for /welcome. Colours are the app's real values (navy, seal red, greys), not the page palette.
+   The frame is a size container: text and spacing scale with its width, with a floor of 11px for legibility and a
+   cap (clamp max) so the largest frames, the 760px showcase column, do not blow the type up. */
+
+.mock-frame {
+  container-type: inline-size;
+  width: 100%;
+  border: 1px solid #d5dcdf;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(44, 62, 80, 0.14);
+  color: #2c3e50;
+  text-align: left;
+}
+
+.mock-frame-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f4f6f7;
+  border-bottom: 1px solid #ecf0f1;
+  min-width: 0;
+}
+
+.mock-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #bdc6c8;
+}
+
+.mock-frame-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin-inline-start: 6px;
+  font-size: clamp(11px, 2.8cqi, 16px);
+  color: #5f6b6d;
+}
+
+.mock-frame-body {
+  padding: max(8px, 3.5cqi);
+}
+
+.mock-orders {
+  position: relative;
+  min-height: 150px;
+  font-size: clamp(11px, 2.9cqi, 20px);
+  line-height: 1.35;
+}
+
+.mock-orders-register {
+  min-width: 0;
+}
+
+.mock-orders-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 0.6em;
+}
+
+.mock-orders-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.mock-orders-new {
+  flex: 0 0 auto;
+  padding: 0.2em 0.7em;
+  border-radius: 5px;
+  background: #c0392b;
+  color: #ffffff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mock-orders-row {
+  display: grid;
+  grid-template-columns: 0.7fr 1.5fr 1.4fr;
+  gap: 0.5em;
+  align-items: center;
+  padding: 0.45em 0.5em;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.mock-orders-row > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mock-orders-row--header {
+  background: #f4f6f7;
+  color: #5f6b6d;
+  border-radius: 4px;
+  border-bottom: 0;
+}
+
+.mock-orders-row--selected {
+  background: #e6ecf1;
+}
+
+.mock-orders-preview {
+  position: absolute;
+  top: 38%;
+  right: 0;
+  width: 58%;
+  background: #ffffff;
+  border: 1px solid #d5dcdf;
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  box-shadow: -8px 10px 24px rgba(44, 62, 80, 0.18);
+  padding: 0.5em 0.6em 0.7em;
+}
+
+.mock-orders-preview-head {
+  margin-bottom: 0.4em;
+  font-weight: 600;
+  color: #5f6b6d;
+}
+
+.mock-orders-sheet {
+  position: relative;
+  display: grid;
+  gap: 0.45em;
+  padding: 0.6em 0.5em;
+  border: 1px solid #ecf0f1;
+  border-radius: 4px;
+}
+
+.mock-orders-sheet-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.mock-orders-line {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: #e6ecf1;
+}
+
+.mock-orders-line--short {
+  width: 60%;
+}
+
+.mock-orders-seal {
+  position: absolute;
+  right: 0.5em;
+  bottom: 0.5em;
+  width: 1.9em;
+  height: 1.9em;
+  border: 2px solid #c0392b;
+  border-radius: 50%;
+}
+
+/* Narrow frames (phones): the preview stops overlaying the register and sits below it, so no row is hidden. */
+@container (max-width: 480px) {
+  .mock-orders-preview {
+    position: static;
+    width: auto;
+    margin-top: 0.8em;
+    border: 1px solid #d5dcdf;
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(44, 62, 80, 0.14);
+  }
+}
+
+/* Leave calendar: a 21-day track per person. Bars are placed with left/width percentages set inline. */
+.mock-leave {
+  font-size: clamp(11px, 2.9cqi, 20px);
+  line-height: 1.35;
+}
+
+.mock-leave-title {
+  margin-bottom: 0.6em;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.mock-leave-row {
+  display: grid;
+  grid-template-columns: 26% minmax(0, 1fr);
+  gap: 0.6em;
+  align-items: center;
+  margin-bottom: 0.4em;
+}
+
+.mock-leave-row--head {
+  margin-bottom: 0.3em;
+  color: #5f6b6d;
+}
+
+.mock-leave-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mock-leave-days,
+.mock-leave-cells {
+  display: grid;
+  grid-template-columns: repeat(21, minmax(0, 1fr));
+}
+
+.mock-leave-days {
+  text-align: center;
+  font-size: clamp(11px, 2.6cqi, 18px);
+  line-height: 1.6;
+}
+
+.mock-leave-day--weekend {
+  background: #f4f6f7;
+  border-radius: 3px;
+}
+
+.mock-leave-track {
+  position: relative;
+  height: 1.8em;
+  border: 1px solid #ecf0f1;
+  border-radius: 5px;
+  background: #ffffff;
+}
+
+.mock-leave-cells {
+  position: absolute;
+  inset: 0;
+}
+
+.mock-leave-cell {
+  border-left: 1px solid #ecf0f1;
+}
+
+.mock-leave-cell--weekend {
+  background: #f4f6f7;
+}
+
+.mock-leave-bar {
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  box-sizing: border-box;
+  border: 1px solid;
+  border-radius: 4px;
+}
+
+.mock-leave-bar--annual {
+  background: #e0f2fe;
+  border-color: #0c4a6e;
+}
+
+.mock-leave-bar--other {
+  background: #fffbeb;
+  border-color: #92400e;
+}
+
+.mock-leave-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em 1em;
+  margin-top: 0.7em;
+  color: #5f6b6d;
+  font-size: clamp(11px, 2.6cqi, 18px);
+}
+
+.mock-leave-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.mock-leave-swatch {
+  display: inline-block;
+  width: 1em;
+  height: 0.7em;
+  border: 1px solid;
+  border-radius: 3px;
+}
+
+.mock-leave-swatch--annual {
+  background: #e0f2fe;
+  border-color: #0c4a6e;
+}
+
+.mock-leave-swatch--other {
+  background: #fffbeb;
+  border-color: #92400e;
+}
+
+/* Narrow frames (phones): the name sits above its track so all 21 days keep a readable width. */
+@container (max-width: 480px) {
+  .mock-leave-row,
+  .mock-leave-row--head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2em;
+  }
+}
+
+/* Today: four attention cards (caution colours of the Анхаарах box) and the "away today" chips. */
+.mock-today {
+  font-size: clamp(11px, 2.9cqi, 20px);
+  line-height: 1.35;
+}
+
+.mock-today-title {
+  margin-bottom: 0.6em;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.mock-today-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6em;
+}
+
+.mock-today-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  min-width: 0;
+  padding: 0.6em 0.7em;
+  background: #fffbeb;
+  border: 1px solid #ecf0f1;
+  border-left: 4px solid #f7c948;
+  border-radius: 6px;
+}
+
+.mock-today-count {
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1;
+  color: #92400e;
+}
+
+.mock-today-label {
+  color: #5f6b6d;
+  overflow-wrap: anywhere;
+}
+
+.mock-today-away {
+  margin-top: 0.9em;
+}
+
+.mock-today-away-label {
+  display: block;
+  margin-bottom: 0.4em;
+  color: #5f6b6d;
+  font-weight: 600;
+}
+
+.mock-today-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.mock-today-chip {
+  padding: 0.2em 0.7em;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  white-space: nowrap;
+}
+
+/* AI assistant: a chat with the user's question bubble and an answer panel holding a table. */
+.mock-assistant {
+  display: grid;
+  gap: 0.8em;
+  font-size: clamp(11px, 2.9cqi, 20px);
+  line-height: 1.35;
+}
+
+.mock-assistant-turn {
+  display: grid;
+  gap: 0.3em;
+  min-width: 0;
+}
+
+.mock-assistant-turn--user {
+  justify-items: end;
+}
+
+.mock-assistant-who {
+  color: #5f6b6d;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.mock-assistant-bubble {
+  max-width: 88%;
+  margin: 0;
+  padding: 0.5em 0.75em;
+  border-radius: 10px 10px 2px 10px;
+  background: #2c3e50;
+  color: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+.mock-assistant-answer {
+  min-width: 0;
+  padding: 0.6em 0.7em;
+  border: 1px solid #ecf0f1;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.mock-assistant-caption {
+  margin: 0 0 0.5em;
+  color: #5f6b6d;
+}
+
+.mock-assistant-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.mock-assistant-table th,
+.mock-assistant-table td {
+  padding: 0.35em 0.4em;
+  border-bottom: 1px solid #ecf0f1;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.mock-assistant-table th {
+  background: #f4f6f7;
+  color: #5f6b6d;
+  font-weight: 600;
+}
+
+.mock-assistant-table tbody tr:last-child td {
+  border-bottom: 0;
+}

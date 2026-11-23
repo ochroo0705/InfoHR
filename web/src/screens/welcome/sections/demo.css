@@ -1,0 +1,207 @@
+/* Demo request section. Light tone: the colours come from the .welcome root's [data-tone="light"] block. */
+
+.welcome .w-demo {
+  padding-block: clamp(56px, 8vw, 96px);
+  background: var(--w-bg);
+  color: var(--w-text);
+}
+
+.welcome .w-demo-title {
+  margin: 0 0 24px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+/* On success the card's measured height is pinned as an inline min-height (DemoSection.tsx), so the thank-you
+   does not shrink the card. No fixed height here: the form's own height decides it on phones. */
+.welcome .w-demo-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(20px, 4vw, 36px);
+  background: var(--w-surface);
+  border: 1px solid var(--w-line);
+  border-radius: 12px;
+}
+
+.welcome .w-demo-form,
+.welcome .w-demo-thanks {
+  flex: 1;
+}
+
+.welcome .w-demo-form {
+  display: block;
+}
+
+/* Spacing between the form's blocks comes from margins, not a grid gap, so an empty alert region adds no space. */
+.welcome .w-demo-form > * + * {
+  margin-top: 20px;
+}
+
+.welcome .w-demo-note-required {
+  margin: 0;
+  color: var(--w-muted);
+  font-size: 14px;
+}
+
+/* One column on phones; two from 640 px. */
+.welcome .w-demo-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .welcome .w-demo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .welcome .w-demo-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.welcome .w-demo-field {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+
+.welcome .w-demo-label-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.welcome .w-demo-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.welcome .w-demo-required {
+  color: var(--w-danger);
+  font-weight: 700;
+}
+
+.welcome .w-demo-hint,
+.welcome .w-demo-privacy {
+  margin: 0;
+  color: var(--w-muted);
+  font-size: 14px;
+}
+
+/* 16 px text stops iOS from zooming on focus; 44 px is the touch target. */
+.welcome .w-demo-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--w-text);
+  background: var(--w-bg);
+  border: 1px solid color-mix(in srgb, var(--w-text) 45%, transparent);
+  border-radius: 8px;
+}
+
+.welcome .w-demo-input:focus-visible {
+  outline: 2px solid var(--w-primary);
+  outline-offset: 2px;
+  border-color: var(--w-primary);
+}
+
+.welcome .w-demo-input[aria-invalid="true"] {
+  border-color: var(--w-danger);
+}
+
+.welcome .w-demo-textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.welcome .w-demo-error {
+  margin: 0;
+  color: var(--w-danger);
+  font-size: 14px;
+}
+
+.welcome .w-demo-alert {
+  display: grid;
+  gap: 8px;
+}
+
+/* Always rendered and displayed, so a screen reader announces what is inserted into it. Empty, it takes no space. */
+.welcome .w-demo-alert:empty {
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.welcome .w-demo-alert-text {
+  margin: 0;
+  color: var(--w-danger);
+  font-weight: 600;
+}
+
+.welcome .w-demo-actions {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.welcome .w-demo-submit {
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding-inline: 24px;
+  font-size: 16px;
+  border: 0;
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .welcome .w-demo-submit {
+    width: auto;
+  }
+}
+
+.welcome .w-demo-submit:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+/* Honeypot: off-screen, not display:none (some bots skip hidden fields only when they are display:none). */
+.welcome .w-demo-hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.welcome .w-demo-thanks {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+/* Focus is moved here on success for screen-reader and keyboard users; it is a status message, not a control. */
+.welcome .w-demo-thanks:focus {
+  outline: none;
+}
+
+.welcome .w-demo-thanks-title {
+  margin: 0;
+  color: var(--w-primary);
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 700;
+}
+
+.welcome .w-demo-thanks-text {
+  margin: 0;
+  font-size: 16px;
+}

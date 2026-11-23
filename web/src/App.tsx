@@ -13,6 +13,7 @@ import { OrdersPage } from "./screens/orders/OrdersPage";
 import { OrdersPrintPage } from "./screens/orders/OrdersPrintPage";
 import { HirePage } from "./screens/hire/HirePage";
 import { Landing } from "./routes/Landing";
+import { WelcomeRoute } from "./routes/WelcomeRoute";
 import { ConfirmProvider } from "./widgets/confirm";
 
 // Development only: /__widgets shows the pop-up shell and the confirm dialog. In a production build this is null,
@@ -28,6 +29,8 @@ export default function App() {
     <ConfirmProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Public landing page: outside RequireAuth and AppShell. It shows only while the welcome_enabled flag is on. */}
+        <Route path="/welcome" element={<WelcomeRoute />} />
         {/* Standalone like Django's print page: no AppShell, but signed in. */}
         <Route
           path="/employees/orders/print/"

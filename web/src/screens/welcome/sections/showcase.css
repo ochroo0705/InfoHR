@@ -1,0 +1,164 @@
+/* Showcase: dark tone. Colours come from the --w-* variables set by .welcome [data-tone="dark"] in welcome.css.
+   Default (no script, reduced motion, below 768px): a vertical stack of four steps, every one fully visible.
+   Pinned (class w-showcase--pinned, added by Showcase.tsx only when motion runs at 768px and up): one stage. */
+
+.welcome .w-showcase {
+  position: relative;
+  background: var(--w-bg);
+  color: var(--w-text);
+  padding-block: 72px;
+}
+
+.welcome .w-showcase-steps {
+  display: grid;
+  gap: 88px;
+}
+
+.welcome .w-showcase-step {
+  display: grid;
+  gap: 28px;
+  align-items: center;
+  min-width: 0;
+}
+
+.welcome .w-showcase-caption {
+  min-width: 0;
+}
+
+.welcome .w-showcase-number {
+  margin: 0;
+  color: var(--w-accent);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.welcome .w-showcase-title {
+  margin: 8px 0 0;
+  font-size: clamp(1.6rem, 1.3rem + 1.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.welcome .w-showcase-text {
+  max-width: 36ch;
+  margin: 14px 0 0;
+  color: var(--w-muted);
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.15rem);
+  line-height: 1.55;
+}
+
+.welcome .w-showcase-mock {
+  min-width: 0;
+}
+
+/* Step dots: only used in the pinned stage. Decorative, so hidden from assistive technology. */
+.welcome .w-showcase-indicator {
+  display: none;
+}
+
+.welcome .w-showcase-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--w-line);
+}
+
+.welcome .w-showcase-dot.is-active {
+  background: var(--w-primary);
+}
+
+@media (min-width: 960px) {
+  .welcome .w-showcase-step {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 64px;
+  }
+
+  /* Alternate the sides: the caption moves to the right on even steps. */
+  .welcome .w-showcase-step:nth-child(even) .w-showcase-caption {
+    order: 2;
+  }
+}
+
+/* Pinned stage: the four articles share one grid cell and fade in turn. Only the JS-set aria-hidden marks the
+   inactive ones; they then ignore the pointer. */
+/* Pinned mode is CSS sticky, not a JS pin: the track is four viewports tall, so its scroll distance is three
+   viewports; the stage sticks to the top of the viewport for the whole track. No pin spacer, no layout shift. */
+.welcome .w-showcase--pinned {
+  padding-block: 0;
+}
+
+.welcome .w-showcase--pinned .w-showcase-track {
+  height: calc(100dvh * 4);
+}
+
+.welcome .w-showcase--pinned .w-showcase-stage {
+  position: sticky;
+  top: 0;
+  /* A minimum, not a height: a step that is taller than the viewport grows the stage instead of being clipped. */
+  min-height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding-top: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.welcome .w-showcase--pinned .w-container {
+  width: 100%;
+  max-width: 1280px;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.welcome .w-showcase--pinned .w-showcase-steps {
+  display: grid;
+  gap: 0;
+  order: 1;
+  grid-template-areas: "stage";
+}
+
+/* Caption and mock side by side from 768px, so a step fits the viewport height; the mock column may shrink. */
+.welcome .w-showcase--pinned .w-showcase-step {
+  grid-area: stage;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 48px;
+}
+
+.welcome .w-showcase--pinned .w-showcase-step[aria-hidden="true"] {
+  pointer-events: none;
+}
+
+.welcome .w-showcase--pinned .w-showcase-indicator {
+  display: flex;
+  order: 2;
+  gap: 8px;
+  margin-top: 32px;
+}
+
+/* The mock is the wide column on every step, so the alternating sides keep it large: on even steps the caption
+   moves to the right (order 2, from 960px) and the mock column is the wider one. */
+.welcome .w-showcase--pinned .w-showcase-mock {
+  max-width: 760px;
+}
+
+@media (min-width: 960px) {
+  .welcome .w-showcase--pinned .w-showcase-step:nth-child(even) {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+}
+
+/* Desktop stage: caption 5 parts, mock 7 parts; the mock fills its column up to 760px. */
+@media (min-width: 1024px) {
+  .welcome .w-showcase--pinned .w-showcase-step {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+
+  .welcome .w-showcase--pinned .w-showcase-step:nth-child(even) {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+}

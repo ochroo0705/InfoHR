@@ -1,0 +1,124 @@
+/* Hero: dark tone. Colours come from the --w-* variables set by .welcome [data-tone="dark"] in welcome.css. */
+
+.welcome .w-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--w-bg);
+  color: var(--w-text);
+}
+
+/* Faint ruled grid, faded out toward the edges. Low contrast so the text stays easy to read. */
+.welcome .w-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--w-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--w-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.35;
+  -webkit-mask-image: radial-gradient(ellipse at 65% 45%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 65% 45%, #000 20%, transparent 75%);
+}
+
+.welcome .w-hero-inner {
+  width: 100%;
+  display: grid;
+  gap: 40px;
+  align-items: center;
+  padding-block: 56px;
+}
+
+.welcome .w-hero-text {
+  min-width: 0;
+}
+
+.welcome .w-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--w-accent);
+  border-radius: 999px;
+  color: var(--w-accent);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.welcome .w-hero-title {
+  margin: 20px 0 0;
+  font-size: clamp(2.25rem, 1.3rem + 3.8vw, 4.25rem);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.welcome .w-hero-line {
+  display: block;
+}
+
+/* The mask clips the word while it rises; the bottom padding keeps descenders inside it. */
+.welcome .w-hero-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+
+.welcome .w-hero-word {
+  display: inline-block;
+}
+
+.welcome .w-hero-lead {
+  max-width: 36ch;
+  margin: 20px 0 0;
+  color: var(--w-muted);
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.2rem);
+  line-height: 1.55;
+}
+
+.welcome .w-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.welcome .w-hero-cta {
+  min-height: 48px;
+  padding-inline: 22px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.welcome .w-hero-product {
+  min-width: 0;
+}
+
+/* Crisp teal edge light on the product screen: a 1px ring, not a glow. */
+.welcome .w-hero-frame {
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--w-primary);
+}
+
+@media (min-width: 960px) {
+  .welcome .w-hero-inner {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 64px;
+  }
+
+  /* The Orders mock is the hero's product shot: larger from 960px, never wider than 680px. */
+  .welcome .w-hero-product {
+    max-width: 680px;
+  }
+}

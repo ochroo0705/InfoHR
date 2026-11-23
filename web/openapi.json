@@ -530,6 +530,60 @@
         "title": "CsrfOut",
         "type": "object"
       },
+      "DemoRequestIn": {
+        "properties": {
+          "contact_ref": {
+            "default": "",
+            "title": "Contact Ref",
+            "type": "string"
+          },
+          "email": {
+            "default": "",
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "organisation": {
+            "default": "",
+            "title": "Organisation",
+            "type": "string"
+          },
+          "phone": {
+            "default": "",
+            "title": "Phone",
+            "type": "string"
+          },
+          "size_band": {
+            "default": "",
+            "title": "Size Band",
+            "type": "string"
+          }
+        },
+        "title": "DemoRequestIn",
+        "type": "object"
+      },
+      "DemoRequestOut": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "DemoRequestOut",
+        "type": "object"
+      },
       "EmployeeActivityChangeOut": {
         "properties": {
           "field": {
@@ -3546,6 +3600,10 @@
                 "type": "null"
               }
             ]
+          },
+          "welcome_enabled": {
+            "title": "Welcome Enabled",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3554,7 +3612,8 @@
           "company",
           "modules",
           "csrf",
-          "user"
+          "user",
+          "welcome_enabled"
         ],
         "title": "MetaOut",
         "type": "object"
@@ -9140,6 +9199,38 @@
         "summary": "Today Views",
         "tags": [
           "today"
+        ]
+      }
+    },
+    "/api/v1/welcome/demo-requests": {
+      "post": {
+        "operationId": "welcome_api_create_demo_request",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoRequestOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Create Demo Request",
+        "tags": [
+          "welcome"
         ]
       }
     }

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from ninja import NinjaAPI
 from ninja.errors import AuthenticationError, HttpError, ValidationError
@@ -92,3 +93,8 @@ api.add_router("/employees", orders_router)
 api.add_router("/employees", order_files_router)
 api.add_router("/orders", order_register_router)
 api.add_router("/company", company_router)
+
+if "welcome" in settings.INSTALLED_APPS:
+    from welcome.api import welcome_router  # imports welcome.models, which needs the app installed
+
+    api.add_router("/welcome", welcome_router)

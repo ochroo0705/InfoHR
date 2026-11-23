@@ -36,6 +36,7 @@ class MetaOut(Schema):
     modules: dict[str, bool]
     csrf: str
     user: UserOut | None
+    welcome_enabled: bool  # the public welcome page and its demo-request form are on (PUBLIC_WELCOME)
 
 
 def _company() -> dict[str, object]:
@@ -74,4 +75,5 @@ def meta(request: HttpRequest) -> dict[str, object]:
         "modules": modules.state(),
         "csrf": get_token(request),
         "user": _user_out(user, request) if signed_in else None,
+        "welcome_enabled": settings.PUBLIC_WELCOME,
     }

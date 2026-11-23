@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 from accounts import modules
 from accounts.models import User
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.test import Client
 from employees.models import CompanySettings, EmployeeExt
@@ -68,6 +69,12 @@ def test_meta_module_off(client: Client, user: User) -> None:
     assert body["modules"]["recruitment"] is True
     assert SLOT_PERM not in body["user"]["perms"]
     assert AUDIT_PERM in body["user"]["perms"]
+
+
+def test_welcome_enabled_matches_setting(client: Client) -> None:
+    body = client.get("/api/v1/meta").json()
+
+    assert body["welcome_enabled"] == settings.PUBLIC_WELCOME
 
 
 def test_meta_no_company_row(client: Client) -> None:

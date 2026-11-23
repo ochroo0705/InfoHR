@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { portedManifest } from "../../vite-plugin-ported";
-import { PORTED } from "./ported";
+import { isPorted, PORTED } from "./ported";
 
 describe("portedManifest", () => {
   it("returns the regex sources as strings", () => {
@@ -13,6 +13,11 @@ describe("portedManifest", () => {
 
   it("throws for a named group, which Python reads differently", () => {
     expect(() => portedManifest([/(?<id>\d+)/])).toThrow(Error);
+  });
+
+  it("serves /welcome from the React app", () => {
+    expect(isPorted("/welcome")).toBe(true);
+    expect(isPorted("/welcome/")).toBe(true);
   });
 
   it("maps the real PORTED list one to one", () => {
