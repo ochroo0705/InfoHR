@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type { MeOut } from "../../api/me";
-import { openLegacyPopup } from "../../lib/AppLink";
+import { LeaveRequestModal } from "../leaveRequests/LeaveRequestModal";
 
-// The header card of `me.html`: the photo (or the gradient initial), the name, the job lines and «Чөлөө хүсэх».
+// The header card of `me.html`: the photo (or the gradient initial), the name, the job lines and «Чөлөө хүсэх». The
+// button opens the staff request pop-up on this page; the pop-up is mounted only while open.
 export function MeHeader({
   employee,
   job,
@@ -11,6 +13,7 @@ export function MeHeader({
   job: MeOut["job"];
   canRequest: boolean;
 }) {
+  const [requesting, setRequesting] = useState(false);
   return (
     <section className="rounded-xl bg-surface p-4 shadow-sm">
       <div className="flex items-center gap-4">
@@ -43,12 +46,13 @@ export function MeHeader({
       {canRequest ? (
         <button
           type="button"
-          onClick={() => openLegacyPopup("leave_request", "/me/")}
+          onClick={() => setRequesting(true)}
           className="mt-4 w-full rounded-lg bg-violet-600 px-4 py-3 text-base text-white hover:bg-violet-700"
         >
           Чөлөө хүсэх
         </button>
       ) : null}
+      {requesting ? <LeaveRequestModal onClose={() => setRequesting(false)} /> : null}
     </section>
   );
 }

@@ -1,8 +1,9 @@
-// PalettePopups: the palette's pop-up openers. EmployeePopups and SlotFormModal are stubbed here (their own tests cover
-// the pop-ups). LeaveFormModal is the real pop-up, with the API client replaced by a stub that answers the leave options. The tests go through activateRow from a pop-up row, with a real router: the location probe reads the
-// current location after each click, so a navigation would show. They check which opener each target calls, that the slot
-// form is mounted only while open, that a malformed target opens nothing and does not throw, and that the hook throws
-// outside the provider.
+// PalettePopups: the palette's pop-up openers. EmployeePopups and SlotFormModal are stubbed here (their own tests
+// cover the pop-ups). LeaveFormModal and LeaveRequestModal are the real pop-ups, with the API client replaced by a
+// stub that answers the leave options. The tests go through activateRow from a pop-up row, with a real router: the
+// location probe reads the current location after each click, so a navigation would show. They check which opener
+// each target calls, that the slot form is mounted only while open, that a malformed target opens nothing and does
+// not throw, and that the hook throws outside the provider.
 import type { ReactNode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,6 +32,11 @@ const LEAVE_OPTIONS = {
   ],
   initial: { employee: null, end_date: "", leave_type: null, start_date: "" },
   not_configured: "",
+  types: [{ value: 2, label: "Ээлжийн амралт" }],
+};
+
+// The request options (the staff request pop-up loads them): one leave type.
+const REQUEST_OPTIONS = {
   types: [{ value: 2, label: "Ээлжийн амралт" }],
 };
 
@@ -134,9 +140,11 @@ describe("PalettePopups", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     employeeProviderProps.last = null;
-    h.get.mockImplementation(async (path: string) =>
-      path === "/api/v1/leave/options" ? leaveOk(LEAVE_OPTIONS) : leaveOk({}),
-    );
+    h.get.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/leave/options") return leaveOk(LEAVE_OPTIONS);
+      if (path === "/api/v1/leave/requests/options") return leaveOk(REQUEST_OPTIONS);
+      return leaveOk({});
+    });
     h.post.mockImplementation(async () => leaveOk({}));
   });
 
@@ -261,6 +269,32 @@ describe("PalettePopups", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByText("Чөлөө бүртгэх")).toBeNull());
     expect(screen.getByTestId("location").textContent).toBe("/employees/today/");
+  });
+
+  it("a leave_request row opens the staff request pop-up on the page, without navigating", async () => {
+    renderWith({ ...base, popup: "leave_request" }, "/employees/today/");
+    expect(screen.queryByRole("heading", { name: "Чөлөө хүсэх" })).toBeNull();
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByRole("heading", { name: "Чөлөө хүсэх" })).toBeTruthy();
+    await waitFor(() => expect(h.get).toHaveBeenCalledWith("/api/v1/leave/requests/options"));
+    expect(screen.getByTestId("location").textContent).toBe("/employees/today/");
+  });
+
+  it("Escape closes the leave request pop-up and the page stays where it was", async () => {
+    renderWith({ ...base, popup: "leave_request" }, "/employees/today/");
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByRole("heading", { name: "Чөлөө хүсэх" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Чөлөө хүсэх" })).toBeNull());
+    expect(screen.getByTestId("location").textContent).toBe("/employees/today/");
+  });
+
+  it("a second leave_request open while the pop-up is open does not duplicate it", async () => {
+    renderWith({ ...base, popup: "leave_request" }, "/employees/today/");
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByRole("heading", { name: "Чөлөө хүсэх" })).toBeTruthy();
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(screen.getAllByRole("heading", { name: "Чөлөө хүсэх" })).toHaveLength(1);
   });
 
   it("usePalettePopups throws a clear error outside the provider", () => {

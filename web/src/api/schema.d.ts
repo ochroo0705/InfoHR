@@ -1152,6 +1152,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leave/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Requests List
+         * @description One batch of the requests list. `tab=all` needs leave.view_leave; any other tab is the user's own queue.
+         */
+        get: operations["api_leave_requests_leave_requests_list"];
+        put?: never;
+        /**
+         * Leave Request Create
+         * @description Submit a leave request for the user's own record. The same form and service as the Django request view.
+         */
+        post: operations["api_leave_requests_leave_request_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/requests/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Request Check
+         * @description The live preview of the request form: days, the period, the balance after and the overlaps. An invalid form
+         *     answers valid false with empty lists. Nothing is written.
+         */
+        post: operations["api_leave_requests_leave_request_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/requests/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Request Options
+         * @description The types the staff request form offers (active, and staff may request them).
+         */
+        get: operations["api_leave_requests_leave_request_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/requests/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Request Detail
+         * @description The detail pop-up of one request. 404 unless the user may act on it or may see the person's leave.
+         */
+        get: operations["api_leave_requests_leave_request_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/requests/{pk}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Request Approve
+         * @description Approve the current step. The last step writes the leave. A step that is not the one the screen was opened at
+         *     is refused (STEP_MOVED), as the Django view's expected step.
+         */
+        post: operations["api_leave_requests_leave_request_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/requests/{pk}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Request Reject
+         * @description Reject the request at the current step. The reason is required; no leave is written.
+         */
+        post: operations["api_leave_requests_leave_request_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leave/{pk}": {
         parameters: {
             query?: never;
@@ -3473,6 +3599,162 @@ export interface components {
             /** Taken */
             taken: string;
         };
+        /** LeaveRequestApproveIn */
+        LeaveRequestApproveIn: {
+            /**
+             * Override Reason
+             * @default
+             */
+            override_reason: string;
+            /** Step */
+            step?: number | null;
+        };
+        /** LeaveRequestDetailOut */
+        LeaveRequestDetailOut: {
+            /** Balance After */
+            balance_after: number | null;
+            /** Created */
+            created: string;
+            /** Current Step */
+            current_step: number | null;
+            /** Employee Name */
+            employee_name: string;
+            /** End */
+            end: string;
+            /** History */
+            history: components["schemas"]["LeaveRequestHistoryOut"][];
+            /** Id */
+            id: number;
+            /** Job Line */
+            job_line: string;
+            /** Leave Type */
+            leave_type: string;
+            /** May */
+            may: boolean;
+            /** Needs Reason */
+            needs_reason: boolean;
+            /** Others */
+            others: components["schemas"]["LeaveRequestOtherOut"][];
+            /** Override */
+            override: boolean;
+            /** Past */
+            past: boolean;
+            /** Reason */
+            reason: string;
+            /** Rule */
+            rule: string;
+            /** Start */
+            start: string;
+            /** Status Label */
+            status_label: string;
+            /** Step Count */
+            step_count: number | null;
+            /** Waiting */
+            waiting: boolean;
+            /** Warnings */
+            warnings: string[];
+            /** Working Days */
+            working_days: number;
+        };
+        /**
+         * LeaveRequestFormIn
+         * @description The staff request form as posted. There is no employee: the own record is always used.
+         */
+        LeaveRequestFormIn: {
+            /** End Date */
+            end_date: string | null;
+            /** Leave Type */
+            leave_type: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Start Date */
+            start_date: string | null;
+        };
+        /** LeaveRequestHistoryOut */
+        LeaveRequestHistoryOut: {
+            /** At */
+            at: string;
+            /** Text */
+            text: string;
+        };
+        /** LeaveRequestListOut */
+        LeaveRequestListOut: {
+            /** Can All */
+            can_all: boolean;
+            /** Empty Text */
+            empty_text: string;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Rows */
+            rows: components["schemas"]["LeaveRequestRowOut"][];
+            /** Status */
+            status: string;
+            /** Statuses */
+            statuses: components["schemas"]["LeaveRequestStatusOut"][];
+            /** Tab */
+            tab: string;
+        };
+        /** LeaveRequestOptionsOut */
+        LeaveRequestOptionsOut: {
+            /** Types */
+            types: components["schemas"]["LeaveChoiceOut"][];
+        };
+        /** LeaveRequestOtherOut */
+        LeaveRequestOtherOut: {
+            /** End */
+            end: string;
+            /** Name */
+            name: string;
+            /** Start */
+            start: string;
+            /** State */
+            state: string;
+        };
+        /** LeaveRequestRejectIn */
+        LeaveRequestRejectIn: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** LeaveRequestRowOut */
+        LeaveRequestRowOut: {
+            /** Current Step */
+            current_step: number | null;
+            /** Employee Name */
+            employee_name: string;
+            /** End */
+            end: string;
+            /** Id */
+            id: number;
+            /** Leave Type */
+            leave_type: string;
+            /** Rule */
+            rule: string;
+            /** Since */
+            since: string | null;
+            /** Start */
+            start: string;
+            /** Status Label */
+            status_label: string;
+            /** Step Count */
+            step_count: number | null;
+            /** Waiting */
+            waiting: boolean;
+            /** Working Days */
+            working_days: number;
+        };
+        /** LeaveRequestStatusOut */
+        LeaveRequestStatusOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
         /** LeaveRowOut */
         LeaveRowOut: {
             /** Cancel Label */
@@ -4442,7 +4724,7 @@ export interface components {
             /** Path */
             path: string;
             /** Popup */
-            popup: ("order_detail" | "event" | "slot_add" | "leave_add") | null;
+            popup: ("order_detail" | "event" | "slot_add" | "leave_add" | "leave_request") | null;
             /** Year */
             year: number | null;
         };
@@ -6609,6 +6891,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeaveOptionsOut"];
+                };
+            };
+        };
+    };
+    api_leave_requests_leave_requests_list: {
+        parameters: {
+            query?: {
+                tab?: string | null;
+                status?: string | null;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestListOut"];
+                };
+            };
+        };
+    };
+    api_leave_requests_leave_request_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveRequestFormIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_requests_leave_request_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveRequestFormIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveCheckOut"];
+                };
+            };
+        };
+    };
+    api_leave_requests_leave_request_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestOptionsOut"];
+                };
+            };
+        };
+    };
+    api_leave_requests_leave_request_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestDetailOut"];
+                };
+            };
+        };
+    };
+    api_leave_requests_leave_request_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveRequestApproveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_requests_leave_request_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveRequestRejectIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
                 };
             };
         };

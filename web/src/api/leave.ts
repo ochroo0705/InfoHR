@@ -117,7 +117,7 @@ export function useLeaveCancelInfo(id: number) {
 // After a leave write that saved (ok true), refreshes what it can change: every leave query, every employee's work
 // data (the leave block; the key is ["employee", pk, "work"] and the write does not know the pk), «Миний даалгавар»'s
 // user (["me"]) and the Today page. A refused write (ok false) changed nothing, so nothing is refreshed.
-async function refreshAfterLeaveWrite(queryClient: QueryClient, result: LeaveWriteResultOut): Promise<void> {
+export async function refreshAfterLeaveWrite(queryClient: QueryClient, result: LeaveWriteResultOut): Promise<void> {
   if (!result.ok) return;
   await queryClient.invalidateQueries({ queryKey: ["leave"] });
   await queryClient.invalidateQueries({

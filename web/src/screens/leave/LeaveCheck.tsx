@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useCheckLeave, type LeaveCheckOut } from "../../api/leave";
+import { useCheckLeaveRequest } from "../../api/leaveRequests";
 
 // The live check line under the leave form (port of app/leave/templates/leave/_check.html; the classes and texts are
 // copied from it). It asks the server whether the posted dates are allowed and what they count, and shows the answer.
@@ -7,6 +8,8 @@ import { useCheckLeave, type LeaveCheckOut } from "../../api/leave";
 //   not every keystroke: the check can write (ledger.ensure_grants), so it runs on a change the user has committed.
 // - Nothing is asked on mount, in add or edit mode (Django's check is hx-trigger "change" only).
 // - It checks only when employee, leave type, start and end are all set. The question waits 300 ms after the last commit.
+// - Mode "request" (the staff request form, the own record): no employee is needed or sent, and no leave id. It checks
+//   once leave type, start and end are set, and asks the request check endpoint.
 // - The latest answer wins: an answer to an older question (or one that came after the pop-up closed) is ignored.
 // - Nothing is shown while there is no answer, or when the answer is not valid and has no lists to show.
 
@@ -25,16 +28,22 @@ export interface LeaveCheckProps {
   values: LeaveCheckValues;
   // The leave being edited (its id); undefined or null when adding.
   leaveId?: number | null;
+  // "record" (default): the HR leave form, which needs an employee. "request": the staff request form.
+  mode?: "record" | "request";
 }
 
 // A box of the form as text, read as a number. The caller has already checked that it is set.
 const numberOf = (text: string): number => Number(text);
 
-export function LeaveCheck({ values, leaveId }: LeaveCheckProps) {
+export function LeaveCheck({ values, leaveId, mode = "record" }: LeaveCheckProps) {
+  const isRequest = mode === "request";
   const { mutateAsync } = useCheckLeave();
+  const requestCheck = useCheckLeaveRequest();
   // The latest mutateAsync, read by the effect: a new object from the hook must not restart a waiting question.
   const mutateRef = useRef(mutateAsync);
   mutateRef.current = mutateAsync;
+  const requestRef = useRef(requestCheck.mutateAsync);
+  requestRef.current = requestCheck.mutateAsync;
   const [answer, setAnswer] = useState<LeaveCheckOut | null>(null);
   // Counts the questions asked. An answer is shown only when no newer question was asked since it was sent.
   const latest = useRef(0);
@@ -43,28 +52,46 @@ export function LeaveCheck({ values, leaveId }: LeaveCheckProps) {
   const { employee, leave_type, start_date, end_date } = values;
   const note = values.note ?? "";
   const overrideReason = values.override_reason ?? "";
-  const key = JSON.stringify([employee, leave_type, start_date, end_date, note, overrideReason, leaveId ?? null]);
+  // A request names no employee: the key leaves it out, so only the boxes the request sends make a change.
+  const key = JSON.stringify([
+    isRequest ? "" : employee,
+    leave_type,
+    start_date,
+    end_date,
+    note,
+    overrideReason,
+    leaveId ?? null,
+  ]);
 
   useEffect(() => {
     if (seen.current === key) return;
     const first = seen.current === null;
     seen.current = key;
     if (first) return;
-    const ready = employee !== "" && leave_type !== "" && start_date !== "" && end_date !== "";
+    const ready = isRequest
+      ? leave_type !== "" && start_date !== "" && end_date !== ""
+      : employee !== "" && leave_type !== "" && start_date !== "" && end_date !== "";
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (ready) {
       timer = setTimeout(() => {
         const token = ++latest.current;
-        mutateRef
-          .current({
-            employee: numberOf(employee),
-            leave_type: numberOf(leave_type),
-            start_date,
-            end_date,
-            leave_id: leaveId ?? null,
-            note,
-            override_reason: overrideReason,
-          })
+        const asked = isRequest
+          ? requestRef.current({
+              leave_type: numberOf(leave_type),
+              start_date,
+              end_date,
+              note,
+            })
+          : mutateRef.current({
+              employee: numberOf(employee),
+              leave_type: numberOf(leave_type),
+              start_date,
+              end_date,
+              leave_id: leaveId ?? null,
+              note,
+              override_reason: overrideReason,
+            });
+        asked
           .then(
             (result) => {
               if (token === latest.current) setAnswer(result);

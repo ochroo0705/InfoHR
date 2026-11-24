@@ -36,6 +36,9 @@ export interface ModalProps {
   closable?: boolean;
   // A Tailwind max-width class for the panel. Default max-w-2xl, as in employees/_modal.html.
   width?: string;
+  // The Tailwind classes of the title (h2). Default "mb-4 text-lg font-semibold". A Django pop-up with a smaller gap under
+  // its title passes its own, e.g. "mb-1 text-lg font-semibold" (leave request detail) or "mb-2 text-lg font-semibold".
+  titleClass?: string;
   children?: ReactNode;
 }
 
@@ -48,6 +51,7 @@ export function Modal({
   noAnim = false,
   closable = true,
   width = "max-w-2xl",
+  titleClass = "mb-4 text-lg font-semibold",
   children,
 }: ModalProps) {
   const titleId = useId();
@@ -162,7 +166,7 @@ export function Modal({
         )}
       >
         {title ? (
-          <h2 id={titleId} className="mb-4 text-lg font-semibold">
+          <h2 id={titleId} className={titleClass}>
             {title}
           </h2>
         ) : null}

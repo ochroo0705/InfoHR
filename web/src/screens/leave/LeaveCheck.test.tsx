@@ -199,3 +199,90 @@ describe("LeaveCheck", () => {
     expect(container.textContent).not.toContain("9 ажлын өдөр");
   });
 });
+
+// The staff request form's check (mode "request"): no employee, no leave id, and the request check endpoint.
+describe("LeaveCheck request mode", () => {
+  const REQUEST_READY: LeaveCheckValues = {
+    employee: "",
+    leave_type: "2",
+    start_date: "2026-12-01",
+    end_date: "2026-12-03",
+    note: "",
+    override_reason: "",
+  };
+
+  function requestTree(values: LeaveCheckValues): ReactNode {
+    return (
+      <QueryClientProvider client={client}>
+        <LeaveCheck values={values} mode="request" />
+      </QueryClientProvider>
+    );
+  }
+
+  // The form's commit in request mode: the first render is the form before the change, the rerender is the commit.
+  function requestCommitted(values: LeaveCheckValues) {
+    const view = render(requestTree({ ...values, end_date: "" }));
+    view.rerender(requestTree(values));
+    return view;
+  }
+
+  beforeEach(() => {
+    h.post.mockReset();
+    client = makeClient();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  it("asks nothing on mount in request mode", async () => {
+    render(requestTree(REQUEST_READY));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(h.post).not.toHaveBeenCalled();
+  });
+
+  it("asks once type and both dates are set, with no employee and no leave id", async () => {
+    h.post.mockResolvedValue(ok(answer({})));
+    requestCommitted(REQUEST_READY);
+
+    await waitFor(() => expect(h.post).toHaveBeenCalledTimes(1));
+    expect(h.post).toHaveBeenCalledWith("/api/v1/leave/requests/check", {
+      body: { leave_type: 2, start_date: "2026-12-01", end_date: "2026-12-03", note: "" },
+    });
+    const body = (h.post.mock.calls[0][1] as { body: Record<string, unknown> }).body;
+    expect(Object.keys(body)).not.toContain("employee");
+    expect(Object.keys(body)).not.toContain("leave_id");
+  });
+
+  it("asks nothing while the type or a date is empty, even with an employee in the values", async () => {
+    requestCommitted({ ...REQUEST_READY, leave_type: "" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(h.post).not.toHaveBeenCalled();
+
+    requestCommitted({ ...REQUEST_READY, start_date: "", employee: "3" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(h.post).not.toHaveBeenCalled();
+  });
+
+  it("shows the day count of the request answer", async () => {
+    h.post.mockResolvedValue(ok(answer({ working_days: 3, balance_after: 7 })));
+    const { container } = requestCommitted(REQUEST_READY);
+
+    await waitFor(() => expect(container.textContent).toContain("3 ажлын өдөр · үлдэх: 7"));
+  });
+
+  it("record mode still asks nothing without an employee", async () => {
+    committed({ ...READY, employee: "" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(h.post).not.toHaveBeenCalled();
+  });
+});

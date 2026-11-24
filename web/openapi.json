@@ -4175,6 +4175,462 @@
         "title": "LeavePeriodOut",
         "type": "object"
       },
+      "LeaveRequestApproveIn": {
+        "properties": {
+          "override_reason": {
+            "default": "",
+            "title": "Override Reason",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          }
+        },
+        "title": "LeaveRequestApproveIn",
+        "type": "object"
+      },
+      "LeaveRequestDetailOut": {
+        "properties": {
+          "balance_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance After"
+          },
+          "created": {
+            "title": "Created",
+            "type": "string"
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveRequestHistoryOut"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "job_line": {
+            "title": "Job Line",
+            "type": "string"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "may": {
+            "title": "May",
+            "type": "boolean"
+          },
+          "needs_reason": {
+            "title": "Needs Reason",
+            "type": "boolean"
+          },
+          "others": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveRequestOtherOut"
+            },
+            "title": "Others",
+            "type": "array"
+          },
+          "override": {
+            "title": "Override",
+            "type": "boolean"
+          },
+          "past": {
+            "title": "Past",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "step_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Count"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "employee_name",
+          "job_line",
+          "leave_type",
+          "start",
+          "end",
+          "working_days",
+          "created",
+          "waiting",
+          "current_step",
+          "step_count",
+          "rule",
+          "override",
+          "balance_after",
+          "warnings",
+          "past",
+          "status_label",
+          "reason",
+          "others",
+          "history",
+          "may",
+          "needs_reason"
+        ],
+        "title": "LeaveRequestDetailOut",
+        "type": "object"
+      },
+      "LeaveRequestFormIn": {
+        "description": "The staff request form as posted. There is no employee: the own record is always used.",
+        "properties": {
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "required": [
+          "leave_type",
+          "start_date",
+          "end_date"
+        ],
+        "title": "LeaveRequestFormIn",
+        "type": "object"
+      },
+      "LeaveRequestHistoryOut": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "text"
+        ],
+        "title": "LeaveRequestHistoryOut",
+        "type": "object"
+      },
+      "LeaveRequestListOut": {
+        "properties": {
+          "can_all": {
+            "title": "Can All",
+            "type": "boolean"
+          },
+          "empty_text": {
+            "title": "Empty Text",
+            "type": "string"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveRequestRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveRequestStatusOut"
+            },
+            "title": "Statuses",
+            "type": "array"
+          },
+          "tab": {
+            "title": "Tab",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tab",
+          "status",
+          "statuses",
+          "can_all",
+          "rows",
+          "next_offset",
+          "empty_text"
+        ],
+        "title": "LeaveRequestListOut",
+        "type": "object"
+      },
+      "LeaveRequestOptionsOut": {
+        "properties": {
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveChoiceOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "types"
+        ],
+        "title": "LeaveRequestOptionsOut",
+        "type": "object"
+      },
+      "LeaveRequestOtherOut": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "start",
+          "end",
+          "state"
+        ],
+        "title": "LeaveRequestOtherOut",
+        "type": "object"
+      },
+      "LeaveRequestRejectIn": {
+        "properties": {
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "LeaveRequestRejectIn",
+        "type": "object"
+      },
+      "LeaveRequestRowOut": {
+        "properties": {
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "step_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Count"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "boolean"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "employee_name",
+          "leave_type",
+          "start",
+          "end",
+          "working_days",
+          "waiting",
+          "current_step",
+          "step_count",
+          "rule",
+          "status_label",
+          "since"
+        ],
+        "title": "LeaveRequestRowOut",
+        "type": "object"
+      },
+      "LeaveRequestStatusOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "LeaveRequestStatusOut",
+        "type": "object"
+      },
       "LeaveRowOut": {
         "properties": {
           "cancel_label": {
@@ -6920,7 +7376,8 @@
                   "order_detail",
                   "event",
                   "slot_add",
-                  "leave_add"
+                  "leave_add",
+                  "leave_request"
                 ],
                 "type": "string"
               },
@@ -11931,6 +12388,313 @@
           }
         ],
         "summary": "Leave Options",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests": {
+      "get": {
+        "description": "One batch of the requests list. `tab=all` needs leave.view_leave; any other tab is the user's own queue.",
+        "operationId": "api_leave_requests_leave_requests_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tab",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tab"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestListOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Requests List",
+        "tags": [
+          "leave"
+        ]
+      },
+      "post": {
+        "description": "Submit a leave request for the user's own record. The same form and service as the Django request view.",
+        "operationId": "api_leave_requests_leave_request_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveRequestFormIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Request Create",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/check": {
+      "post": {
+        "description": "The live preview of the request form: days, the period, the balance after and the overlaps. An invalid form\nanswers valid false with empty lists. Nothing is written.",
+        "operationId": "api_leave_requests_leave_request_check",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveRequestFormIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveCheckOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Request Check",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/options": {
+      "get": {
+        "description": "The types the staff request form offers (active, and staff may request them).",
+        "operationId": "api_leave_requests_leave_request_options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestOptionsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Request Options",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/{pk}": {
+      "get": {
+        "description": "The detail pop-up of one request. 404 unless the user may act on it or may see the person's leave.",
+        "operationId": "api_leave_requests_leave_request_detail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestDetailOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Request Detail",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/{pk}/approve": {
+      "post": {
+        "description": "Approve the current step. The last step writes the leave. A step that is not the one the screen was opened at\nis refused (STEP_MOVED), as the Django view's expected step.",
+        "operationId": "api_leave_requests_leave_request_approve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveRequestApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Request Approve",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/requests/{pk}/reject": {
+      "post": {
+        "description": "Reject the request at the current step. The reason is required; no leave is written.",
+        "operationId": "api_leave_requests_leave_request_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveRequestRejectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Request Reject",
         "tags": [
           "leave"
         ]

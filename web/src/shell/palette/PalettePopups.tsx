@@ -1,12 +1,14 @@
 // The pop-ups the assistant panel opens (palette.js data-palette-modal rows): the order detail, the contract event, the
-// position-slot add form and the leave add form. They live at shell level, inside PalettePopups, so a pop-up opened from
-// the panel never depends on the page underneath and never navigates. The employee pop-ups are EmployeePopups (no `pk`
-// here: every open passes its own employee, as the register page does). The slot form is mounted only while open; its
-// save refetches the slots list through the helpers.
+// position-slot add form, the leave add form and the staff leave request form. They live at shell level, inside
+// PalettePopups, so a pop-up opened from the panel never depends on the page underneath and never navigates. The employee
+// pop-ups are EmployeePopups (no `pk` here: every open passes its own employee, as the register page does). The slot
+// form, the leave add form and the leave request form are mounted only while open; their save refetches through the
+// helpers.
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { PaletteOpenOut } from "../../api/palette";
 import { EmployeePopups, useEmployeePopups } from "../../screens/employee/EmployeePopups";
 import { LeaveFormModal } from "../../screens/leave/LeaveFormModal";
+import { LeaveRequestModal } from "../../screens/leaveRequests/LeaveRequestModal";
 import { SlotFormModal } from "../../screens/slots/SlotFormModal";
 
 export type PalettePopupsApi = {
@@ -45,6 +47,8 @@ function PopupHost({ children }: { children: ReactNode }) {
   const [slotYear, setSlotYear] = useState<number | null>(null);
   // The employee of the open leave add form (null: no one preselected). Null state: the form is closed and not mounted.
   const [leaveAdd, setLeaveAdd] = useState<{ employee: number | null } | null>(null);
+  // Whether the staff leave request form is open. It is mounted only while open.
+  const [leaveRequestOpen, setLeaveRequestOpen] = useState(false);
 
   const api = useMemo<PalettePopupsApi>(
     () => ({
@@ -70,6 +74,10 @@ function PopupHost({ children }: { children: ReactNode }) {
           // An absent or non-number employee opens the add form with no one preselected; the server decides who may be picked.
           const employee = isNumber(target.employee) ? target.employee : null;
           setLeaveAdd((current) => current ?? { employee });
+          return;
+        }
+        if (target.popup === "leave_request") {
+          setLeaveRequestOpen(true);
         }
       },
     }),
@@ -83,6 +91,7 @@ function PopupHost({ children }: { children: ReactNode }) {
       {leaveAdd !== null ? (
         <LeaveFormModal mode={{ kind: "add", employee: leaveAdd.employee }} onClose={() => setLeaveAdd(null)} />
       ) : null}
+      {leaveRequestOpen ? <LeaveRequestModal onClose={() => setLeaveRequestOpen(false)} /> : null}
     </PalettePopupsContext.Provider>
   );
 }

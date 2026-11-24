@@ -192,6 +192,27 @@ describe("Modal", () => {
     expect(onCloseTop).not.toHaveBeenCalled();
   });
 
+  it("the title keeps the default class mb-4 text-lg font-semibold", () => {
+    renderWithConfirm(
+      <Modal open title="Гарчиг" onClose={vi.fn()}>
+        x
+      </Modal>,
+    );
+    const heading = screen.getByRole("heading", { name: "Гарчиг" });
+    expect(heading.className).toBe("mb-4 text-lg font-semibold");
+  });
+
+  it("titleClass replaces the title's default classes", () => {
+    renderWithConfirm(
+      <Modal open title="Гарчиг" titleClass="mb-1 text-lg font-semibold" onClose={vi.fn()}>
+        x
+      </Modal>,
+    );
+    const heading = screen.getByRole("heading", { name: "Гарчиг" });
+    expect(heading.className).toBe("mb-1 text-lg font-semibold");
+    expect(heading.className).not.toContain("mb-4");
+  });
+
   it("noAnim adds the no-anim class", () => {
     renderWithConfirm(
       <Modal open noAnim title="T" onClose={() => {}}>

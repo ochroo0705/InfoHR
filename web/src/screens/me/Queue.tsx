@@ -1,8 +1,12 @@
+import { useState } from "react";
 import type { MeOut } from "../../api/me";
-import { openLegacyPopup } from "../../lib/AppLink";
+import { RequestDetailModal } from "../leaveRequests/RequestDetailModal";
 
-// «Надад ирсэн хүсэлт»: the leave requests waiting for the user's approval step. Shown only when there are items.
+// «Надад ирсэн хүсэлт»: the leave requests waiting for the user's approval step. Shown only when there are items. A row
+// opens the detail pop-up of that request (mounted only while open).
 export function Queue({ queue }: { queue: MeOut["queue"] }) {
+  // The id of the request whose detail is open. Null: no pop-up.
+  const [openId, setOpenId] = useState<number | null>(null);
   if (queue.length === 0) return null;
   return (
     <section className="mt-6">
@@ -14,7 +18,7 @@ export function Queue({ queue }: { queue: MeOut["queue"] }) {
           <li key={q.id}>
             <button
               type="button"
-              onClick={() => openLegacyPopup("request_detail", "/me/")}
+              onClick={() => setOpenId(q.id)}
               className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-violet-50"
             >
               <span className="min-w-0">
@@ -28,6 +32,7 @@ export function Queue({ queue }: { queue: MeOut["queue"] }) {
           </li>
         ))}
       </ul>
+      {openId !== null ? <RequestDetailModal id={openId} onClose={() => setOpenId(null)} /> : null}
     </section>
   );
 }

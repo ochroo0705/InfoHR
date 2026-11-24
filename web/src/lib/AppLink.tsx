@@ -49,7 +49,7 @@ export function AppLink({ to, className, children, ...rest }: AppLinkProps) {
   );
 }
 
-export type LegacyPopupKind = "leave_add" | "leave_request" | "request_detail" | "palette";
+export type LegacyPopupKind = "palette";
 
 // Opens a pop-up on a Django page by URL hash (D2). Stop-gap: Django does not read "#open=<kind>" yet, so the user
 // lands on the Django page and has to click again. The hash is kept so a reader can be added later without a change here.

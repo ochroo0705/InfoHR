@@ -14,6 +14,7 @@ import { OrdersPrintPage } from "./screens/orders/OrdersPrintPage";
 import { HirePage } from "./screens/hire/HirePage";
 import { SlotsPage } from "./screens/slots/SlotsPage";
 import { LeavePage } from "./screens/leave/LeavePage";
+import { LeaveRequestsPage } from "./screens/leaveRequests/LeaveRequestsPage";
 import { ListsIndexPage } from "./screens/lists/ListsIndexPage";
 import { ListPage } from "./screens/lists/ListPage";
 import { MeaningPage } from "./screens/lists/MeaningPage";
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/employees/orders/" element={<OrdersPage />} />
           <Route path="/employees/slots/" element={<SlotsPage />} />
           <Route path="/leave/" element={<LeavePage />} />
+          <Route path="/leave/requests/" element={<LeaveRequestsPage />} />
           <Route path="/employees/self-forms/" element={<SelfFormListPage />} />
           <Route path="/employees/self-forms/:pk/" element={<SelfFormShowPage />} />
           <Route path="/employees/:pk/" element={<EmployeePage />} />

@@ -1,15 +1,28 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDismissNotice, useMe, useTick, useWithdraw, type MeOut } from "../../api/me";
-import { openLegacyPopup } from "../../lib/AppLink";
 import { MainWidthContext } from "../../shell/mainWidth";
 import { MePage } from "./MePage";
 import { mergeRows } from "./Notices";
 
-// The data hooks are replaced: each test sets what useMe returns and what the dismissal does.
-vi.mock("../../api/me", () => ({
+// The API client is replaced by a stub that answers by path: the request pop-ups load their options and detail through it.
+const h = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+
+vi.mock("../../api/client", () => ({
+  api: { GET: (...args: unknown[]) => h.get(...args), POST: (...args: unknown[]) => h.post(...args) },
+  setCsrf: vi.fn(),
+  getCsrf: vi.fn(() => "tok"),
+  redirectToLogin: vi.fn(),
+  nav: { assign: vi.fn() },
+}));
+
+// The data hooks are replaced: each test sets what useMe returns and what the dismissal does. The rest of the module
+// (retryMe, used by the request pop-ups' hooks) is the real one.
+vi.mock("../../api/me", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../api/me")>()),
   useMe: vi.fn(),
   useDismissNotice: vi.fn(),
   useTick: vi.fn(),
@@ -22,10 +35,13 @@ function idleMutations() {
   vi.mocked(useWithdraw).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useWithdraw>);
 }
 
-vi.mock("../../lib/AppLink", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../lib/AppLink")>();
-  return { ...actual, openLegacyPopup: vi.fn() };
-});
+// The request options answer with one leave type; a detail request never answers, so the detail pop-up stays loading and
+// the test can see which request id it asked for.
+const REQUEST_OPTIONS = { types: [{ value: 2, label: "Ээлжийн амралт" }] };
+
+function leaveOk(data: unknown) {
+  return { data, error: undefined, response: { ok: true, status: 200 } };
+}
 
 function makeMe(overrides: Partial<MeOut> = {}): MeOut {
   return {
@@ -50,10 +66,13 @@ function useMeReturns(data: MeOut | undefined, error: unknown = null) {
 }
 
 function renderPage() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
-      <MePage />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <MePage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -61,7 +80,10 @@ describe("MePage", () => {
   let mutate: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.mocked(openLegacyPopup).mockClear();
+    h.get.mockImplementation(async (path: string) =>
+      path === "/api/v1/leave/requests/options" ? leaveOk(REQUEST_OPTIONS) : new Promise(() => {}),
+    );
+    h.post.mockImplementation(async () => leaveOk({}));
     mutate = vi.fn((_vars: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
     vi.mocked(useDismissNotice).mockReturnValue({ mutate } as unknown as ReturnType<typeof useDismissNotice>);
     idleMutations();
@@ -91,11 +113,14 @@ describe("MePage", () => {
     expect(screen.queryByText("Чөлөө хүсэх")).toBeNull();
   });
 
-  it("opens the leave request pop-up from «Чөлөө хүсэх»", () => {
+  it("opens the leave request pop-up from «Чөлөө хүсэх», on the page", async () => {
     useMeReturns(makeMe({ can_request: true }));
     renderPage();
+    expect(screen.queryByRole("heading", { name: "Чөлөө хүсэх" })).toBeNull();
     fireEvent.click(screen.getByText("Чөлөө хүсэх"));
-    expect(openLegacyPopup).toHaveBeenCalledWith("leave_request", "/me/");
+    expect(await screen.findByRole("heading", { name: "Чөлөө хүсэх" })).toBeTruthy();
+    await waitFor(() => expect(h.get).toHaveBeenCalledWith("/api/v1/leave/requests/options"));
+    expect(document.title).toBe("Миний хуудас · MACS Human Capital");
   });
 
   it("dismissing a notice sends its key and marks the row as leaving", () => {
@@ -125,16 +150,22 @@ describe("MePage", () => {
     expect(screen.queryByText("Надад ирсэн хүсэлт", { exact: false })).toBeNull();
   });
 
-  it("shows the queue with its count and opens the request pop-up from a row", () => {
+  it("shows the queue with its count and opens the detail of that row's request", async () => {
     useMeReturns(
       makeMe({
-        queue: [{ id: 7, employee: "Сараа", leave_type: "Ээлжийн амралт", start: "2026-12-01", end: "2026-12-05", step: "1/2" }],
+        queue: [
+          { id: 7, employee: "Сараа", leave_type: "Ээлжийн амралт", start: "2026-12-01", end: "2026-12-05", step: "1/2" },
+          { id: 8, employee: "Болд", leave_type: "Ээлжийн амралт", start: "2026-12-10", end: "2026-12-12", step: "2/2" },
+        ],
       }),
     );
     renderPage();
-    expect(screen.getByText("Надад ирсэн хүсэлт", { exact: false }).textContent).toContain("1");
-    fireEvent.click(screen.getByText("Сараа"));
-    expect(openLegacyPopup).toHaveBeenCalledWith("request_detail", "/me/");
+    expect(screen.getByText("Надад ирсэн хүсэлт", { exact: false }).textContent).toContain("2");
+    fireEvent.click(screen.getByText("Болд"));
+    await waitFor(() =>
+      expect(h.get).toHaveBeenCalledWith("/api/v1/leave/requests/{pk}", { params: { path: { pk: 8 } } }),
+    );
+    expect(h.get).not.toHaveBeenCalledWith("/api/v1/leave/requests/{pk}", { params: { path: { pk: 7 } } });
   });
 
   it("shows the NotFound text when /me answers 404", () => {

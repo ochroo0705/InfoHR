@@ -15,9 +15,10 @@ from django.contrib.auth.models import Group, Permission
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
-from employees.models import ensure_ext
+from employees.models import Employee, ensure_ext
 from employees.services import history, macs_writes
-from employees.tests.conftest import hire_values
+from employees.tests.conftest import hire_values, link_login
+from leave.models import LeaveSettings
 
 pytestmark = pytest.mark.django_db
 
@@ -286,6 +287,27 @@ def test_modal_rows_carry_open_target(admin: User) -> None:
         "order": None,
         "event_type": None,
         "year": YEAR,
+    }
+
+
+def test_request_leave_row_is_a_leave_request_popup() -> None:
+    staff = _with_perms("palette_api_leave_req", [("leave", "request_own_leave")])
+    employee = Employee.objects.create(given_name="Сараа", family_name="Батын")
+    ensure_ext(employee)
+    link_login(employee, staff)  # the own record the request-leave action needs
+    LeaveSettings.objects.update_or_create(pk=1, defaults={"approval1_manager": True})  # approval on
+
+    body = _get(staff, {"q": "Чөлөө хүсэх"}).json()
+
+    row = _group(body, "actions")["rows"][0]
+    assert row["open"] == {
+        "kind": "popup",
+        "path": reverse("leave:request_new"),
+        "popup": "leave_request",
+        "employee": None,
+        "order": None,
+        "event_type": None,
+        "year": None,
     }
 
 

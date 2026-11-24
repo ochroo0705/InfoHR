@@ -1,12 +1,16 @@
+import { useState } from "react";
 import type { TodayOut } from "../../api/today";
-import { AppLink, openLegacyPopup } from "../../lib/AppLink";
+import { AppLink } from "../../lib/AppLink";
 import { usePalettePanel } from "../../shell/palette/PalettePanelContext";
+import { LeaveFormModal } from "../leave/LeaveFormModal";
 
 // The top of `employees/today.html`: the title row and the shortcut buttons. Classes and Mongolian text are verbatim.
+// «Чөлөө бүртгэх» opens the leave add pop-up on this page (no employee preselected); it is mounted only while open.
 const SHORTCUT_CLASS = "rounded-lg border border-slate-300 px-4 py-2 text-sm";
 
 export function TodayHeader({ data }: { data: TodayOut }) {
   const palette = usePalettePanel();
+  const [recordingLeave, setRecordingLeave] = useState(false);
   return (
     <>
       <div className="mb-4 flex items-baseline gap-3">
@@ -28,11 +32,7 @@ export function TodayHeader({ data }: { data: TodayOut }) {
           </AppLink>
         )}
         {data.shortcuts.record_leave && (
-          <button
-            type="button"
-            className={SHORTCUT_CLASS}
-            onClick={() => openLegacyPopup("leave_add", "/employees/today/")}
-          >
+          <button type="button" className={SHORTCUT_CLASS} onClick={() => setRecordingLeave(true)}>
             Чөлөө бүртгэх
           </button>
         )}
@@ -50,6 +50,7 @@ export function TodayHeader({ data }: { data: TodayOut }) {
           Хайх <kbd className="rounded border border-slate-300 px-1.5 text-xs text-slate-500">Ctrl K</kbd>
         </button>
       </div>
+      {recordingLeave ? <LeaveFormModal mode={{ kind: "add" }} onClose={() => setRecordingLeave(false)} /> : null}
     </>
   );
 }
