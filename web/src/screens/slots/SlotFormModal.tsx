@@ -15,7 +15,7 @@ import { Modal } from "../../widgets/Modal";
 import { hasServerErrors, tryClose } from "../../widgets/modalLogic";
 import { Select } from "../../widgets/Select";
 import { SAVE_FAILED_TEXT } from "../employee/PageForm";
-import { useQuickAdd, type QuickAddAdd } from "../lists/QuickAddHost";
+import { useAddedOptions, useQuickAdd, type QuickAddAdd } from "../lists/QuickAddHost";
 
 // The add and edit pop-up of one position-slot row (port of app/employees/templates/employees/_slot_form.html and
 // app/employees/views_slots.py SlotForm). Labels, the ` *` marks, the hint, the buttons and their classes are copied
@@ -56,16 +56,14 @@ function withRowOption(
   return [...list, { value: id, label: label ?? String(id) }];
 }
 
-// The choices of a select: the server's list, the row's own entry when the list is missing it, then the entries added
-// through a pop-up in this session (a modal add is not in the list the server sent before it existed).
-function selectOptions(
+// The server's choices of a select, with the row's own entry when the list is missing it, as the Select reads them
+// (strings). The entries added through a pop-up are added on top of these by useAddedOptions.
+function rowChoices(
   list: { value: number; label: string }[],
   id: number | undefined,
   label: string | undefined,
-  extra: { value: string; label: string }[],
 ): { value: string; label: string }[] {
-  const mapped = withRowOption(list, id, label).map((item) => ({ value: String(item.value), label: item.label }));
-  return [...mapped, ...extra.filter((item) => !mapped.some((option) => option.value === item.value))];
+  return withRowOption(list, id, label).map((item) => ({ value: String(item.value), label: item.label }));
 }
 
 function initialOf(row: SlotRowOut | undefined, year: number): Values {
@@ -90,9 +88,9 @@ export function SlotFormModal({ row, year, onClose }: SlotFormModalProps) {
   const [pending, setPending] = useState(false);
   // A ref, not state: a second Enter or click in the same tick sends nothing.
   const inFlight = useRef(false);
-  // The entries added through the quick-add pop-up (see selectOptions); a plain add stays in Select's own list.
-  const [extraPositions, setExtraPositions] = useState<{ value: string; label: string }[]>([]);
-  const [extraBranches, setExtraBranches] = useState<{ value: string; label: string }[]>([]);
+  // The entries added through the quick-add pop-up (see useAddedOptions); a plain add stays in Select's own list.
+  const positions = useAddedOptions(rowChoices(options.data?.positions ?? [], row?.position_id, row?.position));
+  const branches = useAddedOptions(rowChoices(options.data?.branches ?? [], row?.branch_id, row?.branch));
 
   const isEdit = row !== undefined;
   const dirty = FIELD_NAMES.some((name) => values[name] !== baseline[name]);
@@ -221,11 +219,9 @@ export function SlotFormModal({ row, year, onClose }: SlotFormModalProps) {
                 name="position"
                 value={values.position}
                 onChange={(value) => setField("position", value)}
-                options={selectOptions(opts.positions, row?.position_id, row?.position, extraPositions)}
+                options={positions.options}
                 {...quick.selectProps(opts.add_position, (picked, label) => {
-                  setExtraPositions((prev) =>
-                    prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }],
-                  );
+                  positions.add(picked, label);
                   setField("position", picked);
                 })}
                 className={BOXED}
@@ -239,11 +235,9 @@ export function SlotFormModal({ row, year, onClose }: SlotFormModalProps) {
                 name="branch"
                 value={values.branch}
                 onChange={(value) => setField("branch", value)}
-                options={selectOptions(opts.branches, row?.branch_id, row?.branch, extraBranches)}
+                options={branches.options}
                 {...quick.selectProps(opts.add_branch, (picked, label) => {
-                  setExtraBranches((prev) =>
-                    prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }],
-                  );
+                  branches.add(picked, label);
                   setField("branch", picked);
                 })}
                 className={BOXED}

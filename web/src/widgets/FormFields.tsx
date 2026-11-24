@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
 import type { EmployeeFormFieldOut } from "../api/employeeWrites";
 import { Soft, SOFT, type SoftKind } from "../screens/employee/Soft";
-import { useQuickAdd } from "../screens/lists/QuickAddHost";
+import { useAddedOptions, useQuickAdd } from "../screens/lists/QuickAddHost";
 import { DatePicker } from "./DatePicker";
 import { MoneyInput } from "./MoneyInput";
 import { Select } from "./Select";
@@ -129,6 +129,7 @@ function BoxedSelect({
   id,
   formId,
   onChange,
+  addParentName,
 }: {
   field: FormField;
   value: string;
@@ -136,24 +137,30 @@ function BoxedSelect({
   id?: string;
   formId?: string;
   onChange: (name: string, value: string) => void;
+  // The DOM name of the add's parent control, when the page prefixes its names (see QuickAddHost's parentName).
+  addParentName?: string;
 }) {
   const quick = useQuickAdd();
-  const [extra, setExtra] = useState<{ value: string; label: string }[]>([]);
+  const added = useAddedOptions(field.choices);
   return (
     <Select
       id={id}
       name={field.name}
       form={formId}
       value={value}
-      options={[...field.choices, ...extra.filter((o) => !field.choices.some((c) => c.value === o.value))]}
+      options={added.options}
       search={field.combo}
       required={field.required}
       invalid={invalid}
       className={BOXED}
-      {...quick.selectProps(field.add, (picked, label) => {
-        setExtra((prev) => (prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }]));
-        onChange(field.name, picked);
-      })}
+      {...quick.selectProps(
+        field.add,
+        (picked, label) => {
+          added.add(picked, label);
+          onChange(field.name, picked);
+        },
+        { parentName: addParentName },
+      )}
       onChange={(next) => onChange(field.name, next)}
     />
   );
@@ -170,6 +177,7 @@ export function BoxedControl({
   formId,
   onChange,
   firstRef,
+  addParentName,
 }: {
   field: FormField;
   value: string;
@@ -178,6 +186,8 @@ export function BoxedControl({
   formId?: string;
   onChange: (name: string, value: string) => void;
   firstRef?: (el: HTMLElement | null) => void;
+  // A select's quick-add parent, as its DOM name (only a select with an add line uses it).
+  addParentName?: string;
 }): ReactNode {
   const name = field.name;
   const ariaInvalid = invalid || undefined;
@@ -199,7 +209,15 @@ export function BoxedControl({
       );
     case "select":
       return (
-        <BoxedSelect id={id} field={field} value={value} invalid={invalid} formId={formId} onChange={onChange} />
+        <BoxedSelect
+          id={id}
+          field={field}
+          value={value}
+          invalid={invalid}
+          formId={formId}
+          onChange={onChange}
+          addParentName={addParentName}
+        />
       );
     case "date":
       return (

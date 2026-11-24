@@ -41,18 +41,30 @@ export function useCanAddLists(): boolean {
   return meta.data?.user?.perms.includes("lists.manage_lists") ?? false;
 }
 
-// The value of a parent control on the page, read like select.js does: the first control with that name. "" when none.
-function readParentValue(parent: string): string {
-  const control = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${parent}"]`);
+// Anything the parent control can be searched in (the document, a form or a dialog).
+interface ParentRoot {
+  querySelector(selectors: string): Element | null;
+}
+
+// Where the parent control is looked for, read when the add is clicked: the form of the focused control (the combo
+// input has the focus then), else its dialog, else the whole document. Two pages can hold the same name (a dialog over
+// a page), so the nearest scope wins.
+function parentRoot(): ParentRoot {
+  const active = document.activeElement;
+  return active?.closest("form") ?? active?.closest("[role=dialog]") ?? document;
+}
+
+// The value of a parent control, read like select.js does: the first control with that name in `root`. "" when none.
+function readParentValue(parent: string, root: ParentRoot): string {
+  const control = root.querySelector(`[name="${parent}"]`) as HTMLInputElement | HTMLSelectElement | null;
   return control?.value ?? "";
 }
 
-// The pop-up of the open request. It waits for the list's label (the modal title) from the lists index; if the index
-// fails, the slug stands in for the label.
+// The pop-up of the open request. It opens at once; the title is the list's label from the lists index when the index has
+// the row, else the slug (while the index loads, has no such row, or failed).
 function OpenQuickAdd({ request, onClose }: { request: OpenRequest; onClose: () => void }) {
   const index = useListsIndex("");
-  const label = index.data?.items.find((item) => item.slug === request.slug)?.label ?? (index.isError ? request.slug : undefined);
-  if (label === undefined) return null;
+  const label = index.data?.items.find((item) => item.slug === request.slug)?.label ?? request.slug;
   return (
     <QuickAddModal
       slug={request.slug}
@@ -84,10 +96,65 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export interface QuickAddSelectOptions {
+  // The name the parent control carries in the DOM, when it differs from `add.parent` (a page that prefixes its names,
+  // e.g. the hire page's `addr-city` for the server's `city`). Ignored when the list has no parent.
+  parentName?: string;
+}
+
 export interface QuickAddApi {
   canAdd: boolean;
   // The Select props for a field's `add` info. `null` or `undefined` (not addable) gives no props.
-  selectProps: (add: QuickAddAdd | null | undefined, onPicked: QuickAddPicked) => QuickAddSelectProps;
+  selectProps: (
+    add: QuickAddAdd | null | undefined,
+    onPicked: QuickAddPicked,
+    options?: QuickAddSelectOptions,
+  ) => QuickAddSelectProps;
+}
+
+export interface AddableOption {
+  value: string;
+  label: string;
+}
+
+// The entries a select got through the quick-add pop-up, on top of the choices the server sent. A modal add is not in
+// those choices (they were sent before the entry existed), so the leaf that draws the select keeps them here. The list is
+// dropped whenever the server's choices change by content (another parent, a refetch with other entries, a deleted
+// entry), so an entry that is no longer valid does not stay as a ghost option. A new array with the same content keeps it.
+// A plain add (Select's own list) does not come through here.
+export function useAddedOptions(choices: readonly AddableOption[]): {
+  options: AddableOption[];
+  add: (value: string, label: string) => void;
+} {
+  const signature = useMemo(() => choices.map((choice) => choice.value).join("\u0001"), [choices]);
+  const [added, setAdded] = useState<{ signature: string; items: AddableOption[] }>({ signature, items: [] });
+  // The choices changed: the entries added against the old list are dropped. Setting state during render for the same
+  // component (React's "adjusting state when a prop changes") re-renders at once; the guard makes that pass a no-op.
+  let current = added;
+  if (added.signature !== signature) {
+    current = { signature, items: [] };
+    setAdded(current);
+  }
+
+  const add = useCallback(
+    (value: string, label: string) => {
+      setAdded((prev) => {
+        const base = prev.signature === signature ? prev.items : [];
+        if (base.some((item) => item.value === value)) {
+          return prev.signature === signature ? prev : { signature, items: base };
+        }
+        return { signature, items: [...base, { value, label }] };
+      });
+    },
+    [signature],
+  );
+
+  const options = useMemo(
+    () => [...choices, ...current.items.filter((item) => !choices.some((choice) => choice.value === item.value))],
+    [choices, current.items],
+  );
+
+  return { options, add };
 }
 
 // Outside a provider (a test or a page without the shell) nothing can be added: canAdd is false and no props are given.
@@ -97,7 +164,7 @@ export function useQuickAdd(): QuickAddApi {
   const canAdd = ctx?.canAdd ?? false;
 
   const selectProps = useCallback(
-    (add: QuickAddAdd | null | undefined, onPicked: QuickAddPicked): QuickAddSelectProps => {
+    (add: QuickAddAdd | null | undefined, onPicked: QuickAddPicked, options?: QuickAddSelectOptions): QuickAddSelectProps => {
       if (!add || !open) return {};
       const addUrl = `/api/v1/lists/${add.slug}/quick`;
       if (!add.modal) return { addUrl, canAdd };
@@ -105,13 +172,16 @@ export function useQuickAdd(): QuickAddApi {
         addUrl,
         canAdd,
         addModal: true,
-        onAddModal: (text: string) =>
+        onAddModal: (text: string) => {
+          // The parent is read now, when the add is clicked: the pop-up must see the page's value at that moment.
+          const parentName = options?.parentName ?? add.parent;
           open({
             slug: add.slug,
             initialName: text,
-            parentValue: add.parent === null ? undefined : readParentValue(add.parent),
+            parentValue: add.parent === null ? undefined : readParentValue(parentName ?? "", parentRoot()),
             onPicked,
-          }),
+          });
+        },
       };
     },
     [open, canAdd],

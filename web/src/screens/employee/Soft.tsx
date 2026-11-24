@@ -1,5 +1,5 @@
-import { useId, useState, type ReactNode } from "react";
-import { useQuickAdd, type QuickAddAdd } from "../lists/QuickAddHost";
+import { useId, type ReactNode } from "react";
+import { useAddedOptions, useQuickAdd, type QuickAddAdd } from "../lists/QuickAddHost";
 import { DatePicker } from "../../widgets/DatePicker";
 import { Select } from "../../widgets/Select";
 import { ClashChoice } from "./ClashChoice";
@@ -77,7 +77,7 @@ export function Soft({
   const quick = useQuickAdd();
   // An entry added through the modal is not in `choices` (the server sent them before it existed): it joins the options
   // here, so the select shows its label. A plain add stays in Select's own list.
-  const [extra, setExtra] = useState<{ value: string; label: string }[]>([]);
+  const added = useAddedOptions(choices ?? []);
 
   function box() {
     if (kind === "checkbox") {
@@ -127,10 +127,10 @@ export function Soft({
             name={fieldName}
             form={form}
             value={value}
-            options={[...(choices ?? []), ...extra.filter((o) => !(choices ?? []).some((c) => c.value === o.value))]}
+            options={added.options}
             search={combo}
             {...quick.selectProps(add, (picked, label) => {
-              setExtra((prev) => (prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }]));
+              added.add(picked, label);
               onChange(fieldName, picked);
             })}
             className={className}

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { QuickAddProvider, useQuickAdd } from "./QuickAddHost";
+import { QuickAddProvider, useAddedOptions, useQuickAdd } from "./QuickAddHost";
 
 // The API client answers by path (the real hooks run), and the signed-in user's perms come from a stub of useMeta.
 const h = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), perms: [] as string[] }));
@@ -174,11 +174,136 @@ describe("QuickAddHost", () => {
     expect(names[0].value).toBe("Эхний");
   });
 
+  it("a parentName option finds the parent by its prefixed name, not the server's own name", async () => {
+    const page = document.createElement("div");
+    page.innerHTML =
+      '<select name="city"><option value="1" selected>Улаанбаатар</option></select>' +
+      '<select name="addr-city"><option value="">—</option><option value="2" selected>Дархан</option></select>';
+    document.body.appendChild(page);
+
+    const { result } = renderHook(() => useQuickAdd(), { wrapper: wrapperWith(newClient()) });
+    const props = result.current.selectProps({ slug: "district", modal: true, parent: "city" }, vi.fn(), {
+      parentName: "addr-city",
+    });
+
+    act(() => props.onAddModal?.("Баянзүрх"));
+
+    await screen.findByRole("button", { name: "Хадгалах" });
+    const boxes = document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name="city"]');
+    expect(boxes[boxes.length - 1].value).toBe("2");
+  });
+
+  it("the parent is looked for in the dialog of the focused control when two controls share the name", async () => {
+    const outer = document.createElement("select");
+    outer.setAttribute("name", "city");
+    outer.innerHTML = '<option value="1" selected>Улаанбаатар</option><option value="2">Дархан</option>';
+    document.body.appendChild(outer);
+
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.innerHTML =
+      '<select name="city"><option value="1">Улаанбаатар</option><option value="2" selected>Дархан</option></select>' +
+      '<input type="text" id="combo" />';
+    document.body.appendChild(dialog);
+    const combo = dialog.querySelector<HTMLInputElement>("#combo");
+    combo?.focus();
+    expect(document.activeElement).toBe(combo);
+
+    const { result } = renderHook(() => useQuickAdd(), { wrapper: wrapperWith(newClient()) });
+    const props = result.current.selectProps({ slug: "district", modal: true, parent: "city" }, vi.fn());
+
+    act(() => props.onAddModal?.("Баянзүрх"));
+
+    await screen.findByRole("button", { name: "Хадгалах" });
+    const boxes = document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[name="city"]');
+    expect(boxes[boxes.length - 1].value).toBe("2");
+  });
+
+  it("the pop-up opens with the slug as its title when the index has no row for the list", async () => {
+    h.get.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/lists") return ok({ items: [] });
+      if (path === "/api/v1/lists/{slug}/form") return ok(FORM);
+      return { data: undefined, error: {}, response: { ok: false, status: 404 } };
+    });
+    const { result } = renderHook(() => useQuickAdd(), { wrapper: wrapperWith(newClient()) });
+    const props = result.current.selectProps({ slug: "district", modal: true, parent: null }, vi.fn());
+
+    act(() => props.onAddModal?.("Эхний"));
+
+    await screen.findByRole("button", { name: "Хадгалах" });
+    expect(screen.getByRole("heading", { name: "district: шинэ бичлэг" })).toBeTruthy();
+  });
+
+  it("a second add works after the first pop-up is closed, even with no index row", async () => {
+    h.get.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/lists") return ok({ items: [] });
+      if (path === "/api/v1/lists/{slug}/form") return ok(FORM);
+      return { data: undefined, error: {}, response: { ok: false, status: 404 } };
+    });
+    const { result } = renderHook(() => useQuickAdd(), { wrapper: wrapperWith(newClient()) });
+    const props = result.current.selectProps({ slug: "district", modal: true, parent: null }, vi.fn());
+
+    act(() => props.onAddModal?.("Эхний"));
+    await screen.findByRole("button", { name: "Хадгалах" });
+    fireEvent.click(screen.getByRole("button", { name: "Болих" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Хадгалах" })).toBeNull());
+
+    act(() => props.onAddModal?.("Хоёр"));
+    await screen.findByRole("button", { name: "Хадгалах" });
+    const names = document.querySelectorAll<HTMLInputElement>('input[name="name"]');
+    expect(names[names.length - 1].value).toBe("Хоёр");
+  });
+
   it("outside a provider the hook gives canAdd false and no props, so nothing breaks", () => {
     const { result } = renderHook(() => useQuickAdd());
 
     expect(result.current.canAdd).toBe(false);
     expect(result.current.selectProps({ slug: "branch", modal: false, parent: null }, vi.fn())).toEqual({});
     expect(result.current.selectProps({ slug: "district", modal: true, parent: "city" }, vi.fn())).toEqual({});
+  });
+});
+
+describe("useAddedOptions", () => {
+  const CHOICES = [
+    { value: "1", label: "Улаанбаатар" },
+    { value: "2", label: "Дархан" },
+  ];
+
+  it("an entry added through add shows in options after the server's choices", () => {
+    const { result } = renderHook(() => useAddedOptions(CHOICES));
+
+    act(() => result.current.add("9", "Баянзүрх"));
+
+    expect(result.current.options).toEqual([...CHOICES, { value: "9", label: "Баянзүрх" }]);
+  });
+
+  it("a new array with the same choices keeps the added entries", () => {
+    const { result, rerender } = renderHook(({ choices }) => useAddedOptions(choices), {
+      initialProps: { choices: CHOICES },
+    });
+    act(() => result.current.add("9", "Баянзүрх"));
+
+    rerender({ choices: CHOICES.map((choice) => ({ ...choice })) });
+
+    expect(result.current.options).toEqual([...CHOICES, { value: "9", label: "Баянзүрх" }]);
+  });
+
+  it("changed choices clear the added entries (a deleted or other-parent entry is not a ghost option)", () => {
+    const { result, rerender } = renderHook(({ choices }) => useAddedOptions(choices), {
+      initialProps: { choices: CHOICES },
+    });
+    act(() => result.current.add("9", "Баянзүрх"));
+
+    rerender({ choices: [{ value: "3", label: "Өмнөговь" }] });
+
+    expect(result.current.options).toEqual([{ value: "3", label: "Өмнөговь" }]);
+  });
+
+  it("an entry already in the choices is not duplicated", () => {
+    const { result } = renderHook(() => useAddedOptions(CHOICES));
+
+    act(() => result.current.add("1", "Улаанбаатар"));
+
+    expect(result.current.options).toEqual(CHOICES);
   });
 });

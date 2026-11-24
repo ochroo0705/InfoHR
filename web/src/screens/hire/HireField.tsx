@@ -50,6 +50,15 @@ function FileControl({
   );
 }
 
+// The DOM name of a field's quick-add parent. The hire page prefixes its names with the field's group (`addr-district`),
+// while the server names the parent `city`: the parent is the sibling with the same prefix (`addr-city`). A field with no
+// prefix keeps the parent's own name.
+export function siblingName(fieldName: string, parent: string | null | undefined): string | undefined {
+  if (!parent) return undefined;
+  const dash = fieldName.lastIndexOf("-");
+  return dash < 0 ? parent : `${fieldName.slice(0, dash + 1)}${parent}`;
+}
+
 // A ref object or a callback, as the native control expects it.
 function assignRef(target: HireFieldProps["controlRef"]) {
   return (el: HTMLElement | null) => {
@@ -60,6 +69,8 @@ function assignRef(target: HireFieldProps["controlRef"]) {
 
 export function HireField({ field, value, onChange, onFile, errors = [], afterControl, controlRef }: HireFieldProps) {
   const ref = controlRef ? assignRef(controlRef) : undefined;
+  // The quick-add parent as this page names it (see siblingName).
+  const addParentName = siblingName(field.name, field.add?.parent);
 
   if (field.kind === "checkbox") {
     return (
@@ -70,6 +81,7 @@ export function HireField({ field, value, onChange, onFile, errors = [], afterCo
           invalid={errors.length > 0}
           onChange={(_name, next) => onChange(next)}
           firstRef={ref}
+          addParentName={addParentName}
         />
         {field.label}
         {afterControl}
@@ -95,6 +107,7 @@ export function HireField({ field, value, onChange, onFile, errors = [], afterCo
           invalid={errors.length > 0}
           onChange={(_name, next) => onChange(next)}
           firstRef={ref}
+          addParentName={addParentName}
         />
       )}
       {afterControl}
