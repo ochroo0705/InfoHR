@@ -19,6 +19,7 @@ import { MeaningPage } from "./screens/lists/MeaningPage";
 import { SelfFormListPage } from "./screens/selfforms/SelfFormListPage";
 import { SelfFormShowPage } from "./screens/selfforms/SelfFormShowPage";
 import { EmployeeLogPage } from "./screens/logs/EmployeeLogPage";
+import { MinePage } from "./screens/checklists/MinePage";
 import { SystemLogPage } from "./screens/logs/SystemLogPage";
 import { Landing } from "./routes/Landing";
 import { WelcomeRoute } from "./routes/WelcomeRoute";
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/lists/" element={<ListsIndexPage />} />
           <Route path="/lists/meaning/" element={<MeaningPage />} />
           <Route path="/lists/:slug/" element={<ListPage />} />
+          <Route path="/checklists/mine/" element={<MinePage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />
         </Route>

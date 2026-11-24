@@ -243,6 +243,60 @@
         "title": "CancelOut",
         "type": "object"
       },
+      "ChecklistMineItemOut": {
+        "properties": {
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "employee": {
+            "title": "Employee",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
+          "overdue": {
+            "title": "Overdue",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "employee",
+          "kind_label",
+          "due",
+          "overdue"
+        ],
+        "title": "ChecklistMineItemOut",
+        "type": "object"
+      },
+      "ChecklistMineOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistMineItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ChecklistMineOut",
+        "type": "object"
+      },
       "ChecklistOut": {
         "properties": {
           "open": {
@@ -259,6 +313,19 @@
           "overdue"
         ],
         "title": "ChecklistOut",
+        "type": "object"
+      },
+      "ChecklistStartIn": {
+        "properties": {
+          "anchor_day": {
+            "title": "Anchor Day",
+            "type": "string"
+          }
+        },
+        "required": [
+          "anchor_day"
+        ],
+        "title": "ChecklistStartIn",
         "type": "object"
       },
       "ChipOut": {
@@ -1738,6 +1805,10 @@
             "title": "Due On",
             "type": "string"
           },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
           "overdue": {
             "title": "Overdue",
             "type": "boolean"
@@ -1760,6 +1831,7 @@
           }
         },
         "required": [
+          "id",
           "title",
           "required",
           "owner_label",
@@ -6202,6 +6274,17 @@
             "title": "Checklist",
             "type": "boolean"
           },
+          "checklist_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checklist Id"
+          },
           "completed": {
             "title": "Completed",
             "type": "boolean"
@@ -6232,6 +6315,7 @@
         },
         "required": [
           "kind",
+          "checklist_id",
           "heading",
           "caption",
           "checklist",
@@ -8267,6 +8351,75 @@
         ]
       }
     },
+    "/api/v1/checklists/employees/{employee_id}/start": {
+      "post": {
+        "description": "«Ажлаас гарах жагсаалт эхлүүлэх» with the picked last day. 404 for a hidden employee or without the start right,\n400 for a bad date or when no template applies, 409 when refused.",
+        "operationId": "api_checklists_start_offboarding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "title": "Employee Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChecklistStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Start Offboarding",
+        "tags": [
+          "checklists"
+        ]
+      }
+    },
+    "/api/v1/checklists/mine": {
+      "get": {
+        "description": "«Миний даалгавар»: the signed-in user's own open tasks, earliest due first. Works without an employee record.",
+        "operationId": "api_checklists_checklist_mine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChecklistMineOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Checklist Mine",
+        "tags": [
+          "checklists"
+        ]
+      }
+    },
     "/api/v1/checklists/tasks/{pk}/tick": {
       "post": {
         "description": "«Хийгдсэн» on a checklist task the user owns (404 when the user may not tick it, 409 when it is refused).",
@@ -8293,6 +8446,68 @@
           }
         ],
         "summary": "Tick Task",
+        "tags": [
+          "checklists"
+        ]
+      }
+    },
+    "/api/v1/checklists/tasks/{pk}/untick": {
+      "post": {
+        "description": "«Буцаах»: undo the tick of a checklist task (404 without the manage right, 409 when refused).",
+        "operationId": "api_checklists_untick_task",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Untick Task",
+        "tags": [
+          "checklists"
+        ]
+      }
+    },
+    "/api/v1/checklists/{pk}/cancel": {
+      "post": {
+        "description": "«Цуцлах»: cancel an open checklist (404 without the manage right, 409 when refused).",
+        "operationId": "api_checklists_cancel_checklist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Cancel Checklist",
         "tags": [
           "checklists"
         ]

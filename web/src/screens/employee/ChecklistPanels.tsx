@@ -1,22 +1,34 @@
 import { useState } from "react";
 import type { EmployeeWorkOut } from "../../api/employee";
-import { openLegacyEmployee } from "../../lib/AppLink";
+import { useCancelChecklist, useStartOffboarding, useTickTask, useUntickTask } from "../../api/checklists";
+import { formErrorText } from "../me/formErrorText";
 import { DatePicker } from "../../widgets/DatePicker";
 import { ScrollFloat } from "../../widgets/Scrollbar";
 
 // Port of `checklists/_employee_section.html` (one panel per kind, in the Work tab after the leave block) and of
 // `checklists/_task_row.html`. Classes, Mongolian text, element order and data-* hooks are copied from the templates.
 // The API sends the strings, the class strings and the flags (done_label, done_rest, title_class, due_class). Every
-// write (cancel, the start form, tick, untick) opens the Django employee page (openLegacyEmployee, ruling D2). The start
-// form's date box is the shared DatePicker (the `datepicker.js` text box: ISO text, calendar button), drawn with the
-// template's own box classes. Submitting still opens the Django page, which does not carry the picked date.
+// write (tick, untick, cancel, the start form) posts to /api/v1/checklists/... and refreshes the page data in place. A
+// refused change (409, 400, 404) shows its message in a red line under its own panel. The start form's date box is the
+// shared DatePicker (the `datepicker.js` text box: ISO text, calendar button), drawn with the template's own box classes.
 
 type Work = EmployeeWorkOut;
 type Panel = Work["checklists"][number];
 type Task = Panel["rows"][number];
 
-// One task row (`_task_row.html`). «Хийгдсэн» is emphasised green; done_rest carries the rest of the text.
-function TaskRow({ row, pk }: { row: Task; pk: number }) {
+// One task row (`_task_row.html`). «Хийгдсэн» is emphasised green; done_rest carries the rest of the text. The row's
+// buttons are disabled while `busy` (a write of the panel runs).
+function TaskRow({
+  row,
+  busy,
+  onTick,
+  onUntick,
+}: {
+  row: Task;
+  busy: boolean;
+  onTick: (id: number) => void;
+  onUntick: (id: number) => void;
+}) {
   return (
     <tr>
       <td className={row.title_class}>
@@ -38,7 +50,8 @@ function TaskRow({ row, pk }: { row: Task; pk: number }) {
         {row.can_tick && (
           <button
             type="button"
-            onClick={() => openLegacyEmployee(pk)}
+            disabled={busy}
+            onClick={() => onTick(row.id)}
             className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-700"
           >
             Хийгдсэн
@@ -47,7 +60,8 @@ function TaskRow({ row, pk }: { row: Task; pk: number }) {
         {row.can_untick && (
           <button
             type="button"
-            onClick={() => openLegacyEmployee(pk)}
+            disabled={busy}
+            onClick={() => onUntick(row.id)}
             className="rounded px-2 py-1 text-sm text-slate-500 hover:bg-violet-50 hover:text-violet-700"
           >
             Буцаах
@@ -60,6 +74,33 @@ function TaskRow({ row, pk }: { row: Task; pk: number }) {
 
 function PanelSection({ panel, pk }: { panel: Panel; pk: number }) {
   const [anchorDay, setAnchorDay] = useState(panel.today);
+  // The day the box was last set from: when `today` changes (past midnight, a new load) the box shows the new day.
+  const [anchorToday, setAnchorToday] = useState(panel.today);
+  if (anchorToday !== panel.today) {
+    setAnchorToday(panel.today);
+    setAnchorDay(panel.today);
+  }
+  const [error, setError] = useState("");
+  const tick = useTickTask();
+  const untick = useUntickTask();
+  const cancel = useCancelChecklist();
+  const start = useStartOffboarding(pk);
+
+  // One write at a time in this panel: while any of them runs, every button of the panel is disabled.
+  const writing = tick.isPending || untick.isPending || cancel.isPending || start.isPending;
+
+  // Runs one write. Each write starts from a clear line; a refusal fills it with the Django message (every refusal is
+  // shown, not only the last one), a success leaves it empty.
+  async function run(write: () => Promise<unknown>, onDone?: () => void) {
+    setError("");
+    try {
+      await write();
+      onDone?.();
+    } catch (e) {
+      setError(formErrorText(e));
+    }
+  }
+
   return (
     <section className="mt-10" data-checklist data-checklist-kind={panel.kind}>
       <div className="mb-3 flex items-center gap-2">
@@ -75,7 +116,13 @@ function PanelSection({ panel, pk }: { panel: Panel; pk: number }) {
         {panel.can_cancel && (
           <button
             type="button"
-            onClick={() => openLegacyEmployee(pk)}
+            disabled={writing}
+            onClick={() => {
+              const checklistId = panel.checklist_id;
+              if (checklistId === null) return;
+              // A cancelled panel shows the start form again with today's date, not the last typed one.
+              void run(() => cancel.mutateAsync(checklistId), () => setAnchorDay(panel.today));
+            }}
             className="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50"
           >
             Цуцлах
@@ -106,7 +153,13 @@ function PanelSection({ panel, pk }: { panel: Panel; pk: number }) {
               </thead>
               <tbody>
                 {panel.rows.map((row, i) => (
-                  <TaskRow key={i} row={row} pk={pk} />
+                  <TaskRow
+                    key={i}
+                    row={row}
+                    busy={writing}
+                    onTick={(id) => void run(() => tick.mutateAsync(id))}
+                    onUntick={(id) => void run(() => untick.mutateAsync(id))}
+                  />
                 ))}
               </tbody>
             </table>
@@ -116,7 +169,7 @@ function PanelSection({ panel, pk }: { panel: Panel; pk: number }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            openLegacyEmployee(pk);
+            void run(() => start.mutateAsync(anchorDay));
           }}
           className="flex flex-wrap items-end gap-3"
         >
@@ -132,11 +185,17 @@ function PanelSection({ panel, pk }: { panel: Panel; pk: number }) {
           </label>
           <button
             type="submit"
+            disabled={writing}
             className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700"
           >
             Ажлаас гарах жагсаалт эхлүүлэх
           </button>
         </form>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-sm text-red-700">
+          {error}
+        </p>
       ) : null}
     </section>
   );

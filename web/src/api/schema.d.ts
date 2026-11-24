@@ -132,6 +132,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/checklists/employees/{employee_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Offboarding
+         * @description «Ажлаас гарах жагсаалт эхлүүлэх» with the picked last day. 404 for a hidden employee or without the start right,
+         *     400 for a bad date or when no template applies, 409 when refused.
+         */
+        post: operations["api_checklists_start_offboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checklists/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Checklist Mine
+         * @description «Миний даалгавар»: the signed-in user's own open tasks, earliest due first. Works without an employee record.
+         */
+        get: operations["api_checklists_checklist_mine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/checklists/tasks/{pk}/tick": {
         parameters: {
             query?: never;
@@ -146,6 +187,46 @@ export interface paths {
          * @description «Хийгдсэн» on a checklist task the user owns (404 when the user may not tick it, 409 when it is refused).
          */
         post: operations["api_me_tick_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checklists/tasks/{pk}/untick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Untick Task
+         * @description «Буцаах»: undo the tick of a checklist task (404 without the manage right, 409 when refused).
+         */
+        post: operations["api_checklists_untick_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checklists/{pk}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Checklist
+         * @description «Цуцлах»: cancel an open checklist (404 without the manage right, 409 when refused).
+         */
+        post: operations["api_checklists_cancel_checklist"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1912,12 +1993,37 @@ export interface components {
             /** Text Prefix */
             text_prefix: string;
         };
+        /** ChecklistMineItemOut */
+        ChecklistMineItemOut: {
+            /** Due */
+            due: string;
+            /** Employee */
+            employee: string;
+            /** Id */
+            id: number;
+            /** Kind Label */
+            kind_label: string;
+            /** Overdue */
+            overdue: boolean;
+            /** Title */
+            title: string;
+        };
+        /** ChecklistMineOut */
+        ChecklistMineOut: {
+            /** Items */
+            items: components["schemas"]["ChecklistMineItemOut"][];
+        };
         /** ChecklistOut */
         ChecklistOut: {
             /** Open */
             open: number;
             /** Overdue */
             overdue: number;
+        };
+        /** ChecklistStartIn */
+        ChecklistStartIn: {
+            /** Anchor Day */
+            anchor_day: string;
         };
         /** ChipOut */
         ChipOut: {
@@ -2455,6 +2561,8 @@ export interface components {
             due_class: string;
             /** Due On */
             due_on: string;
+            /** Id */
+            id: number;
             /** Overdue */
             overdue: boolean;
             /** Owner Label */
@@ -3997,6 +4105,8 @@ export interface components {
             caption: string;
             /** Checklist */
             checklist: boolean;
+            /** Checklist Id */
+            checklist_id: number | null;
             /** Completed */
             completed: boolean;
             /** Heading */
@@ -4784,7 +4894,91 @@ export interface operations {
             };
         };
     };
+    api_checklists_start_offboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employee_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChecklistStartIn"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_checklists_checklist_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistMineOut"];
+                };
+            };
+        };
+    };
     api_me_tick_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_checklists_untick_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_checklists_cancel_checklist: {
         parameters: {
             query?: never;
             header?: never;

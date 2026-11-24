@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from accounts import roles
 from accounts.models import AccessScope, User
+from checklists.models import Checklist
 from checklists.services import onboarding
 from django.contrib.auth.models import Group
 from django.test import Client
@@ -338,6 +339,15 @@ def test_onboarding_panel_rows_split_the_done_label(hr_user: User, hired: Employ
     assert open_row["done_label"] == "" and open_row["done_rest"] == "—"
     assert open_row["title_class"] == ""
     assert date.fromisoformat(panel["today"])
+
+
+def test_panel_and_rows_carry_the_ids_the_checklist_routes_need(hr_user: User, hired: Employee) -> None:
+    onboarding.start_for_hire(hired, start_date=date(2026, 1, 5), employee_type="full_time", by=hr_user)
+    body = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/work").json()
+    panel = next(p for p in body["checklists"] if p["kind"] == "onboarding")
+    checklist = Checklist.objects.get(employee=hired, kind="onboarding")
+    assert panel["checklist_id"] == checklist.pk
+    assert sorted(row["id"] for row in panel["rows"]) == sorted(checklist.tasks.values_list("pk", flat=True))
 
 
 def test_order_row_flags_and_scan_url_follow_the_scan_right(hr_user: User, hired: Employee) -> None:

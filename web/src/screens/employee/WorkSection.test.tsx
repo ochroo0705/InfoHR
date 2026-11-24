@@ -319,7 +319,7 @@ describe("WorkSection", () => {
     expect(container.querySelector("[data-checklist]")).toBeNull();
   });
 
-  it("emphasises a done task and gives the tick to the Django page", () => {
+  it("emphasises a done task; the tick posts to the API, not the Django page (posts are tested in ChecklistPanels.test)", () => {
     useWork(
       work({
         checklist_visible: true,
@@ -342,10 +342,10 @@ describe("WorkSection", () => {
     expect(document.querySelector("span.text-emerald-700")?.textContent).toBe("Хийгдсэн");
     expect(screen.getByText("Заавал биш")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Хийгдсэн" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
-  it("shows the start form for an offboarding panel that can start, and opens the Django page on submit", () => {
+  it("shows the start form for an offboarding panel that can start, and does not open the Django page on submit", () => {
     useWork(
       work({
         checklist_visible: true,
@@ -366,7 +366,7 @@ describe("WorkSection", () => {
     const input = container.querySelector('input[name="anchor_day"]') as HTMLInputElement;
     expect(input.value).toBe("2026-11-17");
     fireEvent.click(screen.getByRole("button", { name: "Ажлаас гарах жагсаалт эхлүүлэх" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("shows the badges: Одоо on the current year, Ирэх on the next one", () => {
@@ -470,11 +470,12 @@ describe("WorkSection", () => {
     expect(link.getAttribute("href")).toBe("/leave/?employee=7&status=all");
   });
 
-  it("shows «Цуцлах» on a cancellable checklist and gives it to the Django page", () => {
+  it("shows «Цуцлах» on a cancellable checklist; the cancel posts to the API, not the Django page", () => {
     useWork(work({ checklist_visible: true, checklists: [panel({ can_cancel: true })] }));
     renderSection(<WorkSection pk={7} setup={null} />);
+    expect(screen.getByRole("button", { name: "Цуцлах" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Цуцлах" }));
-    expect(openLegacyEmployee).toHaveBeenCalledWith(7);
+    expect(openLegacyEmployee).not.toHaveBeenCalled();
   });
 
   it("adds the «Дууссан» note to the caption of a completed checklist", () => {

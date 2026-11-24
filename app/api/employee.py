@@ -258,6 +258,7 @@ class LeaveOut(Schema):
 
 
 class EmployeeTaskOut(Schema):
+    id: int  # the task's pk: «Хийгдсэн» and «Буцаах» post to /api/v1/checklists/tasks/{id}/...
     title: str
     required: bool
     owner_label: str
@@ -268,20 +269,21 @@ class EmployeeTaskOut(Schema):
     done_rest: str  # « · name, YYYY-MM-DD» when done, else «—»
     title_class: str  # the title cell's class: «text-slate-500» when done, else ""
     due_class: str  # the due-date cell's class string (red and bold when overdue)
-    can_tick: bool  # «Хийгдсэн» button (legacy)
-    can_untick: bool  # «Буцаах» button (legacy)
+    can_tick: bool  # «Хийгдсэн» button
+    can_untick: bool  # «Буцаах» button
 
 
 class PanelOut(Schema):
     kind: str
+    checklist_id: int | None  # the open or finished checklist's pk (for «Цуцлах»); null without a checklist
     heading: str
     caption: str  # «<template> · <date caption> YYYY-MM-DD», "" without a checklist
     checklist: bool  # False: the start form (or nothing)
     completed: bool
     progress: str  # «done / total», "" without a checklist
     today: str  # ISO day the start form pre-fills (the page's today)
-    can_start: bool  # start form (legacy)
-    can_cancel: bool  # «Цуцлах» (legacy)
+    can_start: bool  # start form
+    can_cancel: bool  # «Цуцлах»
     rows: list[EmployeeTaskOut]
 
 
@@ -813,6 +815,7 @@ def _task_out(row: Any) -> dict[str, Any]:
         done_label = "Хийгдсэн"
         done_rest = f" · {name}, {timezone.localtime(task.done_at):%Y-%m-%d}"
     return {
+        "id": task.pk,
         "title": task.title,
         "required": bool(task.required),
         "owner_label": row.owner_label,
@@ -832,6 +835,7 @@ def _panel_out(panel: dict[str, Any]) -> dict[str, Any]:
     checklist = panel["checklist"]
     return {
         "kind": panel["kind"],
+        "checklist_id": checklist.pk if checklist is not None else None,
         "heading": panel["heading"],
         "caption": (
             f"{checklist.template_name} · {panel['date_caption']} {_iso(checklist.anchor_day)}"

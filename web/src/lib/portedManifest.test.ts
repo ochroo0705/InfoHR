@@ -27,6 +27,11 @@ describe("portedManifest", () => {
     expect(isPorted("/lists/bank/quick/")).toBe(false);
   });
 
+  it("serves /checklists/mine/ from the React app but not a checklist task action", () => {
+    expect(isPorted("/checklists/mine/")).toBe(true);
+    expect(isPorted("/checklists/task/1/tick/")).toBe(false);
+  });
+
   it("maps the real PORTED list one to one", () => {
     expect(portedManifest(PORTED).length).toBe(PORTED.length);
   });

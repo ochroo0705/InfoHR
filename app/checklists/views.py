@@ -9,18 +9,17 @@ from datetime import date
 from accounts.models import User
 from django.contrib.auth.decorators import login_required
 from django.db.models import Case, When
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBadRequest
-from django.shortcuts import get_object_or_404, redirect, render
+from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
-from employees import access as employee_access
 from employees.models import Employee
 
 from checklists import access
 from checklists.models import Checklist, ChecklistKind, ChecklistState, ChecklistTask
-from checklists.services import lifecycle, owners
+from checklists.services import actions, lifecycle, owners
 
 
 @dataclass(frozen=True)
@@ -138,10 +137,6 @@ def _back(request: HttpRequest, user: User, employee: Employee) -> HttpResponse:
     return redirect("me")
 
 
-def _task_for(pk: int) -> ChecklistTask:
-    return get_object_or_404(ChecklistTask.objects.select_related("checklist__employee"), pk=pk)
-
-
 @login_required
 @require_POST
 def tick(request: HttpRequest, pk: int) -> HttpResponse:
@@ -157,28 +152,19 @@ def tick(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def untick(request: HttpRequest, pk: int) -> HttpResponse:
     user = _user(request)
-    task = _task_for(pk)
-    employee = task.checklist.employee
-    if not access.can_untick(user) or not access.can_see_employee(user, employee):
-        raise Http404
-    if not access.can_view(user, task.checklist, today()):
-        raise Http404
     try:
-        lifecycle.untick(task, by=user)
+        task = actions.untick_for(user, pk, today())
     except lifecycle.ChecklistError as error:
         return HttpResponse(error.message, status=409)
-    return _back(request, user, employee)
+    return _back(request, user, task.checklist.employee)
 
 
 @login_required
 @require_POST
 def cancel(request: HttpRequest, pk: int) -> HttpResponse:
     user = _user(request)
-    checklist = get_object_or_404(Checklist.objects.select_related("employee"), pk=pk)
-    if not access.can_cancel(user) or not access.can_view(user, checklist, today()):
-        raise Http404
     try:
-        lifecycle.cancel(checklist, by=user)
+        checklist = actions.cancel_for(user, pk, today())
     except lifecycle.ChecklistError as error:
         return HttpResponse(error.message, status=409)
     return _back(request, user, checklist.employee)
@@ -201,13 +187,8 @@ def mine(request: HttpRequest) -> HttpResponse:
 @require_POST
 def start(request: HttpRequest, employee_id: int) -> HttpResponse:
     user = _user(request)
-    employee = get_object_or_404(employee_access.visible_employees(user), pk=employee_id)
-    if not access.can_start(user):
-        raise Http404
     try:
-        anchor_day = date.fromisoformat(request.POST.get("anchor_day", ""))
-    except ValueError:
-        return HttpResponseBadRequest("Сүүлийн ажлын өдрийг оруулна уу.")
-    if lifecycle.start(employee, ChecklistKind.OFFBOARDING, reason=None, anchor_day=anchor_day, by=user) is None:
-        return HttpResponseBadRequest("Ажлаас гарах жагсаалтын загвар байхгүй байна.")
+        employee = actions.start_offboarding(user, employee_id, request.POST.get("anchor_day", ""))
+    except actions.ActionError as error:
+        return HttpResponseBadRequest(error.message)
     return _back(request, user, employee)

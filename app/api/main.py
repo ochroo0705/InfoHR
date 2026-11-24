@@ -4,6 +4,7 @@ from ninja import NinjaAPI
 from ninja.errors import AuthenticationError, HttpError, ValidationError
 from ninja.security import django_auth
 
+from api import checklists as _checklist_routes  # noqa: F401  (adds the checklist routes to checklists_router)
 from api.attention import attention_router
 from api.auth import auth_router
 from api.company import company_router

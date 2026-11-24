@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
+import { refreshAfterChecklistWrite, refreshIfRefused } from "./checklistRefresh";
 import { postWithCsrfRetry, unwrapQuery } from "./mutate";
 import type { components } from "./schema";
 
@@ -48,7 +49,8 @@ export function useWithdraw() {
   });
 }
 
-// «Хийгдсэн» on a checklist task. A tick changes the Today page too.
+// «Хийгдсэн» on a checklist task. A tick changes the Today page, the employee work data and «Миний даалгавар» too
+// (the same refresh as the checklist writes); a refused tick (404, 409) refreshes them and then rejects.
 export function useTick() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -56,10 +58,7 @@ export function useTick() {
       postWithCsrfRetry<void>(queryClient, () =>
         api.POST("/api/v1/checklists/tasks/{pk}/tick", { params: { path: { pk } } }),
       ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
-      // exact: open lazy lists under ["today", ...] are not refetched by a tick.
-      await queryClient.invalidateQueries({ queryKey: ["today"], exact: true });
-    },
+    onSuccess: () => refreshAfterChecklistWrite(queryClient),
+    onError: (error) => refreshIfRefused(queryClient, error),
   });
 }
