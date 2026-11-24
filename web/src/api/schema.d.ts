@@ -1006,6 +1006,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Index */
+        get: operations["api_lists_list_index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/meaning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Meaning */
+        get: operations["api_lists_list_meaning"];
+        put?: never;
+        /**
+         * List Meaning Save
+         * @description Set each meaning to the chosen entry; an empty choice deletes it, a junk or unknown pk changes nothing.
+         */
+        post: operations["api_lists_list_meaning_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rows */
+        get: operations["api_lists_list_rows"];
+        put?: never;
+        /**
+         * List Add
+         * @description Add an entry to a list. Refused (ok false, status 200, nothing written) when the form is invalid.
+         */
+        post: operations["api_lists_list_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/{slug}/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Form
+         * @description The add pop-up with no pk, the edit pop-up with one. The rights are checked before the entry is looked up.
+         */
+        get: operations["api_lists_list_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/{slug}/quick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List Quick
+         * @description Pick the entry with the same name, or create it, for a form dropdown. A form error answers 400.
+         */
+        post: operations["api_lists_list_quick"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/{slug}/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List Edit
+         * @description Change entry `pk`; 404 for an unknown or junk pk. The same refusals as the add.
+         */
+        post: operations["api_lists_list_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/{slug}/{pk}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List Delete
+         * @description Delete entry `pk`. An entry still in use is refused (ok false, the in-use text, the entry stays).
+         */
+        post: operations["api_lists_list_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/logs/employee": {
         parameters: {
             query?: never;
@@ -2901,6 +3040,178 @@ export interface components {
             row_class: string;
             /** Taken */
             taken: string;
+        };
+        /** ListChoiceOut */
+        ListChoiceOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** ListColumnOut */
+        ListColumnOut: {
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+        };
+        /** ListFieldOut */
+        ListFieldOut: {
+            /** Choices */
+            choices: components["schemas"]["ListChoiceOut"][];
+            /** Errors */
+            errors: string[];
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Max Length */
+            max_length: number | null;
+            /** Name */
+            name: string;
+            /** Required */
+            required: boolean;
+            /** Value */
+            value: string;
+        };
+        /** ListFormOut */
+        ListFormOut: {
+            /** Can Delete */
+            can_delete: boolean;
+            /** Fields */
+            fields: components["schemas"]["ListFieldOut"][];
+            /** Title */
+            title: string;
+        };
+        /** ListIndexItemOut */
+        ListIndexItemOut: {
+            /** Count */
+            count: number;
+            /** Hits */
+            hits: number;
+            /** Label */
+            label: string;
+            /** Slug */
+            slug: string;
+        };
+        /** ListIndexOut */
+        ListIndexOut: {
+            /** Items */
+            items: components["schemas"]["ListIndexItemOut"][];
+            /** Meanings Count */
+            meanings_count: number;
+            /** Q */
+            q: string;
+            /** Show Meanings */
+            show_meanings: boolean;
+        };
+        /** ListMeaningOptionOut */
+        ListMeaningOptionOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+        };
+        /** ListMeaningOut */
+        ListMeaningOut: {
+            /** Rows */
+            rows: components["schemas"]["ListMeaningRowOut"][];
+        };
+        /** ListMeaningRowOut */
+        ListMeaningRowOut: {
+            /** Current */
+            current: number | null;
+            /** Hint */
+            hint: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Options */
+            options: components["schemas"]["ListMeaningOptionOut"][];
+        };
+        /** ListOkOut */
+        ListOkOut: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** ListPageOut */
+        ListPageOut: {
+            /** Columns */
+            columns: components["schemas"]["ListColumnOut"][];
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: components["schemas"]["ListRowOut"][];
+            /** Slug */
+            slug: string;
+        };
+        /** ListQuickErrorOut */
+        ListQuickErrorOut: {
+            /** Error */
+            error: string;
+            /**
+             * Field Errors
+             * @default {}
+             */
+            field_errors: {
+                [key: string]: string[];
+            };
+        };
+        /** ListQuickIn */
+        ListQuickIn: {
+            /** Name */
+            name?: string | null;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /** ListQuickOut */
+        ListQuickOut: {
+            /** Existed */
+            existed: boolean;
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+        };
+        /** ListRowOut */
+        ListRowOut: {
+            /** Cells */
+            cells: string[];
+            /** Id */
+            id: number;
+        };
+        /** ListSaveOut */
+        ListSaveOut: {
+            /**
+             * Field Errors
+             * @default {}
+             */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /**
+             * Form Errors
+             * @default []
+             */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
+        };
+        /** ListValuesIn */
+        ListValuesIn: {
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
         };
         /** LogChangeOut */
         LogChangeOut: {
@@ -5588,6 +5899,229 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmployeeWorkOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_index: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListIndexOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_meaning: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMeaningOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_meaning_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListValuesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOkOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_rows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListPageOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListValuesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSaveOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_form: {
+        parameters: {
+            query?: {
+                pk?: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListFormOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_quick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListQuickIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListQuickOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListQuickErrorOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListValuesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSaveOut"];
+                };
+            };
+        };
+    };
+    api_lists_list_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSaveOut"];
                 };
             };
         };

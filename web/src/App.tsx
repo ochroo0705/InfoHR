@@ -13,6 +13,9 @@ import { OrdersPage } from "./screens/orders/OrdersPage";
 import { OrdersPrintPage } from "./screens/orders/OrdersPrintPage";
 import { HirePage } from "./screens/hire/HirePage";
 import { SlotsPage } from "./screens/slots/SlotsPage";
+import { ListsIndexPage } from "./screens/lists/ListsIndexPage";
+import { ListPage } from "./screens/lists/ListPage";
+import { MeaningPage } from "./screens/lists/MeaningPage";
 import { SelfFormListPage } from "./screens/selfforms/SelfFormListPage";
 import { SelfFormShowPage } from "./screens/selfforms/SelfFormShowPage";
 import { EmployeeLogPage } from "./screens/logs/EmployeeLogPage";
@@ -64,6 +67,9 @@ export default function App() {
           <Route path="/employees/:pk/" element={<EmployeePage />} />
           <Route path="/logs/" element={<EmployeeLogPage />} />
           <Route path="/logs/system/" element={<SystemLogPage />} />
+          <Route path="/lists/" element={<ListsIndexPage />} />
+          <Route path="/lists/meaning/" element={<MeaningPage />} />
+          <Route path="/lists/:slug/" element={<ListPage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />
         </Route>

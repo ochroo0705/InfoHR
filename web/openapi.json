@@ -3433,6 +3433,451 @@
         "title": "LeavePeriodOut",
         "type": "object"
       },
+      "ListChoiceOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ListChoiceOut",
+        "type": "object"
+      },
+      "ListColumnOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "ListColumnOut",
+        "type": "object"
+      },
+      "ListFieldOut": {
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/ListChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Length"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "kind",
+          "required",
+          "max_length",
+          "value",
+          "choices",
+          "errors"
+        ],
+        "title": "ListFieldOut",
+        "type": "object"
+      },
+      "ListFormOut": {
+        "properties": {
+          "can_delete": {
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/ListFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "fields",
+          "can_delete"
+        ],
+        "title": "ListFormOut",
+        "type": "object"
+      },
+      "ListIndexItemOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "hits": {
+            "title": "Hits",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "label",
+          "count",
+          "hits"
+        ],
+        "title": "ListIndexItemOut",
+        "type": "object"
+      },
+      "ListIndexOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ListIndexItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "meanings_count": {
+            "title": "Meanings Count",
+            "type": "integer"
+          },
+          "q": {
+            "title": "Q",
+            "type": "string"
+          },
+          "show_meanings": {
+            "title": "Show Meanings",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "show_meanings",
+          "meanings_count",
+          "q"
+        ],
+        "title": "ListIndexOut",
+        "type": "object"
+      },
+      "ListMeaningOptionOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ListMeaningOptionOut",
+        "type": "object"
+      },
+      "ListMeaningOut": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ListMeaningRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "ListMeaningOut",
+        "type": "object"
+      },
+      "ListMeaningRowOut": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ListMeaningOptionOut"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "hint",
+          "current",
+          "options"
+        ],
+        "title": "ListMeaningRowOut",
+        "type": "object"
+      },
+      "ListOkOut": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "ListOkOut",
+        "type": "object"
+      },
+      "ListPageOut": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ListColumnOut"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ListRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "label",
+          "columns",
+          "rows"
+        ],
+        "title": "ListPageOut",
+        "type": "object"
+      },
+      "ListQuickErrorOut": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "default": {},
+            "title": "Field Errors",
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ListQuickErrorOut",
+        "type": "object"
+      },
+      "ListQuickIn": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "ListQuickIn",
+        "type": "object"
+      },
+      "ListQuickOut": {
+        "properties": {
+          "existed": {
+            "title": "Existed",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "existed"
+        ],
+        "title": "ListQuickOut",
+        "type": "object"
+      },
+      "ListRowOut": {
+        "properties": {
+          "cells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "cells"
+        ],
+        "title": "ListRowOut",
+        "type": "object"
+      },
+      "ListSaveOut": {
+        "properties": {
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "default": {},
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "ListSaveOut",
+        "type": "object"
+      },
+      "ListValuesIn": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "ListValuesIn",
+        "type": "object"
+      },
       "LogChangeOut": {
         "properties": {
           "field": {
@@ -10018,6 +10463,400 @@
         "summary": "Employee Work",
         "tags": [
           "employees"
+        ]
+      }
+    },
+    "/api/v1/lists": {
+      "get": {
+        "operationId": "api_lists_list_index",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListIndexOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Index",
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/meaning": {
+      "get": {
+        "operationId": "api_lists_list_meaning",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMeaningOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Meaning",
+        "tags": [
+          "lists"
+        ]
+      },
+      "post": {
+        "description": "Set each meaning to the chosen entry; an empty choice deletes it, a junk or unknown pk changes nothing.",
+        "operationId": "api_lists_list_meaning_save",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListValuesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOkOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Meaning Save",
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{slug}": {
+      "get": {
+        "operationId": "api_lists_list_rows",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPageOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Rows",
+        "tags": [
+          "lists"
+        ]
+      },
+      "post": {
+        "description": "Add an entry to a list. Refused (ok false, status 200, nothing written) when the form is invalid.",
+        "operationId": "api_lists_list_add",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListValuesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSaveOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Add",
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{slug}/form": {
+      "get": {
+        "description": "The add pop-up with no pk, the edit pop-up with one. The rights are checked before the entry is looked up.",
+        "operationId": "api_lists_list_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pk",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Pk",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Form",
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{slug}/quick": {
+      "post": {
+        "description": "Pick the entry with the same name, or create it, for a form dropdown. A form error answers 400.",
+        "operationId": "api_lists_list_quick",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListQuickIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListQuickOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListQuickErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Quick",
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{slug}/{pk}": {
+      "post": {
+        "description": "Change entry `pk`; 404 for an unknown or junk pk. The same refusals as the add.",
+        "operationId": "api_lists_list_edit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListValuesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSaveOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Edit",
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{slug}/{pk}/delete": {
+      "post": {
+        "description": "Delete entry `pk`. An entry still in use is refused (ok false, the in-use text, the entry stays).",
+        "operationId": "api_lists_list_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSaveOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "List Delete",
+        "tags": [
+          "lists"
         ]
       }
     },

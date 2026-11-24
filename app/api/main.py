@@ -12,6 +12,7 @@ from api.employee_writes import employee_write_router
 from api.errors import ApiError
 from api.events import events_router
 from api.hire import hire_router, selfform_router
+from api.lists import list_router
 from api.logs import log_router
 from api.me import checklists_router, me_router
 from api.meta import meta_router
@@ -100,6 +101,7 @@ api.add_router("/orders", order_register_router)
 api.add_router("/logs", log_router)
 api.add_router("/company", company_router)
 api.add_router("/slots", slot_router)
+api.add_router("/lists", list_router)
 api.add_router("/palette", palette_router)
 
 if "welcome" in settings.INSTALLED_APPS:
