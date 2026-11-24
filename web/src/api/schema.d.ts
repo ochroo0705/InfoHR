@@ -1111,6 +1111,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leave/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Balances
+         * @description One batch of the balances page: the visible, still-working people in name order, with their current period.
+         */
+        get: operations["api_leave_pages_leave_balances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Calendar
+         * @description One month of the team calendar. Junk or an out-of-range month is the current month; junk department is none.
+         */
+        get: operations["api_leave_pages_leave_calendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leave/check": {
         parameters: {
             query?: never;
@@ -1126,6 +1166,86 @@ export interface paths {
          *     valid false with empty lists; a leave_id the user may not see is ignored (check_for).
          */
         post: operations["api_leave_leave_check_form"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Holidays
+         * @description The holidays of one year. Junk or an out-of-range year is this year.
+         */
+        get: operations["api_leave_setup_leave_holidays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/holidays/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Holiday Add
+         * @description Set one date's holiday name. The refusal text of the Django page comes back in `error`.
+         */
+        post: operations["api_leave_setup_leave_holiday_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/holidays/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Holiday Delete
+         * @description Remove one date from the holidays. A bad date or a day not listed changes nothing and is still ok.
+         */
+        post: operations["api_leave_setup_leave_holiday_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/holidays/prefill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Holiday Prefill
+         * @description Add the fixed-date holidays that are still missing from the year.
+         */
+        post: operations["api_leave_setup_leave_holiday_prefill"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1272,6 +1392,130 @@ export interface paths {
          * @description Reject the request at the current step. The reason is required; no leave is written.
          */
         post: operations["api_leave_requests_leave_request_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Settings Read
+         * @description The leave types, the approval steps with their choices, and the auto-grant switch.
+         */
+        get: operations["api_leave_setup_leave_settings_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/settings/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Approval Save
+         * @description Save the two approval steps. An unknown choice is refused under its field; step 2 is empty when step 1 is.
+         */
+        post: operations["api_leave_setup_leave_approval_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/settings/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Auto Save
+         * @description Switch the automatic annual grant on or off.
+         */
+        post: operations["api_leave_setup_leave_auto_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/settings/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Type Create
+         * @description Add a leave type. The same form and service as the Django add pop-up.
+         */
+        post: operations["api_leave_setup_leave_type_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/settings/types/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Type Read
+         * @description One leave type as the pop-up loads it. 404 for an unknown id.
+         */
+        get: operations["api_leave_setup_leave_type_read"];
+        put?: never;
+        /**
+         * Leave Type Update
+         * @description Change a leave type's name and settings. 404 for an unknown id.
+         */
+        post: operations["api_leave_setup_leave_type_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/settings/types/{pk}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Type Delete
+         * @description Remove a leave type no leave or entitlement uses; a type in use is kept and the reason comes back in `error`.
+         */
+        post: operations["api_leave_setup_leave_type_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3322,12 +3566,125 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** LeaveApprovalIn */
+        LeaveApprovalIn: {
+            /** Step1 */
+            step1: string;
+            /** Step2 */
+            step2: string;
+        };
+        /** LeaveApprovalOut */
+        LeaveApprovalOut: {
+            /** Step1 */
+            step1: string;
+            /** Step2 */
+            step2: string;
+        };
         /** LeaveAssistedOut */
         LeaveAssistedOut: {
             /** Filled Line */
             filled_line: string;
             /** Person Line */
             person_line: string;
+        };
+        /** LeaveAutoIn */
+        LeaveAutoIn: {
+            /** Auto Annual Grant */
+            auto_annual_grant: boolean;
+        };
+        /** LeaveBalanceListOut */
+        LeaveBalanceListOut: {
+            /** Can Settings */
+            can_settings: boolean;
+            /** Empty Text */
+            empty_text: string;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Not Configured */
+            not_configured: string;
+            /** Rows */
+            rows: components["schemas"]["LeaveBalanceRowOut"][];
+            /** Today */
+            today: string;
+        };
+        /** LeaveBalancePeriodOut */
+        LeaveBalancePeriodOut: {
+            /** End */
+            end: string;
+            /** Granted */
+            granted: number;
+            /** Left */
+            left: number;
+            /** Start */
+            start: string;
+            /** Taken */
+            taken: number;
+        };
+        /** LeaveBalanceRowOut */
+        LeaveBalanceRowOut: {
+            /** Employee Id */
+            employee_id: number;
+            /** Employee Name */
+            employee_name: string;
+            period: components["schemas"]["LeaveBalancePeriodOut"] | null;
+            /** Waiting */
+            waiting: string | null;
+        };
+        /** LeaveCalendarCellOut */
+        LeaveCalendarCellOut: {
+            /** Kind */
+            kind: string;
+            /** Leave Type Id */
+            leave_type_id: number | null;
+            /** Title */
+            title: string;
+        };
+        /** LeaveCalendarDayOut */
+        LeaveCalendarDayOut: {
+            /** Date */
+            date: string;
+            /** Day */
+            day: number;
+            /** Holiday */
+            holiday: boolean;
+            /** Off */
+            off: boolean;
+            /** Today */
+            today: boolean;
+        };
+        /** LeaveCalendarLineOut */
+        LeaveCalendarLineOut: {
+            /** Cells */
+            cells: components["schemas"]["LeaveCalendarCellOut"][];
+            /** Employee Id */
+            employee_id: number;
+            /** Employee Name */
+            employee_name: string;
+        };
+        /** LeaveCalendarOut */
+        LeaveCalendarOut: {
+            /** Can Settings */
+            can_settings: boolean;
+            /** Days */
+            days: components["schemas"]["LeaveCalendarDayOut"][];
+            /** Department */
+            department: number | null;
+            /** Departments */
+            departments: components["schemas"]["LeaveChoiceOut"][];
+            /** Lines */
+            lines: components["schemas"]["LeaveCalendarLineOut"][];
+            /** Month */
+            month: string;
+            /** Next */
+            next: string;
+            /** Not Configured */
+            not_configured: string;
+            /** Prev */
+            prev: string;
+            /** This Month */
+            this_month: string;
+            /** Title */
+            title: string;
         };
         /** LeaveCancelIn */
         LeaveCancelIn: {
@@ -3459,6 +3816,45 @@ export interface components {
             label: string;
             /** Old Chip */
             old_chip: boolean;
+        };
+        /** LeaveHolidayAddIn */
+        LeaveHolidayAddIn: {
+            /** Date */
+            date: string;
+            /** Name */
+            name: string;
+            /** Year */
+            year?: number | string | null;
+        };
+        /** LeaveHolidayDeleteIn */
+        LeaveHolidayDeleteIn: {
+            /** Date */
+            date: string;
+            /** Year */
+            year?: number | string | null;
+        };
+        /** LeaveHolidayOut */
+        LeaveHolidayOut: {
+            /** Date */
+            date: string;
+            /** Name */
+            name: string;
+        };
+        /** LeaveHolidayPrefillIn */
+        LeaveHolidayPrefillIn: {
+            /** Year */
+            year?: number | string | null;
+        };
+        /** LeaveHolidaysOut */
+        LeaveHolidaysOut: {
+            /** Empty Text */
+            empty_text: string;
+            /** Fixed Count */
+            fixed_count: number;
+            /** Holidays */
+            holidays: components["schemas"]["LeaveHolidayOut"][];
+            /** Year */
+            year: number;
         };
         /** LeaveLineOut */
         LeaveLineOut: {
@@ -3781,6 +4177,57 @@ export interface components {
             state: string;
             /** State Chip */
             state_chip: boolean;
+        };
+        /** LeaveSettingsOut */
+        LeaveSettingsOut: {
+            approval: components["schemas"]["LeaveApprovalOut"];
+            /** Auto Annual Grant */
+            auto_annual_grant: boolean;
+            /** Step1 Choices */
+            step1_choices: components["schemas"]["LeaveStringChoiceOut"][];
+            /** Step2 Choices */
+            step2_choices: components["schemas"]["LeaveStringChoiceOut"][];
+            /** Types */
+            types: components["schemas"]["LeaveTypeOut"][];
+        };
+        /** LeaveStringChoiceOut */
+        LeaveStringChoiceOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** LeaveTypeIn */
+        LeaveTypeIn: {
+            /** Is Active */
+            is_active: boolean;
+            /** Is Paid */
+            is_paid: boolean;
+            /** Name */
+            name: string;
+            /** Order */
+            order: number;
+            /** Staff May Request */
+            staff_may_request: boolean;
+            /** Uses Annual Balance */
+            uses_annual_balance: boolean;
+        };
+        /** LeaveTypeOut */
+        LeaveTypeOut: {
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Is Paid */
+            is_paid: boolean;
+            /** Name */
+            name: string;
+            /** Order */
+            order: number;
+            /** Staff May Request */
+            staff_may_request: boolean;
+            /** Uses Annual Balance */
+            uses_annual_balance: boolean;
         };
         /** LeaveUpdateIn */
         LeaveUpdateIn: {
@@ -6845,6 +7292,51 @@ export interface operations {
             };
         };
     };
+    api_leave_pages_leave_balances: {
+        parameters: {
+            query?: {
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveBalanceListOut"];
+                };
+            };
+        };
+    };
+    api_leave_pages_leave_calendar: {
+        parameters: {
+            query?: {
+                month?: string | null;
+                department?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveCalendarOut"];
+                };
+            };
+        };
+    };
     api_leave_leave_check_form: {
         parameters: {
             query?: never;
@@ -6865,6 +7357,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeaveCheckOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_holidays: {
+        parameters: {
+            query?: {
+                year?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveHolidaysOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_holiday_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveHolidayAddIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_holiday_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveHolidayDeleteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_holiday_prefill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveHolidayPrefillIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
                 };
             };
         };
@@ -7049,6 +7635,168 @@ export interface operations {
                 "application/json": components["schemas"]["LeaveRequestRejectIn"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_settings_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveSettingsOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_approval_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveApprovalIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_auto_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveAutoIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_type_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveTypeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_type_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveTypeOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_type_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveTypeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_setup_leave_type_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

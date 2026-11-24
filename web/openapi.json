@@ -3333,6 +3333,42 @@
         "title": "LatestActivityOut",
         "type": "object"
       },
+      "LeaveApprovalIn": {
+        "properties": {
+          "step1": {
+            "title": "Step1",
+            "type": "string"
+          },
+          "step2": {
+            "title": "Step2",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step1",
+          "step2"
+        ],
+        "title": "LeaveApprovalIn",
+        "type": "object"
+      },
+      "LeaveApprovalOut": {
+        "properties": {
+          "step1": {
+            "title": "Step1",
+            "type": "string"
+          },
+          "step2": {
+            "title": "Step2",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step1",
+          "step2"
+        ],
+        "title": "LeaveApprovalOut",
+        "type": "object"
+      },
       "LeaveAssistedOut": {
         "properties": {
           "filled_line": {
@@ -3349,6 +3385,309 @@
           "filled_line"
         ],
         "title": "LeaveAssistedOut",
+        "type": "object"
+      },
+      "LeaveAutoIn": {
+        "properties": {
+          "auto_annual_grant": {
+            "title": "Auto Annual Grant",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_annual_grant"
+        ],
+        "title": "LeaveAutoIn",
+        "type": "object"
+      },
+      "LeaveBalanceListOut": {
+        "properties": {
+          "can_settings": {
+            "title": "Can Settings",
+            "type": "boolean"
+          },
+          "empty_text": {
+            "title": "Empty Text",
+            "type": "string"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "not_configured": {
+            "title": "Not Configured",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveBalanceRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "today": {
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "today",
+          "rows",
+          "next_offset",
+          "not_configured",
+          "can_settings",
+          "empty_text"
+        ],
+        "title": "LeaveBalanceListOut",
+        "type": "object"
+      },
+      "LeaveBalancePeriodOut": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "granted": {
+            "title": "Granted",
+            "type": "integer"
+          },
+          "left": {
+            "title": "Left",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "taken": {
+            "title": "Taken",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "granted",
+          "taken",
+          "left"
+        ],
+        "title": "LeaveBalancePeriodOut",
+        "type": "object"
+      },
+      "LeaveBalanceRowOut": {
+        "properties": {
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "integer"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaveBalancePeriodOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting"
+          }
+        },
+        "required": [
+          "employee_id",
+          "employee_name",
+          "waiting",
+          "period"
+        ],
+        "title": "LeaveBalanceRowOut",
+        "type": "object"
+      },
+      "LeaveCalendarCellOut": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "leave_type_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "leave_type_id",
+          "title"
+        ],
+        "title": "LeaveCalendarCellOut",
+        "type": "object"
+      },
+      "LeaveCalendarDayOut": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "holiday": {
+            "title": "Holiday",
+            "type": "boolean"
+          },
+          "off": {
+            "title": "Off",
+            "type": "boolean"
+          },
+          "today": {
+            "title": "Today",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "day",
+          "off",
+          "holiday",
+          "today"
+        ],
+        "title": "LeaveCalendarDayOut",
+        "type": "object"
+      },
+      "LeaveCalendarLineOut": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveCalendarCellOut"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "integer"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_id",
+          "employee_name",
+          "cells"
+        ],
+        "title": "LeaveCalendarLineOut",
+        "type": "object"
+      },
+      "LeaveCalendarOut": {
+        "properties": {
+          "can_settings": {
+            "title": "Can Settings",
+            "type": "boolean"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveCalendarDayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "departments": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveChoiceOut"
+            },
+            "title": "Departments",
+            "type": "array"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveCalendarLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "next": {
+            "title": "Next",
+            "type": "string"
+          },
+          "not_configured": {
+            "title": "Not Configured",
+            "type": "string"
+          },
+          "prev": {
+            "title": "Prev",
+            "type": "string"
+          },
+          "this_month": {
+            "title": "This Month",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "title",
+          "days",
+          "lines",
+          "prev",
+          "next",
+          "this_month",
+          "departments",
+          "department",
+          "not_configured",
+          "can_settings"
+        ],
+        "title": "LeaveCalendarOut",
         "type": "object"
       },
       "LeaveCancelIn": {
@@ -3729,6 +4068,134 @@
           "old_chip"
         ],
         "title": "LeaveGrantOut",
+        "type": "object"
+      },
+      "LeaveHolidayAddIn": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "date",
+          "name"
+        ],
+        "title": "LeaveHolidayAddIn",
+        "type": "object"
+      },
+      "LeaveHolidayDeleteIn": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "LeaveHolidayDeleteIn",
+        "type": "object"
+      },
+      "LeaveHolidayOut": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "name"
+        ],
+        "title": "LeaveHolidayOut",
+        "type": "object"
+      },
+      "LeaveHolidayPrefillIn": {
+        "properties": {
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "title": "LeaveHolidayPrefillIn",
+        "type": "object"
+      },
+      "LeaveHolidaysOut": {
+        "properties": {
+          "empty_text": {
+            "title": "Empty Text",
+            "type": "string"
+          },
+          "fixed_count": {
+            "title": "Fixed Count",
+            "type": "integer"
+          },
+          "holidays": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveHolidayOut"
+            },
+            "title": "Holidays",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "holidays",
+          "fixed_count",
+          "empty_text"
+        ],
+        "title": "LeaveHolidaysOut",
         "type": "object"
       },
       "LeaveLineOut": {
@@ -4704,6 +5171,146 @@
           "cancel_label"
         ],
         "title": "LeaveRowOut",
+        "type": "object"
+      },
+      "LeaveSettingsOut": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/LeaveApprovalOut"
+          },
+          "auto_annual_grant": {
+            "title": "Auto Annual Grant",
+            "type": "boolean"
+          },
+          "step1_choices": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveStringChoiceOut"
+            },
+            "title": "Step1 Choices",
+            "type": "array"
+          },
+          "step2_choices": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveStringChoiceOut"
+            },
+            "title": "Step2 Choices",
+            "type": "array"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveTypeOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "types",
+          "auto_annual_grant",
+          "approval",
+          "step1_choices",
+          "step2_choices"
+        ],
+        "title": "LeaveSettingsOut",
+        "type": "object"
+      },
+      "LeaveStringChoiceOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "LeaveStringChoiceOut",
+        "type": "object"
+      },
+      "LeaveTypeIn": {
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_paid": {
+            "title": "Is Paid",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "staff_may_request": {
+            "title": "Staff May Request",
+            "type": "boolean"
+          },
+          "uses_annual_balance": {
+            "title": "Uses Annual Balance",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "is_paid",
+          "uses_annual_balance",
+          "is_active",
+          "order",
+          "staff_may_request"
+        ],
+        "title": "LeaveTypeIn",
+        "type": "object"
+      },
+      "LeaveTypeOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_paid": {
+            "title": "Is Paid",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "staff_may_request": {
+            "title": "Staff May Request",
+            "type": "boolean"
+          },
+          "uses_annual_balance": {
+            "title": "Uses Annual Balance",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_paid",
+          "uses_annual_balance",
+          "is_active",
+          "order",
+          "staff_may_request"
+        ],
+        "title": "LeaveTypeOut",
         "type": "object"
       },
       "LeaveUpdateIn": {
@@ -12246,6 +12853,106 @@
         ]
       }
     },
+    "/api/v1/leave/balances": {
+      "get": {
+        "description": "One batch of the balances page: the visible, still-working people in name order, with their current period.",
+        "operationId": "api_leave_pages_leave_balances",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveBalanceListOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Balances",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/calendar": {
+      "get": {
+        "description": "One month of the team calendar. Junk or an out-of-range month is the current month; junk department is none.",
+        "operationId": "api_leave_pages_leave_calendar",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          },
+          {
+            "in": "query",
+            "name": "department",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Department"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveCalendarOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Calendar",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
     "/api/v1/leave/check": {
       "post": {
         "description": "The live check of the form as posted: working days, the period and the balance after. An invalid form answers\nvalid false with empty lists; a leave_id the user may not see is ignored (check_for).",
@@ -12279,6 +12986,165 @@
           }
         ],
         "summary": "Leave Check Form",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/holidays": {
+      "get": {
+        "description": "The holidays of one year. Junk or an out-of-range year is this year.",
+        "operationId": "api_leave_setup_leave_holidays",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveHolidaysOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Holidays",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/holidays/add": {
+      "post": {
+        "description": "Set one date's holiday name. The refusal text of the Django page comes back in `error`.",
+        "operationId": "api_leave_setup_leave_holiday_add",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveHolidayAddIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Holiday Add",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/holidays/delete": {
+      "post": {
+        "description": "Remove one date from the holidays. A bad date or a day not listed changes nothing and is still ok.",
+        "operationId": "api_leave_setup_leave_holiday_delete",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveHolidayDeleteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Holiday Delete",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/holidays/prefill": {
+      "post": {
+        "description": "Add the fixed-date holidays that are still missing from the year.",
+        "operationId": "api_leave_setup_leave_holiday_prefill",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveHolidayPrefillIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Holiday Prefill",
         "tags": [
           "leave"
         ]
@@ -12695,6 +13561,270 @@
           }
         ],
         "summary": "Leave Request Reject",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/settings": {
+      "get": {
+        "description": "The leave types, the approval steps with their choices, and the auto-grant switch.",
+        "operationId": "api_leave_setup_leave_settings_read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveSettingsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Settings Read",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/settings/approval": {
+      "post": {
+        "description": "Save the two approval steps. An unknown choice is refused under its field; step 2 is empty when step 1 is.",
+        "operationId": "api_leave_setup_leave_approval_save",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveApprovalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Approval Save",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/settings/auto": {
+      "post": {
+        "description": "Switch the automatic annual grant on or off.",
+        "operationId": "api_leave_setup_leave_auto_save",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveAutoIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Auto Save",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/settings/types": {
+      "post": {
+        "description": "Add a leave type. The same form and service as the Django add pop-up.",
+        "operationId": "api_leave_setup_leave_type_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveTypeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Type Create",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/settings/types/{pk}": {
+      "get": {
+        "description": "One leave type as the pop-up loads it. 404 for an unknown id.",
+        "operationId": "api_leave_setup_leave_type_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveTypeOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Type Read",
+        "tags": [
+          "leave"
+        ]
+      },
+      "post": {
+        "description": "Change a leave type's name and settings. 404 for an unknown id.",
+        "operationId": "api_leave_setup_leave_type_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveTypeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Type Update",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/settings/types/{pk}/delete": {
+      "post": {
+        "description": "Remove a leave type no leave or entitlement uses; a type in use is kept and the reason comes back in `error`.",
+        "operationId": "api_leave_setup_leave_type_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Type Delete",
         "tags": [
           "leave"
         ]

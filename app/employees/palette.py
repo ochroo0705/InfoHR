@@ -272,7 +272,8 @@ def actions(user: User, q: str) -> list[Action]:
 def _typed_months(q: str) -> list[str]:
     """The months the typed words name: a date YYYY-MM-DD or a month YYYY-MM, as YYYY-MM, each once, in the order
     typed. A word that is not a real date or month, or whose year is outside the calendar's range, names nothing."""
-    from leave.views import MAX_YEAR, MIN_YEAR  # local import: the leave screens import employees (import cycle)
+    # Local import: the leave screens import employees (import cycle).
+    from leave.services.calendar_page import MAX_YEAR, MIN_YEAR
 
     months: list[str] = []
     for word in q[:QUERY_LIMIT].split():

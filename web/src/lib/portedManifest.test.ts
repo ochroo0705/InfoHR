@@ -37,8 +37,19 @@ describe("portedManifest", () => {
     expect(isPorted("/leave/?status=all")).toBe(true);
     expect(isPorted("/leave/new/")).toBe(false);
     expect(isPorted("/leave/1/edit/")).toBe(false);
-    expect(isPorted("/leave/calendar/")).toBe(false);
-    expect(isPorted("/leave/balances/")).toBe(false);
+  });
+
+  it("serves the leave balances, calendar, holidays and settings pages, with or without a query", () => {
+    for (const path of ["/leave/balances/", "/leave/calendar/", "/leave/holidays/", "/leave/settings/"]) {
+      expect(isPorted(path)).toBe(true);
+      expect(isPorted(`${path}?year=2026`)).toBe(true);
+    }
+  });
+
+  it("does not serve the leave settings type pop-ups, which stay Django-only", () => {
+    expect(isPorted("/leave/settings/type/")).toBe(false);
+    expect(isPorted("/leave/settings/type/5/")).toBe(false);
+    expect(isPorted("/leave/settings/type/5/delete/")).toBe(false);
   });
 
   it("serves the leave requests list from the React app, with or without its filters, but not the request sub-pages", () => {

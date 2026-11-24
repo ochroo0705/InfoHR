@@ -37,7 +37,7 @@ export type LeaveOptionsParams = {
 };
 
 // Keeps only the values that were given (undefined or ""), so an empty filter is not sent at all.
-function present(values: Record<string, string | undefined>): Record<string, string> {
+export function present(values: Record<string, string | undefined>): Record<string, string> {
   const query: Record<string, string> = {};
   for (const [name, value] of Object.entries(values)) {
     if (value !== undefined && value !== "") query[name] = value;

@@ -14,7 +14,9 @@ from api.errors import ApiError
 from api.events import events_router
 from api.hire import hire_router, selfform_router
 from api.leave import leave_router
+from api.leave_pages import leave_pages_router
 from api.leave_requests import leave_requests_router
+from api.leave_setup import leave_setup_router
 from api.lists import list_router
 from api.logs import log_router
 from api.me import checklists_router, me_router
@@ -105,6 +107,8 @@ api.add_router("/logs", log_router)
 api.add_router("/company", company_router)
 api.add_router("/slots", slot_router)
 api.add_router("/leave/requests", leave_requests_router)  # before /leave: "requests" must not be read as a leave id
+api.add_router("/leave", leave_pages_router)  # before /leave: "balances" and "calendar" must not be read as a leave id
+api.add_router("/leave", leave_setup_router)  # before /leave: "holidays" and "settings" must not be read as a leave id
 api.add_router("/leave", leave_router)
 api.add_router("/lists", list_router)
 api.add_router("/palette", palette_router)

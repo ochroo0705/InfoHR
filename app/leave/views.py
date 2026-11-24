@@ -1,13 +1,10 @@
-import calendar as pycal
-from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 from accounts.models import User
 from config import batching
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,8 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from employees import access as employee_access
-from employees import listing
-from employees.models import Department, Employee, JobStatus
+from employees.models import Department, Employee
 from employees.services.macs_writes import ListEntryInUse
 from macs.models import LeaveTypeRow
 
@@ -26,11 +22,16 @@ from leave.forms import (
     CancelForm,
     LeaveForm,
     LeaveTypeForm,
-    encode_step,
     loaded_from_post,
 )
-from leave.models import LeaveSettings, LeaveTypeExt, type_ext
-from leave.services import calendar, entitlement, ledger, records, rows, writes
+from leave.models import LeaveSettings
+from leave.services import records, writes
+from leave.services.balance_page import balance_batch
+from leave.services.calendar_page import (
+    build_calendar,
+    parse_department,
+    parse_month,
+)
 from leave.services.form_page import (
     add_initial,
     assisted_lines,
@@ -40,8 +41,16 @@ from leave.services.form_page import (
     own_leave,
     visible_pk,
 )
+from leave.services.holiday_page import apply_holiday_action, holiday_page, parse_year
 from leave.services.list_page import banners, list_batch, not_configured_text, parse_filter, parse_id
-from leave.services.rows import LeaveRow
+from leave.services.settings_page import (
+    approval_initial,
+    ext_values,
+    save_approval,
+    save_auto_grant,
+    type_initial,
+    type_rows,
+)
 
 
 def today() -> date:
@@ -217,23 +226,10 @@ def balances(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_view(user))
     t = today()
-    people = listing.still_working(employee_access.visible_employees(user), t).order_by(
-        "family_name", "given_name", "pk"
-    )
 
     def fetch(offset: int, size: int) -> tuple[list[Any], bool]:
-        # The database picks the batch; grants and leaves are then read once for its people, not once per person.
-        chunk = list(people[offset : offset + size + 1])
-        staying = chunk[:size]
-        periods = ledger.periods_many(staying, t)
-        eligible_from = entitlement.eligible_froms(staying)  # the right to take leave starts after the waiting months
-        lines = []
-        for e in staying:
-            found, _ = periods[e.pk]
-            eligible = eligible_from[e.pk]
-            waiting = eligible if eligible is not None and t < eligible else None
-            lines.append((e, next((p for p in found if p.current), None), waiting))
-        return lines, len(chunk) > size
+        lines, more = balance_batch(user, offset, size, t)
+        return [(line.employee, line.period, line.waiting) for line in lines], more
 
     batch = batching.paged(request, fetch)
     context = {
@@ -247,87 +243,23 @@ def balances(request: HttpRequest) -> HttpResponse:
     return render(request, template, context)
 
 
-@dataclass
-class Cell:
-    day: date
-    off: bool
-    leave: LeaveRow | None
-    color: str = ""
-    long_leave: bool = False  # on «Урт чөлөөтэй» (job status), with no counted leave that day and a working day
-
-
-MIN_YEAR, MAX_YEAR = 1900, 2100
-
-
-def _month(value: str | None, fallback: date) -> date:
-    try:
-        y, m = (int(x) for x in (value or "").split("-"))
-        if not MIN_YEAR <= y <= MAX_YEAR:
-            raise ValueError
-        return date(y, m, 1)
-    except ValueError:
-        return fallback.replace(day=1)
-
-
-def _color(lv: LeaveRow) -> str:
-    """Annual leave is violet; every other counted leave is amber (one colour per kind the screen can tell apart)."""
-    return "bg-violet-200" if lv.type_ext.uses_annual_balance else "bg-amber-200"
-
-
-# Long leave (maternity and the like) is sky, the same colour as the «Урт чөлөөтэй» state chip (employees/_state.html).
-LONG_LEAVE_COLOR = "bg-sky-200"
-
-
 @login_required
 def team_calendar(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_view(user))
-    first = _month(request.GET.get("month"), today())
-    last = first.replace(day=pycal.monthrange(first.year, first.month)[1])
-    days = [first.replace(day=n) for n in range(1, last.day + 1)]
-    holidays = calendar.holidays_between(first, last)
-    department = parse_id(request.GET.get("department"))
-    people = list(employee_access.visible_employees(user).prefetch_related("job_records"))
-    counted: dict[int, list[LeaveRow]] = {}
-    for lv in rows.leaves(employee_ids=[e.pk for e in people], start=first, end=last):
-        if lv.counts:
-            counted.setdefault(lv.employee_id, []).append(lv)
-    lines = []
-    for e in people:
-        jobs = [listing.prefetched_job_on(e, first), listing.prefetched_job_on(e, last)]
-        if all(j is None or j.status == JobStatus.LEFT for j in jobs):
-            continue
-        if department is not None and not any(j and j.department_id == department for j in jobs):
-            continue
-        mine = counted.get(e.pk, [])
-        cells = []
-        for d in days:
-            hit = next((lv for lv in mine if lv.start <= d <= lv.end), None)
-            off = not calendar.is_working_day(d, holidays)
-            color = _color(hit) if hit and not off else ""
-            # Counted leave wins; long leave shows only on a working day with no counted leave (in memory, no query).
-            long = (
-                not off
-                and hit is None
-                and (job := listing.prefetched_job_on(e, d)) is not None
-                and job.status == JobStatus.LONG_LEAVE
-            )
-            if long:
-                color = LONG_LEAVE_COLOR
-            cells.append(Cell(d, off, hit if not off else None, color, long_leave=long))
-        lines.append((e, cells))
-    prev_m = (first - timedelta(days=1)).strftime("%Y-%m") if first.year > MIN_YEAR else ""
-    next_m = (last + timedelta(days=1)).strftime("%Y-%m") if last.year < MAX_YEAR else ""
+    first = parse_month(request.GET.get("month"), today())
+    department = parse_department(request.GET.get("department"))
+    page = build_calendar(user, first, department)
     return render(
         request,
         "leave/calendar.html",
         {
-            "first": first,
-            "days": days,
-            "lines": lines,
-            "holidays": holidays,
-            "prev": prev_m,
-            "next": next_m,
+            "first": page.first,
+            "days": page.days,
+            "lines": [(line.employee, line.cells) for line in page.lines],
+            "holidays": page.holidays,
+            "prev": page.prev,
+            "next": page.next,
             "this_month": today().strftime("%Y-%m") if first != today().replace(day=1) else "",
             "today": today(),
             "department": department,
@@ -337,88 +269,42 @@ def team_calendar(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _add_holiday(year: int, raw_date: str, raw_name: str) -> str:
-    """Set one date's holiday name. Returns the error text, or "" when saved."""
-    name = raw_name.strip()
-    try:
-        day = date.fromisoformat(raw_date)
-    except ValueError:
-        return "Огноо буруу эсвэл нэр хоосон байна."
-    if not name:
-        return "Огноо буруу эсвэл нэр хоосон байна."
-    if day.year != year:
-        return "Огноо сонгосон жилийнх байх ёстой."
-    if len(name) > 100:
-        return "Нэр 100 тэмдэгтээс урт байж болохгүй."
-    names = calendar.holiday_names(year)
-    names[day] = name
-    writes.set_holiday_dates(year, names)
-    return ""
-
-
-def _delete_holiday(year: int, raw_date: str) -> None:
-    try:
-        day = date.fromisoformat(raw_date)
-    except ValueError:
-        return
-    names = calendar.holiday_names(year)
-    if names.pop(day, None) is not None:
-        writes.set_holiday_dates(year, names)
-
-
 @login_required
 def holidays(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_manage_settings(user))
-    year = parse_id(request.GET.get("year"))
-    if year is None or not MIN_YEAR <= year <= MAX_YEAR:
-        year = today().year
+    year = parse_year(request.GET.get("year"), today().year)
     error = ""
     if request.method == "POST":
-        before = calendar.holiday_names(year)
-        action = request.POST.get("action")
-        if action == "prefill":
-            calendar.prefill_year(year)
-        elif action == "add":
-            error = _add_holiday(year, request.POST.get("date", ""), request.POST.get("name", ""))
-        elif action == "delete":
-            _delete_holiday(year, request.POST.get("date", ""))
-        after = calendar.holiday_names(year)
-        changed = {d for d in before.keys() | after.keys() if before.get(d) != after.get(d)}
-        writes.recount_assigns(changed, user)  # Info HR rows only; old-program rows keep their days
+        error = apply_holiday_action(
+            year,
+            request.POST.get("action", ""),
+            request.POST.get("date", ""),
+            request.POST.get("name", ""),
+            user,
+        )
         if not error:
             return redirect(f"{request.path}?year={year}")
+    page = holiday_page(year)
     return render(
         request,
         "leave/holidays.html",
         {
-            "year": year,
-            "holidays": sorted(calendar.holiday_names(year).items()),
+            "year": page.year,
+            "holidays": page.holidays,
             "error": error,
-            "fixed_count": len(calendar.FIXED_HOLIDAYS),
+            "fixed_count": page.fixed_count,
         },
     )
-
-
-def _type_rows() -> list[tuple[LeaveTypeRow, LeaveTypeExt]]:
-    found = [(row, type_ext(row)) for row in LeaveTypeRow.objects.all()]
-    return sorted(found, key=lambda pair: (pair[1].order, pair[0].name))
-
-
-def _approval_initial(setting: LeaveSettings) -> dict[str, str]:
-    return {
-        "step1": encode_step(setting.approval1_group_id, setting.approval1_manager),
-        "step2": encode_step(setting.approval2_group_id, setting.approval2_manager),
-    }
 
 
 def _settings_page(
     request: HttpRequest, setting: LeaveSettings, approval_form: ApprovalSettingsForm | None = None
 ) -> HttpResponse:
     context = {
-        "types": _type_rows(),
+        "types": type_rows(),
         "auto": setting.auto_annual_grant,
-        "approval_form": approval_form or ApprovalSettingsForm(initial=_approval_initial(setting)),
+        "approval_form": approval_form or ApprovalSettingsForm(initial=approval_initial(setting)),
     }
     return render(request, "leave/settings.html", context)
 
@@ -432,31 +318,12 @@ def leave_settings(request: HttpRequest) -> HttpResponse:
         approval_form = ApprovalSettingsForm(request.POST)
         if not approval_form.is_valid():
             return _settings_page(request, setting, approval_form=approval_form)
-        values = approval_form.settings_values()
-        values["approval_role_removed"] = False  # the admin has now chosen again
-        for field, value in values.items():
-            setattr(setting, field, value)
-        with transaction.atomic():  # the audit line is written after the save, so both must commit together
-            setting.save(update_fields=list(values))
+        save_approval(setting, approval_form.settings_values())
         return redirect("leave:settings")
     if request.method == "POST":
-        setting.auto_annual_grant = request.POST.get("auto_annual_grant", "") in {"on", "1", "true", "True"}
-        with transaction.atomic():  # the audit line is written after the save, so both must commit together
-            setting.save(update_fields=["auto_annual_grant"])
+        save_auto_grant(setting, request.POST.get("auto_annual_grant", "") in {"on", "1", "true", "True"})
         return redirect("leave:settings")
     return _settings_page(request, setting)
-
-
-def _type_initial(row: LeaveTypeRow) -> dict[str, object]:
-    ext = type_ext(row)
-    return {
-        "name": row.name,
-        "is_paid": ext.is_paid,
-        "uses_annual_balance": ext.uses_annual_balance,
-        "is_active": ext.is_active,
-        "order": ext.order,
-        "staff_may_request": ext.staff_may_request,
-    }
 
 
 def _type_modal(
@@ -470,16 +337,6 @@ def _type_modal(
     return render(request, "leave/_type_form.html", context)
 
 
-def _ext_values(d: dict[str, object]) -> dict[str, object]:
-    return {
-        "is_paid": d["is_paid"],
-        "uses_annual_balance": d["uses_annual_balance"],
-        "is_active": d["is_active"],
-        "order": d["order"],
-        "staff_may_request": d["staff_may_request"],
-    }
-
-
 @login_required
 def leave_type_add(request: HttpRequest) -> HttpResponse:
     user = _user(request)
@@ -489,7 +346,7 @@ def leave_type_add(request: HttpRequest) -> HttpResponse:
     form = LeaveTypeForm(request.POST)
     if not form.is_valid():
         return _type_modal(request, form, row=None)
-    writes.save_leave_type(form.cleaned_data["name"], _ext_values(form.cleaned_data))
+    writes.save_leave_type(form.cleaned_data["name"], ext_values(form.cleaned_data))
     return _done()
 
 
@@ -499,11 +356,11 @@ def leave_type_edit(request: HttpRequest, pk: int) -> HttpResponse:
     _require(access.can_manage_settings(user))
     row = get_object_or_404(LeaveTypeRow, pk=pk)
     if request.method != "POST":
-        return _type_modal(request, LeaveTypeForm(initial=_type_initial(row)), row=row)
+        return _type_modal(request, LeaveTypeForm(initial=type_initial(row)), row=row)
     form = LeaveTypeForm(request.POST)
     if not form.is_valid():
         return _type_modal(request, form, row=row)
-    writes.save_leave_type(form.cleaned_data["name"], _ext_values(form.cleaned_data), row=row)
+    writes.save_leave_type(form.cleaned_data["name"], ext_values(form.cleaned_data), row=row)
     return _done()
 
 
@@ -516,5 +373,5 @@ def leave_type_delete(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         writes.delete_leave_type(row)
     except ListEntryInUse as exc:
-        return _type_modal(request, LeaveTypeForm(initial=_type_initial(row)), row=row, error=str(exc))
+        return _type_modal(request, LeaveTypeForm(initial=type_initial(row)), row=row, error=str(exc))
     return _done()

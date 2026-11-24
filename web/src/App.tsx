@@ -15,6 +15,10 @@ import { HirePage } from "./screens/hire/HirePage";
 import { SlotsPage } from "./screens/slots/SlotsPage";
 import { LeavePage } from "./screens/leave/LeavePage";
 import { LeaveRequestsPage } from "./screens/leaveRequests/LeaveRequestsPage";
+import { LeaveBalancesPage } from "./screens/leaveBalances/LeaveBalancesPage";
+import { LeaveCalendarPage } from "./screens/leaveCalendar/LeaveCalendarPage";
+import { LeaveHolidaysPage } from "./screens/leaveHolidays/LeaveHolidaysPage";
+import { LeaveSettingsPage } from "./screens/leaveSettings/LeaveSettingsPage";
 import { ListsIndexPage } from "./screens/lists/ListsIndexPage";
 import { ListPage } from "./screens/lists/ListPage";
 import { MeaningPage } from "./screens/lists/MeaningPage";
@@ -67,6 +71,10 @@ export default function App() {
           <Route path="/employees/slots/" element={<SlotsPage />} />
           <Route path="/leave/" element={<LeavePage />} />
           <Route path="/leave/requests/" element={<LeaveRequestsPage />} />
+          <Route path="/leave/balances/" element={<LeaveBalancesPage />} />
+          <Route path="/leave/calendar/" element={<LeaveCalendarPage />} />
+          <Route path="/leave/holidays/" element={<LeaveHolidaysPage />} />
+          <Route path="/leave/settings/" element={<LeaveSettingsPage />} />
           <Route path="/employees/self-forms/" element={<SelfFormListPage />} />
           <Route path="/employees/self-forms/:pk/" element={<SelfFormShowPage />} />
           <Route path="/employees/:pk/" element={<EmployeePage />} />
