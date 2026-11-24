@@ -728,6 +728,16 @@
       },
       "EmployeeBankFieldOut": {
         "properties": {
+          "add": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldAddOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "aria_label": {
             "title": "Aria Label",
             "type": "string"
@@ -817,6 +827,16 @@
       },
       "EmployeeFormFieldOut": {
         "properties": {
+          "add": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldAddOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "checked": {
             "title": "Checked",
             "type": "boolean"
@@ -1212,6 +1232,16 @@
       },
       "EmployeePersonalFieldOut": {
         "properties": {
+          "add": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldAddOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "checked": {
             "title": "Checked",
             "type": "boolean"
@@ -2371,6 +2401,37 @@
           "contract_end"
         ],
         "title": "FactsOut",
+        "type": "object"
+      },
+      "FieldAddOut": {
+        "description": "A select whose list can take a new entry on the spot (the «+ нэмэх» line); null when it cannot.",
+        "properties": {
+          "modal": {
+            "title": "Modal",
+            "type": "boolean"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "modal",
+          "parent"
+        ],
+        "title": "FieldAddOut",
         "type": "object"
       },
       "GroupOut": {
@@ -7089,6 +7150,26 @@
       },
       "SlotOptionsOut": {
         "properties": {
+          "add_branch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldAddOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "add_position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldAddOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "branches": {
             "items": {
               "$ref": "#/components/schemas/SlotIdOptionOut"
@@ -7880,6 +7961,16 @@
       },
       "WorkFieldOut": {
         "properties": {
+          "add": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldAddOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "aria_label": {
             "title": "Aria Label",
             "type": "string"

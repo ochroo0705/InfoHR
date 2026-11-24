@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmployeeWorkOut, WorkFieldOut } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
+import { QuickAddProvider } from "../lists/QuickAddHost";
 import { PageFormElement, PageFormProvider } from "./PageForm";
 import { SaveBar } from "./SaveBar";
 import { WorkFacts } from "./WorkFacts";
@@ -464,7 +465,7 @@ describe("WorkFacts: boxes bound to the page form", () => {
     await waitFor(() => expect(savedValues()).toEqual({ probation_end: "2027-03-01", loaded: "L1" }));
   });
 
-  it("with canAdd (lists.manage_lists) a combo box still draws no add row, since no box has a quick-add URL", async () => {
+  it("with lists.manage_lists a combo box without add info (null) draws no add row", async () => {
     meta.perms = ["lists.manage_lists"];
     renderWithPage(<WorkFacts work={work({ can_manage: true })} />);
     await loaded();
@@ -472,5 +473,20 @@ describe("WorkFacts: boxes bound to the page form", () => {
     const list = screen.getByRole("listbox");
     expect(within(list).getByRole("option", { name: "Дархан" })).toBeTruthy();
     expect(within(list).queryByText(/нэмэх/)).toBeNull();
+  });
+
+  it("a work select with add shows the add line to a user with lists.manage_lists", async () => {
+    meta.perms = ["lists.manage_lists"];
+    const branch = { ...fk("branch", "Салбар", "1", "Улаанбаатар", "Улаанбаатар"), add: { slug: "branch", modal: false, parent: null } };
+    renderWithPage(
+      <QuickAddProvider>
+        <WorkFacts work={work({ can_manage: true, branch })} />
+      </QuickAddProvider>,
+    );
+    await loaded();
+    const box = screen.getByLabelText("Салбар") as HTMLInputElement;
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Шинэ салбар" } });
+    expect(screen.getByText('+ "Шинэ салбар" нэмэх')).toBeTruthy();
   });
 });

@@ -206,7 +206,7 @@ def test_editable_sections_send_soft_fields_and_read_only_sends_rows(hr_user: Us
 def test_personal_fields_carry_only_the_declared_keys(hr_user: User, hired: Employee) -> None:
     """The describe_form extras (help, max_length, errors) stay off the personal API response."""
     body = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/personal").json()
-    declared = {"name", "label", "required", "kind", "value", "checked", "placeholder", "choice", "combo", "choices"}
+    declared = {"name", "label", "required", "kind", "value", "checked", "placeholder", "choice", "combo", "choices", "add"}
     fields = [f for section in body["sections"] for f in section["fields"]]
     assert fields
     assert all(set(f) == declared for f in fields)

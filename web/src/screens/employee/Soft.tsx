@@ -1,5 +1,5 @@
-import { useId, type ReactNode } from "react";
-import { useMeta } from "../../shell/useMeta";
+import { useId, useState, type ReactNode } from "react";
+import { useQuickAdd, type QuickAddAdd } from "../lists/QuickAddHost";
 import { DatePicker } from "../../widgets/DatePicker";
 import { Select } from "../../widgets/Select";
 import { ClashChoice } from "./ClashChoice";
@@ -36,7 +36,7 @@ export function Soft({
   error,
   changed = false,
   choices,
-  canAdd = false,
+  add,
   id: idProp,
 }: {
   label: string;
@@ -62,8 +62,9 @@ export function Soft({
   // ({value: "", label: ""}) that an optional field has first (Django's empty option); Soft does not add one itself. A `value`
   // missing from `choices` shows as a blank box, so the caller must send every option the saved value can be.
   choices?: { value: string; label: string }[];
-  // Passed to the shared Select: the add line shows only with an add URL too, which no Soft box has yet.
-  canAdd?: boolean;
+  // The field's quick-add info (`add` of the field description, null when its list cannot take a new entry). It gives the
+  // select its add line when the user holds lists.manage_lists; a modal list opens QuickAddModal (docs/UI_RULES.md §2a).
+  add?: QuickAddAdd | null;
   // The id of the control (an inline row's box is `inline-<kind>-<field>`). Unset: a generated id.
   id?: string;
 }) {
@@ -73,6 +74,10 @@ export function Soft({
   const className = `${width} ${SOFT}`;
   const generatedId = useId();
   const id = idProp ?? generatedId;
+  const quick = useQuickAdd();
+  // An entry added through the modal is not in `choices` (the server sent them before it existed): it joins the options
+  // here, so the select shows its label. A plain add stays in Select's own list.
+  const [extra, setExtra] = useState<{ value: string; label: string }[]>([]);
 
   function box() {
     if (kind === "checkbox") {
@@ -122,9 +127,12 @@ export function Soft({
             name={fieldName}
             form={form}
             value={value}
-            options={choices ?? []}
+            options={[...(choices ?? []), ...extra.filter((o) => !(choices ?? []).some((c) => c.value === o.value))]}
             search={combo}
-            canAdd={canAdd}
+            {...quick.selectProps(add, (picked, label) => {
+              setExtra((prev) => (prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }]));
+              onChange(fieldName, picked);
+            })}
             className={className}
             invalid={invalid}
             onChange={(next) => onChange(fieldName, next)}
@@ -289,13 +297,6 @@ export function Soft({
   );
 }
 
-// The Add line of a quick-add select (Select's canAdd): the user holds lists.manage_lists. No Soft box has a quick-add URL
-// yet, so the flag alone changes nothing today; it is passed so the boxes match Select's rule when one is added.
-export function useCanAddLists(): boolean {
-  const meta = useMeta();
-  return meta.data?.user?.perms.includes("lists.manage_lists") ?? false;
-}
-
 // A soft box of the page form (usePageField(name)). Once the page form has loaded and names the field, the box is editable:
 // it carries the form's `form="emp-form"`, shows the edit or the stored value, its errors, and the clash choice under it when
 // the stored value changed. Until then, and for a name the page form does not have, `fallback` draws (the read-only box of
@@ -305,14 +306,16 @@ export function PageSoft({
   label,
   width,
   fallback,
+  add,
 }: {
   name: string;
   label: string;
   width?: string;
   fallback: ReactNode;
+  // The field's quick-add info (see Soft's `add`); a box that is not a quick-add select leaves it out.
+  add?: QuickAddAdd | null;
 }) {
   const box = usePageField(name);
-  const canAdd = useCanAddLists();
   if (!box.editable) return <>{fallback}</>;
   return (
     <>
@@ -330,7 +333,7 @@ export function PageSoft({
         error={box.error}
         changed={box.changed}
         choices={box.choices}
-        canAdd={canAdd}
+        add={add}
       />
       {box.conflict !== undefined ? (
         <ClashChoice name={box.name} theirs={box.conflict} value={box.resolve} onPick={box.setResolve} />

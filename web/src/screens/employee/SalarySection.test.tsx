@@ -1,10 +1,11 @@
 import type { ReactElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEmployeeSalary } from "../../api/employee";
 import type { components } from "../../api/schema";
 import { openLegacyEmployee } from "../../lib/AppLink";
+import { QuickAddProvider } from "../lists/QuickAddHost";
 import { PageFormElement, PageFormProvider } from "./PageForm";
 import { SalarySection } from "./SalarySection";
 
@@ -589,7 +590,40 @@ describe("SalarySection: bank boxes bound to the page form", () => {
     expect(after).toBe(true);
   });
 
-  it("with canAdd (lists.manage_lists) a select still draws no add row, since no box has a quick-add URL", async () => {
+  it("a bank select that carries add shows the add line for a user with lists.manage_lists", async () => {
+    // The page form draws the bank box as a combo (the typing box of select.js); the API sends the bank's add info.
+    pageForm = {
+      ...PAGE_FORM_SI,
+      fields: PAGE_FORM_SI.fields.map((f) => (f.name === "si-bank" ? { ...f, combo: true } : f)),
+    };
+    const bankBlock = bankFields({
+      Банк: {
+        name: "si-bank",
+        label: "Банк",
+        aria_label: "Банк",
+        kind: "select",
+        value: "4",
+        choice: "Хаан банк",
+        text: "Хаан банк",
+        checked: false,
+        add: { slug: "bank", modal: false, parent: null },
+      },
+    });
+    meta.perms = ["lists.manage_lists"];
+    mockSalary(salary({ editable: true, bank_fields: bankBlock }));
+    renderWithPage(
+      <QuickAddProvider>
+        <SalarySection pk={7} />
+      </QuickAddProvider>,
+    );
+    await loaded();
+    const box = screen.getByRole("combobox", { name: "Банк" }) as HTMLInputElement;
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Шинэ банк" } });
+    expect(screen.getByText('+ "Шинэ банк" нэмэх')).toBeTruthy();
+  });
+
+  it("with lists.manage_lists a bank select without add info draws no add row: the add line shows only for a field that carries add", async () => {
     meta.perms = ["lists.manage_lists"];
     mockSalary(salary({ editable: true }));
     renderWithPage(<SalarySection pk={7} />);

@@ -5,7 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEmployeePersonal } from "../../api/employee";
 import type { components } from "../../api/schema";
 import { openLegacyEmployee } from "../../lib/AppLink";
+import { QuickAddProvider } from "../lists/QuickAddHost";
 import { PersonalSection } from "./PersonalSection";
+
+// The quick-add line reads the signed-in user's perms from /meta (useCanAddLists). No perms unless a test sets them.
+const meta = vi.hoisted(() => ({ perms: [] as string[] }));
+vi.mock("../../shell/useMeta", () => ({
+  useMeta: () => ({ data: { user: { perms: meta.perms } } }),
+}));
 
 // fetch is stubbed before the api client is imported (openapi-fetch captures fetch when it is created), as in
 // PageForm.test.tsx. The on-the-spot saves answer through this stub.
@@ -1001,5 +1008,55 @@ describe("openMarked: a group with unsaved or failed sections opens itself", () 
     view.rerender(wrap(<PersonalSection pk={7} />));
     expect(groupEl("basic").open).toBe(false);
     expect(groupEl("basic").querySelector("summary")?.getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+describe("the quick-add line of a personal select", () => {
+  // The identity section with its birth-city box (a combo select) carrying `add`, as the API sends it.
+  function withAddOnBirthCity(): PersonalOut {
+    const base = withLoaded(personal(true), "L1");
+    const identity = base.sections.find((section) => section.name === "identity");
+    if (!identity) throw new Error("no identity section");
+    const fields = identity.fields.map((field) =>
+      field.name === "birth_city" ? { ...field, add: { slug: "city", modal: false, parent: null } } : field,
+    );
+    return withFields(base, "identity", fields);
+  }
+
+  function birthCityBox(): HTMLInputElement {
+    return screen.getByRole("combobox", { name: "Төрсөн аймаг, хот" }) as HTMLInputElement;
+  }
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    meta.perms = [];
+  });
+
+  it("a personal select with add shows the add line for a user with lists.manage_lists", () => {
+    meta.perms = ["lists.manage_lists"];
+    mockPersonal(withAddOnBirthCity());
+    renderPersonal(
+      <QuickAddProvider>
+        <PersonalSection pk={7} />
+      </QuickAddProvider>,
+    );
+    const box = birthCityBox();
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Шинэ хот" } });
+    expect(screen.getByText('+ "Шинэ хот" нэмэх')).toBeTruthy();
+  });
+
+  it("without lists.manage_lists the same select shows no add line", () => {
+    meta.perms = [];
+    mockPersonal(withAddOnBirthCity());
+    renderPersonal(
+      <QuickAddProvider>
+        <PersonalSection pk={7} />
+      </QuickAddProvider>,
+    );
+    const box = birthCityBox();
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Шинэ хот" } });
+    expect(screen.queryByText('+ "Шинэ хот" нэмэх')).toBeNull();
   });
 });

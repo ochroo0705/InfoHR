@@ -22,18 +22,21 @@ function SoftField({ field, width }: { field: WorkFieldOut; width?: string }) {
       value={field.value}
       choice={field.choice}
       combo={field.combo}
+      add={field.add}
       width={width}
     />
   );
 }
 
 // A soft box bound to the page form by its name (PageSoft). Until the page form has loaded, it is the read-only box above.
+// `add` is the field's quick-add info: null for every field that is not a foreign key (the five `fk` selects carry it).
 function BoundField({ field, width }: { field: WorkFieldOut; width?: string }) {
   return (
     <PageSoft
       name={field.name}
       label={field.aria_label}
       width={width}
+      add={field.add}
       fallback={<SoftField field={field} width={width} />}
     />
   );

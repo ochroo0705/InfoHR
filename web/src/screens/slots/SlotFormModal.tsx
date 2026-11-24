@@ -1,6 +1,13 @@
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { deleteSlot, saveSlot, useSlotOptions, type SlotRowOut, type SlotWriteIn } from "../../api/slots";
+import {
+  deleteSlot,
+  saveSlot,
+  useSlotOptions,
+  type SlotOptionsOut,
+  type SlotRowOut,
+  type SlotWriteIn,
+} from "../../api/slots";
 import type { ApiFailure } from "../../api/mutate";
 import { confirm } from "../../widgets/confirm";
 import { BOXED } from "../../widgets/FormFields";
@@ -8,6 +15,7 @@ import { Modal } from "../../widgets/Modal";
 import { hasServerErrors, tryClose } from "../../widgets/modalLogic";
 import { Select } from "../../widgets/Select";
 import { SAVE_FAILED_TEXT } from "../employee/PageForm";
+import { useQuickAdd, type QuickAddAdd } from "../lists/QuickAddHost";
 
 // The add and edit pop-up of one position-slot row (port of app/employees/templates/employees/_slot_form.html and
 // app/employees/views_slots.py SlotForm). Labels, the ` *` marks, the hint, the buttons and their classes are copied
@@ -48,6 +56,18 @@ function withRowOption(
   return [...list, { value: id, label: label ?? String(id) }];
 }
 
+// The choices of a select: the server's list, the row's own entry when the list is missing it, then the entries added
+// through a pop-up in this session (a modal add is not in the list the server sent before it existed).
+function selectOptions(
+  list: { value: number; label: string }[],
+  id: number | undefined,
+  label: string | undefined,
+  extra: { value: string; label: string }[],
+): { value: string; label: string }[] {
+  const mapped = withRowOption(list, id, label).map((item) => ({ value: String(item.value), label: item.label }));
+  return [...mapped, ...extra.filter((item) => !mapped.some((option) => option.value === item.value))];
+}
+
 function initialOf(row: SlotRowOut | undefined, year: number): Values {
   if (row === undefined) return { position: "", branch: "", kind: MAIN_KIND, year: String(year), qty: "" };
   return {
@@ -61,6 +81,7 @@ function initialOf(row: SlotRowOut | undefined, year: number): Values {
 
 export function SlotFormModal({ row, year, onClose }: SlotFormModalProps) {
   const queryClient = useQueryClient();
+  const quick = useQuickAdd();
   const options = useSlotOptions(year);
   const baseline = initialOf(row, year);
   const [values, setValues] = useState<Values>(baseline);
@@ -69,6 +90,9 @@ export function SlotFormModal({ row, year, onClose }: SlotFormModalProps) {
   const [pending, setPending] = useState(false);
   // A ref, not state: a second Enter or click in the same tick sends nothing.
   const inFlight = useRef(false);
+  // The entries added through the quick-add pop-up (see selectOptions); a plain add stays in Select's own list.
+  const [extraPositions, setExtraPositions] = useState<{ value: string; label: string }[]>([]);
+  const [extraBranches, setExtraBranches] = useState<{ value: string; label: string }[]>([]);
 
   const isEdit = row !== undefined;
   const dirty = FIELD_NAMES.some((name) => values[name] !== baseline[name]);
@@ -197,10 +221,13 @@ export function SlotFormModal({ row, year, onClose }: SlotFormModalProps) {
                 name="position"
                 value={values.position}
                 onChange={(value) => setField("position", value)}
-                options={withRowOption(opts.positions, row?.position_id, row?.position).map((item) => ({
-                  value: String(item.value),
-                  label: item.label,
-                }))}
+                options={selectOptions(opts.positions, row?.position_id, row?.position, extraPositions)}
+                {...quick.selectProps(opts.add_position, (picked, label) => {
+                  setExtraPositions((prev) =>
+                    prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }],
+                  );
+                  setField("position", picked);
+                })}
                 className={BOXED}
                 invalid={invalid("position")}
               />
@@ -212,10 +239,13 @@ export function SlotFormModal({ row, year, onClose }: SlotFormModalProps) {
                 name="branch"
                 value={values.branch}
                 onChange={(value) => setField("branch", value)}
-                options={withRowOption(opts.branches, row?.branch_id, row?.branch).map((item) => ({
-                  value: String(item.value),
-                  label: item.label,
-                }))}
+                options={selectOptions(opts.branches, row?.branch_id, row?.branch, extraBranches)}
+                {...quick.selectProps(opts.add_branch, (picked, label) => {
+                  setExtraBranches((prev) =>
+                    prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }],
+                  );
+                  setField("branch", picked);
+                })}
                 className={BOXED}
                 invalid={invalid("branch")}
               />

@@ -207,13 +207,16 @@ def test_bank_and_category_are_selects_with_their_pk_and_name(salary_user: User,
         "choice": "Хаан банк",
         "text": "Хаан банк",
         "checked": False,
+        "add": {"slug": "bank", "modal": False, "parent": None},
     }
     assert account_field["kind"] == "text"
     assert account_field["value"] == "5001234567"
     assert account_field["text"] == "5001234567"
+    assert account_field["add"] is None
     assert category_field["kind"] == "select"
     assert category_field["value"] == str(category.pk)
     assert category_field["choice"] == "Тест ангилал"
+    assert category_field["add"] == {"slug": "insured", "modal": True, "parent": None}
 
 
 def test_view_only_salary_user_sees_the_bank_block_read_only(hired: Employee) -> None:

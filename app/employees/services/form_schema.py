@@ -70,9 +70,22 @@ def combo_rule(widget: Select, choice_count: int) -> bool:
     return "data-add-url" in widget.attrs or search == "on" or (search != "off" and choice_count >= SEARCH_FROM)
 
 
+def add_info(widget: Widget) -> dict[str, Any] | None:
+    """How the React screens offer «+ нэмэх» for this widget: {slug, modal, parent}, or None when it is not addable.
+    `parent` is the form field name whose value the pop-up needs (or None)."""
+    attrs = widget.attrs
+    if "data-add-url" not in attrs:
+        return None
+    return {
+        "slug": str(attrs["data-add-slug"]),
+        "modal": "data-add-modal" in attrs,
+        "parent": attrs.get("data-add-parent") or None,
+    }
+
+
 def describe_field(bound: BoundField) -> dict[str, Any]:
     """One field's description (see describe_form). Keys: name, label, required, kind, value, checked, placeholder,
-    choice, combo, choices, help, max_length, errors."""
+    choice, combo, choices, help, max_length, errors, add (see add_info)."""
     widget = bound.field.widget
     kind = _kind(widget)
     value = bound.value()
@@ -99,6 +112,7 @@ def describe_field(bound: BoundField) -> dict[str, Any]:
         "help": str(bound.help_text or ""),
         "max_length": getattr(bound.field, "max_length", None),
         "errors": [str(message) for message in bound.errors],
+        "add": add_info(widget),
     }
 
 

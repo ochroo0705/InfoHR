@@ -31,7 +31,9 @@ function BankSoft({ field }: { field: BankField }) {
 // A box of the bank block for a user who may edit it: bound to the page form by its name (PageSoft; the select takes its
 // options from the page form, the checkbox is "on" or ""). Until the page form has loaded, it is the read-only box above.
 function BankBox({ field }: { field: BankField }) {
-  return <PageSoft name={field.name} label={field.aria_label} fallback={<BankSoft field={field} />} />;
+  return (
+    <PageSoft name={field.name} label={field.aria_label} fallback={<BankSoft field={field} />} add={field.add} />
+  );
 }
 
 function SalaryBody({ salary, pk }: { salary: Salary; pk: number }) {

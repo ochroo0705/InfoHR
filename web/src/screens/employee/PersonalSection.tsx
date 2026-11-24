@@ -115,6 +115,7 @@ function OnSpotFields({ section, pk }: { section: PersonalSectionOut; pk: number
                     error={error && error.errors.length > 0 ? error.errors : undefined}
                     changed={edited}
                     choices={field.choices}
+                    add={field.add}
                   />
                   {error?.conflict ? (
                     <ClashChoice

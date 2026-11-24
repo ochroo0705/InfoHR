@@ -24,10 +24,12 @@ from employees.templatetags.hr import day_label, mnt, thumb
 from employees.views import ONE_TIME_LOGIN_KEY, ORDER_WARNING_KEY
 from leave.models import GrantKind
 from leave.services import entitlement
-from lists.registry import QUICK_BY_MODEL
+from lists.registry import QUICK, QUICK_BY_MODEL
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.security import django_auth
+
+from api.popups import FieldAddOut
 
 employee_router = Router(tags=["employees"])
 
@@ -291,6 +293,7 @@ class WorkFieldOut(Schema):
     combo: bool  # a select with a quick-add list: Django draws it as a combo text box, not a native select
     text: str  # the read-only text the template prints when the user cannot manage («—» default)
     aria_label: str  # the form field's accessible name (Django's label, e.g. «Салбарт ажилласан жил»)
+    add: FieldAddOut | None = None  # the quick-add list behind «+ нэмэх»; null when the field is not addable
 
 
 class EmployeeWorkOut(Schema):
@@ -357,6 +360,7 @@ class EmployeeBankFieldOut(Schema):
     choice: str  # a select's current option label («---------» when none); "" for the other kinds
     text: str  # the read-only text shown when the user cannot manage («—» default; «Тийм» / «Үгүй» for the flag)
     checked: bool  # the checkbox state (kind == checkbox)
+    add: FieldAddOut | None = None  # the select's quick-add info; null when the box is not addable
 
 
 class EmployeeSalaryOut(Schema):
@@ -863,19 +867,31 @@ def _select_field(obj: Any) -> dict[str, Any]:
     }
 
 
+def _quick_add(model: Any) -> dict[str, Any] | None:
+    """The quick-add info of a model's list (the same {slug, modal, parent} that form widgets get from mark_addable),
+    or None when the model has no quick-add list. The work tab has no form widget, so it reads the registry."""
+    slug = QUICK_BY_MODEL.get(model)
+    if slug is None:
+        return None
+    spec = QUICK[slug]
+    return {"slug": slug, "modal": spec.modal, "parent": spec.parent or None}
+
+
 def _fk_select(employee: Any, name: str) -> dict[str, Any]:
     """A foreign key's soft select on the Work tab. Django draws it as a combo text box (select.js) when its model has a
     quick-add list; the box shows the current option's text, and the blank option's label is empty."""
     field = employee._meta.get_field(name)
     label = _fk_text(getattr(employee, name))
     pk = getattr(employee, field.attname)
+    add = _quick_add(field.related_model)
     return {
         "name": name,
         "kind": "select",
         "value": "" if pk is None else str(pk),
         "choice": label,
-        "combo": field.related_model in QUICK_BY_MODEL,
+        "combo": add is not None,
         "text": _default(label),
+        "add": add,
     }
 
 
@@ -1052,11 +1068,23 @@ def _bank_fields(employee: Employee) -> list[dict[str, Any]]:
     bank = _aria(_select_field(employee.bank), "Банк")
     insured = _aria(_select_field(employee.insured_category), "Даатгуулагчийн төрөл")
     return [
-        {"name": "si-bank", "label": "Банк", **bank, "checked": False},
+        {
+            "name": "si-bank",
+            "label": "Банк",
+            **bank,
+            "checked": False,
+            "add": _quick_add(Employee._meta.get_field("bank").related_model),
+        },
         _text_bank_field("si-account_no", "Дансны дугаар", "Дансны дугаар", employee.account_no),
         _text_bank_field("si-social_insurance_no", "НДД", "НДД-ийн дугаар", employee.social_insurance_no),
         _text_bank_field("si-health_insurance_no", "ЭМДД", "ЭМДД-ийн дугаар", employee.health_insurance_no),
-        {"name": "si-insured_category", "label": "Даатгуулагчийн төрөл", **insured, "checked": False},
+        {
+            "name": "si-insured_category",
+            "label": "Даатгуулагчийн төрөл",
+            **insured,
+            "checked": False,
+            "add": _quick_add(Employee._meta.get_field("insured_category").related_model),
+        },
         _text_bank_field("si-taxpayer_no", "ТТД", "Татвар төлөгчийн дугаар", employee.taxpayer_no),
         {
             "name": "si-has_disability",
@@ -1136,6 +1164,7 @@ class EmployeePersonalFieldOut(Schema):
     choice: str  # a select's current option label ("" when none, as the blank entry shows); "" for the other kinds
     combo: bool  # select.js turns it into a combo text box: a quick-add list, data-search on, or 8+ options (not off)
     choices: list[EmployeePersonalChoiceOut]  # a select's options, the blank entry first
+    add: FieldAddOut | None = None  # the quick-add info; null when the field is not addable
 
 
 class EmployeePersonalSectionOut(Schema):

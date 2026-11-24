@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
 import type { EmployeeFormFieldOut } from "../api/employeeWrites";
 import { Soft, SOFT, type SoftKind } from "../screens/employee/Soft";
+import { useQuickAdd } from "../screens/lists/QuickAddHost";
 import { DatePicker } from "./DatePicker";
 import { MoneyInput } from "./MoneyInput";
 import { Select } from "./Select";
@@ -87,6 +88,7 @@ export function SoftBox({
         error={errors}
         changed={value !== initialValue(field)}
         choices={field.choices}
+        add={field.add}
         id={id}
       />
     );
@@ -115,6 +117,45 @@ export function SoftBox({
         </p>
       ))}
     </>
+  );
+}
+
+// A boxed select with its quick-add line (`field.add`, docs/UI_RULES.md §2a). An entry added through the modal is not in
+// `field.choices`, so it joins the options here and the select shows its label (a plain add stays in Select's own list).
+function BoxedSelect({
+  field,
+  value,
+  invalid,
+  id,
+  formId,
+  onChange,
+}: {
+  field: FormField;
+  value: string;
+  invalid: boolean;
+  id?: string;
+  formId?: string;
+  onChange: (name: string, value: string) => void;
+}) {
+  const quick = useQuickAdd();
+  const [extra, setExtra] = useState<{ value: string; label: string }[]>([]);
+  return (
+    <Select
+      id={id}
+      name={field.name}
+      form={formId}
+      value={value}
+      options={[...field.choices, ...extra.filter((o) => !field.choices.some((c) => c.value === o.value))]}
+      search={field.combo}
+      required={field.required}
+      invalid={invalid}
+      className={BOXED}
+      {...quick.selectProps(field.add, (picked, label) => {
+        setExtra((prev) => (prev.some((o) => o.value === picked) ? prev : [...prev, { value: picked, label }]));
+        onChange(field.name, picked);
+      })}
+      onChange={(next) => onChange(field.name, next)}
+    />
   );
 }
 
@@ -158,18 +199,7 @@ export function BoxedControl({
       );
     case "select":
       return (
-        <Select
-          id={id}
-          name={name}
-          form={formId}
-          value={value}
-          options={field.choices}
-          search={field.combo}
-          required={field.required}
-          invalid={invalid}
-          className={BOXED}
-          onChange={(next) => onChange(name, next)}
-        />
+        <BoxedSelect id={id} field={field} value={value} invalid={invalid} formId={formId} onChange={onChange} />
       );
     case "date":
       return (

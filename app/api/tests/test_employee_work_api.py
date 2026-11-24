@@ -169,6 +169,7 @@ def test_first_hire_date_is_sent_only_to_managers(hr_user: User, hired: Employee
         "combo": False,
         "text": "2026-01-05",
         "aria_label": "Анх ажилд орсон огноо",
+        "add": None,
     }
     viewer = User.objects.create_user("employee_work_hire_plain", password=PASSWORD)
     link_login(hired, viewer)
@@ -195,6 +196,19 @@ def test_soft_fields_carry_their_widget_kind_raw_value_and_option_label(hr_user:
     assert body["sector_years"]["aria_label"] == "Салбарт ажилласан жил"
 
 
+def test_work_facts_from_quick_add_models_carry_their_add_info(hr_user: User, hired: Employee) -> None:
+    """A work fact whose model has a quick-add list says so, with the list's slug; the other facts are null."""
+    body = _client(hr_user).get(f"/api/v1/employees/{hired.pk}/work").json()
+    assert body["second_position"]["add"] == {"slug": "position", "modal": False, "parent": None}
+    assert body["office"]["add"] == {"slug": "office", "modal": False, "parent": None}
+    assert body["section"]["add"] == {"slug": "section", "modal": False, "parent": None}
+    assert body["branch"]["add"] == {"slug": "branch", "modal": False, "parent": None}
+    assert body["work_schedule"]["add"] == {"slug": "shift", "modal": False, "parent": None}
+    assert body["job_type"]["add"] is None
+    assert body["job_figure"]["add"] is None
+    assert body["work_conditions"]["add"] is None
+
+
 def test_seeded_branch_office_and_position_send_the_stored_option(hr_user: User, hired: Employee) -> None:
     """The soft values are the stored foreign keys: the branch and office the row holds; empty ones stay blank."""
     branch = Branch.objects.create(name="Төв салбар")
@@ -211,6 +225,7 @@ def test_seeded_branch_office_and_position_send_the_stored_option(hr_user: User,
         "combo": True,
         "text": "Төв салбар",
         "aria_label": "Салбар",
+        "add": {"slug": "branch", "modal": False, "parent": None},
     }
     assert body["office"]["value"] == str(office.pk)
     assert body["office"]["choice"] == "program"

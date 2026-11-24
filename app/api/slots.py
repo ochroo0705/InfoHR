@@ -20,6 +20,7 @@ from django.urls import reverse
 from django.utils import timezone
 from employees.models import CompanySettings
 from employees.services import slot_page, slots
+from employees.services.form_schema import add_info
 from employees.services.slot_page import exists_message
 from employees.slot_kind import MAIN, TEMPORARY
 from employees.views_slots import SlotForm
@@ -29,7 +30,7 @@ from ninja.errors import HttpError
 from ninja.security import django_auth
 
 from api.errors import ApiError, form_error_payload
-from api.popups import FORBIDDEN, request_user
+from api.popups import FORBIDDEN, FieldAddOut, request_user
 
 slot_router = Router(tags=["slots"])
 
@@ -87,6 +88,9 @@ class SlotOptionsOut(Schema):
     min_year: int
     max_year: int
     hint: str
+    # The quick-add info of the position and branch selects (null when the select cannot take a new entry).
+    add_position: FieldAddOut | None = None
+    add_branch: FieldAddOut | None = None
 
 
 def _manager(request: HttpRequest) -> User:
@@ -149,7 +153,11 @@ def slot_list(request: HttpRequest, year: str = "", offset: str = "") -> SlotLis
 def slot_options(request: HttpRequest, year: str = "") -> SlotOptionsOut:
     _manager(request)
     today = timezone.localdate()
+    # The same form the pop-up draws: its widgets carry the quick-add attributes (StyledForm runs mark_addable).
+    form = SlotForm()
     return SlotOptionsOut(
+        add_position=add_info(form["position"].field.widget),
+        add_branch=add_info(form["branch"].field.widget),
         positions=[
             SlotIdOptionOut(value=pk, label=name)
             for pk, name in Position.objects.order_by("name").values_list("pk", "name")

@@ -1,7 +1,28 @@
 import { useState } from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QuickAddProvider } from "../lists/QuickAddHost";
 import { Soft, SOFT } from "./Soft";
+
+// The quick-add tests need the signed-in user's perms and the lists API (the modal's form and save), stubbed as in
+// QuickAddHost.test.tsx. The other tests here draw no add line (no provider, no perms), so the stubs change nothing for them.
+const h = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), perms: [] as string[] }));
+
+vi.mock("../../api/client", () => ({
+  api: { GET: (...args: unknown[]) => h.get(...args), POST: (...args: unknown[]) => h.post(...args) },
+  setCsrf: vi.fn(),
+  getCsrf: vi.fn(() => "tok"),
+  redirectToLogin: vi.fn(),
+  nav: { assign: vi.fn() },
+}));
+
+vi.mock("../../shell/useMeta", () => ({
+  useMeta: () => ({ data: { user: { perms: h.perms } } }),
+}));
+
+vi.mock("../../widgets/confirm", () => ({ confirm: vi.fn() }));
 
 afterEach(() => {
   cleanup();
@@ -584,5 +605,139 @@ describe("Soft: the form attribute of an editable box", () => {
     expect(screen.getByLabelText("Идэвхтэй").getAttribute("form")).toBe("emp-form");
     expect(screen.getByLabelText("Тэмдэглэл").getAttribute("form")).toBeNull();
     expect(container.querySelectorAll("[form]")).toHaveLength(3);
+  });
+});
+
+describe("Soft: the quick-add line of an editable select", () => {
+  const CITY_FORM = {
+    title: "Сум, дүүрэг",
+    can_delete: false,
+    fields: [
+      { name: "name", label: "Нэр", kind: "text", required: true, value: "", errors: [], choices: [], max_length: 100 },
+    ],
+  };
+  const INDEX = { items: [{ slug: "district", label: "Сум, дүүрэг", count: 0, hits: 0 }] };
+
+  function ok(data: unknown) {
+    return { data, error: undefined, response: { ok: true, status: 200 } };
+  }
+
+  // The editable select as a form holds it: the picked value is kept and reported as onChange(name, value).
+  function AddHost({
+    add,
+    onValue,
+  }: {
+    add?: { slug: string; modal: boolean; parent: string | null } | null;
+    onValue: (name: string, v: string) => void;
+  }) {
+    const [value, setValue] = useState("");
+    return (
+      <Soft
+        label="Салбар"
+        kind="select"
+        value={value}
+        combo
+        choices={CHOICES}
+        name="dept"
+        add={add}
+        onChange={(n, v) => {
+          setValue(v);
+          onValue(n, v);
+        }}
+      />
+    );
+  }
+
+  function renderWithProvider(ui: ReactNode) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <QuickAddProvider>{ui}</QuickAddProvider>
+      </QueryClientProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    h.get.mockReset();
+    h.post.mockReset();
+    h.perms = ["lists.manage_lists"];
+    h.get.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/lists") return ok(INDEX);
+      if (path === "/api/v1/lists/{slug}/form") return ok(CITY_FORM);
+      return { data: undefined, error: {}, response: { ok: false, status: 404 } };
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("a plain add line POSTs the typed name to the list's quick URL and picks the new entry", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: "99", label: "Шинэ" }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const onValue = vi.fn();
+    renderWithProvider(<AddHost add={{ slug: "branch", modal: false, parent: null }} onValue={onValue} />);
+
+    const box = screen.getByRole("combobox") as HTMLInputElement;
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Шинэ" } });
+    fireEvent.click(screen.getByText('+ "Шинэ" нэмэх'));
+
+    await waitFor(() => expect(onValue).toHaveBeenCalledWith("dept", "99"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/lists/branch/quick",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "Шинэ" }) }),
+    );
+    // The new entry stays on screen after the parent re-renders with its unchanged options.
+    expect(box.value).toBe("Шинэ");
+  });
+
+  it("without lists.manage_lists the typed text shows no add line", () => {
+    h.perms = [];
+    renderWithProvider(<AddHost add={{ slug: "branch", modal: false, parent: null }} onValue={vi.fn()} />);
+
+    const box = screen.getByRole("combobox") as HTMLInputElement;
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Шинэ" } });
+    expect(screen.queryByText('+ "Шинэ" нэмэх')).toBeNull();
+  });
+
+  it("a select without add shows no add line even for a user with the right", () => {
+    renderWithProvider(<AddHost add={null} onValue={vi.fn()} />);
+
+    const box = screen.getByRole("combobox") as HTMLInputElement;
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Шинэ" } });
+    expect(screen.queryByText('+ "Шинэ" нэмэх')).toBeNull();
+  });
+
+  it("a modal list opens the quick-add pop-up with the typed name, and after save the new entry is picked and shown", async () => {
+    // 42 is not in CHOICES, so the label can only come from the picked entry (not from a choice with the same value).
+    h.post.mockResolvedValue(ok({ value: 42, label: "Баянзүрх", existed: false }));
+    const onValue = vi.fn();
+    renderWithProvider(<AddHost add={{ slug: "district", modal: true, parent: null }} onValue={onValue} />);
+
+    const box = screen.getByRole("combobox") as HTMLInputElement;
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Баянзүрх" } });
+    fireEvent.click(screen.getByText('+ "Баянзүрх" нэмэх'));
+
+    await screen.findByRole("button", { name: "Хадгалах" });
+    const names = document.querySelectorAll<HTMLInputElement>('input[name="name"]');
+    expect(names[names.length - 1].value).toBe("Баянзүрх");
+    expect(onValue).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Хадгалах" }));
+
+    await waitFor(() => expect(onValue).toHaveBeenCalledWith("dept", "42"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Хадгалах" })).toBeNull());
+    expect((screen.getByRole("combobox") as HTMLInputElement).value).toBe("Баянзүрх");
   });
 });

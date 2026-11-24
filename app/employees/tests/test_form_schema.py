@@ -3,12 +3,29 @@
 import pytest
 from accounts.models import User
 from django import forms
+from lists.registry import QUICK
+from macs.models import Department
 
-from employees.forms import EmployeeForm, FamilyRowForm, RelativeRowForm
+from employees.forms import AddressRowForm, EmployeeForm, FamilyRowForm, HireJobForm, RelativeRowForm, StyledForm
 from employees.models import Employee
-from employees.services.form_schema import describe_form, empty_lists, hidden_values
+from employees.services.form_schema import describe_field, describe_form, empty_lists, hidden_values
 
 pytestmark = pytest.mark.django_db
+
+
+class _WithMultipleChoice(StyledForm):
+    departments = forms.ModelMultipleChoiceField(queryset=Department.objects.all(), required=False)
+
+
+def test_describe_field_add_info_for_addable_and_plain_fields() -> None:
+    assert describe_field(HireJobForm()["department"])["add"] == {
+        "slug": "department",
+        "modal": QUICK["department"].modal,
+        "parent": None,
+    }
+    assert describe_field(EmployeeForm()["gender"])["add"] is None
+    assert describe_field(AddressRowForm()["district"])["add"]["parent"] == QUICK["district"].parent  # type: ignore[index]
+    assert describe_field(_WithMultipleChoice()["departments"])["add"] is None
 
 
 def _by_name(described: list[dict[str, object]]) -> dict[str, dict[str, object]]:

@@ -18,6 +18,7 @@ def mark_addable(fields: Any) -> None:
             continue
         attrs = field.widget.attrs
         attrs["data-add-url"] = reverse("lists:quick_add", args=[slug])
+        attrs["data-add-slug"] = slug
         if QUICK[slug].modal:
             attrs["data-add-modal"] = "1"
         if QUICK[slug].parent:

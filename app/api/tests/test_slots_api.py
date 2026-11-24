@@ -213,6 +213,14 @@ def test_options_lists_positions_branches_kinds(hr: User, position: Position) ->
     assert body["hint"] == "Нэг албан тушаал, салбар, төрөл, оны хувьд нэг мөр байна."
 
 
+def test_options_say_position_and_branch_are_addable(hr: User) -> None:
+    # The pop-up's selects take a new entry (the Django SlotForm is marked by mark_addable): the payload says so.
+    body = _client(hr).get(OPTIONS_URL, {"year": "2024"}).json()
+
+    assert body["add_position"] == {"slug": "position", "modal": False, "parent": None}
+    assert body["add_branch"] == {"slug": "branch", "modal": False, "parent": None}
+
+
 def test_options_requires_login_and_permission() -> None:
     assert Client().get(OPTIONS_URL).status_code == 401
     employee = _client(_user("slots_api_employee2", roles.EMPLOYEE)).get(OPTIONS_URL)

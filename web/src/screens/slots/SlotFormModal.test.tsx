@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QuickAddProvider } from "../lists/QuickAddHost";
 import type { SlotOptionsOut, SlotRowOut } from "../../api/slots";
 import { SlotFormModal } from "./SlotFormModal";
 
 // The API client is replaced by a stub that answers by path, so the real helpers and hooks run.
-const h = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), confirm: vi.fn() }));
+const h = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), confirm: vi.fn(), perms: [] as string[] }));
 
 vi.mock("../../api/client", () => ({
   api: { GET: (...args: unknown[]) => h.get(...args), POST: (...args: unknown[]) => h.post(...args) },
@@ -16,6 +17,10 @@ vi.mock("../../api/client", () => ({
 }));
 
 vi.mock("../../widgets/confirm", () => ({ confirm: (...args: unknown[]) => h.confirm(...args) }));
+
+vi.mock("../../shell/useMeta", () => ({
+  useMeta: () => ({ data: { user: { perms: h.perms } } }),
+}));
 
 const HINT = "Нэг албан тушаал, салбар, төрөл, оны хувьд нэг мөр байна.";
 
@@ -65,7 +70,9 @@ function renderModal(props: { row?: SlotRowOut; year?: number; onClose?: () => v
   const onClose = props.onClose ?? vi.fn();
   render(
     <QueryClientProvider client={client}>
-      <SlotFormModal row={props.row} year={props.year ?? 2027} onClose={onClose} />
+      <QuickAddProvider>
+        <SlotFormModal row={props.row} year={props.year ?? 2027} onClose={onClose} />
+      </QuickAddProvider>
     </QueryClientProvider>,
   );
   return { onClose };
@@ -287,5 +294,96 @@ describe("SlotFormModal", () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(h.post.mock.calls[0][1]).toMatchObject({ body: { position: 7 } });
+  });
+});
+
+// The position and branch selects take a new entry when the server says so (add_position / add_branch of the options,
+// from the Django SlotForm's widgets). The user needs lists.manage_lists, as on every quick-add select.
+describe("SlotFormModal: the quick-add line of the position and branch selects", () => {
+  const WITH_ADD = {
+    ...OPTIONS,
+    add_position: { slug: "position", modal: false, parent: null },
+    add_branch: { slug: "branch", modal: false, parent: null },
+  };
+
+  // The typing box of a combo select: the combobox inside the same <label> as the field's hidden input (the input
+  // named as the field carries the value; the typing box has no name).
+  const comboOf = (name: string) =>
+    document
+      .querySelector<HTMLInputElement>(`input[name="${name}"]`)
+      ?.closest("label")
+      ?.querySelector<HTMLInputElement>('input[role="combobox"]') ?? null;
+
+  beforeEach(() => {
+    h.perms = ["lists.manage_lists"];
+    h.get.mockImplementation(async (path: string) =>
+      path === "/api/v1/slots/options"
+        ? ok(WITH_ADD)
+        : { data: undefined, error: {}, response: { ok: false, status: 404 } },
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("a user with lists.manage_lists adds a new position by name and the new position is picked", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: "99", label: "Шинэ ажил" }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderModal({ year: 2027 });
+    await waitForForm();
+
+    const box = comboOf("position")!;
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: "Шинэ ажил" } });
+    fireEvent.click(screen.getByText('+ "Шинэ ажил" нэмэх'));
+
+    await waitFor(() => expect(valueOf("position")).toBe("99"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/lists/position/quick",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "Шинэ ажил" }) }),
+    );
+  });
+
+  it("a user with lists.manage_lists adds a new branch by name and the new branch is picked", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: "98", label: "Шинэ салбар" }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderModal({ year: 2027 });
+    await waitForForm();
+
+    const box = comboOf("branch")!;
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: "Шинэ салбар" } });
+    fireEvent.click(screen.getByText('+ "Шинэ салбар" нэмэх'));
+
+    await waitFor(() => expect(valueOf("branch")).toBe("98"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/lists/branch/quick",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "Шинэ салбар" }) }),
+    );
+  });
+
+  it("without lists.manage_lists the typed position shows no add line", async () => {
+    h.perms = [];
+    renderModal({ year: 2027 });
+    await waitForForm();
+
+    const box = comboOf("position")!;
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: "Шинэ ажил" } });
+    expect(screen.queryByText('+ "Шинэ ажил" нэмэх')).toBeNull();
   });
 });

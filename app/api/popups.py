@@ -32,6 +32,14 @@ class EmployeeFormChoiceOut(Schema):
     label: str
 
 
+class FieldAddOut(Schema):
+    """A select whose list can take a new entry on the spot (the «+ нэмэх» line); null when it cannot."""
+
+    slug: str  # the list's slug, the quick-add URL is /api/v1/lists/<slug>/quick
+    modal: bool  # the list needs more than a name: the pop-up asks for the rest
+    parent: str | None  # the form field name whose value the pop-up needs (e.g. a district needs its city)
+
+
 class EmployeeFormFieldOut(Schema):
     name: str  # the HTML name the browser posts (the salary fields carry the «si-» prefix)
     label: str
@@ -46,6 +54,7 @@ class EmployeeFormFieldOut(Schema):
     help: str
     max_length: int | None
     errors: list[str]
+    add: FieldAddOut | None = None  # the quick-add info; null when the field is not addable
 
 
 # A pop-up's field, as every pop-up API describes it (one schema, the employees' form fields).

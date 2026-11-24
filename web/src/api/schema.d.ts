@@ -2110,6 +2110,7 @@ export interface components {
         };
         /** EmployeeBankFieldOut */
         EmployeeBankFieldOut: {
+            add?: components["schemas"]["FieldAddOut"] | null;
             /** Aria Label */
             aria_label: string;
             /** Checked */
@@ -2146,6 +2147,7 @@ export interface components {
         };
         /** EmployeeFormFieldOut */
         EmployeeFormFieldOut: {
+            add?: components["schemas"]["FieldAddOut"] | null;
             /** Checked */
             checked: boolean;
             /** Choice */
@@ -2275,6 +2277,7 @@ export interface components {
         };
         /** EmployeePersonalFieldOut */
         EmployeePersonalFieldOut: {
+            add?: components["schemas"]["FieldAddOut"] | null;
             /** Checked */
             checked: boolean;
             /** Choice */
@@ -2699,6 +2702,18 @@ export interface components {
             position_line: string;
             /** Work Phone */
             work_phone: string;
+        };
+        /**
+         * FieldAddOut
+         * @description A select whose list can take a new entry on the spot (the «+ нэмэх» line); null when it cannot.
+         */
+        FieldAddOut: {
+            /** Modal */
+            modal: boolean;
+            /** Parent */
+            parent: string | null;
+            /** Slug */
+            slug: string;
         };
         /** GroupOut */
         GroupOut: {
@@ -4317,6 +4332,8 @@ export interface components {
         };
         /** SlotOptionsOut */
         SlotOptionsOut: {
+            add_branch?: components["schemas"]["FieldAddOut"] | null;
+            add_position?: components["schemas"]["FieldAddOut"] | null;
             /** Branches */
             branches: components["schemas"]["SlotIdOptionOut"][];
             /** Hint */
@@ -4589,6 +4606,7 @@ export interface components {
         };
         /** WorkFieldOut */
         WorkFieldOut: {
+            add?: components["schemas"]["FieldAddOut"] | null;
             /** Aria Label */
             aria_label: string;
             /** Choice */
