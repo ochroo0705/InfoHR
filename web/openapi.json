@@ -3333,6 +3333,371 @@
         "title": "LatestActivityOut",
         "type": "object"
       },
+      "LeaveAssistedOut": {
+        "properties": {
+          "filled_line": {
+            "title": "Filled Line",
+            "type": "string"
+          },
+          "person_line": {
+            "title": "Person Line",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_line",
+          "filled_line"
+        ],
+        "title": "LeaveAssistedOut",
+        "type": "object"
+      },
+      "LeaveCancelIn": {
+        "properties": {
+          "loaded": {
+            "title": "Loaded"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "LeaveCancelIn",
+        "type": "object"
+      },
+      "LeaveCancelInfoOut": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "loaded": {
+            "$ref": "#/components/schemas/LeaveLoadedOut"
+          },
+          "mistake": {
+            "title": "Mistake",
+            "type": "boolean"
+          },
+          "restores_balance": {
+            "title": "Restores Balance",
+            "type": "boolean"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "start",
+          "end",
+          "mistake",
+          "restores_balance",
+          "loaded"
+        ],
+        "title": "LeaveCancelInfoOut",
+        "type": "object"
+      },
+      "LeaveCheckIn": {
+        "properties": {
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "leave_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Id"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "override_reason": {
+            "default": "",
+            "title": "Override Reason",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "title": "LeaveCheckIn",
+        "type": "object"
+      },
+      "LeaveCheckOut": {
+        "properties": {
+          "balance_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance After"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaveCheckPeriodOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "working_days": {
+            "title": "Working Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "valid",
+          "working_days",
+          "balance_after",
+          "period",
+          "errors",
+          "warnings"
+        ],
+        "title": "LeaveCheckOut",
+        "type": "object"
+      },
+      "LeaveCheckPeriodOut": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "LeaveCheckPeriodOut",
+        "type": "object"
+      },
+      "LeaveChoiceOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "LeaveChoiceOut",
+        "type": "object"
+      },
+      "LeaveEditInitialOut": {
+        "properties": {
+          "employee": {
+            "title": "Employee",
+            "type": "integer"
+          },
+          "end_date": {
+            "title": "End Date",
+            "type": "string"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "override_reason": {
+            "title": "Override Reason",
+            "type": "string"
+          },
+          "start_date": {
+            "title": "Start Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee",
+          "leave_type",
+          "start_date",
+          "end_date",
+          "note",
+          "override_reason"
+        ],
+        "title": "LeaveEditInitialOut",
+        "type": "object"
+      },
+      "LeaveEditOut": {
+        "properties": {
+          "employees": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveChoiceOut"
+            },
+            "title": "Employees",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "initial": {
+            "$ref": "#/components/schemas/LeaveEditInitialOut"
+          },
+          "loaded": {
+            "$ref": "#/components/schemas/LeaveLoadedOut"
+          },
+          "not_configured": {
+            "title": "Not Configured",
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveChoiceOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "initial",
+          "loaded",
+          "types",
+          "employees",
+          "not_configured"
+        ],
+        "title": "LeaveEditOut",
+        "type": "object"
+      },
+      "LeaveFiltersOut": {
+        "properties": {
+          "date_from": {
+            "title": "Date From",
+            "type": "string"
+          },
+          "date_to": {
+            "title": "Date To",
+            "type": "string"
+          },
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee"
+          },
+          "q": {
+            "title": "Q",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type Id"
+          }
+        },
+        "required": [
+          "q",
+          "employee",
+          "status",
+          "type_id",
+          "date_from",
+          "date_to"
+        ],
+        "title": "LeaveFiltersOut",
+        "type": "object"
+      },
       "LeaveGrantOut": {
         "properties": {
           "breakdown": {
@@ -3387,6 +3752,250 @@
           "old_chip"
         ],
         "title": "LeaveLineOut",
+        "type": "object"
+      },
+      "LeaveListOut": {
+        "properties": {
+          "can_record": {
+            "title": "Can Record",
+            "type": "boolean"
+          },
+          "can_settings": {
+            "title": "Can Settings",
+            "type": "boolean"
+          },
+          "empty_text": {
+            "title": "Empty Text",
+            "type": "string"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/LeaveFiltersOut"
+          },
+          "missing_holidays": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveMissingYearOut"
+            },
+            "title": "Missing Holidays",
+            "type": "array"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "not_configured": {
+            "title": "Not Configured",
+            "type": "string"
+          },
+          "report_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Url"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveChoiceOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "filters",
+          "rows",
+          "next_offset",
+          "can_record",
+          "report_url",
+          "not_configured",
+          "missing_holidays",
+          "types",
+          "empty_text",
+          "can_settings"
+        ],
+        "title": "LeaveListOut",
+        "type": "object"
+      },
+      "LeaveLoadedOut": {
+        "description": "The row as the edit and cancel pop-ups loaded it; sent back unchanged so a save refuses a row someone changed.",
+        "properties": {
+          "adays": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adays"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "date1": {
+            "title": "Date1",
+            "type": "string"
+          },
+          "date2": {
+            "title": "Date2",
+            "type": "string"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "leave_type",
+          "date1",
+          "date2",
+          "status",
+          "adays",
+          "comment"
+        ],
+        "title": "LeaveLoadedOut",
+        "type": "object"
+      },
+      "LeaveMissingYearOut": {
+        "properties": {
+          "can_register": {
+            "title": "Can Register",
+            "type": "boolean"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "can_register"
+        ],
+        "title": "LeaveMissingYearOut",
+        "type": "object"
+      },
+      "LeaveOptionsInitialOut": {
+        "properties": {
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee"
+          },
+          "end_date": {
+            "title": "End Date",
+            "type": "string"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "start_date": {
+            "title": "Start Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee",
+          "leave_type",
+          "start_date",
+          "end_date"
+        ],
+        "title": "LeaveOptionsInitialOut",
+        "type": "object"
+      },
+      "LeaveOptionsOut": {
+        "properties": {
+          "assisted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaveAssistedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "employees": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveChoiceOut"
+            },
+            "title": "Employees",
+            "type": "array"
+          },
+          "initial": {
+            "$ref": "#/components/schemas/LeaveOptionsInitialOut"
+          },
+          "not_configured": {
+            "title": "Not Configured",
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveChoiceOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "employees",
+          "types",
+          "initial",
+          "assisted",
+          "not_configured"
+        ],
+        "title": "LeaveOptionsOut",
         "type": "object"
       },
       "LeaveOut": {
@@ -3564,6 +4173,242 @@
           "leaves"
         ],
         "title": "LeavePeriodOut",
+        "type": "object"
+      },
+      "LeaveRowOut": {
+        "properties": {
+          "cancel_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Label"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "counts": {
+            "title": "Counts",
+            "type": "boolean"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "integer"
+          },
+          "employee_name": {
+            "title": "Employee Name",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "leave_type": {
+            "title": "Leave Type",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "state_chip": {
+            "title": "State Chip",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "employee_id",
+          "employee_name",
+          "leave_type",
+          "state",
+          "state_chip",
+          "start",
+          "end",
+          "days",
+          "comment",
+          "counts",
+          "cancel_label"
+        ],
+        "title": "LeaveRowOut",
+        "type": "object"
+      },
+      "LeaveUpdateIn": {
+        "properties": {
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "loaded": {
+            "title": "Loaded"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "override_reason": {
+            "default": "",
+            "title": "Override Reason",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "title": "LeaveUpdateIn",
+        "type": "object"
+      },
+      "LeaveWriteIn": {
+        "description": "The add and edit forms as posted. Every box may be empty: React sends null, and the form gives its own texts.",
+        "properties": {
+          "employee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "leave_type": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leave Type"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "override_reason": {
+            "default": "",
+            "title": "Override Reason",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "title": "LeaveWriteIn",
+        "type": "object"
+      },
+      "LeaveWriteResultOut": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "error",
+          "form_errors",
+          "field_errors"
+        ],
+        "title": "LeaveWriteResultOut",
         "type": "object"
       },
       "ListChoiceOut": {
@@ -6074,7 +6919,8 @@
                 "enum": [
                   "order_detail",
                   "event",
-                  "slot_add"
+                  "slot_add",
+                  "leave_add"
                 ],
                 "type": "string"
               },
@@ -10769,6 +11615,492 @@
         "summary": "Employee Work",
         "tags": [
           "employees"
+        ]
+      }
+    },
+    "/api/v1/leave": {
+      "get": {
+        "description": "One batch of the leave list, newest first. Unknown or junk filter values are dropped, as on the Django page.",
+        "operationId": "api_leave_leave_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "employee",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Employee"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveListOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave List",
+        "tags": [
+          "leave"
+        ]
+      },
+      "post": {
+        "description": "Record a leave (the add pop-up). The same form and service as the Django add view.",
+        "operationId": "api_leave_leave_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveWriteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Create",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/check": {
+      "post": {
+        "description": "The live check of the form as posted: working days, the period and the balance after. An invalid form answers\nvalid false with empty lists; a leave_id the user may not see is ignored (check_for).",
+        "operationId": "api_leave_leave_check_form",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveCheckOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Check Form",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/options": {
+      "get": {
+        "description": "The choices of the add pop-up and its first values. `from=assistant` adds the assistant's two lines.",
+        "operationId": "api_leave_leave_options",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "employee",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Employee"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveOptionsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Options",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/{pk}": {
+      "get": {
+        "description": "The edit pop-up's first values and the row as loaded. 404 for a leave the user may not see.",
+        "operationId": "api_leave_leave_edit_load",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveEditOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Edit Load",
+        "tags": [
+          "leave"
+        ]
+      },
+      "post": {
+        "description": "Change a recorded leave. A missing or malformed `loaded` or a row another program changed is refused as stale.\n404 for a leave the user may not see (the rights are checked first: 403 for a user who may not record).",
+        "operationId": "api_leave_leave_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveUpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Update",
+        "tags": [
+          "leave"
+        ]
+      }
+    },
+    "/api/v1/leave/{pk}/cancel": {
+      "get": {
+        "description": "What the cancel pop-up asks. 404 for a leave the user may not see.",
+        "operationId": "api_leave_leave_cancel_info",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveCancelInfoOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Cancel Info",
+        "tags": [
+          "leave"
+        ]
+      },
+      "post": {
+        "description": "Cancel a leave: one not started yet is removed, one that has started is marked «Буруу бүртгэсэн». The same rules\nand messages as the Django cancel view. 404 for a leave the user may not see.",
+        "operationId": "api_leave_leave_cancel_write",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveCancelIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Leave Cancel Write",
+        "tags": [
+          "leave"
         ]
       }
     },

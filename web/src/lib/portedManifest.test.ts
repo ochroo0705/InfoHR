@@ -32,6 +32,16 @@ describe("portedManifest", () => {
     expect(isPorted("/checklists/task/1/tick/")).toBe(false);
   });
 
+  it("serves the leave list (with its filters) from the React app but not the leave pop-ups and other leave pages", () => {
+    expect(isPorted("/leave/")).toBe(true);
+    expect(isPorted("/leave/?status=all")).toBe(true);
+    expect(isPorted("/leave/requests/")).toBe(false);
+    expect(isPorted("/leave/new/")).toBe(false);
+    expect(isPorted("/leave/1/edit/")).toBe(false);
+    expect(isPorted("/leave/calendar/")).toBe(false);
+    expect(isPorted("/leave/balances/")).toBe(false);
+  });
+
   it("maps the real PORTED list one to one", () => {
     expect(portedManifest(PORTED).length).toBe(PORTED.length);
   });

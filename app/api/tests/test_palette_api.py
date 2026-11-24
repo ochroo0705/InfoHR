@@ -267,8 +267,10 @@ def test_modal_rows_carry_open_target(admin: User) -> None:
 
     row = _group(body, "actions")["rows"][0]
     assert row["kind"] == "action"
-    assert row["open"]["kind"] == "legacy"  # the leave pop-up is not ported yet: it opens its list page
-    assert row["open"]["path"] == reverse("leave:list")
+    assert row["open"]["kind"] == "popup"  # the leave add pop-up is React (step 4d1)
+    assert row["open"]["popup"] == "leave_add"
+    assert row["open"]["path"] == reverse("leave:add")
+    assert row["open"]["employee"] is None  # the search row has no ?employee=
 
     slot = _get(admin, {"q": "Орон тоо нэмэх"}).json()
     slot_row = _group(slot, "actions")["rows"][0]

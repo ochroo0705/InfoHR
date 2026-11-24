@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type EmployeeWorkOut, useEmployeeWork } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
@@ -172,7 +173,11 @@ const SETUP = {
 // SetupCard in the section calls a mutation hook, so every render needs a query client (a fresh one per test).
 let client: QueryClient;
 function wrap(ui: ReactNode) {
-  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>
+  );
 }
 function renderSection(ui: ReactNode) {
   return render(wrap(ui));

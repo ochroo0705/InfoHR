@@ -102,9 +102,15 @@ def test_open_target_slot_add_invalid_year_falls_back_to_this_year(raw: str) -> 
     assert target.year == timezone.localdate().year
 
 
+def test_open_target_leave_add_is_a_popup_with_the_employee() -> None:
+    path = reverse("leave:add")
+    assert open_target(path + "?employee=5", True) == PaletteOpen("popup", path, "leave_add", 5, None, None, None)
+    assert open_target(path, True) == PaletteOpen("popup", path, "leave_add", None, None, None, None)
+    assert open_target(path + "?employee=abc", True) == PaletteOpen("popup", path, "leave_add", None, None, None, None)
+    assert open_target(path + "?employee=5", False).kind == "page"  # not a pop-up when opened as a page
+
+
 def test_open_target_unported_modals_become_legacy_list_pages() -> None:
-    add = open_target(reverse("leave:add") + "?employee=5", True)
-    assert add == PaletteOpen("legacy", reverse("leave:list"), None, 5, None, None, None)
     request_new = open_target(reverse("leave:request_new"), True)
     assert request_new == PaletteOpen("legacy", reverse("leave:requests"), None, None, None, None, None)
     vacancy = open_target(reverse("recruitment:vacancy_add"), True)
@@ -118,10 +124,10 @@ def test_groups_order_and_titles() -> None:
     hit = _hit()
     order_url = reverse("employees:order_detail", args=[5, 9])
     event_url = reverse("employees:event", args=[5, "contract"])
-    legacy_url = reverse("leave:add") + "?employee=5"
+    leave_url = reverse("leave:add") + "?employee=5"
     answer = _answer(
         current=hit,
-        current_actions=[Action("Чөлөө бүртгэх", legacy_url, True)],
+        current_actions=[Action("Чөлөө бүртгэх", leave_url, True)],
         recent=[Recent("s:/today/", "Өнөөдөр", "/today/")],
         people=[hit],
         people_total=1,
@@ -135,7 +141,7 @@ def test_groups_order_and_titles() -> None:
     by_key = {g.key: g for g in result}
     # Each row opens what the template links to, through the same rule as open_target.
     assert by_key["current_actions"].rows[0].open == PaletteOpen(
-        "legacy", reverse("leave:list"), None, 5, None, None, None
+        "popup", reverse("leave:add"), "leave_add", 5, None, None, None
     )
     assert by_key["person_actions"].rows[0].open == PaletteOpen("popup", event_url, "event", 5, None, "contract", None)
     order_row = by_key["orders"].rows[0]

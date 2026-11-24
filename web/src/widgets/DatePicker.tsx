@@ -41,6 +41,8 @@ export interface DatePickerProps {
   className?: string;
   // Sets aria-invalid="true" on the text box. Unset: no attribute.
   invalid?: boolean;
+  // The id of the element that describes the error (aria-describedby on the text box). Unset: no attribute.
+  describedBy?: string;
   // The hint in an empty box. Unset: the default for the mode (ЖЖЖЖ-СС-ӨӨ, or ЖЖЖЖ-СС in month mode).
   placeholder?: string;
   // The aria-label of the text box. Unset: no attribute.
@@ -95,6 +97,7 @@ export function DatePicker({
   className,
   ariaLabel,
   invalid,
+  describedBy,
   placeholder,
   form,
 }: DatePickerProps): ReactNode {
@@ -409,6 +412,7 @@ export function DatePicker({
           autoComplete="off"
           aria-invalid={invalid || undefined}
           aria-label={ariaLabel}
+          aria-describedby={describedBy}
           className={className ?? FIELD}
           value={value}
           required={required}

@@ -9,18 +9,16 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import QuerySet
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from employees import access as employee_access
 from employees import listing
-from employees import palette as employee_palette
 from employees.models import Department, Employee, JobStatus
 from employees.services.macs_writes import ListEntryInUse
-from macs.dialect import search_match
-from macs.models import LeaveAssign, LeaveTypeRow
+from macs.models import LeaveTypeRow
 
 from leave import access
 from leave.forms import (
@@ -28,16 +26,22 @@ from leave.forms import (
     CancelForm,
     LeaveForm,
     LeaveTypeForm,
-    active_types,
     encode_step,
-    initial_dates,
     loaded_from_post,
 )
 from leave.models import LeaveSettings, LeaveTypeExt, type_ext
 from leave.services import calendar, entitlement, ledger, records, rows, writes
+from leave.services.form_page import (
+    add_initial,
+    assisted_lines,
+    cancel_info,
+    check_for,
+    edit_initial,
+    own_leave,
+    visible_pk,
+)
+from leave.services.list_page import banners, list_batch, not_configured_text, parse_filter, parse_id
 from leave.services.rows import LeaveRow
-
-MAX_INT = 2_147_483_647  # production ids are 32-bit integers
 
 
 def today() -> date:
@@ -60,81 +64,25 @@ def _done() -> HttpResponse:
     return response
 
 
-def _int(value: str | None) -> int | None:
-    """A non-negative 32-bit id from user input, or None (never raises)."""
-    if not value or len(value) > 12 or not value.isdecimal():
-        return None
-    number = int(value)
-    return number if number <= MAX_INT else None
-
-
-def _iso(value: str) -> date | None:
-    try:
-        return date.fromisoformat(value)
-    except ValueError:
-        return None
-
-
-def _not_configured() -> str:
-    return "" if ledger.annual_configured() else ledger.NOT_CONFIGURED
-
-
-def _visible_assign(user: User, pk: int) -> LeaveAssign | None:
-    """A production leave row whose employee the user may see, or None."""
-    visible = employee_access.visible_employees(user).values("pk")
-    return LeaveAssign.objects.filter(pk=pk, employee_id__in=visible).first()
-
-
-def _own_leave(user: User, pk: int) -> tuple[LeaveAssign, LeaveRow]:
-    a = _visible_assign(user, pk)
-    if a is None:
-        raise Http404
-    try:
-        return a, rows.leave(a.pk)
-    except LeaveAssign.DoesNotExist as exc:  # unusable row (missing employee or type): not shown
-        raise Http404 from exc
-
-
 @login_required
 def leave_list(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_view(user))
-    f = request.GET
-    people = employee_access.visible_employees(user)
-    q = f.get("q", "").strip()
-    if (employee_id := _int(f.get("employee"))) is not None:  # link from the employee page
-        people = people.filter(pk=employee_id)
-        person = people.first()
-        q = person.full_name if person else q
-    else:
-        for word in q.split():  # every word must match a name part or the code
-            people = people.filter(search_match(word, "family_name", "given_name", "code", icase=True))
-    status = f.get("status", "recorded")
-    state = None if status == "all" else status.upper()
-    start, end, type_id = _iso(f.get("from", "")), _iso(f.get("to", "")), _int(f.get("type"))
-
-    def fetch(offset: int, size: int) -> tuple[list[tuple[LeaveRow, Employee]], bool]:
-        page, more = rows.leaves_page(
-            people.order_by(), offset=offset, size=size, start=start, end=end, type_id=type_id, state=state
-        )
-        names = Employee.objects.in_bulk([lv.employee_id for lv in page])  # only the people on this batch
-        return [(lv, names[lv.employee_id]) for lv in page], more
-
+    flt = parse_filter(user, request.GET)
     t = today()
-    batch = batching.paged(request, fetch)
+    batch = batching.paged(request, lambda offset, size: list_batch(user, flt, offset, size))
+    not_configured, missing = banners(t)
     context = {
         "items": batch.shown,
         "offset": batch.offset,
         "next_query": batch.next_query,
         "types": LeaveTypeRow.objects.all(),
-        "filters": f,
-        "q": q,
+        "filters": request.GET,
+        "q": flt.q,
         "can_record": access.can_record(user),
         "today": t,
-        "not_configured": _not_configured(),
-        "missing_holidays": [
-            y for y in (t.year, t.year + 1) if (y == t.year or t.month == 12) and not calendar.has_holidays(y)
-        ],
+        "not_configured": not_configured,
+        "missing_holidays": missing,
     }
     template = "leave/_rows.html" if request.headers.get("HX-Request") else "leave/list.html"
     return render(request, template, context)
@@ -157,70 +105,10 @@ def _leave_form(
         "error": error,
         "leave_id": leave_id or "",
         "loaded": loaded,
-        "not_configured": _not_configured(),
+        "not_configured": not_configured_text(),
         **(extra or {}),
     }
     return render(request, "leave/_form.html", context)
-
-
-MAX_PREFILL_YEARS = 10  # a date this far from today is a typing slip (the assistant refuses the same), not a leave date
-
-
-def _prefill_date(raw: str | None, t: date) -> date | None:
-    day = _iso(raw or "")
-    if day is None or abs(day.year - t.year) > MAX_PREFILL_YEARS:
-        return None
-    return day
-
-
-def _visible_pk(raw: str | None, employees: QuerySet[Employee]) -> int | None:
-    """An employee id from the address or the posted form, only when the asker may see that employee."""
-    pk = _int(raw)
-    return pk if pk is not None and employees.filter(pk=pk).exists() else None
-
-
-def _leave_add_initial(request: HttpRequest, employees: QuerySet[Employee]) -> tuple[dict[str, Any], list[str]]:
-    """The first values of a new leave, read from the address (the assistant's leave link, or a link from the employee
-    page), and the labels of what the address filled. A value the asker may not use (an employee outside `employees`,
-    an inactive type) or that does not parse is left out; a date that was given but is unusable stays empty. The form's
-    own querysets refuse the same values on POST, so this only fills the boxes: it grants nothing."""
-    q = request.GET
-    t = today()
-    dates_given = q.get("from") == "assistant" or "start" in q or "end" in q
-    initial: dict[str, Any] = dict(initial_dates(t))
-    filled: list[str] = []
-    employee_pk = _visible_pk(q.get("employee"), employees)
-    if employee_pk is not None:
-        initial["employee"] = employee_pk
-        filled.append("Ажилтан")
-    type_pk = _int(q.get("type"))
-    if type_pk is not None and (found := active_types().filter(pk=type_pk).first()) is not None:
-        initial["leave_type"] = found.pk
-        filled.append("Төрөл")
-    if dates_given:
-        start, end = _prefill_date(q.get("start"), t), _prefill_date(q.get("end"), t)
-        if start is not None and end is not None and end < start:
-            end = None
-        initial.update(start_date=start, end_date=end)
-        filled += [label for label, day in (("Эхлэх", start), ("Дуусах", end)) if day is not None]
-    return initial, filled
-
-
-def _assisted(user: User, employee_pk: int | None, filled: list[str]) -> dict[str, Any]:
-    """The one soft line above the form when the link came from the assistant: the chosen person (name, then position
-    and department as the lists show a job) and what the sentence filled in."""
-    line = ""
-    if (pk := employee_pk) is not None:
-        person = Employee.objects.get(pk=pk)
-        hit = employee_palette.current(user, pk, today())
-        parts = [person.full_name, hit.position, hit.department] if hit else [person.full_name]
-        line = " · ".join(part for part in parts if part)
-    filled_line = (
-        f"Асуултаас бөглөсөн: {', '.join(filled)}"
-        if filled
-        else "Асуултаас юу ч бөглөгдөөгүй. Мэдээллээ өөрөө оруулна уу."
-    )
-    return {"from_assistant": True, "person_line": line, "filled_line": filled_line}
 
 
 def _add_extra(
@@ -230,8 +118,9 @@ def _add_extra(
     the address it was opened with, so an invalid POST still knows the origin and the filled values (display only)."""
     if request.GET.get("from") != "assistant":
         return None
-    _, filled = _leave_add_initial(request, employees)
-    return {"action": request.get_full_path(), **_assisted(user, employee_pk, filled)}
+    t = today()
+    _, filled = add_initial(request.GET, employees, t)
+    return {"action": request.get_full_path(), "from_assistant": True, **assisted_lines(user, employee_pk, filled, t)}
 
 
 @login_required
@@ -240,18 +129,18 @@ def leave_add(request: HttpRequest) -> HttpResponse:
     _require(access.can_record(user))
     employees = employee_access.visible_employees(user)
     if request.method != "POST":
-        initial, filled = _leave_add_initial(request, employees)
+        initial, _ = add_initial(request.GET, employees, today())
         form = LeaveForm(initial=initial, employees=employees)
         extra = _add_extra(request, user, employees, initial.get("employee"))
         return _leave_form(request, form, title="Чөлөө бүртгэх", extra=extra)
     form = LeaveForm(request.POST, employees=employees)
     if not form.is_valid():
-        extra = _add_extra(request, user, employees, _visible_pk(request.POST.get("employee"), employees))
+        extra = _add_extra(request, user, employees, visible_pk(request.POST.get("employee"), employees))
         return _leave_form(request, form, title="Чөлөө бүртгэх", extra=extra)
     try:
         records.record(form.draft(), user, today())
     except records.LeaveError as e:
-        extra = _add_extra(request, user, employees, _visible_pk(request.POST.get("employee"), employees))
+        extra = _add_extra(request, user, employees, visible_pk(request.POST.get("employee"), employees))
         return _leave_form(request, form, title="Чөлөө бүртгэх", error=str(e), extra=extra)
     return _done()
 
@@ -260,18 +149,11 @@ def leave_add(request: HttpRequest) -> HttpResponse:
 def leave_edit(request: HttpRequest, pk: int) -> HttpResponse:
     user = _user(request)
     _require(access.can_record(user))
-    a, row = _own_leave(user, pk)
+    a, row = own_leave(user, pk)
     employees = employee_access.visible_employees(user)
     title = "Чөлөө засах"
     if request.method != "POST":
-        initial = {
-            "employee": a.employee_id,
-            "leave_type": a.leave_type_id,
-            "start_date": a.date1,
-            "end_date": a.date2,
-            "note": a.comment or "",
-            "override_reason": row.override_reason,
-        }
+        initial = edit_initial(a, row)
         form = LeaveForm(initial=initial, employees=employees, current_type=a.leave_type)
         return _leave_form(request, form, title=title, leave_id=a.pk, loaded=writes.snapshot(a))
     loaded = loaded_from_post(request.POST)
@@ -293,21 +175,17 @@ def leave_check(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_record(user))
     form = LeaveForm(request.POST, employees=employee_access.visible_employees(user))
-    if not form.is_valid():
+    check = check_for(user, form, parse_id(request.POST.get("leave_id")), today())
+    if check is None:
         return HttpResponse("")
-    leave_id = _int(request.POST.get("leave_id"))
-    leave = _visible_assign(user, leave_id) if leave_id is not None else None
-    draft = form.draft(leave_id=leave.pk if leave else None)
-    if leave is not None:  # same as records.update: the leave's own employee, not the posted one
-        draft.employee = leave.employee
-    return render(request, "leave/_check.html", {"check": records.check(draft, today())})
+    return render(request, "leave/_check.html", {"check": check})
 
 
 @login_required
 def leave_cancel(request: HttpRequest, pk: int) -> HttpResponse:
     user = _user(request)
     _require(access.can_record(user))
-    a, row = _own_leave(user, pk)
+    a, row = own_leave(user, pk)
     loaded = writes.snapshot(a)
     form = CancelForm(request.POST or None)
     error = ""
@@ -328,7 +206,7 @@ def leave_cancel(request: HttpRequest, pk: int) -> HttpResponse:
         "row": row,
         "loaded": loaded,
         "error": error,
-        "mistake": loaded.date1 <= today(),  # same rule as records.cancel
+        "mistake": cancel_info(a, row, today()).mistake,  # same rule as records.cancel
     }
     return render(request, "leave/_cancel.html", context)
 
@@ -363,7 +241,7 @@ def balances(request: HttpRequest) -> HttpResponse:
         "offset": batch.offset,
         "next_query": batch.next_query,
         "today": t,
-        "not_configured": _not_configured(),
+        "not_configured": not_configured_text(),
     }
     template = "leave/_balance_rows.html" if batch.offset else "leave/balances.html"
     return render(request, template, context)
@@ -408,7 +286,7 @@ def team_calendar(request: HttpRequest) -> HttpResponse:
     last = first.replace(day=pycal.monthrange(first.year, first.month)[1])
     days = [first.replace(day=n) for n in range(1, last.day + 1)]
     holidays = calendar.holidays_between(first, last)
-    department = _int(request.GET.get("department"))
+    department = parse_id(request.GET.get("department"))
     people = list(employee_access.visible_employees(user).prefetch_related("job_records"))
     counted: dict[int, list[LeaveRow]] = {}
     for lv in rows.leaves(employee_ids=[e.pk for e in people], start=first, end=last):
@@ -454,7 +332,7 @@ def team_calendar(request: HttpRequest) -> HttpResponse:
             "today": today(),
             "department": department,
             "departments": Department.objects.exclude(ext__active=False),
-            "not_configured": _not_configured(),
+            "not_configured": not_configured_text(),
         },
     )
 
@@ -492,7 +370,7 @@ def _delete_holiday(year: int, raw_date: str) -> None:
 def holidays(request: HttpRequest) -> HttpResponse:
     user = _user(request)
     _require(access.can_manage_settings(user))
-    year = _int(request.GET.get("year"))
+    year = parse_id(request.GET.get("year"))
     if year is None or not MIN_YEAR <= year <= MAX_YEAR:
         year = today().year
     error = ""

@@ -19,6 +19,7 @@ export const PORTED: RegExp[] = [
   /^\/lists\/meaning\/$/,
   /^\/lists\/[^/]+\/$/,
   /^\/checklists\/mine\/$/,
+  /^\/leave\/$/,
 ];
 
 // True when the path (without query string or hash) is served by the React app.

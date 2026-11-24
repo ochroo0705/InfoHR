@@ -55,6 +55,8 @@ export interface SelectProps {
   className?: string;
   // Sets aria-invalid="true" on the visible box. Unset: no attribute.
   invalid?: boolean;
+  // The id of the element that describes the error (aria-describedby on the visible box). Unset: no attribute.
+  describedBy?: string;
   // The id of the <form> the box posts with (the `form` attribute). Set on the visible box, the native select and the
   // hidden field, so Enter in a typing box and the posted value both belong to that form. Unset: no attribute.
   form?: string;
@@ -108,6 +110,7 @@ function NativeSelect({
   disabled = false,
   className,
   invalid,
+  describedBy,
   form,
 }: SelectProps) {
   return (
@@ -119,6 +122,7 @@ function NativeSelect({
       required={required}
       disabled={disabled}
       aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       className={className ?? FIELD}
       onChange={(e) => onChange(e.target.value)}
     >
@@ -147,6 +151,7 @@ function PickerSelect({
   placeholder = HINT,
   className,
   invalid,
+  describedBy,
   form,
 }: SelectProps) {
   // select.js isCombo: addUrl, or search on, or 8+ options; search off never. addModal alone does not count.
@@ -489,6 +494,7 @@ function PickerSelect({
           type="text"
           role="combobox"
           aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           className={cn(className ?? FIELD, "sel-combo")}
           autoComplete="off"
           spellCheck={false}
@@ -567,6 +573,7 @@ function PickerSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         className={className ?? FIELD}
         onChange={(e) => {
           // A change event with the value already shown is our own notify (see the effect), not a pick.

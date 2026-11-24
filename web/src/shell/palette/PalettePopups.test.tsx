@@ -1,15 +1,42 @@
 // PalettePopups: the palette's pop-up openers. EmployeePopups and SlotFormModal are stubbed here (their own tests cover
-// the pop-ups). The tests go through activateRow from a pop-up row, with a real router: the location probe reads the
+// the pop-ups). LeaveFormModal is the real pop-up, with the API client replaced by a stub that answers the leave options. The tests go through activateRow from a pop-up row, with a real router: the location probe reads the
 // current location after each click, so a navigation would show. They check which opener each target calls, that the slot
 // form is mounted only while open, that a malformed target opens nothing and does not throw, and that the hook throws
 // outside the provider.
 import type { ReactNode } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
 import type { PaletteOpenOut, PaletteRowOut } from "../../api/palette";
 import { activateRow, type ActivateDeps } from "./activate";
 import { PalettePopups, usePalettePopups } from "./PalettePopups";
+
+// The API client stub: the leave options answer (the add pop-up loads them); anything else answers empty.
+const h = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+
+vi.mock("../../api/client", () => ({
+  api: { GET: (...args: unknown[]) => h.get(...args), POST: (...args: unknown[]) => h.post(...args) },
+  setCsrf: vi.fn(),
+  getCsrf: vi.fn(() => "tok"),
+  redirectToLogin: vi.fn(),
+  nav: { assign: vi.fn() },
+}));
+
+const LEAVE_OPTIONS = {
+  assisted: null,
+  employees: [
+    { value: 3, label: "Ажилтан Нэг" },
+    { value: 4, label: "Ажилтан Хоёр" },
+  ],
+  initial: { employee: null, end_date: "", leave_type: null, start_date: "" },
+  not_configured: "",
+  types: [{ value: 2, label: "Ээлжийн амралт" }],
+};
+
+function leaveOk(data: unknown) {
+  return { data, error: undefined, response: { ok: true, status: 200 } };
+}
 
 const employeeApi = vi.hoisted(() => ({
   openEvent: vi.fn(),
@@ -90,13 +117,16 @@ function ActivateButton({ row }: { row: PaletteRowOut }) {
 }
 
 function renderWith(open: PaletteOpenOut, path = "/employees/today/") {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <MemoryRouter initialEntries={[path]}>
-      <PalettePopups>
-        <ActivateButton row={popupRow(open)} />
-      </PalettePopups>
-      <LocationProbe />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[path]}>
+        <PalettePopups>
+          <ActivateButton row={popupRow(open)} />
+        </PalettePopups>
+        <LocationProbe />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -104,6 +134,10 @@ describe("PalettePopups", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     employeeProviderProps.last = null;
+    h.get.mockImplementation(async (path: string) =>
+      path === "/api/v1/leave/options" ? leaveOk(LEAVE_OPTIONS) : leaveOk({}),
+    );
+    h.post.mockImplementation(async () => leaveOk({}));
   });
 
   afterEach(() => {
@@ -199,6 +233,34 @@ describe("PalettePopups", () => {
     renderWith({ ...base, ...fields } as PaletteOpenOut);
     expect(() => fireEvent.click(screen.getByText("Нээх"))).not.toThrow();
     expect(screen.queryByTestId("slot-form")).toBeNull();
+  });
+
+  it("a leave_add row opens the leave pop-up on the page, with the employee preselected", async () => {
+    renderWith({ ...base, popup: "leave_add", employee: 3 }, "/employees/today/");
+    expect(screen.queryByText("Чөлөө бүртгэх")).toBeNull();
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByText("Чөлөө бүртгэх")).toBeTruthy();
+    // The options carry the employee, so the server decides the visibility rule.
+    await waitFor(() =>
+      expect(h.get).toHaveBeenCalledWith("/api/v1/leave/options", { params: { query: { employee: "3" } } }),
+    );
+    expect(screen.getByTestId("location").textContent).toBe("/employees/today/");
+  });
+
+  it("a leave_add row with no employee opens the form with nobody preselected", async () => {
+    renderWith({ ...base, popup: "leave_add", employee: null });
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByText("Чөлөө бүртгэх")).toBeTruthy();
+    await waitFor(() => expect(h.get).toHaveBeenCalledWith("/api/v1/leave/options", { params: { query: {} } }));
+  });
+
+  it("Escape closes the leave pop-up and the page stays where it was", async () => {
+    renderWith({ ...base, popup: "leave_add", employee: 3 }, "/employees/today/");
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByText("Чөлөө бүртгэх")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByText("Чөлөө бүртгэх")).toBeNull());
+    expect(screen.getByTestId("location").textContent).toBe("/employees/today/");
   });
 
   it("usePalettePopups throws a clear error outside the provider", () => {

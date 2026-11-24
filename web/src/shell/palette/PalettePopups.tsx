@@ -1,11 +1,12 @@
-// The pop-ups the assistant panel opens (palette.js data-palette-modal rows): the order detail, the contract event and the
-// position-slot add form. They live at shell level, inside PalettePopups, so a pop-up opened from the panel never depends
-// on the page underneath and never navigates. The employee pop-ups are EmployeePopups (no `pk` here: every open passes
-// its own employee, as the register page does). The slot form is mounted only while open; its save refetches the slots
-// list through the helpers.
+// The pop-ups the assistant panel opens (palette.js data-palette-modal rows): the order detail, the contract event, the
+// position-slot add form and the leave add form. They live at shell level, inside PalettePopups, so a pop-up opened from
+// the panel never depends on the page underneath and never navigates. The employee pop-ups are EmployeePopups (no `pk`
+// here: every open passes its own employee, as the register page does). The slot form is mounted only while open; its
+// save refetches the slots list through the helpers.
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { PaletteOpenOut } from "../../api/palette";
 import { EmployeePopups, useEmployeePopups } from "../../screens/employee/EmployeePopups";
+import { LeaveFormModal } from "../../screens/leave/LeaveFormModal";
 import { SlotFormModal } from "../../screens/slots/SlotFormModal";
 
 export type PalettePopupsApi = {
@@ -42,6 +43,8 @@ function PopupHost({ children }: { children: ReactNode }) {
   const employeePopups = useEmployeePopups();
   // The year of the open slot form. Null: the form is closed and not mounted.
   const [slotYear, setSlotYear] = useState<number | null>(null);
+  // The employee of the open leave add form (null: no one preselected). Null state: the form is closed and not mounted.
+  const [leaveAdd, setLeaveAdd] = useState<{ employee: number | null } | null>(null);
 
   const api = useMemo<PalettePopupsApi>(
     () => ({
@@ -61,6 +64,12 @@ function PopupHost({ children }: { children: ReactNode }) {
         if (target.popup === "slot_add") {
           const year = target.year;
           if (isNumber(year)) setSlotYear((current) => current ?? year);
+          return;
+        }
+        if (target.popup === "leave_add") {
+          // An absent or non-number employee opens the add form with no one preselected; the server decides who may be picked.
+          const employee = isNumber(target.employee) ? target.employee : null;
+          setLeaveAdd((current) => current ?? { employee });
         }
       },
     }),
@@ -71,6 +80,9 @@ function PopupHost({ children }: { children: ReactNode }) {
     <PalettePopupsContext.Provider value={api}>
       {children}
       {slotYear !== null ? <SlotFormModal year={slotYear} onClose={() => setSlotYear(null)} /> : null}
+      {leaveAdd !== null ? (
+        <LeaveFormModal mode={{ kind: "add", employee: leaveAdd.employee }} onClose={() => setLeaveAdd(null)} />
+      ) : null}
     </PalettePopupsContext.Provider>
   );
 }

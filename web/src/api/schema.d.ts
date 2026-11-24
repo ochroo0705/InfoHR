@@ -1087,6 +1087,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave List
+         * @description One batch of the leave list, newest first. Unknown or junk filter values are dropped, as on the Django page.
+         */
+        get: operations["api_leave_leave_list"];
+        put?: never;
+        /**
+         * Leave Create
+         * @description Record a leave (the add pop-up). The same form and service as the Django add view.
+         */
+        post: operations["api_leave_leave_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Check Form
+         * @description The live check of the form as posted: working days, the period and the balance after. An invalid form answers
+         *     valid false with empty lists; a leave_id the user may not see is ignored (check_for).
+         */
+        post: operations["api_leave_leave_check_form"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Options
+         * @description The choices of the add pop-up and its first values. `from=assistant` adds the assistant's two lines.
+         */
+        get: operations["api_leave_leave_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Edit Load
+         * @description The edit pop-up's first values and the row as loaded. 404 for a leave the user may not see.
+         */
+        get: operations["api_leave_leave_edit_load"];
+        put?: never;
+        /**
+         * Leave Update
+         * @description Change a recorded leave. A missing or malformed `loaded` or a row another program changed is refused as stale.
+         *     404 for a leave the user may not see (the rights are checked first: 403 for a user who may not record).
+         */
+        post: operations["api_leave_leave_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/{pk}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leave Cancel Info
+         * @description What the cancel pop-up asks. 404 for a leave the user may not see.
+         */
+        get: operations["api_leave_leave_cancel_info"];
+        put?: never;
+        /**
+         * Leave Cancel Write
+         * @description Cancel a leave: one not started yet is removed, one that has started is marked «Буруу бүртгэсэн». The same rules
+         *     and messages as the Django cancel view. 404 for a leave the user may not see.
+         */
+        post: operations["api_leave_leave_cancel_write"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/lists": {
         parameters: {
             query?: never;
@@ -3081,6 +3196,131 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** LeaveAssistedOut */
+        LeaveAssistedOut: {
+            /** Filled Line */
+            filled_line: string;
+            /** Person Line */
+            person_line: string;
+        };
+        /** LeaveCancelIn */
+        LeaveCancelIn: {
+            /** Loaded */
+            loaded?: unknown;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** LeaveCancelInfoOut */
+        LeaveCancelInfoOut: {
+            /** End */
+            end: string;
+            /** Label */
+            label: string;
+            loaded: components["schemas"]["LeaveLoadedOut"];
+            /** Mistake */
+            mistake: boolean;
+            /** Restores Balance */
+            restores_balance: boolean;
+            /** Start */
+            start: string;
+        };
+        /** LeaveCheckIn */
+        LeaveCheckIn: {
+            /** Employee */
+            employee?: number | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Leave Id */
+            leave_id?: number | null;
+            /** Leave Type */
+            leave_type?: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Override Reason
+             * @default
+             */
+            override_reason: string;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** LeaveCheckOut */
+        LeaveCheckOut: {
+            /** Balance After */
+            balance_after: number | null;
+            /** Errors */
+            errors: string[];
+            period: components["schemas"]["LeaveCheckPeriodOut"] | null;
+            /** Valid */
+            valid: boolean;
+            /** Warnings */
+            warnings: string[];
+            /** Working Days */
+            working_days: number;
+        };
+        /** LeaveCheckPeriodOut */
+        LeaveCheckPeriodOut: {
+            /** End */
+            end: string;
+            /** Start */
+            start: string;
+        };
+        /** LeaveChoiceOut */
+        LeaveChoiceOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+        };
+        /** LeaveEditInitialOut */
+        LeaveEditInitialOut: {
+            /** Employee */
+            employee: number;
+            /** End Date */
+            end_date: string;
+            /** Leave Type */
+            leave_type: number;
+            /** Note */
+            note: string;
+            /** Override Reason */
+            override_reason: string;
+            /** Start Date */
+            start_date: string;
+        };
+        /** LeaveEditOut */
+        LeaveEditOut: {
+            /** Employees */
+            employees: components["schemas"]["LeaveChoiceOut"][];
+            /** Id */
+            id: number;
+            initial: components["schemas"]["LeaveEditInitialOut"];
+            loaded: components["schemas"]["LeaveLoadedOut"];
+            /** Not Configured */
+            not_configured: string;
+            /** Types */
+            types: components["schemas"]["LeaveChoiceOut"][];
+        };
+        /** LeaveFiltersOut */
+        LeaveFiltersOut: {
+            /** Date From */
+            date_from: string;
+            /** Date To */
+            date_to: string;
+            /** Employee */
+            employee: number | null;
+            /** Q */
+            q: string;
+            /** Status */
+            status: string;
+            /** Type Id */
+            type_id: number | null;
+        };
         /** LeaveGrantOut */
         LeaveGrantOut: {
             /** Breakdown */
@@ -3102,6 +3342,75 @@ export interface components {
             old_chip: boolean;
             /** Text */
             text: string;
+        };
+        /** LeaveListOut */
+        LeaveListOut: {
+            /** Can Record */
+            can_record: boolean;
+            /** Can Settings */
+            can_settings: boolean;
+            /** Empty Text */
+            empty_text: string;
+            filters: components["schemas"]["LeaveFiltersOut"];
+            /** Missing Holidays */
+            missing_holidays: components["schemas"]["LeaveMissingYearOut"][];
+            /** Next Offset */
+            next_offset: number | null;
+            /** Not Configured */
+            not_configured: string;
+            /** Report Url */
+            report_url: string | null;
+            /** Rows */
+            rows: components["schemas"]["LeaveRowOut"][];
+            /** Types */
+            types: components["schemas"]["LeaveChoiceOut"][];
+        };
+        /**
+         * LeaveLoadedOut
+         * @description The row as the edit and cancel pop-ups loaded it; sent back unchanged so a save refuses a row someone changed.
+         */
+        LeaveLoadedOut: {
+            /** Adays */
+            adays: number | null;
+            /** Comment */
+            comment: string | null;
+            /** Date1 */
+            date1: string;
+            /** Date2 */
+            date2: string;
+            /** Leave Type */
+            leave_type: number;
+            /** Status */
+            status: number | null;
+        };
+        /** LeaveMissingYearOut */
+        LeaveMissingYearOut: {
+            /** Can Register */
+            can_register: boolean;
+            /** Year */
+            year: number;
+        };
+        /** LeaveOptionsInitialOut */
+        LeaveOptionsInitialOut: {
+            /** Employee */
+            employee: number | null;
+            /** End Date */
+            end_date: string;
+            /** Leave Type */
+            leave_type: number | null;
+            /** Start Date */
+            start_date: string;
+        };
+        /** LeaveOptionsOut */
+        LeaveOptionsOut: {
+            assisted: components["schemas"]["LeaveAssistedOut"] | null;
+            /** Employees */
+            employees: components["schemas"]["LeaveChoiceOut"][];
+            initial: components["schemas"]["LeaveOptionsInitialOut"];
+            /** Not Configured */
+            not_configured: string;
+            /** Types */
+            types: components["schemas"]["LeaveChoiceOut"][];
         };
         /** LeaveOut */
         LeaveOut: {
@@ -3163,6 +3472,93 @@ export interface components {
             row_class: string;
             /** Taken */
             taken: string;
+        };
+        /** LeaveRowOut */
+        LeaveRowOut: {
+            /** Cancel Label */
+            cancel_label: string | null;
+            /** Comment */
+            comment: string;
+            /** Counts */
+            counts: boolean;
+            /** Days */
+            days: number;
+            /** Employee Id */
+            employee_id: number;
+            /** Employee Name */
+            employee_name: string;
+            /** End */
+            end: string;
+            /** Id */
+            id: number;
+            /** Leave Type */
+            leave_type: string;
+            /** Start */
+            start: string;
+            /** State */
+            state: string;
+            /** State Chip */
+            state_chip: boolean;
+        };
+        /** LeaveUpdateIn */
+        LeaveUpdateIn: {
+            /** Employee */
+            employee?: number | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Leave Type */
+            leave_type?: number | null;
+            /** Loaded */
+            loaded?: unknown;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Override Reason
+             * @default
+             */
+            override_reason: string;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /**
+         * LeaveWriteIn
+         * @description The add and edit forms as posted. Every box may be empty: React sends null, and the form gives its own texts.
+         */
+        LeaveWriteIn: {
+            /** Employee */
+            employee?: number | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Leave Type */
+            leave_type?: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Override Reason
+             * @default
+             */
+            override_reason: string;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** LeaveWriteResultOut */
+        LeaveWriteResultOut: {
+            /** Error */
+            error: string;
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
         };
         /** ListChoiceOut */
         ListChoiceOut: {
@@ -4046,7 +4442,7 @@ export interface components {
             /** Path */
             path: string;
             /** Popup */
-            popup: ("order_detail" | "event" | "slot_add") | null;
+            popup: ("order_detail" | "event" | "slot_add" | "leave_add") | null;
             /** Year */
             year: number | null;
         };
@@ -6111,6 +6507,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmployeeWorkOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_list: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                employee?: string | null;
+                status?: string | null;
+                type?: string | null;
+                from?: string | null;
+                to?: string | null;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveListOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveWriteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_check_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveCheckIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveCheckOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_options: {
+        parameters: {
+            query?: {
+                employee?: string | null;
+                type?: string | null;
+                start?: string | null;
+                end?: string | null;
+                from?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveOptionsOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_edit_load: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveEditOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_cancel_info: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveCancelInfoOut"];
+                };
+            };
+        };
+    };
+    api_leave_leave_cancel_write: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveCancelIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveWriteResultOut"];
                 };
             };
         };

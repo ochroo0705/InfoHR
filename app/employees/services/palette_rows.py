@@ -24,9 +24,9 @@ EMPTY_TEXT = "Юу ч олдсонгүй"  # the empty box's line when nothing m
 FALLBACK_HEADING = "Эсвэл нээх:"  # the line above the fallback rows (_palette_results.html)
 
 # The pop-ups not ported yet: each opens the list page that owns it. A bare htmx fragment must never load as a page.
-# Open question for the user: until step 4 these three open the list page instead of the pop-up.
+# Open question for the user: until step 4 these two open the list page instead of the pop-up.
+# (leave:add is a React pop-up since step 4d1: see the leave_add branch of open_target.)
 _LEGACY_MODAL_PAGE: dict[str, str] = {
-    "leave:add": "leave:list",
     "leave:request_new": "leave:requests",
     "recruitment:vacancy_add": "recruitment:vacancies",
 }
@@ -42,7 +42,7 @@ class PalettePiece:
 class PaletteOpen:
     kind: Literal["page", "popup", "legacy"]
     path: str  # a page: its URL (with query); a pop-up: its path; a legacy target: the list page's path
-    popup: Literal["order_detail", "event", "slot_add"] | None
+    popup: Literal["order_detail", "event", "slot_add", "leave_add"] | None
     employee: int | None
     order: int | None
     event_type: str | None
@@ -109,6 +109,10 @@ def open_target(url: str, modal: bool) -> PaletteOpen:
         # does), so a real row always carries a number.
         year = slot_page.year_param((query.get("year") or [None])[0], timezone.localdate().year)
         return PaletteOpen("popup", parts.path, "slot_add", employee, None, None, year)
+    if name == "leave:add":
+        # The leave add pop-up opens with the employee of ?employee= preselected (None: an empty box). Its visibility
+        # rule (which employees the user may pick) is decided by the leave options API, not here.
+        return PaletteOpen("popup", parts.path, "leave_add", _query_int(query, "employee"), None, None, None)
     if name in _LEGACY_MODAL_PAGE:
         employee = _query_int(query, "employee")
         return PaletteOpen("legacy", reverse(_LEGACY_MODAL_PAGE[name]), None, employee, None, None, None)
