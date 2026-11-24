@@ -368,8 +368,41 @@ function Rail({
 }
 
 // A table frame (.ptable-fit or any box that scrolls in both directions). It wraps the box in .sbar-host.
-export function ScrollHost({ className, off = false, children }: { className?: string; off?: boolean; children: ReactNode }) {
+// `fit` ports report_sticky.js `fitTables`: the box ends at the bottom of the screen with the page scrolled to the top
+// (max height = window height - box top - the sibling after it - 16px, never under 320px), so its sideways rail shows
+// without scrolling the page. Re-measured on resize and whenever the page body changes size.
+export function ScrollHost({
+  className,
+  off = false,
+  fit = false,
+  children,
+}: {
+  className?: string;
+  off?: boolean;
+  fit?: boolean;
+  children: ReactNode;
+}) {
   const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!fit || off || !box) return;
+    const measure = () => {
+      const outer = box.parentElement ?? box;
+      const top = box.getBoundingClientRect().top + window.scrollY;
+      const next = outer.nextElementSibling as HTMLElement | null;
+      const after = next ? next.offsetHeight + 16 : 16;
+      box.style.maxHeight = `${Math.max(320, window.innerHeight - top - after)}px`;
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(document.body);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+      box.style.maxHeight = "";
+    };
+  }, [fit, off]);
   const xRef = useRef<HTMLDivElement>(null);
   const yRef = useRef<HTMLDivElement>(null);
   const lRef = useRef<HTMLDivElement>(null);

@@ -1,3 +1,4 @@
+import { ScrollHost } from "../../widgets/Scrollbar";
 import { useRef } from "react";
 import type { LogSystemRowOut } from "../../api/logs";
 import { useMoreSentinel } from "../../lib/useMoreSentinel";
@@ -34,7 +35,7 @@ export function SystemLogTable({
   useMoreSentinel(moreRef, onMore, hasMore && !loadingMore && autoLoad);
 
   return (
-    <div className="ptable ptable-fit card-soft">
+    <ScrollHost fit className="ptable ptable-fit card-soft">
       <table>
         <thead>
           <tr>
@@ -112,6 +113,6 @@ export function SystemLogTable({
           )}
         </tbody>
       </table>
-    </div>
+    </ScrollHost>
   );
 }

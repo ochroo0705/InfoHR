@@ -79,6 +79,15 @@ const loadNextBatch: Step = async (page) => {
   }
   const before = await page.locator(LOG_ROWS).count();
   await pill.first().scrollIntoViewIfNeeded();
+  // Django's htmx `revealed` fires on a scroll event, and the table box fits the screen so the pill can already be in
+  // view: scroll the box itself to its end so both sides see a scroll.
+  await page.locator(".ptable").first().evaluate((box) => {
+    box.scrollTop = box.scrollHeight;
+  });
+  // Known Django gap (EXPECTED_DIFFS): inside the scrolling table box htmx `revealed` may never fire, so the pill is clicked
+  // when scrolling loaded nothing (its `click` trigger is the other way the pill loads; React loads on scroll alone).
+  await page.waitForTimeout(3000);
+  if ((await page.locator(LOG_ROWS).count()) === before && (await pill.count()) > 0) await pill.first().click();
   await expect.poll(() => page.locator(LOG_ROWS).count(), { timeout: 15_000 }).toBeGreaterThan(before);
   await settle(page);
 };

@@ -251,7 +251,7 @@ def _employee_row(entry: ActivityEntry) -> LogEmployeeRowOut:
         time=at.strftime("%H:%M"),
         employee_id=entry.employee_id,
         employee_name=_person_name(employee),
-        employee_code=employee.code,
+        employee_code=employee.code or "",
         by_name=_by_name(entry),
         kind=entry.kind,
         kind_label=entry.get_kind_display(),

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { components } from "../../api/schema";
 import { ConfirmProvider } from "../../widgets/confirm";
@@ -38,9 +39,11 @@ const STALE = "Өөр хэрэглэгч өөрчилсөн байна. Дахи
 let client: QueryClient;
 function renderPopup(ui: ReactNode) {
   return render(
-    <ConfirmProvider>
-      <QueryClientProvider client={client}>{ui}</QueryClientProvider>
-    </ConfirmProvider>,
+    <MemoryRouter>
+      <ConfirmProvider>
+        <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+      </ConfirmProvider>
+    </MemoryRouter>,
   );
 }
 

@@ -191,6 +191,20 @@ describe("SystemLogFilters", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ category: ["auth", "data"] }));
   });
 
+  it("a date can be typed: partial text stays in the box and reaches the address only when whole", () => {
+    const { container, onChange } = renderFilters();
+    const box = field(container, "from");
+    fireEvent.change(box, { target: { value: "2" } });
+    expect(box.value).toBe("2");
+    fireEvent.change(box, { target: { value: "2026-1" } });
+    expect(box.value).toBe("2026-1");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(box, { target: { value: "2026-11-01" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ from: "2026-11-01" }));
+    fireEvent.change(box, { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ from: "" }));
+  });
+
   it("the date boxes call onChange at once", () => {
     const { container, onChange } = renderFilters();
     fireEvent.change(field(container, "from"), { target: { value: "2026-11-01" } });

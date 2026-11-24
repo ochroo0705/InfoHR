@@ -43,6 +43,8 @@ export interface DatePickerProps {
   invalid?: boolean;
   // The hint in an empty box. Unset: the default for the mode (ЖЖЖЖ-СС-ӨӨ, or ЖЖЖЖ-СС in month mode).
   placeholder?: string;
+  // The aria-label of the text box. Unset: no attribute.
+  ariaLabel?: string;
   // The id of the <form> the text box posts with (the `form` attribute). Unset: no attribute.
   form?: string;
 }
@@ -91,6 +93,7 @@ export function DatePicker({
   required = false,
   disabled = false,
   className,
+  ariaLabel,
   invalid,
   placeholder,
   form,
@@ -405,6 +408,7 @@ export function DatePicker({
           inputMode="numeric"
           autoComplete="off"
           aria-invalid={invalid || undefined}
+          aria-label={ariaLabel}
           className={className ?? FIELD}
           value={value}
           required={required}

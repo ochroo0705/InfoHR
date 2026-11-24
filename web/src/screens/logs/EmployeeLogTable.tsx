@@ -1,3 +1,4 @@
+import { ScrollHost } from "../../widgets/Scrollbar";
 import { useRef, type KeyboardEvent, type MouseEvent } from "react";
 import type { LogEmployeeRowOut } from "../../api/logs";
 import { AppLink } from "../../lib/AppLink";
@@ -40,7 +41,7 @@ export function EmployeeLogTable({
   useMoreSentinel(moreRef, onMore, hasMore && !loadingMore && autoLoad);
 
   return (
-    <div className="ptable ptable-fit card-soft">
+    <ScrollHost fit className="ptable ptable-fit card-soft">
       <table>
         <thead>
           <tr>
@@ -147,6 +148,6 @@ export function EmployeeLogTable({
           )}
         </tbody>
       </table>
-    </div>
+    </ScrollHost>
   );
 }

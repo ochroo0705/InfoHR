@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { components } from "../../api/schema";
 import { isUnsaved } from "../../lib/unsaved";
@@ -37,7 +38,11 @@ type WriteOut = components["schemas"]["EmployeeWriteResultOut"];
 let client: QueryClient;
 // The wrapper is the same on every render, so `rerender` keeps the query client (a refetch is a new list prop).
 function Wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <MemoryRouter>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </MemoryRouter>
+  );
 }
 function renderList(ui: ReactNode) {
   return render(ui, { wrapper: Wrapper });

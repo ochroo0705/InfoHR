@@ -1,6 +1,7 @@
-import type { FormEvent, KeyboardEvent } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { LogSystemOptionsOut, LogSystemQueryOut, SystemLogParams } from "../../api/logs";
 import { AppLink } from "../../lib/AppLink";
+import { DatePicker } from "../../widgets/DatePicker";
 import { Select, type SelectOption } from "../../widgets/Select";
 import { CheckMenu } from "./CheckMenu";
 import { useDebouncedField } from "./useDebouncedField";
@@ -58,6 +59,19 @@ export function SystemLogFilters({ query, options, params, settled, onChange }: 
   const actionOptions: SelectOption[] = [{ value: "", label: "Бүх үйлдэл" }, ...options.actions];
   const dateFrom = settled ? query.date_from : params.from;
   const dateTo = settled ? query.date_to : params.to;
+
+  // The picker is fully controlled and reports every keystroke, so the typed text lives here; the address changes only for
+  // an empty box or a whole date, and the text follows the address again when it changes from outside (Цэвэрлэх, Back).
+  const [fromText, setFromText] = useState<string>(dateFrom);
+  const [toText, setToText] = useState<string>(dateTo);
+  useEffect(() => setFromText(dateFrom), [dateFrom]);
+  useEffect(() => setToText(dateTo), [dateTo]);
+  // The picker reports every keystroke; the address changes only for an empty box or a whole date (YYYY-MM-DD), as
+  // Django does (its box sends on `change`, after the text is cleaned).
+  const setDate = (key: "from" | "to", v: string) => {
+    (key === "from" ? setFromText : setToText)(v);
+    if (v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v)) onChange({ ...params, [key]: v });
+  };
 
   return (
     <form
@@ -141,23 +155,21 @@ export function SystemLogFilters({ query, options, params, settled, onChange }: 
       />
       <div className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 bg-surface px-3">
         <span className="shrink-0 text-slate-500">Хугацаа</span>
-        <input
-          type="date"
+        <DatePicker
           name="from"
-          value={dateFrom}
+          value={fromText}
           placeholder="Эхлэх"
-          aria-label="Эхлэх огноо"
-          onChange={(e) => onChange({ ...params, from: e.target.value })}
+          ariaLabel="Эхлэх огноо"
+          onChange={(v) => setDate("from", v)}
           className={DATE_CLASS}
         />
         <span className="text-slate-500">–</span>
-        <input
-          type="date"
+        <DatePicker
           name="to"
-          value={dateTo}
+          value={toText}
           placeholder="Дуусах"
-          aria-label="Дуусах огноо"
-          onChange={(e) => onChange({ ...params, to: e.target.value })}
+          ariaLabel="Дуусах огноо"
+          onChange={(v) => setDate("to", v)}
           className={DATE_CLASS}
         />
       </div>
