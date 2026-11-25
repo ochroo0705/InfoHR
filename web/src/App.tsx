@@ -31,6 +31,8 @@ import { VacanciesPage } from "./screens/recruitment/VacanciesPage";
 import { VacancyPage } from "./screens/recruitment/VacancyPage";
 import { CandidatePage } from "./screens/recruitment/CandidatePage";
 import { PurgePage } from "./screens/recruitment/PurgePage";
+import { CataloguePage } from "./screens/reports/CataloguePage";
+import { ReportPage } from "./screens/reports/ReportPage";
 import { Landing } from "./routes/Landing";
 import { WelcomeRoute } from "./routes/WelcomeRoute";
 import { ConfirmProvider } from "./widgets/confirm";
@@ -92,6 +94,8 @@ export default function App() {
           <Route path="/recruitment/vacancies/:id/" element={<VacancyPage />} />
           <Route path="/recruitment/candidates/:id/" element={<CandidatePage />} />
           <Route path="/recruitment/purge/" element={<PurgePage />} />
+          <Route path="/reports/" element={<CataloguePage />} />
+          <Route path="/reports/:key/" element={<ReportPage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />
         </Route>

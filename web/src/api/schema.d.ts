@@ -2380,6 +2380,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue */
+        get: operations["api_reports_catalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report Page
+         * @description The report's head, filter bar and table layout for the address. The redirect is answered before the table is
+         *     built, as the Django page does. A layout other than the table answers the head and the bar with no table.
+         */
+        get: operations["api_reports_report_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report Rows
+         * @description One batch of the table for the address (every row of a grouped table, with next_offset None).
+         */
+        get: operations["api_reports_report_rows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/selfforms": {
         parameters: {
             query?: never;
@@ -6099,6 +6157,306 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /** ReportBarItemOut */
+        ReportBarItemOut: {
+            /** Name */
+            name: string;
+            /** Remove */
+            remove: string;
+        };
+        /** ReportBarOut */
+        ReportBarOut: {
+            /** Adds */
+            adds: string[];
+            /** Clear Url */
+            clear_url: string;
+            /** Column Chips */
+            column_chips: components["schemas"]["ReportColumnChipOut"][];
+            /** Columns Query */
+            columns_query: string;
+            /** Items */
+            items: components["schemas"]["ReportBarItemOut"][];
+            options: components["schemas"]["ReportFilterOptionsOut"];
+            /** Picker */
+            picker: components["schemas"]["ReportPickerOut"][];
+        };
+        /** ReportCardOut */
+        ReportCardOut: {
+            /** Description */
+            description: string;
+            /** Empty */
+            empty: boolean;
+            /** Key */
+            key: string;
+            /** Link */
+            link: boolean;
+            /** Path */
+            path: string;
+            /** Search */
+            search: string;
+            /** Title */
+            title: string;
+        };
+        /** ReportCatalogueOut */
+        ReportCatalogueOut: {
+            /** Sections */
+            sections: components["schemas"]["ReportSectionOut"][];
+        };
+        /** ReportCellOut */
+        ReportCellOut: {
+            /** Css */
+            css: string;
+            /** Href */
+            href: string;
+            /** Money */
+            money: boolean;
+            /** Person */
+            person: number;
+            /** Style */
+            style: string;
+            /** Text */
+            text: string;
+            /** Value */
+            value: string | null;
+        };
+        /** ReportColumnChipOut */
+        ReportColumnChipOut: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Options */
+            options: components["schemas"]["ReportOptionOut"][];
+            /** Params */
+            params: string[];
+            /** Remove Href */
+            remove_href: string;
+            /** Values */
+            values: string[];
+        };
+        /** ReportFilterOptionsOut */
+        ReportFilterOptionsOut: {
+            /** Absence Types */
+            absence_types: components["schemas"]["ReportOptionOut"][];
+            /** Attributes */
+            attributes: components["schemas"]["ReportOptionOut"][];
+            /** Branches */
+            branches: components["schemas"]["ReportOptionOut"][];
+            /** Change Kinds */
+            change_kinds: components["schemas"]["ReportOptionOut"][];
+            /** Contact Types */
+            contact_types: components["schemas"]["ReportOptionOut"][];
+            /** Departments */
+            departments: components["schemas"]["ReportOptionOut"][];
+            /** Discipline Types */
+            discipline_types: components["schemas"]["ReportOptionOut"][];
+            /** Emptypes */
+            emptypes: components["schemas"]["ReportOptionOut"][];
+            /** Genders */
+            genders: components["schemas"]["ReportOptionOut"][];
+            /** Group Choices */
+            group_choices: components["schemas"]["ReportOptionOut"][];
+            /** Group Text */
+            group_text: string;
+            /** Leave States */
+            leave_states: components["schemas"]["ReportOptionOut"][];
+            /** Leave Types */
+            leave_types: components["schemas"]["ReportOptionOut"][];
+            /** No Working State */
+            no_working_state: components["schemas"]["ReportOptionOut"][];
+            /** Order Types */
+            order_types: components["schemas"]["ReportOptionOut"][];
+            /** People */
+            people: components["schemas"]["ReportOptionOut"][];
+            /** Period From */
+            period_from: string;
+            /** Period To */
+            period_to: string;
+            /** Positions */
+            positions: components["schemas"]["ReportOptionOut"][];
+            /** Present Types */
+            present_types: components["schemas"]["ReportOptionOut"][];
+            /** Quarter */
+            quarter: number | null;
+            /** Reasons */
+            reasons: components["schemas"]["ReportOptionOut"][];
+            /** States */
+            states: components["schemas"]["ReportOptionOut"][];
+            /** Training Types */
+            training_types: components["schemas"]["ReportOptionOut"][];
+            /** Year */
+            year: number | null;
+        };
+        /** ReportGroupOut */
+        ReportGroupOut: {
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: components["schemas"]["ReportCellOut"][][];
+        };
+        /** ReportHeadCellOut */
+        ReportHeadCellOut: {
+            /** Append Href */
+            append_href: string;
+            /** Arrow */
+            arrow: string;
+            /** Css */
+            css: string;
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+            /** Sticky Left */
+            sticky_left: string;
+        };
+        /** ReportHeadOut */
+        ReportHeadOut: {
+            /** Excel Url */
+            excel_url: string;
+            /** Layouts */
+            layouts: components["schemas"]["ReportLayoutOut"][];
+            /** Print Url */
+            print_url: string;
+            saved: components["schemas"]["ReportSavedOut"] | null;
+            /** Selectable */
+            selectable: boolean;
+            /** Selection Urls */
+            selection_urls: {
+                [key: string]: string;
+            };
+            /** Staff Actions */
+            staff_actions: boolean;
+            /** Title */
+            title: string;
+            tools: components["schemas"]["ReportToolsOut"];
+        };
+        /** ReportLayoutOut */
+        ReportLayoutOut: {
+            /** Current */
+            current: boolean;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+        };
+        /** ReportOptionOut */
+        ReportOptionOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** ReportPageOut */
+        ReportPageOut: {
+            bar: components["schemas"]["ReportBarOut"] | null;
+            head: components["schemas"]["ReportHeadOut"] | null;
+            /** Layout */
+            layout: string;
+            /** Redirect */
+            redirect: string;
+            table: components["schemas"]["ReportTableOut"] | null;
+            /** Title */
+            title: string;
+        };
+        /** ReportPickerOut */
+        ReportPickerOut: {
+            /** Heading */
+            heading: string;
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+        };
+        /** ReportRowsOut */
+        ReportRowsOut: {
+            /** Groups */
+            groups: components["schemas"]["ReportGroupOut"][];
+            /** Next Offset */
+            next_offset: number | null;
+        };
+        /** ReportSavedOptionOut */
+        ReportSavedOptionOut: {
+            /** Name */
+            name: string;
+            /** Selected */
+            selected: boolean;
+            /** Url */
+            url: string;
+        };
+        /** ReportSavedOut */
+        ReportSavedOut: {
+            /** Can Edit View */
+            can_edit_view: boolean;
+            /** Current View */
+            current_view: number | null;
+            /** Options */
+            options: components["schemas"]["ReportSavedOptionOut"][];
+            /** Plain Url */
+            plain_url: string;
+            /** Save Url */
+            save_url: string;
+            /** Template Current */
+            template_current: boolean;
+            /** Templates */
+            templates: components["schemas"]["ReportSavedOptionOut"][];
+        };
+        /** ReportSectionOut */
+        ReportSectionOut: {
+            /** Rows */
+            rows: components["schemas"]["ReportCardOut"][];
+            /** Title */
+            title: string;
+        };
+        /** ReportTableOut */
+        ReportTableOut: {
+            /** Address */
+            address: string;
+            /** Check Css */
+            check_css: string;
+            /** Check Style */
+            check_style: string;
+            /** Clear Rules Url */
+            clear_rules_url: string;
+            /** Count */
+            count: number;
+            /** Footer */
+            footer: components["schemas"]["ReportCellOut"][] | null;
+            /** Groups */
+            groups: components["schemas"]["ReportGroupOut"][];
+            /** Heads */
+            heads: components["schemas"]["ReportHeadCellOut"][];
+            /** Next Offset */
+            next_offset: number | null;
+            /** Note */
+            note: string;
+            /** Pin */
+            pin: number;
+            /** Query */
+            query: string;
+            /** Rules Text */
+            rules_text: string;
+            /** Selectable */
+            selectable: boolean;
+            /** Shows Count */
+            shows_count: boolean;
+            /** Table Span */
+            table_span: number;
+        };
+        /** ReportToolsOut */
+        ReportToolsOut: {
+            /** Columns */
+            columns: boolean;
+            /** Format */
+            format: boolean;
+            /** Rules */
+            rules: boolean;
+        };
         /** RequestOut */
         RequestOut: {
             /** Can Withdraw */
@@ -9789,6 +10147,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecruitVacancyFormOut"];
+                };
+            };
+        };
+    };
+    api_reports_catalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCatalogueOut"];
+                };
+            };
+        };
+    };
+    api_reports_report_page: {
+        parameters: {
+            query?: {
+                offset?: string;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPageOut"];
+                };
+            };
+        };
+    };
+    api_reports_report_rows: {
+        parameters: {
+            query?: {
+                offset?: string;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRowsOut"];
                 };
             };
         };

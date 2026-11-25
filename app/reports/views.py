@@ -6,17 +6,14 @@ from dataclasses import asdict, dataclass, replace
 from datetime import date
 from decimal import Decimal
 from typing import Any
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import parse_qsl
 
 from accounts.audit import record_export
 from accounts.models import User
-from checklists import access as checklist_access
 from config import batching
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
-from django.db.models import Q, QuerySet
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -24,20 +21,9 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.vary import vary_on_headers
-from employees import access, listing, stale
+from employees import access, stale
 from employees.images import attach_photo_digests
 from employees.models import CompanySettings, Employee
-from macs.models import (
-    AbsenceType,
-    Branch,
-    ContactType,
-    Department,
-    DisciplineType,
-    FiredReason,
-    LeaveTypeRow,
-    Position,
-    PresentType,
-)
 
 from reports import bulk_edit as bulk_edit_service
 from reports import cell_edit as cell_edit_service
@@ -48,82 +34,98 @@ from reports import row_edit as row_edit_service
 from reports import rules as rules_mod
 from reports import selection as selection_mod
 from reports import totals as totals_mod
-from reports.catalogue import CATALOGUE, GROUPS, Entry
-from reports.column_filters import COLUMN_FILTERS, params_of
 from reports.filters import (
-    ATTRIBUTES,
-    EMPTYPES,
-    GENDERS,
-    LEAVE_STATES,
-    MAX_SORT_KEYS,
     MAX_YEAR,
     MIN_MONTH_YEAR,
-    MOVEMENT_KINDS,
-    NO_WORKING_STATE,
-    ORDER_TYPES,
-    STATES,
-    TRAINING_TYPES,
     Filters,
     describe,
     parse_filters,
-    period_of,
-    this_quarter,
     to_query,
 )
 from reports.forms import SavedViewForm
 from reports.kinds import KINDS, column_kind
-from reports.layouts import offered_layouts
 from reports.models import SavedView
-from reports.starter import resolved_query
+from reports.page_rules import (
+    FOLDABLE,  # noqa: F401 (tests import it from views)
+    PLAIN_VIEW,  # noqa: F401 (palette.py imports it from views)
+    HeaderCell,  # noqa: F401 (tests import it from views)
+)
+from reports.page_rules import (
+    added_names as _added_names,
+)
+from reports.page_rules import (
+    address as _address,
+)
+from reports.page_rules import (
+    builtin_panels as _builtin_panels,  # noqa: F401 (kept importable from views)
+)
+from reports.page_rules import (
+    column_filter_panels as _column_filter_panels,  # noqa: F401 (kept importable from views)
+)
+from reports.page_rules import (
+    group_text as _group_text,
+)
+from reports.page_rules import (
+    month_param as _month_param,
+)
+from reports.page_rules import (
+    next_sort as _next_sort,  # noqa: F401 (tests import it from views)
+)
+from reports.page_rules import (
+    offered_adds as _offered_adds,
+)
+from reports.page_rules import (
+    secondary_filters as _secondary_filters,  # noqa: F401 (tests import it from views)
+)
+from reports.page_rules import (
+    sort_mark as _sort_mark,  # noqa: F401 (kept importable from views)
+)
+from reports.services.catalogue_page import sections_for
+from reports.services.filter_bar import filter_bar
+from reports.services.page_head import (
+    EXPORT_PERM,
+    LAYOUT_LABELS,
+    NEW_LAYOUT_BLANKS,
+    PRIVATE,
+    SELECTION_KEYS,  # noqa: F401 (kept importable from views)
+    SHARED,
+    LayoutOption,  # noqa: F401 (kept importable from views)
+    SavedOption,  # noqa: F401 (kept importable from views)
+    _cleaned_for,
+    _known_only,  # noqa: F401 (tests import it from views)
+    _may_change,
+    _option_name,  # noqa: F401 (kept importable from views)
+    _sees_private,
+    _selection_urls,  # noqa: F401 (kept importable from views)
+    _template_allowed,  # noqa: F401 (today_tiles uses it from views)
+    _view_url,
+    _viewer_query,  # noqa: F401 (today_tiles uses it from views)
+    _visible_views,  # noqa: F401 (today_tiles uses it from views)
+    default_view_redirect,
+    layout_options,
+    page_head,
+    page_tools,
+)
+from reports.services.table_page import parse_offset, table_page
 from reports.summary import summary_of
 from reports.table import (
     Table,
     allowed_columns,
     build_table,
     column_classes,
-    css_classes,
-    offered_column_filters,
     offered_filters,
-    pin_style,
     restricted_filters,
     shown_keys,
     usable_filters,
 )
-from reports.types import Column, Report, Template
+from reports.types import Column, Report
 
 MAX_PORTRAIT_COLUMNS = 7  # more columns than this print on A4 landscape
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-EXPORT_PERM = "accounts.export_lists"  # the Excel file and its button
 DUPLICATE_NAME = "Ийм нэртэй харагдац байна."
 TOO_LONG = "Харагдац хэт урт байна."
 NAME_CONSTRAINT = "reports_savedview_unique_name"  # UniqueConstraint(report, name) on SavedView
 QUERY_LIMIT = SavedView._meta.get_field("query").max_length  # the stored query is cut at this many characters
-SHARED = "shared"  # SavedView.visibility: every user who may open the report sees the view
-PRIVATE = "private"  # SavedView.visibility: only the author sees the view
-MANAGE_PERM = "reports.manage_saved_views"  # may change any saved view, and see private views with no author
-
-
-@dataclass(frozen=True)
-class Row:
-    entry: Entry
-    link: bool  # the report is built and the user may open it; otherwise greyed «удахгүй»
-    empty: bool  # the built report's main table has no rows yet («бүртгэл алга»)
-
-
-@dataclass(frozen=True)
-class Section:
-    title: str
-    rows: list[Row]
-
-
-def _row(user: User | AnonymousUser, entry: Entry) -> Row | None:
-    report = registry.get(entry.key)
-    if report is None:
-        return Row(entry=entry, link=False, empty=False)
-    if not registry.can_open(user, report):
-        return None  # a built report the user may not open is not listed
-    empty = report.source is not None and not report.source._default_manager.exists()
-    return Row(entry=entry, link=True, empty=empty)
 
 
 @login_required
@@ -133,138 +135,7 @@ def catalogue(request: HttpRequest) -> HttpResponse:
     # Every card is drawn; ?q= only prefills the search box, and the page's own filter applies it on load.
     # Dropping cards here would leave them missing after the box is cleared.
     q = request.GET.get("q", "").strip()[:200]
-    sections: list[Section] = []
-    for code, title in GROUPS:
-        rows: list[Row] = []
-        for entry in CATALOGUE:
-            if entry.group != code:
-                continue
-            row = _row(request.user, entry)
-            if row is not None:
-                rows.append(row)
-        if rows:
-            sections.append(Section(title=title, rows=rows))
-    return render(request, "reports/catalogue.html", {"sections": sections, "q": q})
-
-
-@dataclass(frozen=True)
-class HeaderCell:
-    label: str
-    href: str  # the address that sorts the table by this column (a second click reverses it)
-    append_href: str  # the address that adds this column to the sort, or flips it (Shift+click)
-    arrow: str  # "↑", "↓" on the sorted column, "↑1", "↓2" when several keys sort, else ""
-    cls: str  # alignment classes
-    sticky_left: str = ""  # the inline offset of a pinned column, "" when not pinned (table.pin_style)
-
-    @property
-    def css(self) -> str:
-        """The th's classes on the screen: alignment and pinning."""
-        return css_classes(self.cls, "", self.sticky_left)
-
-
-# The address of a view with an empty cleaned query: a parameter, so the bare-address default does not apply.
-PLAIN_VIEW = "view=plain"
-
-
-def _address(path: str, f: Filters, adds: Sequence[str] = (), *, plain: bool = False) -> str:
-    """The report's address for these filters. `adds` are the column filters named by `add` (the picker's ephemeral
-    chips): they go in the address bar only, never in the filters, print or Excel. `plain` (a report with saved views)
-    makes an empty query read `view=plain`, so the bare address does not open the default view again."""
-    query = "&".join(part for part in (to_query(f), urlencode([("add", name) for name in adds])) if part)
-    if query:
-        return f"{path}?{query}"
-    return f"{path}?{PLAIN_VIEW}" if plain else path
-
-
-def _month_param(day: date, today: date) -> str:
-    """The «YYYY-MM» of a day's month for lmonth; "" for this month (the default, kept out of the address)."""
-    if (day.year, day.month) == (today.year, today.month):
-        return ""
-    return f"{day:%Y-%m}"
-
-
-def _added_names(get: QueryDict, offered: list[str]) -> list[str]:
-    """The column filters named by `add`, in the order given. Only names the user may use; a repeat is kept once."""
-    names: list[str] = []
-    for name in get.getlist("add"):
-        if name in offered and name not in names:
-            names.append(name)
-    return names
-
-
-def _column_filter_panels(
-    path: str, f: Filters, offered: list[str], adds: list[str], plain: bool = False
-) -> tuple[list[tuple[str, str, str]], list[dict[str, Any]]]:
-    """The picker's entries (name, label, href) for the offered filters not yet shown, and the chips (dicts) for the
-    shown ones. A filter is shown when it has a value or `add` names it. Code-list rows are read for shown chips
-    only."""
-    given = dict(f.extra)
-    choices: list[tuple[str, str, str]] = []
-    chips: list[dict[str, Any]] = []
-    for name in offered:
-        cf = COLUMN_FILTERS[name]
-        params = params_of(cf)
-        if name not in adds and not any(p in given for p in params):
-            choices.append((name, cf.label, _address(path, f, [*adds, name], plain=plain)))
-            continue
-        options: list[tuple[str, str]] = []
-        if cf.kind == "code" and cf.model is not None:
-            rows = cf.model._default_manager.order_by("name").values_list("pk", "name")
-            options = [(str(pk), label or "—") for pk, label in rows]  # a row with no name reads «—», not «None»
-        elif cf.kind == "choice":
-            options = [(str(key), label) for key, label in cf.choices]
-        values = [given.get(p, "") for p in params]
-        # removing the chip drops its values and its add entry; the other filters and add names stay
-        rest = replace(f, extra=tuple(pair for pair in f.extra if pair[0] not in params))
-        chips.append(
-            {
-                "name": name,
-                "label": cf.label,
-                "kind": cf.kind,
-                "options": options,
-                "values": values,
-                "remove_href": _address(path, rest, [a for a in adds if a != name], plain=plain),
-            }
-        )
-    return choices, chips
-
-
-def _next_sort(current: str, key: str, append: bool = False) -> str:
-    """The sort after a click on a column header. A plain click sorts by this column alone: ascending, descending on
-    the second click, ascending again on the third. Shift+click (append) adds the column after the other keys,
-    ascending, or flips its direction where it already is; it never removes a key."""
-    keys = [part for part in current.split(",") if part]
-    if not append:
-        return f"-{key}" if current == key else key
-    if any(part.removeprefix("-") == key for part in keys):
-        return ",".join(
-            (part[1:] if part.startswith("-") else f"-{part}") if part.removeprefix("-") == key else part
-            for part in keys
-        )
-    if len(keys) >= MAX_SORT_KEYS:
-        return current
-    return ",".join([*keys, key])
-
-
-def _sort_mark(sort: str, key: str) -> str:
-    """A column's arrow: "↑" for ascending, "↓" for descending, "" when it is not sorted. With two or more keys the
-    arrow carries the column's place in the sort ("↑1", "↓2")."""
-    keys = [part for part in sort.split(",") if part]
-    for place, part in enumerate(keys, start=1):
-        if part.removeprefix("-") != key:
-            continue
-        arrow = "↓" if part.startswith("-") else "↑"
-        return f"{arrow}{place}" if len(keys) >= 2 else arrow
-    return ""
-
-
-def _group_text(group: str, choices: Sequence[Column]) -> str:
-    """The label of a grouping with several keys ("a,b"), as the «Бүлэглэх» select shows it: the column labels joined.
-    Empty for one key or none, which the select's own options show."""
-    if "," not in group:
-        return ""
-    labels = {c.key: c.label for c in choices}
-    return " · ".join(labels.get(key, key) for key in group.split(","))
+    return render(request, "reports/catalogue.html", {"sections": sections_for(request.user), "q": q})
 
 
 @dataclass(frozen=True)
@@ -403,98 +274,15 @@ def format_modal(request: HttpRequest, key: str) -> HttpResponse:
     return render(request, "reports/_format_modal.html", context)
 
 
-LAYOUT_LABELS = {  # the switcher's labels (UI_RULES §4b)
-    "table": "Хүснэгт",
-    "board": "Самбар",
-    "calendar": "Хуанли",
-    "timeline": "Цагийн шугам",
-    "cards": "Карт",
-    "chart": "Диаграм",
-    "pivot": "Хөрвүүлэлт",
-}
 CHART_LABELS = {  # the chart kinds of the layout bar
     "bar": "Баганан",
     "stacked": "Давхарласан баганан",
     "line": "Шугаман",
     "donut": "Дугуй",
 }
-# A long filter bar (more than FILTERS_SLIM_FROM filters) keeps only the FILTERS_QUICK most useful ones on screen. The
-# others are offered in the «Шүүлтүүр нэмэх» menu and appear as a control with a ✕ once picked (`add=<name>` in the
-# address) or as soon as they hold a value. Only the filters in FOLDABLE can be folded: each maps to the Filters
-# fields its ✕ resets, which is also how «holds a value» is read from the address.
-FILTERS_QUICK = 4
-FILTERS_SLIM_FROM = 5
-FILTERS_PRIORITY = ("state", "as_of", "period", "department", "emptype", "employee", "branch", "year", "quarter")
-FOLDABLE: dict[str, tuple[str, ...]] = {
-    "branch": ("branch",),
-    "department": ("department",),
-    "position": ("position",),
-    "gender": ("gender",),
-    "emptype": ("emptype",),
-    "age_range": ("age_from", "age_to"),
-    "employee": ("employee",),
-}
-FILTER_LABELS = {
-    "branch": "Салбар",
-    "department": "Хэлтэс",
-    "position": "Албан тушаал",
-    "gender": "Хүйс",
-    "emptype": "Ажилтны төрөл",
-    "age_range": "Нас",
-    "employee": "Ажилтан",
-}
-
-
-def _secondary_filters(names: Sequence[str]) -> tuple[str, ...]:
-    """The filters that start folded away: all but the FILTERS_QUICK most useful ones (FILTERS_PRIORITY order, then the
-    report's own order), and only those that can be folded. Empty for a short bar."""
-    if len(names) <= FILTERS_SLIM_FROM:
-        return ()
-    rank = {n: i for i, n in enumerate(FILTERS_PRIORITY)}
-    quick = sorted(names, key=lambda n: (rank.get(n, len(rank)), list(names).index(n)))[:FILTERS_QUICK]
-    return tuple(n for n in names if n not in quick and n in FOLDABLE)
-
-
-def _holds_value(name: str, f: Filters) -> bool:
-    return any(getattr(f, field) not in (None, "") for field in FOLDABLE[name])
-
-
-def _builtin_panels(
-    path: str, f: Filters, secondary: Sequence[str], adds: list[str], plain: bool
-) -> tuple[list[str], list[tuple[str, str, str]], dict[str, str]]:
-    """The folded built-in filters for the bar and the menu: the names to draw now (those with a value or named by
-    `add`), the menu entries (name, label, href) for the others, and each drawn one's ✕ address (its fields reset, its
-    `add` dropped)."""
-    shown: list[str] = []
-    choices: list[tuple[str, str, str]] = []
-    removes: dict[str, str] = {}
-    for name in secondary:
-        if name in adds or _holds_value(name, f):
-            shown.append(name)
-            blanks: dict[str, Any] = {field: ("" if field == "gender" else None) for field in FOLDABLE[name]}
-            reset = replace(f, **blanks)
-            removes[name] = _address(path, reset, [a for a in adds if a != name], plain=plain)
-        else:
-            choices.append((name, FILTER_LABELS.get(name, name), _address(path, f, [*adds, name], plain=plain)))
-    return shown, choices, removes
-
-
-def _offered_adds(report: Report, user: User, names: Sequence[str]) -> list[str]:
-    """Every name `add` may carry for this user: the column filters and the foldable built-in filters."""
-    return [*offered_column_filters(report, user), *_secondary_filters(names)]
 
 
 CARD_EXTRAS = 4  # the shown columns after the title and subtitle, drawn as label: value lines on a card
-
-
-@dataclass(frozen=True)
-class LayoutOption:
-    """One segment of the switcher: its key, label, address and whether it is the layout on screen."""
-
-    name: str
-    label: str
-    url: str
-    current: bool
 
 
 def _number_or_none(value: object) -> float | None:
@@ -518,12 +306,6 @@ def _chart_payload(chart: layouts_mod.Chart, hrefs: list[str]) -> dict[str, Any]
     }
 
 
-# the nine parameters of the newer layouts: blanked wherever a layout's own parameters are blanked
-NEW_LAYOUT_BLANKS: dict[str, Any] = {
-    name: "" for name in ("lgrain", "lshow", "lsort", "lorder", "lrep", "lweek", "lyear", "lgroup", "lval2")
-}
-# the layout bar's own hidden inputs: every new parameter except lweek and lyear, which have no select in the bar
-# (the calendar's week and the timeline's year are set by header links), so the bar must carry them along
 LAYOUT_BAR_OWN_BLANKS: dict[str, Any] = {
     name: value for name, value in NEW_LAYOUT_BLANKS.items() if name not in ("lweek", "lyear")
 }
@@ -570,29 +352,15 @@ def _layout_context(
     spec = table.spec
     marks = marks_mod.parse_marks(f.marks)
     today = timezone.localdate()
-    names = offered_layouts(report, user)
-
-    def url(name: str) -> str:
-        # another layout starts from its own defaults; the filters, sort, rules and format stay
-        cleared = replace(
-            f,
-            layout="" if name == "table" else name,
-            lby="",
-            lby2="",
-            lval="",
-            lchart="",
-            lmonth="",
-            **NEW_LAYOUT_BLANKS,
-        )
-        return _address(request.path, cleared, adds, plain=plain)
-
-    urls = {name: url(name) for name in names}
+    options = layout_options(request.path, user, report, f, spec.layout, adds, plain)  # the switcher's segments
+    names = [option.name for option in options]
+    urls = {option.name: option.url for option in options}
     keep = parse_qsl(to_query(replace(f, layout="", lby="", lby2="", lval="", lchart="", **LAYOUT_BAR_OWN_BLANKS)))
     context: dict[str, Any] = {
         "layout": spec.layout,
         "layout_names": names,
         "layout_urls": urls,
-        "layout_options": [LayoutOption(n, LAYOUT_LABELS[n], urls[n], n == spec.layout) for n in names],
+        "layout_options": options,
         "layout_label": LAYOUT_LABELS,
         "layout_template": f"reports/layouts/{spec.layout}.html",
         "layout_choices": layouts_mod.layout_choices(report, user, spec.layout, spec.by.key if spec.by else ""),
@@ -736,28 +504,6 @@ def _layout_context(
     return context, cards
 
 
-SELECTION_KEYS = ("excel", "csv", "print", "copy", "checklist")  # the bulk actions of the selection bar
-CHECK_PINNED_CSS = "w-10 sticky z-10 bg-surface"  # the checkbox cell when columns are pinned (unpinned: w-10 only)
-CHECK_PINNED_STYLE = "left: 0rem"
-
-
-def _selection_urls(user: User, report: Report) -> dict[str, str]:
-    """The selection bar's action URLs. An action the user may not use has an empty URL, and the bar leaves it out:
-    Excel and CSV need the export permission, the checklist needs the right to start one."""
-
-    def url(name: str, allowed: bool) -> str:
-        return reverse(f"reports:sel_{name}", args=[report.key]) if allowed else ""
-
-    can_export = user.has_perm(EXPORT_PERM)
-    return {
-        "excel": url("excel", can_export),
-        "csv": url("csv", can_export),
-        "print": url("print", True),
-        "copy": url("copy", True),
-        "checklist": url("checklist", checklist_access.can_start(user)),
-    }
-
-
 @login_required
 @vary_on_headers("HX-Request")
 def report_page(request: HttpRequest, key: str) -> HttpResponse:
@@ -768,189 +514,110 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
         raise Http404
     if not registry.can_open(user, report):
         raise PermissionDenied
-    if request.method == "GET" and not request.GET and not request.headers.get("HX-Request") and report.saved_views:
-        # the bare address opens the report's default saved view; the target has a query, so it never loops
-        default = _visible_views(user, report.key).filter(is_default=True).first()
-        cleaned = _viewer_query(user, report, default.query) if default is not None else ""
-        if cleaned:
-            return redirect(_view_url(reverse("reports:report", args=[report.key]), cleaned))
-    table = build_table(report, user, parse_filters(request.GET))
+    # the bare address opens the report's default saved view; the target has a query, so it never loops. Answered
+    # before the table is built (the API answers the same address as `redirect`, reports.services.page_head)
+    target = default_view_redirect(
+        request.GET, bool(request.headers.get("HX-Request")), request.method or "GET", user, report
+    )
+    if target:
+        return redirect(target)
+    # only an htmx request may ask for a later batch (config.batching.window reads the offset the same way)
+    htmx = request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
+    offset = parse_offset(request.GET.get("offset", "")) if htmx else 0
+    # a batch answer (htmx with an offset) skips the filter bar: its option lists are queries the batch never draws
+    page = table_page(request.GET, request.path, user, report, offset, with_bar=not offset)
+    table = page.table
     f = table.filters
-    # rows load in batches only when the table is not grouped: a grouped table shows every row under its heading
-    # (the other layouts draw all their rows; only cards page, through their own batch below)
-    batch: batching.Batch[Any] | None = None
-    if table.spec.layout == "table" and not f.group:
-        batch = batching.window(request, table.groups[0][1])
-        table.groups = [("", batch.shown)]
-    column_names = offered_column_filters(report, user)
-    names = offered_filters(report, user)  # the filter bar draws these, in the report's order
-    secondary = _secondary_filters(names)
-    adds = _added_names(
-        request.GET, [*column_names, *secondary]
-    )  # the picker's chips without a value yet; never stored
     plain = bool(report.saved_views)  # an empty address then says view=plain, not the bare default-view address
+    tools = page_tools(user, report, table)  # cheap: the batch answers need these flags, not the saved views
+    adds = page.adds  # the picker's chips without a value yet; never stored
     layout_context, cards = _layout_context(request, user, report, table, adds, plain)
-    column_choices, column_chips = _column_filter_panels(request.path, f, column_names, adds, plain)
-    shown_secondary, builtin_choices, filter_removes = _builtin_panels(request.path, f, secondary, adds, plain)
-    # one «Шүүлтүүр нэмэх» menu: the folded built-in filters first, then the column filters (label, href, heading)
-    picker = [(label, href, "Шүүлтүүр" if i == 0 else "") for i, (_n, label, href) in enumerate(builtin_choices)]
-    picker += [
-        (label, href, "Баганаар" if i == 0 and builtin_choices else "")
-        for i, (_n, label, href) in enumerate(column_choices)
-    ]
-    # the Багана button's address: the report's query plus the chips named by `add`
-    columns_query = "&".join(part for part in (to_query(f), urlencode([("add", n) for n in adds])) if part)
-    heads = []
-    for i, (c, cls) in enumerate(zip(table.columns, column_classes(table.columns), strict=True)):
-        heads.append(
-            HeaderCell(
-                label=c.label,
-                href=_address(request.path, replace(f, sort=_next_sort(f.sort, c.key)), adds, plain=plain),
-                append_href=_address(
-                    request.path, replace(f, sort=_next_sort(f.sort, c.key, append=True)), adds, plain=plain
-                ),
-                arrow=_sort_mark(f.sort, c.key),
-                cls=cls,
-                sticky_left=pin_style(i, table.pin, table.pin_base),
-            )
-        )
-    selectable = report.person is not None and table.spec.layout == "table"
-    # the inline editors need the table layout only, not row selection (a report may edit without a checkbox)
-    table_layout = table.spec.layout == "table"
-    period_start, period_end = period_of(f)
+    # the batch answers below draw no bar; any other answer needs it (a grouped or other-layout htmx request too)
+    is_batch = (page.batched and bool(offset)) or (cards is not None and bool(cards.offset))
+    bar = page.bar
+    if bar is None and not is_batch:
+        bar = filter_bar(request.GET, request.path, user, report, table, plain)
+    table_layout = page.layout == "table"
+    next_query = ""
+    if page.next_offset is not None:
+        # the «Цааш харуулах» pill asks for the next batch of this same address
+        params = request.GET.copy()
+        params["offset"] = str(page.next_offset)
+        next_query = params.urlencode()
     context = {
         "report": report,
         "filters": f,
-        "rules_text": table.rules_text,
-        "clear_rules_url": _address(request.path, replace(f, rules=""), adds, plain=plain),
-        "clear_url": _address(request.path, Filters(), plain=plain),  # the filter bar's «Цэвэрлэх»
-        "query": to_query(f),
-        "columns_query": columns_query,
-        "print_url": _address(reverse("reports:print", args=[report.key]), f),
-        "excel_url": _address(reverse("reports:excel", args=[report.key]), f) if user.has_perm(EXPORT_PERM) else "",
+        "rules_text": page.rules_text,
+        "clear_rules_url": page.clear_rules_url,
+        "query": page.query,
+        "print_url": tools.print_url,
+        "excel_url": tools.excel_url,
         "table": table,
-        "heads": heads,
-        "shown_rows": batch.shown if batch is not None else [],
-        "next_query": batch.next_query if batch is not None else "",
+        "heads": page.heads,
+        "shown_rows": table.groups[0][1] if page.batched else [],
+        "next_query": next_query,
         "batch_url": request.path,
-        "staff_actions": report.key == "staff-list"
-        and access.can_manage(request.user),  # hire and import beside the title
-        "note": report.note(f) if report.note is not None else "",
-        "filter_names": [n for n in names if n not in secondary or n in shown_secondary],
-        "secondary_filters": secondary,  # drawn with a ✕ (and a hidden `add`) when shown
-        "filter_items": [
-            {"name": n, "remove": filter_removes.get(n, "")}
-            for n in names
-            if n not in secondary or n in shown_secondary
-        ],
-        "filter_picker": picker,
-        "column_filter_choices": column_choices,
-        "active_column_filters": column_chips,
-        "states": STATES,
-        "emptypes": EMPTYPES,
-        "no_working_state": NO_WORKING_STATE,
-        "genders": GENDERS,
-        "branches": Branch.objects.order_by("name"),
-        "departments": Department.objects.order_by("name"),
-        "positions": Position.objects.order_by("name"),
-        "period_from": period_start,
-        "period_to": period_end,
-        "change_kinds": MOVEMENT_KINDS,
-        "order_types": ORDER_TYPES,
-        "leave_states": LEAVE_STATES,
-        "leave_types": LeaveTypeRow.objects.order_by("name") if "leave_type" in names else [],
-        "absence_types": AbsenceType.objects.order_by("name") if "absence_type" in names else [],
-        "attributes": ATTRIBUTES if "attribute" in names else {},
-        "contact_types": ContactType.objects.order_by("name") if "contact_type" in names else [],
-        "year": (f.year or timezone.localdate().year) if "year" in names else None,
-        "training_types": TRAINING_TYPES if "tr_type" in names else {},
-        "quarter": (f.quarter or this_quarter()) if "quarter" in names else None,
-        "present_types": PresentType.objects.order_by("name") if "present_type" in names else [],
-        # the lists behind the dropdowns are read only when their filter is in the bar
-        "reasons": FiredReason.objects.order_by("name") if "reason" in names else [],
-        "discipline_types": DisciplineType.objects.order_by("name") if "discipline" in names else [],
-        "people": (
-            access.visible_employees(user)
-            .exclude(emptype__in=listing.NEVER_WORKED)
-            .order_by("family_name", "given_name")
-            if "employee" in names
-            else []
-        ),
-        # the «Бүлэглэх» select replaces the column picker's grouping, so only reports without the picker offer it
-        "group_choices": (
-            [] if report.picks_columns else [c for c in allowed_columns(report, user) if c.key in report.group_options]
-        ),
-        "group_text": _group_text(f.group, [c for c in allowed_columns(report, user) if c.key in report.group_options]),
+        "staff_actions": tools.staff_actions,  # hire and import beside the title
+        "note": page.note,
         # row selection: a table of a report that names its people (Report.person); the checkbox column adds one cell
-        "selectable": selectable,
+        "selectable": tools.selectable,
         # the cells that name an employee field open the inline editor: plain fields for managers, salary and insurance
         # fields for the salary right (reports.cell_edit.can_edit checks each row); _rows.html tells them apart
-        "can_edit_cells": table_layout and (access.can_manage(user) or access.can_manage_salary(user)),
+        "can_edit_cells": page.can_edit_cells,
         "plain_cells": access.can_manage(user),
         "salary_cells": access.can_manage_salary(user),
         "salary_fields": cell_edit_service.SALARY_EDITABLE,
         # the cells that correct a job field or the salary with a reason (reports.corrections, D-080 phase 4)
-        "can_correct_cells": table_layout and corrections.enabled() and access.can_manage(user),
+        "can_correct_cells": page.can_correct_cells,
         "can_correct_salary": (
             table_layout and corrections.enabled() and access.can_manage(user) and access.can_manage_salary(user)
         ),
         # the cells of a children or contacts row open the row editor (reports.row_edit); the server checks each row
-        "can_edit_rows": table_layout and access.can_manage(user),
-        "selection_urls": _selection_urls(user, report) if selectable else dict.fromkeys(SELECTION_KEYS, ""),
+        "can_edit_rows": page.can_edit_rows,
+        "selection_urls": tools.selection_urls,
         "selection_total": table.count,
         "selection_over_cap": table.count > selection_mod.MAX_PEOPLE,
         # the checkbox column is sticky at the far left when columns are pinned (table.pin_base offsets the rest)
-        "check_pinned": selectable and table.pin > 0,
-        "check_css": CHECK_PINNED_CSS if selectable and table.pin > 0 else "w-10",
-        "check_style": CHECK_PINNED_STYLE if selectable and table.pin > 0 else "",
+        "check_pinned": page.selectable and page.pin > 0,
+        "check_css": page.check_css,
+        "check_style": page.check_style,
         "selection_max": selection_mod.MAX_PEOPLE,
-        "table_span": len(heads) + (1 if selectable else 0),
+        "table_span": page.table_span,
     }
+    if bar is not None:
+        context.update(bar.context)  # the filter bar: its drawn filters, option lists, picker and column chips
     context.update(layout_context)
-    if batch is not None and batch.offset:
+    if page.batched and offset:
         # the «Цааш харуулах» pill asked for the next batch: only its rows and the pill after them go back
         return render(request, "reports/_batch_rows.html", context)
     if cards is not None and cards.offset:
         return render(request, "reports/layouts/_cards_batch.html", context)
-    if report.saved_views:
-        # the match uses the address as this viewer may use it, cleaned the same way a stored view is (defaults such as
-        # the default columns are not part of it, so an empty view matches the plain address)
-        context.update(_saved_context(user, report, to_query(_cleaned_for(user, report, parse_filters(request.GET)))))
+    # the saved views and the switcher's head cost queries: only the full page asks for them (not the batch answers)
+    head = page_head(
+        request.GET,
+        bool(request.headers.get("HX-Request")),
+        request.path,
+        user,
+        report,
+        table,
+        plain,
+        method=request.method or "GET",
+    )
+    saved = head.saved
+    if saved is not None:  # the title-row controls: the views, the templates and the one the address matches
+        context.update(
+            plain_url=saved.plain_url,
+            saved_options=saved.options,
+            current_view=saved.current_view,
+            can_edit_view=saved.can_edit_view,
+            template_options=saved.templates,
+            template_current=saved.template_current,
+        )
     response = render(request, "reports/report.html", context)
     if request.headers.get("HX-Request"):
         # the filter form pushes the raw address it sent; the address bar gets the cleaned one, so no old year is kept
-        response["HX-Push-Url"] = _address(request.path, f, adds, plain=plain)
+        response["HX-Push-Url"] = page.address
     return response
-
-
-@dataclass(frozen=True)
-class SavedOption:
-    name: str
-    url: str  # the report's address with this view's query
-    selected: bool  # the address shows this view's setup now
-
-
-def _view_url(report_url: str, query: str) -> str:
-    return f"{report_url}?{query}" if query else f"{report_url}?{PLAIN_VIEW}"
-
-
-def _may_change(user: User, view: SavedView) -> bool:
-    """A saved view is renamed and deleted by its author, or by a user with reports.manage_saved_views."""
-    return view.author_id == user.pk or user.has_perm("reports.manage_saved_views")
-
-
-def _sees_private(user: User, view: SavedView) -> bool:
-    """A private view is seen by its author; one whose author was deleted (no author) only by a manager."""
-    return view.author_id == user.pk or (view.author_id is None and user.has_perm(MANAGE_PERM))
-
-
-def _visible_views(user: User, report_key: str) -> QuerySet[SavedView]:
-    """The report's saved views this user sees: every shared one, the user's own private ones, and the private ones
-    with no author left when the user may manage saved views."""
-    visible = Q(visibility=SHARED) | Q(author=user)
-    if user.has_perm(MANAGE_PERM):
-        visible |= Q(author__isnull=True, visibility=PRIVATE)
-    return SavedView.objects.filter(report=report_key).filter(visible)
 
 
 def _default_allowed(user: User, report_key: str, pk: int | None) -> bool:
@@ -976,76 +643,6 @@ def _visibility_and_default(form: SavedViewForm) -> tuple[str, bool]:
     """The view's visibility (blank is shared) and whether it opens first. Only a shared view can be the default."""
     visibility = form.cleaned_data["visibility"] or SHARED
     return visibility, bool(form.cleaned_data["is_default"]) and visibility == SHARED
-
-
-def _option_name(view: SavedView) -> str:
-    """The select's text: a star on the default view, and a suffix on a private one."""
-    name = f"★ {view.name}" if view.is_default else view.name
-    return f"{name} (хувийн)" if view.visibility == PRIVATE else name
-
-
-def _cleaned_for(user: User, report: Report, f: Filters) -> Filters:
-    """An address as this user may use it: the filters they may not use (column filters on hidden columns included)
-    are reset, the columns, sort and group keys they may not see are dropped, and rules, totals and marks keep only
-    their columns. Used for what a user saves and for each saved view a user sees."""
-    usable = usable_filters(report, user, f)
-    known = _known_only(report, usable)
-    allowed = {c.key for c in allowed_columns(report, user)}
-    visible = replace(
-        known,
-        columns=tuple(k for k in known.columns if k in allowed),
-        group=_known_keys(known.group, allowed, sort=False),
-        sort=_known_keys(known.sort, allowed, sort=True),
-    )
-    return restricted_filters(report, user, visible)
-
-
-def _viewer_query(user: User, report: Report, stored: str) -> str:
-    """A saved view's query as this viewer may see it. A view whose rules all vanish for this viewer is the plain
-    address."""
-    return to_query(_cleaned_for(user, report, parse_filters(QueryDict(stored))))
-
-
-def _saved_context(user: User, report: Report, query: str) -> dict[str, Any]:
-    """The title-row controls: the report's views, the one the address matches, and whether the user may change it.
-    Each view's address and the match use the query as this viewer may see it."""
-    report_url = reverse("reports:report", args=[report.key])
-    shown = [(v, _viewer_query(user, report, v.query)) for v in _visible_views(user, report.key)]
-    current = next((v for v, own in shown if own == query), None)
-    options = [
-        SavedOption(name=_option_name(v), url=_view_url(report_url, own), selected=v is current) for v, own in shown
-    ]
-    # the starter templates («Загвар»): read-only, offered only when every column their rules use is one this viewer
-    # may see; a saved view that matches the address wins the selection over a template
-    template_options = []
-    for t in report.templates:
-        if not _template_allowed(user, report, t):
-            continue
-        own = _viewer_query(user, report, resolved_query(t))
-        if own:
-            template_options.append(
-                SavedOption(name=t.name, url=_view_url(report_url, own), selected=current is None and own == query)
-            )
-    return {
-        "report_url": report_url,
-        "plain_url": _view_url(report_url, ""),  # the «—» option: the report with no saved setup
-        "saved_options": options,
-        "current_view": current,
-        "can_edit_view": current is not None and _may_change(user, current),
-        "template_options": template_options,
-        "template_current": any(o.selected for o in template_options),
-    }
-
-
-def _template_allowed(user: User, report: Report, template: Template) -> bool:
-    """A template is offered when its rules parse and use only columns this user may see."""
-    f = parse_filters(QueryDict(resolved_query(template)))
-    tree = rules_mod.parse_rules(f.rules)
-    if tree is None and f.rules:
-        return False  # rules that do not parse
-    used = set(rules_mod.rule_columns(tree)) if tree is not None else set()
-    used |= {k for k in (*f.columns, f.lby, f.lby2) if k}  # the columns and the layout's categories it names
-    return used <= {c.key for c in allowed_columns(report, user)}
 
 
 @login_required
@@ -1153,31 +750,6 @@ def _is_name_clash(error: IntegrityError) -> bool:
         return True
     # Firebird has no such attribute: its message names the (upper-case) index, e.g. ... "REPORTS_SAVEDVIEW_UNIQUE_NAME".
     return diag is None and NAME_CONSTRAINT in str(error).lower()
-
-
-def _known_keys(text: str, known: set[str], *, sort: bool) -> str:
-    """A comma-separated list of keys with only the known ones kept, in order. A sort key may start with «-»; a group
-    key may not, so a «-» part is dropped from a group list (parse_filters would drop the whole list anyway)."""
-    parts = text.split(",") if sort else [p for p in text.split(",") if not p.startswith("-")]
-    return ",".join(part for part in parts if part.lstrip("-") in known)
-
-
-def _known_only(report: Report, f: Filters) -> Filters:
-    """The address with only the column, group and sort keys this report has, so a saved view stores nothing unknown.
-    Rules, totals and marks keep only the report's own columns too."""
-    known = {c.key for c in report.columns}
-    kept_rules = rules_mod.dump_rules(rules_mod.restrict(rules_mod.parse_rules(f.rules), known))
-    kept_totals = totals_mod.dump_totals([pair for pair in totals_mod.parse_totals(f.totals) if pair[0] in known])
-    kept_marks = marks_mod.dump_marks([mark for mark in marks_mod.parse_marks(f.marks) if mark.column in known])
-    return replace(
-        f,
-        columns=tuple(k for k in f.columns if k in known),
-        group=_known_keys(f.group, known, sort=False),
-        sort=_known_keys(f.sort, known, sort=True),
-        rules=kept_rules,
-        totals=kept_totals,
-        marks=kept_marks,
-    )
 
 
 @login_required

@@ -82,6 +82,12 @@ describe("portedManifest", () => {
     }
   });
 
+  it("catalogue_is_ported_report_pages_are_not", () => {
+    expect(isPorted("/reports/")).toBe(true);
+    expect(isPorted("/reports/?q=a")).toBe(true);
+    expect(isPorted("/reports/staff-list/")).toBe(false);
+  });
+
   it("maps the real PORTED list one to one", () => {
     expect(portedManifest(PORTED).length).toBe(PORTED.length);
   });

@@ -64,6 +64,12 @@
   .sel-active { background: var(--color-slate-100); color: var(--color-slate-900); }
   /* The chosen option: lime tint, olive text; the ✓ below is the non-colour cue. */
   .sel-selected { font-weight: 600; background: var(--color-pick-tint); color: var(--color-pick-edge); }
+  /* input.css 294-298: the picked look of any element (a switcher segment, a row, a chip); the colours are the pick tokens. */
+  .is-picked {
+    background-color: var(--color-pick-tint);
+    color: var(--color-pick-edge);
+    transition: background-color var(--dur-hover) var(--ease-out);
+  }
   /* input.css: the picked row of an inline list (its cells take the pick tint, as Django's rule does). */
   tr.is-picked > td { background-color: var(--color-pick-tint); }
   /* input.css: the 3px edge of a picked row sits on its first cell (an inset shadow, so the row does not move). */
@@ -125,6 +131,8 @@
   :root[data-theme="dark"] :is(.card-soft, .nav-panel) { box-shadow: 0 0 0 1px var(--color-slate-200), 0 8px 24px rgb(0 0 0 / .35); }
   /* input.css 427: dark arrow of the typing box (.sel-combo), inside the same @media screen block */
   :root[data-theme="dark"] .sel-combo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23bdc6c8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); }
+  /* input.css 426: picked elements are light steel-blue text on the dark slate tint. */
+  :root[data-theme="dark"] .is-picked { color: var(--color-pick-bright); }
 }
 
 /* input.css 284, 286: keyframes of the print-job badge (unlayered in the source; its rules are not ported yet) */
@@ -192,4 +200,13 @@
     outline: none !important;
     accent-color: auto !important;
   }
+}
+
+/* input.css 495-499: the report view switcher's current segment. Unlayered, as in the source: the group's hover utility
+   ([&>*:hover]:bg-slate-50) sits in the utilities layer and would otherwise paint the picked segment grey on hover. */
+[role="group"] > a.is-picked { background-color: var(--color-pick-tint); color: var(--color-pick-edge); }
+
+/* input.css 506 (print), the switcher entry only: a printed switcher shows no picked tint or weight. */
+@media print {
+  [role="group"] > a.is-picked { background-color: transparent !important; color: inherit !important; font-weight: inherit !important; }
 }

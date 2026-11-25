@@ -9608,6 +9608,964 @@
         "title": "RecruitWriteResultOut",
         "type": "object"
       },
+      "ReportBarItemOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "remove": {
+            "title": "Remove",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "remove"
+        ],
+        "title": "ReportBarItemOut",
+        "type": "object"
+      },
+      "ReportBarOut": {
+        "properties": {
+          "adds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Adds",
+            "type": "array"
+          },
+          "clear_url": {
+            "title": "Clear Url",
+            "type": "string"
+          },
+          "column_chips": {
+            "items": {
+              "$ref": "#/components/schemas/ReportColumnChipOut"
+            },
+            "title": "Column Chips",
+            "type": "array"
+          },
+          "columns_query": {
+            "title": "Columns Query",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportBarItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ReportFilterOptionsOut"
+          },
+          "picker": {
+            "items": {
+              "$ref": "#/components/schemas/ReportPickerOut"
+            },
+            "title": "Picker",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "picker",
+          "column_chips",
+          "adds",
+          "clear_url",
+          "columns_query",
+          "options"
+        ],
+        "title": "ReportBarOut",
+        "type": "object"
+      },
+      "ReportCardOut": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "empty": {
+            "title": "Empty",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "search": {
+            "title": "Search",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "description",
+          "search",
+          "link",
+          "empty",
+          "path"
+        ],
+        "title": "ReportCardOut",
+        "type": "object"
+      },
+      "ReportCatalogueOut": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections"
+        ],
+        "title": "ReportCatalogueOut",
+        "type": "object"
+      },
+      "ReportCellOut": {
+        "properties": {
+          "css": {
+            "title": "Css",
+            "type": "string"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "money": {
+            "title": "Money",
+            "type": "boolean"
+          },
+          "person": {
+            "title": "Person",
+            "type": "integer"
+          },
+          "style": {
+            "title": "Style",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "text",
+          "value",
+          "money",
+          "href",
+          "css",
+          "style",
+          "person"
+        ],
+        "title": "ReportCellOut",
+        "type": "object"
+      },
+      "ReportColumnChipOut": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "params": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Params",
+            "type": "array"
+          },
+          "remove_href": {
+            "title": "Remove Href",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "kind",
+          "params",
+          "options",
+          "values",
+          "remove_href"
+        ],
+        "title": "ReportColumnChipOut",
+        "type": "object"
+      },
+      "ReportFilterOptionsOut": {
+        "properties": {
+          "absence_types": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Absence Types",
+            "type": "array"
+          },
+          "attributes": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Attributes",
+            "type": "array"
+          },
+          "branches": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Branches",
+            "type": "array"
+          },
+          "change_kinds": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Change Kinds",
+            "type": "array"
+          },
+          "contact_types": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Contact Types",
+            "type": "array"
+          },
+          "departments": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Departments",
+            "type": "array"
+          },
+          "discipline_types": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Discipline Types",
+            "type": "array"
+          },
+          "emptypes": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Emptypes",
+            "type": "array"
+          },
+          "genders": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Genders",
+            "type": "array"
+          },
+          "group_choices": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Group Choices",
+            "type": "array"
+          },
+          "group_text": {
+            "title": "Group Text",
+            "type": "string"
+          },
+          "leave_states": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Leave States",
+            "type": "array"
+          },
+          "leave_types": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Leave Types",
+            "type": "array"
+          },
+          "no_working_state": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "No Working State",
+            "type": "array"
+          },
+          "order_types": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Order Types",
+            "type": "array"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "period_from": {
+            "title": "Period From",
+            "type": "string"
+          },
+          "period_to": {
+            "title": "Period To",
+            "type": "string"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "present_types": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Present Types",
+            "type": "array"
+          },
+          "quarter": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quarter"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "training_types": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOptionOut"
+            },
+            "title": "Training Types",
+            "type": "array"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "states",
+          "emptypes",
+          "genders",
+          "branches",
+          "departments",
+          "positions",
+          "change_kinds",
+          "order_types",
+          "leave_states",
+          "leave_types",
+          "absence_types",
+          "attributes",
+          "contact_types",
+          "training_types",
+          "present_types",
+          "reasons",
+          "discipline_types",
+          "people",
+          "no_working_state",
+          "group_choices",
+          "period_from",
+          "period_to",
+          "year",
+          "quarter",
+          "group_text"
+        ],
+        "title": "ReportFilterOptionsOut",
+        "type": "object"
+      },
+      "ReportGroupOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/ReportCellOut"
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "count",
+          "rows"
+        ],
+        "title": "ReportGroupOut",
+        "type": "object"
+      },
+      "ReportHeadCellOut": {
+        "properties": {
+          "append_href": {
+            "title": "Append Href",
+            "type": "string"
+          },
+          "arrow": {
+            "title": "Arrow",
+            "type": "string"
+          },
+          "css": {
+            "title": "Css",
+            "type": "string"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "sticky_left": {
+            "title": "Sticky Left",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "href",
+          "append_href",
+          "arrow",
+          "css",
+          "sticky_left"
+        ],
+        "title": "ReportHeadCellOut",
+        "type": "object"
+      },
+      "ReportHeadOut": {
+        "properties": {
+          "excel_url": {
+            "title": "Excel Url",
+            "type": "string"
+          },
+          "layouts": {
+            "items": {
+              "$ref": "#/components/schemas/ReportLayoutOut"
+            },
+            "title": "Layouts",
+            "type": "array"
+          },
+          "print_url": {
+            "title": "Print Url",
+            "type": "string"
+          },
+          "saved": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportSavedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selectable": {
+            "title": "Selectable",
+            "type": "boolean"
+          },
+          "selection_urls": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Selection Urls",
+            "type": "object"
+          },
+          "staff_actions": {
+            "title": "Staff Actions",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tools": {
+            "$ref": "#/components/schemas/ReportToolsOut"
+          }
+        },
+        "required": [
+          "title",
+          "saved",
+          "tools",
+          "layouts",
+          "staff_actions",
+          "selectable",
+          "selection_urls",
+          "print_url",
+          "excel_url"
+        ],
+        "title": "ReportHeadOut",
+        "type": "object"
+      },
+      "ReportLayoutOut": {
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "url",
+          "current"
+        ],
+        "title": "ReportLayoutOut",
+        "type": "object"
+      },
+      "ReportOptionOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ReportOptionOut",
+        "type": "object"
+      },
+      "ReportPageOut": {
+        "properties": {
+          "bar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportBarOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "head": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportHeadOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layout": {
+            "title": "Layout",
+            "type": "string"
+          },
+          "redirect": {
+            "title": "Redirect",
+            "type": "string"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportTableOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "redirect",
+          "title",
+          "layout",
+          "head",
+          "bar",
+          "table"
+        ],
+        "title": "ReportPageOut",
+        "type": "object"
+      },
+      "ReportPickerOut": {
+        "properties": {
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "href",
+          "heading"
+        ],
+        "title": "ReportPickerOut",
+        "type": "object"
+      },
+      "ReportRowsOut": {
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "required": [
+          "groups",
+          "next_offset"
+        ],
+        "title": "ReportRowsOut",
+        "type": "object"
+      },
+      "ReportSavedOptionOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "selected"
+        ],
+        "title": "ReportSavedOptionOut",
+        "type": "object"
+      },
+      "ReportSavedOut": {
+        "properties": {
+          "can_edit_view": {
+            "title": "Can Edit View",
+            "type": "boolean"
+          },
+          "current_view": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current View"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSavedOptionOut"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "plain_url": {
+            "title": "Plain Url",
+            "type": "string"
+          },
+          "save_url": {
+            "title": "Save Url",
+            "type": "string"
+          },
+          "template_current": {
+            "title": "Template Current",
+            "type": "boolean"
+          },
+          "templates": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSavedOptionOut"
+            },
+            "title": "Templates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "plain_url",
+          "options",
+          "templates",
+          "current_view",
+          "template_current",
+          "can_edit_view",
+          "save_url"
+        ],
+        "title": "ReportSavedOut",
+        "type": "object"
+      },
+      "ReportSectionOut": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ReportCardOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "rows"
+        ],
+        "title": "ReportSectionOut",
+        "type": "object"
+      },
+      "ReportTableOut": {
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "check_css": {
+            "title": "Check Css",
+            "type": "string"
+          },
+          "check_style": {
+            "title": "Check Style",
+            "type": "string"
+          },
+          "clear_rules_url": {
+            "title": "Clear Rules Url",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "footer": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ReportCellOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "heads": {
+            "items": {
+              "$ref": "#/components/schemas/ReportHeadCellOut"
+            },
+            "title": "Heads",
+            "type": "array"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "pin": {
+            "title": "Pin",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "rules_text": {
+            "title": "Rules Text",
+            "type": "string"
+          },
+          "selectable": {
+            "title": "Selectable",
+            "type": "boolean"
+          },
+          "shows_count": {
+            "title": "Shows Count",
+            "type": "boolean"
+          },
+          "table_span": {
+            "title": "Table Span",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "heads",
+          "groups",
+          "next_offset",
+          "count",
+          "shows_count",
+          "rules_text",
+          "clear_rules_url",
+          "note",
+          "footer",
+          "selectable",
+          "check_css",
+          "check_style",
+          "table_span",
+          "pin",
+          "address",
+          "query"
+        ],
+        "title": "ReportTableOut",
+        "type": "object"
+      },
+      "ReportToolsOut": {
+        "properties": {
+          "columns": {
+            "title": "Columns",
+            "type": "boolean"
+          },
+          "format": {
+            "title": "Format",
+            "type": "boolean"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "columns",
+          "rules",
+          "format"
+        ],
+        "title": "ReportToolsOut",
+        "type": "object"
+      },
       "RequestOut": {
         "properties": {
           "can_withdraw": {
@@ -17595,6 +18553,129 @@
         "summary": "Vacancy Form Read",
         "tags": [
           "recruitment"
+        ]
+      }
+    },
+    "/api/v1/reports/catalogue": {
+      "get": {
+        "operationId": "api_reports_catalogue",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCatalogueOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Catalogue",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}": {
+      "get": {
+        "description": "The report's head, filter bar and table layout for the address. The redirect is answered before the table is\nbuilt, as the Django page does. A layout other than the table answers the head and the bar with no table.",
+        "operationId": "api_reports_report_page",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPageOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Report Page",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/rows": {
+      "get": {
+        "description": "One batch of the table for the address (every row of a grouped table, with next_offset None).",
+        "operationId": "api_reports_report_rows",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRowsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Report Rows",
+        "tags": [
+          "reports"
         ]
       }
     },
