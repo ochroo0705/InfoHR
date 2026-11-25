@@ -116,9 +116,13 @@ def test_open_target_leave_request_new_is_a_popup_without_employee() -> None:
     assert open_target(path, False).kind == "page"  # not a pop-up when opened as a page
 
 
-def test_open_target_unported_modals_become_legacy_list_pages() -> None:
-    vacancy = open_target(reverse("recruitment:vacancy_add"), True)
-    assert vacancy == PaletteOpen("legacy", reverse("recruitment:vacancies"), None, None, None, None, None)
+def test_open_target_vacancy_add_is_a_popup_without_employee() -> None:
+    path = reverse("recruitment:vacancy_add")
+    assert open_target(path, True) == PaletteOpen("popup", path, "vacancy_add", None, None, None, None)
+    assert open_target(path, False).kind == "page"  # not a pop-up when opened as a page
+
+
+def test_open_target_unlisted_modal_is_a_page() -> None:
     # A modal that no table names is opened as the page it names (never loaded as a fragment).
     listed = reverse("employees:list")
     assert open_target(listed, True) == PaletteOpen("page", listed, None, None, None, None, None)

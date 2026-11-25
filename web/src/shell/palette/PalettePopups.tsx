@@ -1,15 +1,18 @@
 // The pop-ups the assistant panel opens (palette.js data-palette-modal rows): the order detail, the contract event, the
-// position-slot add form, the leave add form and the staff leave request form. They live at shell level, inside
-// PalettePopups, so a pop-up opened from the panel never depends on the page underneath and never navigates. The employee
-// pop-ups are EmployeePopups (no `pk` here: every open passes its own employee, as the register page does). The slot
-// form, the leave add form and the leave request form are mounted only while open; their save refetches through the
-// helpers.
+// position-slot add form, the leave add form, the staff leave request form and the vacancy add form. They live at
+// shell level, inside PalettePopups, so a pop-up opened from the panel never depends on the page underneath and never
+// navigates on open. The employee pop-ups are EmployeePopups (no `pk` here: every open passes its own employee, as the
+// register page does). The slot form, the leave add form, the leave request form and the vacancy add form are mounted
+// only while open; their save refetches through the helpers. A saved new vacancy navigates to its page: the palette
+// may be used on any page, and the list it came from would not show it.
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { PaletteOpenOut } from "../../api/palette";
+import { useTransitionNavigate } from "../../lib/viewTransition";
 import { EmployeePopups, useEmployeePopups } from "../../screens/employee/EmployeePopups";
 import { LeaveFormModal } from "../../screens/leave/LeaveFormModal";
 import { LeaveRequestModal } from "../../screens/leaveRequests/LeaveRequestModal";
 import { SlotFormModal } from "../../screens/slots/SlotFormModal";
+import { VacancyModal } from "../../screens/recruitment/VacancyModal";
 
 export type PalettePopupsApi = {
   // Opens the pop-up a palette row names. A target missing the value its pop-up needs (or with the wrong type) opens nothing.
@@ -49,6 +52,9 @@ function PopupHost({ children }: { children: ReactNode }) {
   const [leaveAdd, setLeaveAdd] = useState<{ employee: number | null } | null>(null);
   // Whether the staff leave request form is open. It is mounted only while open.
   const [leaveRequestOpen, setLeaveRequestOpen] = useState(false);
+  // Whether the vacancy add form is open. It is mounted only while open.
+  const [vacancyAddOpen, setVacancyAddOpen] = useState(false);
+  const navigate = useTransitionNavigate();
 
   const api = useMemo<PalettePopupsApi>(
     () => ({
@@ -78,6 +84,11 @@ function PopupHost({ children }: { children: ReactNode }) {
         }
         if (target.popup === "leave_request") {
           setLeaveRequestOpen(true);
+          return;
+        }
+        if (target.popup === "vacancy_add") {
+          // Setting true again while open changes nothing: the form is one mounted pop-up.
+          setVacancyAddOpen(true);
         }
       },
     }),
@@ -92,6 +103,13 @@ function PopupHost({ children }: { children: ReactNode }) {
         <LeaveFormModal mode={{ kind: "add", employee: leaveAdd.employee }} onClose={() => setLeaveAdd(null)} />
       ) : null}
       {leaveRequestOpen ? <LeaveRequestModal onClose={() => setLeaveRequestOpen(false)} /> : null}
+      {vacancyAddOpen ? (
+        <VacancyModal
+          vacancyId={null}
+          onClose={() => setVacancyAddOpen(false)}
+          onSaved={(id) => navigate(`/recruitment/vacancies/${id}/`)}
+        />
+      ) : null}
     </PalettePopupsContext.Provider>
   );
 }

@@ -5,36 +5,24 @@ user may not see answers 404. Hiring managers read, download CVs and comment; ev
 manage recruitment (403). The rules themselves (stage moves, rejection, files) live in `recruitment.services`.
 """
 
-from dataclasses import dataclass
 from datetime import date
 from typing import Any
-from urllib.parse import urlencode
 
-from accounts.audit import Category, record_safe
-from accounts.roles import ADMIN
 from config import batching
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q, QuerySet
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
-from employees import access as employee_access
-from macs.dialect import search_match
 from macs.models import Branch, Position
 
 from recruitment import access
 from recruitment.forms import SOURCE_LIST_ID, SOURCE_SUGGESTIONS, CandidateForm, RejectForm, VacancyForm
-from recruitment.models import Candidate, RecruitmentSettings, Stage, Vacancy, VacancyStatus
-from recruitment.services import convert, files, pipeline, slot_line, visibility
-
-STATUS_FILTERS = {"open", "closed", "filled", "all"}
-ACTIVE_STAGES = (Stage.NEW, Stage.SCREENING, Stage.INTERVIEW, Stage.OFFER)
-COUNT_STAGES = (Stage.NEW, Stage.SCREENING, Stage.INTERVIEW, Stage.OFFER, Stage.HIRED)
-MAX_SEARCH = 100
-
+from recruitment.models import Candidate, Vacancy, VacancyStatus
+from recruitment.services import candidate_page, files, pipeline, slot_line, vacancy_page, visibility
+from recruitment.services.candidate_page import _comments_context, _files_context
 
 CONVERT_NOTICE_KEY = "recruitment_convert_notice"
 
@@ -50,48 +38,16 @@ def _problem(message: str) -> HttpResponse:
     return HttpResponse(format_html('<p class="rounded bg-red-50 p-2 text-sm text-red-700">{}</p>', message))
 
 
-def _log(action: str, vacancy: Vacancy, request: HttpRequest, message: str = "") -> None:
-    record_safe(
-        Category.HR,
-        action,
-        actor=access.user_of(request),
-        target_type="Ажлын байр",
-        target_label=f"Ажлын байр #{vacancy.pk}",
-        message=message,
-    )
-
-
 # ---- vacancy list ----
-
-
-def _stage_counts() -> dict[str, Any]:
-    return {f"c_{stage.value}": Count("candidates", filter=Q(candidates__stage=stage)) for stage in COUNT_STAGES}
 
 
 @login_required
 @require_GET
 def vacancies(request: HttpRequest) -> HttpResponse:
     user = access.user_of(request)
-    status = request.GET.get("status", "open")
-    if status not in STATUS_FILTERS:
-        status = "open"
-    q = request.GET.get("q", "").strip()[:MAX_SEARCH]
-    rows = visibility.visible_vacancies(user)
-    if status != "all":
-        rows = rows.filter(status=status)
-    for word in q.split():  # every word must match the title, position or department
-        rows = rows.filter(search_match(word, "title", "position__name", "department__name", icase=True))
-    rows = (
-        rows.select_related("position", "department", "hiring_manager")
-        .annotate(**_stage_counts())
-        .order_by("-created_at", "-pk")
-    )
-
-    def fetch(offset: int, size: int) -> tuple[list[Vacancy], bool]:
-        page = list(rows[offset : offset + size + 1])
-        return page[:size], len(page) > size
-
-    batch = batching.paged(request, fetch)
+    status = vacancy_page.parse_status(request.GET.get("status"))
+    q = vacancy_page.clean_search(request.GET.get("q"))
+    batch = batching.paged(request, lambda offset, size: vacancy_page.vacancy_batch(user, status, q, offset, size))
     context = {
         "rows": batch.shown,
         "offset": batch.offset,
@@ -157,14 +113,9 @@ def vacancy_add(request: HttpRequest) -> HttpResponse:
     access.require_manage(user)
     if request.method != "POST":
         return _vacancy_modal(request, VacancyForm(user=user), None)
-    form = VacancyForm(request.POST, user=user)
-    if not form.is_valid():
+    created, form = vacancy_page.create_vacancy(user, request.POST)
+    if created is None:
         return _vacancy_modal(request, form, None)
-    vacancy = form.save(commit=False)
-    vacancy.status = VacancyStatus.OPEN
-    vacancy.created_by = user
-    vacancy.save()
-    _log("vacancy_created", vacancy, request, vacancy.title)
     return _done()
 
 
@@ -175,42 +126,13 @@ def vacancy_edit(request: HttpRequest, pk: int) -> HttpResponse:
     access.require_manage(user)
     if request.method != "POST":
         return _vacancy_modal(request, VacancyForm(instance=vacancy, user=user), vacancy)
-    form = VacancyForm(request.POST, instance=vacancy, user=user)
-    if not form.is_valid():
+    updated, form = vacancy_page.update_vacancy(user, vacancy, request.POST)
+    if updated is None:
         return _vacancy_modal(request, form, vacancy)
-    form.save()
-    pipeline.refresh_filled(vacancy)  # a new headcount may fill, or reopen, the vacancy
-    _log("vacancy_changed", vacancy, request, vacancy.title)
     return _done()
 
 
 # ---- vacancy page ----
-
-
-@dataclass(frozen=True)
-class StageItem:
-    key: str
-    label: str
-    count: int
-
-
-def _stage_bar(vacancy: Vacancy) -> list[StageItem]:
-    """The stage bar: «Идэвхтэй» (still in the running), each stage with its count, and «Бүгд». One query."""
-    counts = {row["stage"]: row["n"] for row in vacancy.candidates.values("stage").annotate(n=Count("pk"))}
-    active = sum(counts.get(stage, 0) for stage in ACTIVE_STAGES)
-    return [
-        StageItem("open", "Идэвхтэй", active),
-        *(StageItem(stage.value, str(stage.label), counts.get(stage.value, 0)) for stage in Stage),
-        StageItem("all", "Бүгд", sum(counts.values())),
-    ]
-
-
-def _stage_filter(rows: QuerySet[Candidate], key: str) -> QuerySet[Candidate]:
-    if key == "all":
-        return rows
-    if key in Stage.values:
-        return rows.filter(stage=key)
-    return rows.filter(stage__in=ACTIVE_STAGES)
 
 
 @login_required
@@ -218,16 +140,8 @@ def _stage_filter(rows: QuerySet[Candidate], key: str) -> QuerySet[Candidate]:
 def vacancy_detail(request: HttpRequest, pk: int) -> HttpResponse:
     user = access.user_of(request)
     vacancy = access.vacancy_or_404(user, pk)
-    key = request.GET.get("stage", "open")
-    if key not in Stage.values and key not in ("open", "all"):
-        key = "open"
-    rows = _stage_filter(vacancy.candidates.all(), key).order_by("-created_at", "-pk")
-
-    def fetch(offset: int, size: int) -> tuple[list[Candidate], bool]:
-        page = list(rows[offset : offset + size + 1])
-        return page[:size], len(page) > size
-
-    batch = batching.paged(request, fetch)
+    key = vacancy_page.parse_stage(request.GET.get("stage"))
+    batch = batching.paged(request, lambda offset, size: vacancy_page.candidate_batch(vacancy, key, offset, size))
     manage = visibility.can_manage(user)
     context = {
         "vacancy": vacancy,
@@ -240,7 +154,7 @@ def vacancy_detail(request: HttpRequest, pk: int) -> HttpResponse:
         )
         if manage and vacancy.status == VacancyStatus.OPEN
         else None,
-        "stage_bar": _stage_bar(vacancy),
+        "stage_bar": vacancy_page.stage_bar(vacancy),
         "stage_key": key,
         "rows": batch.shown,
         "offset": batch.offset,
@@ -274,7 +188,7 @@ def _candidate_modal(
     )
 
 
-NOT_OPEN = "Энэ ажлын байр нээлттэй биш тул ажил хүсэгч нэмэх боломжгүй. Эхлээд ажлын байрыг нээнэ үү."
+NOT_OPEN = vacancy_page.NOT_OPEN  # re-exported: existing tests import it from this module
 
 
 @login_required
@@ -283,8 +197,9 @@ def candidate_add(request: HttpRequest, pk: int) -> HttpResponse:
     vacancy = access.vacancy_or_404(user, pk)
     access.require_manage(user)
     # Ruling (2026-11-02): candidates are added only to an open vacancy; the service itself does not check this.
-    if vacancy.status != VacancyStatus.OPEN:
-        return _candidate_modal(request, vacancy, None, NOT_OPEN)
+    refusal = vacancy_page.candidate_add_refusal(vacancy)
+    if refusal:
+        return _candidate_modal(request, vacancy, None, refusal)
     if request.method != "POST":
         return _candidate_modal(request, vacancy, CandidateForm())
     form = CandidateForm(request.POST)
@@ -297,73 +212,33 @@ def candidate_add(request: HttpRequest, pk: int) -> HttpResponse:
 # ---- candidate page ----
 
 
-def _comments_context(candidate: Candidate, error: str = "") -> dict[str, Any]:
-    return {
-        "candidate": candidate,
-        "comments": candidate.comments.select_related("by"),
-        "comment_error": error,
-    }
-
-
-def _files_context(user: Any, candidate: Candidate, error: str = "") -> dict[str, Any]:
-    return {
-        "candidate": candidate,
-        "cand_files": candidate.files.select_related("uploaded_by"),
-        "file_error": error,
-        "can_manage": visibility.can_manage(user),
-        "max_mb": files.MAX_BYTES // (1024 * 1024),
-        "extensions": ", ".join(sorted(files.ALLOWED_EXTENSIONS)),
-    }
-
-
 @login_required
 @require_GET
 def candidate_detail(request: HttpRequest, pk: int) -> HttpResponse:
     user = access.user_of(request)
     candidate = access.candidate_or_404(user, pk)
-    manage = visibility.can_manage(user)
-    closed = candidate.stage in pipeline.CLOSED_STAGES
+    page = candidate_page.candidate_page(user, candidate)
     context: dict[str, Any] = {
         "candidate": candidate,
-        "vacancy": candidate.vacancy,
-        "events": candidate.events.select_related("by"),
-        "can_manage": manage,
-        "progress": _progress(candidate),
-        "move_to": _move_targets(candidate) if manage and not closed and candidate.stage != Stage.HIRED else [],
-        "move_confirm": _confirm_moves(candidate) if manage and not closed and candidate.stage != Stage.HIRED else [],
-        "can_reopen": manage and closed,
-        "can_reject": manage and not closed and candidate.stage != Stage.HIRED,
-        "can_convert": manage and convert.can_convert(candidate),
-        "notice": request.session.pop(CONVERT_NOTICE_KEY, "") if manage else "",
-        "employee_visible": manage
-        and candidate.employee_id is not None
-        and employee_access.visible_employees(user).filter(pk=candidate.employee_id).exists(),
-        **_comments_context(candidate),
-        **_files_context(user, candidate),
+        "vacancy": page.vacancy,
+        "events": page.events,
+        "can_manage": page.can_manage,
+        "progress": page.progress,
+        "move_to": page.move_to,
+        "move_confirm": page.move_confirm,
+        "can_reopen": page.can_reopen,
+        "can_reject": page.can_reject,
+        "can_convert": page.can_convert,
+        "notice": request.session.pop(CONVERT_NOTICE_KEY, "") if page.can_manage else "",
+        "employee_visible": page.employee_visible,
+        "comments": page.comments,
+        "comment_error": "",
+        "cand_files": page.files,
+        "file_error": "",
+        "max_mb": page.max_mb,
+        "extensions": page.extensions,
     }
     return render(request, "recruitment/candidate_detail.html", context)
-
-
-def _move_targets(candidate: Candidate) -> list[str]:
-    """The stages the candidate may be moved to (each step of the row on the page is a button for these)."""
-    return [stage.value for stage in pipeline.MOVABLE_STAGES if stage != candidate.stage]
-
-
-def _confirm_moves(candidate: Candidate) -> list[str]:
-    """Moves that ask first: every target except the next step of the process (a back-move or a skip is deliberate)."""
-    steps = [stage.value for stage in pipeline.MOVABLE_STAGES]
-    here = steps.index(candidate.stage) if candidate.stage in steps else -1
-    following = steps[here + 1] if here + 1 < len(steps) else None
-    return [stage for stage in steps if stage != candidate.stage and stage != following]
-
-
-def _progress(candidate: Candidate) -> list[tuple[str, str, str]]:
-    """(stage, label, state) for each step of the process, state being done, current or todo; none lit when closed."""
-    here = COUNT_STAGES.index(candidate.stage) if candidate.stage in COUNT_STAGES else -1
-    return [
-        (stage.value, str(stage.label), "done" if i < here else "current" if i == here else "todo")
-        for i, stage in enumerate(COUNT_STAGES)
-    ]
 
 
 # ---- candidate actions ----
@@ -474,11 +349,11 @@ def candidate_convert(request: HttpRequest, pk: int) -> HttpResponse:
     user = access.user_of(request)
     candidate = access.candidate_or_404(user, pk)
     access.require_manage(user)
-    if not convert.can_convert(candidate):
-        request.session[CONVERT_NOTICE_KEY] = convert.refusal(candidate)  # shown once on the candidate page
+    path, error = candidate_page.convert_answer(user, candidate, timezone.localdate())
+    if error:
+        request.session[CONVERT_NOTICE_KEY] = error  # shown once on the candidate page
         return redirect("recruitment:candidate_detail", pk=candidate.pk)
-    query = urlencode(convert.prefill_params(candidate, timezone.localdate()))
-    return redirect(f"{reverse('employees:add')}?{query}")
+    return redirect(path)
 
 
 @login_required
@@ -490,11 +365,11 @@ def purge(request: HttpRequest) -> HttpResponse:
         count = pipeline.purge(by=user, today=today)
         return redirect(f"{reverse('recruitment:purge')}?done={count}")
     done = request.GET.get("done", "")
-    rows = list(pipeline.purgeable(today=today).select_related("vacancy").order_by("closed_at", "pk"))
+    page = candidate_page.purge_page(user, today)
     context = {
-        "rows": rows,
-        "months": RecruitmentSettings.get().retention_months,
-        "is_admin": user.is_superuser or user.groups.filter(name=ADMIN).exists(),
+        "rows": page.rows,
+        "months": page.months,
+        "is_admin": page.is_admin,
         "done": int(done) if done.isascii() and done.isdigit() and len(done) < 9 else None,
     }
     return render(request, "recruitment/purge.html", context)

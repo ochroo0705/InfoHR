@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
-import { AppLink, openLegacyPopup } from "./AppLink";
+import { AppLink } from "./AppLink";
 import { isPorted } from "./ported";
 
 describe("isPorted", () => {
@@ -41,7 +41,7 @@ describe("isPorted", () => {
   });
 });
 
-describe("AppLink and openLegacyPopup", () => {
+describe("AppLink", () => {
   const originalLocation = window.location;
 
   beforeEach(() => {
@@ -90,11 +90,6 @@ describe("AppLink and openLegacyPopup", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "Me" }).getAttribute("href")).toBe("/me/");
-  });
-
-  it("sets the Django popup URL with the open hash", () => {
-    openLegacyPopup("palette", "/me/");
-    expect(window.location.href).toBe("http://dj/me/#open=palette");
   });
 
   it("renders a plain href for a fragment without the origin prefix", () => {

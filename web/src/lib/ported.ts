@@ -25,6 +25,10 @@ export const PORTED: RegExp[] = [
   /^\/leave\/calendar\/$/,
   /^\/leave\/holidays\/$/,
   /^\/leave\/settings\/$/,
+  /^\/recruitment\/$/,
+  /^\/recruitment\/vacancies\/\d+\/$/,
+  /^\/recruitment\/candidates\/\d+\/$/,
+  /^\/recruitment\/purge\/$/,
 ];
 
 // True when the path (without query string or hash) is served by the React app.

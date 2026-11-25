@@ -27,6 +27,10 @@ import { SelfFormShowPage } from "./screens/selfforms/SelfFormShowPage";
 import { EmployeeLogPage } from "./screens/logs/EmployeeLogPage";
 import { MinePage } from "./screens/checklists/MinePage";
 import { SystemLogPage } from "./screens/logs/SystemLogPage";
+import { VacanciesPage } from "./screens/recruitment/VacanciesPage";
+import { VacancyPage } from "./screens/recruitment/VacancyPage";
+import { CandidatePage } from "./screens/recruitment/CandidatePage";
+import { PurgePage } from "./screens/recruitment/PurgePage";
 import { Landing } from "./routes/Landing";
 import { WelcomeRoute } from "./routes/WelcomeRoute";
 import { ConfirmProvider } from "./widgets/confirm";
@@ -84,6 +88,10 @@ export default function App() {
           <Route path="/lists/meaning/" element={<MeaningPage />} />
           <Route path="/lists/:slug/" element={<ListPage />} />
           <Route path="/checklists/mine/" element={<MinePage />} />
+          <Route path="/recruitment/" element={<VacanciesPage />} />
+          <Route path="/recruitment/vacancies/:id/" element={<VacancyPage />} />
+          <Route path="/recruitment/candidates/:id/" element={<CandidatePage />} />
+          <Route path="/recruitment/purge/" element={<PurgePage />} />
           {/* Any other path inside the signed-in shell. */}
           <Route path="*" element={<NotFound />} />
         </Route>

@@ -3,9 +3,7 @@
 // - a page row (open.kind "page") goes to its path: a ported path is a client route (goPorted), any other path is a full
 //   page load into Django (legacy);
 // - a pop-up row (open.kind "popup") opens its pop-up over the page (palette.js data-palette-modal rows, which close the
-//   panel with focus restored); the pop-up lives at shell level (PalettePopups), not on the page underneath;
-// - a legacy row (open.kind "legacy") is a full page load of the Django LIST page that owns the unported pop-up, never the
-//   htmx fragment.
+//   panel with focus restored); the pop-up lives at shell level (PalettePopups), not on the page underneath.
 // The «show all» row never reaches this function: the panel asks the search for more instead. The panel remembers a row's
 // ref (recents) before it calls this function.
 import type { PaletteRowOut } from "../../api/palette";
@@ -40,12 +38,6 @@ export function activateRow(row: PaletteRowOut, deps: ActivateDeps): void {
     // palette.js: a data-palette-modal row closes the panel with focus restored, then the pop-up opens over the page.
     deps.closePanel(true);
     deps.popups.open(open);
-    return;
-  }
-  if (open.kind === "legacy") {
-    // The Django list page, as a full page load. The panel does not restore focus (the page is replaced).
-    deps.closePanel(false);
-    if (isRelativePath(open.path)) deps.legacy(open.path);
     return;
   }
   // An unknown kind: the panel closes, nothing else happens.

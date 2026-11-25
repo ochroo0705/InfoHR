@@ -36,9 +36,9 @@ class PalettePieceOut(Schema):
 
 
 class PaletteOpenOut(Schema):
-    kind: Literal["page", "popup", "legacy"]
-    path: str  # a page: its URL (with query); a pop-up: its path; a legacy target: the list page's path
-    popup: Literal["order_detail", "event", "slot_add", "leave_add", "leave_request"] | None
+    kind: Literal["page", "popup"]
+    path: str  # a page: its URL (with query); a pop-up: its path
+    popup: Literal["order_detail", "event", "slot_add", "leave_add", "leave_request", "vacancy_add"] | None
     employee: int | None
     order: int | None
     event_type: str | None

@@ -311,6 +311,28 @@ def test_request_leave_row_is_a_leave_request_popup() -> None:
     }
 
 
+def test_vacancy_add_row_is_a_vacancy_add_popup(admin: User) -> None:
+    body = _get(admin, {"q": "Ажлын байр нээх"}).json()
+
+    row = _group(body, "actions")["rows"][0]
+    assert row["open"] == {
+        "kind": "popup",
+        "path": reverse("recruitment:vacancy_add"),
+        "popup": "vacancy_add",
+        "employee": None,
+        "order": None,
+        "event_type": None,
+        "year": None,
+    }
+
+
+def test_vacancy_add_row_is_hidden_from_a_user_who_may_not_manage_recruitment() -> None:
+    plain = _with_perms("palette_api_no_vacancy", [("macs", "view_employees")])
+    body = _get(plain, {"q": "Ажлын байр нээх"}).json()
+    user_actions = [g for g in body["groups"] if g["key"] == "actions"]
+    assert "Ажлын байр нээх" not in (_titles(user_actions[0]) if user_actions else [])
+
+
 def test_slot_add_action_is_hidden_without_manage_position_slots(admin: User) -> None:
     user = _with_perms("palette_api_no_slot", [("macs", "view_employees")])
     query = {"q": "Орон тоо нэмэх"}

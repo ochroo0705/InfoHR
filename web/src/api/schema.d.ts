@@ -2064,6 +2064,322 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recruitment/candidates/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Candidate Read
+         * @description The candidate page: the person, the progress, the actions the user may take, the history, comments and files.
+         */
+        get: operations["api_recruitment_candidate_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/candidates/{pk}/comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidate Comment
+         * @description Add a comment. Any user who sees the candidate may comment, so no manage right is asked.
+         */
+        post: operations["api_recruitment_candidate_comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/candidates/{pk}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidate Convert
+         * @description The hire form's address for this candidate (prefilled), or the refusal text. Writes nothing; the link is made
+         *     only when the hire is saved.
+         */
+        post: operations["api_recruitment_candidate_convert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/candidates/{pk}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidate File Upload
+         * @description Attach a CV (multipart field `file`). The file's type, size and emptiness are checked by files.save.
+         */
+        post: operations["api_recruitment_candidate_file_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/candidates/{pk}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidate Move
+         * @description Move a candidate to the next or another open stage. The service's refusal text comes back in `error`.
+         */
+        post: operations["api_recruitment_candidate_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/candidates/{pk}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidate Reject
+         * @description Reject a candidate, or record that they withdrew. A missing reason is a field error under `reason`.
+         */
+        post: operations["api_recruitment_candidate_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/candidates/{pk}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidate Reopen
+         * @description Reopen a rejected or withdrawn candidate as new.
+         */
+        post: operations["api_recruitment_candidate_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/files/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Candidate File Download
+         * @description The CV itself, under its original name; any user who sees the candidate may download it. A stored file that is
+         *     missing is 404. The response is the file, not JSON, so it has no response schema.
+         */
+        get: operations["api_recruitment_candidate_file_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Purge Read
+         * @description The rejected or withdrawn candidates the purge would remove today, and the retention period.
+         */
+        get: operations["api_recruitment_purge_read"];
+        put?: never;
+        /**
+         * Purge Run
+         * @description Delete the rejected or withdrawn candidates past the retention period and their files (403 without the right).
+         */
+        post: operations["api_recruitment_purge_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/vacancies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vacancies List
+         * @description One batch of the vacancy list: the visible vacancies with the chosen status and the search words.
+         */
+        get: operations["api_recruitment_vacancies_list"];
+        put?: never;
+        /**
+         * Vacancy Create
+         * @description Add a vacancy (open, created by the user). 403 without the manage right; the new vacancy's id comes back.
+         */
+        post: operations["api_recruitment_vacancy_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/vacancies/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vacancy Options Read
+         * @description The choices of the vacancy form. With `vacancy`, the edit form's choices: its manager and the statuses.
+         */
+        get: operations["api_recruitment_vacancy_options_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/vacancies/slot-line": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vacancy Slot Line
+         * @description The budget line for the position, branch and start picked in the vacancy form. Junk headcount is 1, junk ids
+         *     and dates are none; the answer is null when the line is not shown (no position, the slot switch off).
+         */
+        get: operations["api_recruitment_vacancy_slot_line"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/vacancies/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vacancy Read
+         * @description The vacancy page: the vacancy, its stage bar and one batch of its candidates. A later batch repeats the body.
+         */
+        get: operations["api_recruitment_vacancy_read"];
+        put?: never;
+        /**
+         * Vacancy Update
+         * @description Change a vacancy. 404 for one the user may not see, then 403 without the manage right.
+         */
+        post: operations["api_recruitment_vacancy_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/vacancies/{pk}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidate Add
+         * @description Add a candidate to an open vacancy. A closed or filled vacancy is refused with the Django text first.
+         */
+        post: operations["api_recruitment_candidate_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recruitment/vacancies/{pk}/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vacancy Form Read
+         * @description The edit pop-up's values as the form posts them back: 404 for a vacancy the user may not see, then 403 without
+         *     the manage right (as the edit route).
+         */
+        get: operations["api_recruitment_vacancy_form_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/selfforms": {
         parameters: {
             query?: never;
@@ -5165,13 +5481,13 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "page" | "popup" | "legacy";
+            kind: "page" | "popup";
             /** Order */
             order: number | null;
             /** Path */
             path: string;
             /** Popup */
-            popup: ("order_detail" | "event" | "slot_add" | "leave_add" | "leave_request") | null;
+            popup: ("order_detail" | "event" | "slot_add" | "leave_add" | "leave_request" | "vacancy_add") | null;
             /** Year */
             year: number | null;
         };
@@ -5299,6 +5615,489 @@ export interface components {
             leave_type: string;
             /** Start */
             start: string;
+        };
+        /** RecruitCandidateIn */
+        RecruitCandidateIn: {
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /**
+             * Given Name
+             * @default
+             */
+            given_name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Surname
+             * @default
+             */
+            surname: string;
+        };
+        /** RecruitCandidateOut */
+        RecruitCandidateOut: {
+            /** Can Convert */
+            can_convert: boolean;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Can Reject */
+            can_reject: boolean;
+            /** Can Reopen */
+            can_reopen: boolean;
+            /** Comments */
+            comments: components["schemas"]["RecruitCommentOut"][];
+            /** Email */
+            email: string;
+            /** Employee Id */
+            employee_id: number | null;
+            /** Events */
+            events: components["schemas"]["RecruitEventOut"][];
+            /** Extensions */
+            extensions: string;
+            /** Files */
+            files: components["schemas"]["RecruitFileOut"][];
+            /** Id */
+            id: number;
+            /** Max Mb */
+            max_mb: number;
+            /** Move Confirm */
+            move_confirm: string[];
+            /** Move To */
+            move_to: string[];
+            /** Name */
+            name: string;
+            /** Notes */
+            notes: string;
+            /** Phone */
+            phone: string;
+            /** Progress */
+            progress: components["schemas"]["RecruitProgressOut"][];
+            /** Reject Reason */
+            reject_reason: string;
+            /** Source */
+            source: string;
+            /** Stage */
+            stage: string;
+            /** Stage Label */
+            stage_label: string;
+            /** Vacancy Id */
+            vacancy_id: number;
+            /** Vacancy Title */
+            vacancy_title: string;
+        };
+        /** RecruitCandidateRowOut */
+        RecruitCandidateRowOut: {
+            /** Created */
+            created: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Phone */
+            phone: string;
+            /** Source */
+            source: string;
+            /** Stage */
+            stage: string;
+            /** Stage Label */
+            stage_label: string;
+        };
+        /** RecruitChoiceOut */
+        RecruitChoiceOut: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+        };
+        /** RecruitCommentIn */
+        RecruitCommentIn: {
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+        };
+        /** RecruitCommentOut */
+        RecruitCommentOut: {
+            /** At */
+            at: string;
+            /** By */
+            by: string;
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+        };
+        /** RecruitConvertOut */
+        RecruitConvertOut: {
+            /** Error */
+            error: string;
+            /** Ok */
+            ok: boolean;
+            /** Path */
+            path: string;
+        };
+        /** RecruitCountsOut */
+        RecruitCountsOut: {
+            /** Hired */
+            hired: number;
+            /** Interview */
+            interview: number;
+            /** New */
+            new: number;
+            /** Offer */
+            offer: number;
+            /** Screening */
+            screening: number;
+        };
+        /** RecruitEventOut */
+        RecruitEventOut: {
+            /** At */
+            at: string;
+            /** By */
+            by: string;
+            /** From Label */
+            from_label: string;
+            /** Note */
+            note: string;
+            /** To Label */
+            to_label: string;
+        };
+        /**
+         * RecruitFileOut
+         * @description A CV or other file. The stored path is never sent: the download is a plain link to the file's own address.
+         */
+        RecruitFileOut: {
+            /** By */
+            by: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Uploaded */
+            uploaded: string;
+        };
+        /** RecruitMoveIn */
+        RecruitMoveIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * To
+             * @default
+             */
+            to: string;
+        };
+        /** RecruitProgressOut */
+        RecruitProgressOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** State */
+            state: string;
+        };
+        /** RecruitPurgeOut */
+        RecruitPurgeOut: {
+            /** Is Admin */
+            is_admin: boolean;
+            /** Months */
+            months: number;
+            /** Rows */
+            rows: components["schemas"]["RecruitPurgeRowOut"][];
+        };
+        /** RecruitPurgeResultOut */
+        RecruitPurgeResultOut: {
+            /** Deleted */
+            deleted: number;
+            /** Ok */
+            ok: boolean;
+        };
+        /** RecruitPurgeRowOut */
+        RecruitPurgeRowOut: {
+            /** Closed */
+            closed: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Stage Label */
+            stage_label: string;
+            /** Vacancy Title */
+            vacancy_title: string;
+        };
+        /** RecruitRejectIn */
+        RecruitRejectIn: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Withdrawn
+             * @default false
+             */
+            withdrawn: boolean;
+        };
+        /** RecruitSlotLineOut */
+        RecruitSlotLineOut: {
+            /** Numbers */
+            numbers: string;
+            /** Warning */
+            warning: string;
+        };
+        /** RecruitStageItemOut */
+        RecruitStageItemOut: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
+        /** RecruitStringChoiceOut */
+        RecruitStringChoiceOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** RecruitVacancyCreatedOut */
+        RecruitVacancyCreatedOut: {
+            /** Error */
+            error: string;
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Id */
+            id?: number | null;
+            /** Ok */
+            ok: boolean;
+        };
+        /**
+         * RecruitVacancyFormOut
+         * @description The vacancy edit pop-up's first values: the ids the form posts back (names are on the vacancy page).
+         */
+        RecruitVacancyFormOut: {
+            /** Branch */
+            branch: number | null;
+            /** Deadline */
+            deadline: string | null;
+            /** Department */
+            department: number;
+            /** Description */
+            description: string;
+            /** Desired Start */
+            desired_start: string | null;
+            /** Headcount */
+            headcount: number;
+            /** Hiring Manager */
+            hiring_manager: number | null;
+            /** Position */
+            position: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * RecruitVacancyIn
+         * @description The vacancy pop-up as posted: ids as numbers (null when blank), dates as YYYY-MM-DD text ("" when blank).
+         */
+        RecruitVacancyIn: {
+            /** Branch */
+            branch?: number | null;
+            /**
+             * Deadline
+             * @default
+             */
+            deadline: string;
+            /** Department */
+            department?: number | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Desired Start
+             * @default
+             */
+            desired_start: string;
+            /** Headcount */
+            headcount?: number | null;
+            /** Hiring Manager */
+            hiring_manager?: number | null;
+            /** Position */
+            position?: number | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** RecruitVacancyListOut */
+        RecruitVacancyListOut: {
+            /** Can Manage */
+            can_manage: boolean;
+            /** Empty Text */
+            empty_text: string;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Q */
+            q: string;
+            /** Rows */
+            rows: components["schemas"]["RecruitVacancyRowOut"][];
+            /** Status */
+            status: string;
+        };
+        /** RecruitVacancyOptionsOut */
+        RecruitVacancyOptionsOut: {
+            /** Branches */
+            branches: components["schemas"]["RecruitChoiceOut"][];
+            /** Departments */
+            departments: components["schemas"]["RecruitChoiceOut"][];
+            /** Managers */
+            managers: components["schemas"]["RecruitChoiceOut"][];
+            /** Positions */
+            positions: components["schemas"]["RecruitChoiceOut"][];
+            /** Statuses */
+            statuses: components["schemas"]["RecruitStringChoiceOut"][];
+        };
+        /** RecruitVacancyOut */
+        RecruitVacancyOut: {
+            /** Branch */
+            branch: string;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Candidates */
+            candidates: components["schemas"]["RecruitCandidateRowOut"][];
+            /** Deadline */
+            deadline: string | null;
+            /** Department */
+            department: string;
+            /** Description */
+            description: string;
+            /** Desired Start */
+            desired_start: string | null;
+            /** Headcount */
+            headcount: number;
+            /** Id */
+            id: number;
+            /** Is Open */
+            is_open: boolean;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Position */
+            position: string;
+            slot_line: components["schemas"]["RecruitSlotLineOut"] | null;
+            /** Stage Bar */
+            stage_bar: components["schemas"]["RecruitStageItemOut"][];
+            /** Stage Key */
+            stage_key: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Title */
+            title: string;
+        };
+        /** RecruitVacancyRowOut */
+        RecruitVacancyRowOut: {
+            counts: components["schemas"]["RecruitCountsOut"];
+            /** Deadline */
+            deadline: string | null;
+            /** Department */
+            department: string;
+            /** Headcount */
+            headcount: number;
+            /** Hiring Manager */
+            hiring_manager: string;
+            /** Id */
+            id: number;
+            /** Position */
+            position: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Title */
+            title: string;
+        };
+        /** RecruitVacancyUpdateIn */
+        RecruitVacancyUpdateIn: {
+            /** Branch */
+            branch?: number | null;
+            /**
+             * Deadline
+             * @default
+             */
+            deadline: string;
+            /** Department */
+            department?: number | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Desired Start
+             * @default
+             */
+            desired_start: string;
+            /** Headcount */
+            headcount?: number | null;
+            /** Hiring Manager */
+            hiring_manager?: number | null;
+            /** Position */
+            position?: number | null;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /**
+         * RecruitWriteResultOut
+         * @description The answer of every recruitment write: ok true, or ok false with the service's message (error) or the form's
+         *     errors (field_errors, form_errors). The same shape as the leave writes; a refused write changes nothing.
+         */
+        RecruitWriteResultOut: {
+            /** Error */
+            error: string;
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
         };
         /** RequestOut */
         RequestOut: {
@@ -8562,6 +9361,434 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaletteOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitCandidateOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitCommentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_convert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitConvertOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_file_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** File */
+                    file?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitMoveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitRejectIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_file_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_recruitment_purge_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitPurgeOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_purge_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitPurgeResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_vacancies_list: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                q?: string | null;
+                offset?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitVacancyListOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_vacancy_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitVacancyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitVacancyCreatedOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_vacancy_options_read: {
+        parameters: {
+            query?: {
+                vacancy?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitVacancyOptionsOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_vacancy_slot_line: {
+        parameters: {
+            query?: {
+                position?: string | null;
+                branch?: string | null;
+                desired_start?: string | null;
+                headcount?: string | null;
+                vacancy?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitSlotLineOut"] | null;
+                };
+            };
+        };
+    };
+    api_recruitment_vacancy_read: {
+        parameters: {
+            query?: {
+                stage?: string | null;
+                offset?: string;
+            };
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitVacancyOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_vacancy_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitVacancyUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_candidate_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitCandidateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_recruitment_vacancy_form_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecruitVacancyFormOut"];
                 };
             };
         };

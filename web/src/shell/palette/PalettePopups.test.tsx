@@ -5,7 +5,7 @@
 // each target calls, that the slot form is mounted only while open, that a malformed target opens nothing and does
 // not throw, and that the hook throws outside the provider.
 import type { ReactNode } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
@@ -38,6 +38,15 @@ const LEAVE_OPTIONS = {
 // The request options (the staff request pop-up loads them): one leave type.
 const REQUEST_OPTIONS = {
   types: [{ value: 2, label: "Ээлжийн амралт" }],
+};
+
+// The vacancy form's choices (the vacancy add pop-up loads them): no statuses on an add.
+const VACANCY_OPTIONS = {
+  positions: [{ id: 1, label: "Нягтлан" }],
+  departments: [{ id: 10, label: "Санхүү" }],
+  branches: [{ id: 20, label: "Төв салбар" }],
+  managers: [{ id: 30, label: "Бат Болд" }],
+  statuses: [],
 };
 
 function leaveOk(data: unknown) {
@@ -143,6 +152,7 @@ describe("PalettePopups", () => {
     h.get.mockImplementation(async (path: string) => {
       if (path === "/api/v1/leave/options") return leaveOk(LEAVE_OPTIONS);
       if (path === "/api/v1/leave/requests/options") return leaveOk(REQUEST_OPTIONS);
+      if (path === "/api/v1/recruitment/vacancies/options") return leaveOk(VACANCY_OPTIONS);
       return leaveOk({});
     });
     h.post.mockImplementation(async () => leaveOk({}));
@@ -295,6 +305,54 @@ describe("PalettePopups", () => {
     expect(await screen.findByRole("heading", { name: "Чөлөө хүсэх" })).toBeTruthy();
     fireEvent.click(screen.getByText("Нээх"));
     expect(screen.getAllByRole("heading", { name: "Чөлөө хүсэх" })).toHaveLength(1);
+  });
+
+  it("a vacancy_add row opens the vacancy add pop-up on the page, without navigating", async () => {
+    renderWith({ ...base, popup: "vacancy_add" }, "/recruitment/");
+    expect(screen.queryByRole("heading", { name: "Ажлын байр нээх" })).toBeNull();
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByRole("heading", { name: "Ажлын байр нээх" })).toBeTruthy();
+    await waitFor(() =>
+      expect(h.get).toHaveBeenCalledWith("/api/v1/recruitment/vacancies/options", { params: { query: {} } }),
+    );
+    expect(screen.getByTestId("location").textContent).toBe("/recruitment/");
+  });
+
+  it("Escape closes the vacancy add pop-up and the page stays where it was", async () => {
+    renderWith({ ...base, popup: "vacancy_add" }, "/recruitment/");
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByRole("heading", { name: "Ажлын байр нээх" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Ажлын байр нээх" })).toBeNull());
+    expect(screen.getByTestId("location").textContent).toBe("/recruitment/");
+  });
+
+  it("a second vacancy_add open while the pop-up is open does not duplicate it", async () => {
+    renderWith({ ...base, popup: "vacancy_add" }, "/recruitment/");
+    // The palette row stays in the page; keep its button before the pop-up opens (the form has its own «Нээх» button).
+    const row = screen.getByText("Нээх");
+    fireEvent.click(row);
+    expect(await screen.findByRole("heading", { name: "Ажлын байр нээх" })).toBeTruthy();
+    // Wait for the real form (the title box), not the title-only loading state, before the second open.
+    expect(await screen.findByLabelText(/Ажлын байрны нэр/)).toBeTruthy();
+    fireEvent.click(row);
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { name: "Ажлын байр нээх" })).toHaveLength(1);
+  });
+
+  it("a saved new vacancy navigates to its page", async () => {
+    h.post.mockImplementation(async () =>
+      leaveOk({ ok: true, error: "", field_errors: {}, form_errors: [], id: 9 }),
+    );
+    renderWith({ ...base, popup: "vacancy_add" }, "/recruitment/");
+    fireEvent.click(screen.getByText("Нээх"));
+    expect(await screen.findByRole("heading", { name: "Ажлын байр нээх" })).toBeTruthy();
+    // The save button is the pop-up's own; the palette row's «Нээх» button sits outside the form.
+    await waitFor(() => expect(document.querySelector("form")).not.toBeNull());
+    const form = document.querySelector("form") as HTMLElement;
+    fireEvent.click(within(form).getByRole("button", { name: "Нээх" }));
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/recruitment/vacancies/9/"));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Ажлын байр нээх" })).toBeNull());
   });
 
   it("usePalettePopups throws a clear error outside the provider", () => {

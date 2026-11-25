@@ -2,10 +2,9 @@
 as the Django fragment templates (employees/_palette_results.html and its includes).
 
 `groups` turns a PaletteAnswer into display groups; `empty` tells whether the answer shows the empty box's fallback;
-`fallback` gives the rows under «Эсвэл нээх:»; `open_target` says what a row opens: a page, a pop-up, or
-the list page of a pop-up not yet ported. Rights are enforced by employees.palette and
-employees.services.palette_answer. The fallback rows are the one exception: they are gated here, as the template
-gates them. Nothing here reads an HttpRequest.
+`fallback` gives the rows under «Эсвэл нээх:»; `open_target` says what a row opens: a page or a pop-up. Rights are
+enforced by employees.palette and employees.services.palette_answer. The fallback rows are the one exception: they are
+gated here, as the template gates them. Nothing here reads an HttpRequest.
 """
 
 from dataclasses import dataclass
@@ -23,13 +22,6 @@ from employees.services.palette_answer import PaletteAnswer
 EMPTY_TEXT = "Юу ч олдсонгүй"  # the empty box's line when nothing matches (_palette_results.html)
 FALLBACK_HEADING = "Эсвэл нээх:"  # the line above the fallback rows (_palette_results.html)
 
-# The pop-ups not ported yet: each opens the list page that owns it. A bare htmx fragment must never load as a page.
-# Open question for the user: until step 4 this one opens the list page instead of the pop-up.
-# (leave:add is a React pop-up since step 4d1, leave:request_new since step 4d2: see their branches in open_target.)
-_LEGACY_MODAL_PAGE: dict[str, str] = {
-    "recruitment:vacancy_add": "recruitment:vacancies",
-}
-
 
 @dataclass(frozen=True)
 class PalettePiece:
@@ -39,9 +31,9 @@ class PalettePiece:
 
 @dataclass(frozen=True)
 class PaletteOpen:
-    kind: Literal["page", "popup", "legacy"]
-    path: str  # a page: its URL (with query); a pop-up: its path; a legacy target: the list page's path
-    popup: Literal["order_detail", "event", "slot_add", "leave_add", "leave_request"] | None
+    kind: Literal["page", "popup"]
+    path: str  # a page: its URL (with query); a pop-up: its path
+    popup: Literal["order_detail", "event", "slot_add", "leave_add", "leave_request", "vacancy_add"] | None
     employee: int | None
     order: int | None
     event_type: str | None
@@ -84,7 +76,7 @@ def _query_int(query: dict[str, list[str]], name: str) -> int | None:
 
 def open_target(url: str, modal: bool) -> PaletteOpen:
     """Where a palette row opens. A page keeps its URL, query included. A pop-up is resolved from its path (the query
-    is read for `year`, and `employee` where the pop-up has none in its path); an unported pop-up opens its list page.
+    is read for `year`, and `employee` where the pop-up has none in its path).
     A modal URL that no table names (or that does not resolve) opens as the page it names."""
     page = PaletteOpen("page", url, None, None, None, None, None)
     if not modal:
@@ -115,9 +107,9 @@ def open_target(url: str, modal: bool) -> PaletteOpen:
     if name == "leave:request_new":
         # The leave request pop-up is for the signed-in person's own record, so it carries no employee.
         return PaletteOpen("popup", parts.path, "leave_request", None, None, None, None)
-    if name in _LEGACY_MODAL_PAGE:
-        employee = _query_int(query, "employee")
-        return PaletteOpen("legacy", reverse(_LEGACY_MODAL_PAGE[name]), None, employee, None, None, None)
+    if name == "recruitment:vacancy_add":
+        # The vacancy add pop-up starts empty; the palette's manager gate (employees.palette) decides who gets the row.
+        return PaletteOpen("popup", parts.path, "vacancy_add", None, None, None, None)
     return page
 
 

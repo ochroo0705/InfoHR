@@ -7955,8 +7955,7 @@
           "kind": {
             "enum": [
               "page",
-              "popup",
-              "legacy"
+              "popup"
             ],
             "title": "Kind",
             "type": "string"
@@ -7984,7 +7983,8 @@
                   "event",
                   "slot_add",
                   "leave_add",
-                  "leave_request"
+                  "leave_request",
+                  "vacancy_add"
                 ],
                 "type": "string"
               },
@@ -8369,6 +8369,1243 @@
           "days"
         ],
         "title": "RecordedOut",
+        "type": "object"
+      },
+      "RecruitCandidateIn": {
+        "properties": {
+          "email": {
+            "default": "",
+            "title": "Email",
+            "type": "string"
+          },
+          "given_name": {
+            "default": "",
+            "title": "Given Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "phone": {
+            "default": "",
+            "title": "Phone",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "surname": {
+            "default": "",
+            "title": "Surname",
+            "type": "string"
+          }
+        },
+        "title": "RecruitCandidateIn",
+        "type": "object"
+      },
+      "RecruitCandidateOut": {
+        "properties": {
+          "can_convert": {
+            "title": "Can Convert",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "can_reject": {
+            "title": "Can Reject",
+            "type": "boolean"
+          },
+          "can_reopen": {
+            "title": "Can Reopen",
+            "type": "boolean"
+          },
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitCommentOut"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "employee_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee Id"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitEventOut"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "extensions": {
+            "title": "Extensions",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "max_mb": {
+            "title": "Max Mb",
+            "type": "integer"
+          },
+          "move_confirm": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Move Confirm",
+            "type": "array"
+          },
+          "move_to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Move To",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "progress": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitProgressOut"
+            },
+            "title": "Progress",
+            "type": "array"
+          },
+          "reject_reason": {
+            "title": "Reject Reason",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "vacancy_id": {
+            "title": "Vacancy Id",
+            "type": "integer"
+          },
+          "vacancy_title": {
+            "title": "Vacancy Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "vacancy_id",
+          "vacancy_title",
+          "stage",
+          "stage_label",
+          "source",
+          "phone",
+          "email",
+          "notes",
+          "reject_reason",
+          "employee_id",
+          "progress",
+          "move_to",
+          "move_confirm",
+          "can_manage",
+          "can_reject",
+          "can_reopen",
+          "can_convert",
+          "events",
+          "comments",
+          "files",
+          "max_mb",
+          "extensions"
+        ],
+        "title": "RecruitCandidateOut",
+        "type": "object"
+      },
+      "RecruitCandidateRowOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "stage",
+          "stage_label",
+          "phone",
+          "source",
+          "created"
+        ],
+        "title": "RecruitCandidateRowOut",
+        "type": "object"
+      },
+      "RecruitChoiceOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "RecruitChoiceOut",
+        "type": "object"
+      },
+      "RecruitCommentIn": {
+        "properties": {
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "title": "RecruitCommentIn",
+        "type": "object"
+      },
+      "RecruitCommentOut": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "by",
+          "at"
+        ],
+        "title": "RecruitCommentOut",
+        "type": "object"
+      },
+      "RecruitConvertOut": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "path",
+          "error"
+        ],
+        "title": "RecruitConvertOut",
+        "type": "object"
+      },
+      "RecruitCountsOut": {
+        "properties": {
+          "hired": {
+            "title": "Hired",
+            "type": "integer"
+          },
+          "interview": {
+            "title": "Interview",
+            "type": "integer"
+          },
+          "new": {
+            "title": "New",
+            "type": "integer"
+          },
+          "offer": {
+            "title": "Offer",
+            "type": "integer"
+          },
+          "screening": {
+            "title": "Screening",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "new",
+          "screening",
+          "interview",
+          "offer",
+          "hired"
+        ],
+        "title": "RecruitCountsOut",
+        "type": "object"
+      },
+      "RecruitEventOut": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "from_label": {
+            "title": "From Label",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "to_label": {
+            "title": "To Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "from_label",
+          "to_label",
+          "note",
+          "by"
+        ],
+        "title": "RecruitEventOut",
+        "type": "object"
+      },
+      "RecruitFileOut": {
+        "description": "A CV or other file. The stored path is never sent: the download is a plain link to the file's own address.",
+        "properties": {
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "uploaded": {
+            "title": "Uploaded",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "uploaded",
+          "by"
+        ],
+        "title": "RecruitFileOut",
+        "type": "object"
+      },
+      "RecruitMoveIn": {
+        "properties": {
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "to": {
+            "default": "",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "title": "RecruitMoveIn",
+        "type": "object"
+      },
+      "RecruitProgressOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "state"
+        ],
+        "title": "RecruitProgressOut",
+        "type": "object"
+      },
+      "RecruitPurgeOut": {
+        "properties": {
+          "is_admin": {
+            "title": "Is Admin",
+            "type": "boolean"
+          },
+          "months": {
+            "title": "Months",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitPurgeRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "months",
+          "is_admin"
+        ],
+        "title": "RecruitPurgeOut",
+        "type": "object"
+      },
+      "RecruitPurgeResultOut": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "deleted"
+        ],
+        "title": "RecruitPurgeResultOut",
+        "type": "object"
+      },
+      "RecruitPurgeRowOut": {
+        "properties": {
+          "closed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "vacancy_title": {
+            "title": "Vacancy Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "vacancy_title",
+          "stage_label",
+          "closed"
+        ],
+        "title": "RecruitPurgeRowOut",
+        "type": "object"
+      },
+      "RecruitRejectIn": {
+        "properties": {
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "withdrawn": {
+            "default": false,
+            "title": "Withdrawn",
+            "type": "boolean"
+          }
+        },
+        "title": "RecruitRejectIn",
+        "type": "object"
+      },
+      "RecruitSlotLineOut": {
+        "properties": {
+          "numbers": {
+            "title": "Numbers",
+            "type": "string"
+          },
+          "warning": {
+            "title": "Warning",
+            "type": "string"
+          }
+        },
+        "required": [
+          "numbers",
+          "warning"
+        ],
+        "title": "RecruitSlotLineOut",
+        "type": "object"
+      },
+      "RecruitStageItemOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "count"
+        ],
+        "title": "RecruitStageItemOut",
+        "type": "object"
+      },
+      "RecruitStringChoiceOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "RecruitStringChoiceOut",
+        "type": "object"
+      },
+      "RecruitVacancyCreatedOut": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "error",
+          "field_errors",
+          "form_errors"
+        ],
+        "title": "RecruitVacancyCreatedOut",
+        "type": "object"
+      },
+      "RecruitVacancyFormOut": {
+        "description": "The vacancy edit pop-up's first values: the ids the form posts back (names are on the vacancy page).",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "department": {
+            "title": "Department",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "desired_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Start"
+          },
+          "headcount": {
+            "title": "Headcount",
+            "type": "integer"
+          },
+          "hiring_manager": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hiring Manager"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "position",
+          "department",
+          "branch",
+          "headcount",
+          "hiring_manager",
+          "deadline",
+          "desired_start",
+          "status",
+          "description"
+        ],
+        "title": "RecruitVacancyFormOut",
+        "type": "object"
+      },
+      "RecruitVacancyIn": {
+        "description": "The vacancy pop-up as posted: ids as numbers (null when blank), dates as YYYY-MM-DD text (\"\" when blank).",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "deadline": {
+            "default": "",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "desired_start": {
+            "default": "",
+            "title": "Desired Start",
+            "type": "string"
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount"
+          },
+          "hiring_manager": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hiring Manager"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "RecruitVacancyIn",
+        "type": "object"
+      },
+      "RecruitVacancyListOut": {
+        "properties": {
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "empty_text": {
+            "title": "Empty Text",
+            "type": "string"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "q": {
+            "title": "Q",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitVacancyRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "q",
+          "rows",
+          "next_offset",
+          "can_manage",
+          "empty_text"
+        ],
+        "title": "RecruitVacancyListOut",
+        "type": "object"
+      },
+      "RecruitVacancyOptionsOut": {
+        "properties": {
+          "branches": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitChoiceOut"
+            },
+            "title": "Branches",
+            "type": "array"
+          },
+          "departments": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitChoiceOut"
+            },
+            "title": "Departments",
+            "type": "array"
+          },
+          "managers": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitChoiceOut"
+            },
+            "title": "Managers",
+            "type": "array"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitChoiceOut"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitStringChoiceOut"
+            },
+            "title": "Statuses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "positions",
+          "departments",
+          "branches",
+          "managers",
+          "statuses"
+        ],
+        "title": "RecruitVacancyOptionsOut",
+        "type": "object"
+      },
+      "RecruitVacancyOut": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitCandidateRowOut"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "desired_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Start"
+          },
+          "headcount": {
+            "title": "Headcount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_open": {
+            "title": "Is Open",
+            "type": "boolean"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "slot_line": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecruitSlotLineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stage_bar": {
+            "items": {
+              "$ref": "#/components/schemas/RecruitStageItemOut"
+            },
+            "title": "Stage Bar",
+            "type": "array"
+          },
+          "stage_key": {
+            "title": "Stage Key",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "status_label",
+          "position",
+          "department",
+          "branch",
+          "headcount",
+          "deadline",
+          "desired_start",
+          "description",
+          "can_manage",
+          "is_open",
+          "slot_line",
+          "stage_key",
+          "stage_bar",
+          "candidates",
+          "next_offset"
+        ],
+        "title": "RecruitVacancyOut",
+        "type": "object"
+      },
+      "RecruitVacancyRowOut": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/RecruitCountsOut"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "headcount": {
+            "title": "Headcount",
+            "type": "integer"
+          },
+          "hiring_manager": {
+            "title": "Hiring Manager",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "position",
+          "department",
+          "hiring_manager",
+          "status",
+          "status_label",
+          "headcount",
+          "deadline",
+          "counts"
+        ],
+        "title": "RecruitVacancyRowOut",
+        "type": "object"
+      },
+      "RecruitVacancyUpdateIn": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "deadline": {
+            "default": "",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "desired_start": {
+            "default": "",
+            "title": "Desired Start",
+            "type": "string"
+          },
+          "headcount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headcount"
+          },
+          "hiring_manager": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hiring Manager"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "RecruitVacancyUpdateIn",
+        "type": "object"
+      },
+      "RecruitWriteResultOut": {
+        "description": "The answer of every recruitment write: ok true, or ok false with the service's message (error) or the form's\nerrors (field_errors, form_errors). The same shape as the leave writes; a refused write changes nothing.",
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "error",
+          "field_errors",
+          "form_errors"
+        ],
+        "title": "RecruitWriteResultOut",
         "type": "object"
       },
       "RequestOut": {
@@ -15578,6 +16815,786 @@
         "summary": "Palette Answer Api",
         "tags": [
           "palette"
+        ]
+      }
+    },
+    "/api/v1/recruitment/candidates/{pk}": {
+      "get": {
+        "description": "The candidate page: the person, the progress, the actions the user may take, the history, comments and files.",
+        "operationId": "api_recruitment_candidate_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitCandidateOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate Read",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/candidates/{pk}/comment": {
+      "post": {
+        "description": "Add a comment. Any user who sees the candidate may comment, so no manage right is asked.",
+        "operationId": "api_recruitment_candidate_comment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecruitCommentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate Comment",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/candidates/{pk}/convert": {
+      "post": {
+        "description": "The hire form's address for this candidate (prefilled), or the refusal text. Writes nothing; the link is made\nonly when the hire is saved.",
+        "operationId": "api_recruitment_candidate_convert",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitConvertOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate Convert",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/candidates/{pk}/files": {
+      "post": {
+        "description": "Attach a CV (multipart field `file`). The file's type, size and emptiness are checked by files.save.",
+        "operationId": "api_recruitment_candidate_file_upload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "anyOf": [
+                      {
+                        "format": "binary",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "File"
+                  }
+                },
+                "title": "FileParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate File Upload",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/candidates/{pk}/move": {
+      "post": {
+        "description": "Move a candidate to the next or another open stage. The service's refusal text comes back in `error`.",
+        "operationId": "api_recruitment_candidate_move",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecruitMoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate Move",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/candidates/{pk}/reject": {
+      "post": {
+        "description": "Reject a candidate, or record that they withdrew. A missing reason is a field error under `reason`.",
+        "operationId": "api_recruitment_candidate_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecruitRejectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate Reject",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/candidates/{pk}/reopen": {
+      "post": {
+        "description": "Reopen a rejected or withdrawn candidate as new.",
+        "operationId": "api_recruitment_candidate_reopen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate Reopen",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/files/{pk}": {
+      "get": {
+        "description": "The CV itself, under its original name; any user who sees the candidate may download it. A stored file that is\nmissing is 404. The response is the file, not JSON, so it has no response schema.",
+        "operationId": "api_recruitment_candidate_file_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate File Download",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/purge": {
+      "get": {
+        "description": "The rejected or withdrawn candidates the purge would remove today, and the retention period.",
+        "operationId": "api_recruitment_purge_read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitPurgeOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Purge Read",
+        "tags": [
+          "recruitment"
+        ]
+      },
+      "post": {
+        "description": "Delete the rejected or withdrawn candidates past the retention period and their files (403 without the right).",
+        "operationId": "api_recruitment_purge_run",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitPurgeResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Purge Run",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/vacancies": {
+      "get": {
+        "description": "One batch of the vacancy list: the visible vacancies with the chosen status and the search words.",
+        "operationId": "api_recruitment_vacancies_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitVacancyListOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Vacancies List",
+        "tags": [
+          "recruitment"
+        ]
+      },
+      "post": {
+        "description": "Add a vacancy (open, created by the user). 403 without the manage right; the new vacancy's id comes back.",
+        "operationId": "api_recruitment_vacancy_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecruitVacancyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitVacancyCreatedOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Vacancy Create",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/vacancies/options": {
+      "get": {
+        "description": "The choices of the vacancy form. With `vacancy`, the edit form's choices: its manager and the statuses.",
+        "operationId": "api_recruitment_vacancy_options_read",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "vacancy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vacancy"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitVacancyOptionsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Vacancy Options Read",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/vacancies/slot-line": {
+      "get": {
+        "description": "The budget line for the position, branch and start picked in the vacancy form. Junk headcount is 1, junk ids\nand dates are none; the answer is null when the line is not shown (no position, the slot switch off).",
+        "operationId": "api_recruitment_vacancy_slot_line",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "position",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch"
+            }
+          },
+          {
+            "in": "query",
+            "name": "desired_start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desired Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "headcount",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Headcount"
+            }
+          },
+          {
+            "in": "query",
+            "name": "vacancy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vacancy"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RecruitSlotLineOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Vacancy Slot Line",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/vacancies/{pk}": {
+      "get": {
+        "description": "The vacancy page: the vacancy, its stage bar and one batch of its candidates. A later batch repeats the body.",
+        "operationId": "api_recruitment_vacancy_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitVacancyOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Vacancy Read",
+        "tags": [
+          "recruitment"
+        ]
+      },
+      "post": {
+        "description": "Change a vacancy. 404 for one the user may not see, then 403 without the manage right.",
+        "operationId": "api_recruitment_vacancy_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecruitVacancyUpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Vacancy Update",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/vacancies/{pk}/candidates": {
+      "post": {
+        "description": "Add a candidate to an open vacancy. A closed or filled vacancy is refused with the Django text first.",
+        "operationId": "api_recruitment_candidate_add",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecruitCandidateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitWriteResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Candidate Add",
+        "tags": [
+          "recruitment"
+        ]
+      }
+    },
+    "/api/v1/recruitment/vacancies/{pk}/form": {
+      "get": {
+        "description": "The edit pop-up's values as the form posts them back: 404 for a vacancy the user may not see, then 403 without\nthe manage right (as the edit route).",
+        "operationId": "api_recruitment_vacancy_form_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecruitVacancyFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Vacancy Form Read",
+        "tags": [
+          "recruitment"
         ]
       }
     },

@@ -73,23 +73,6 @@ describe("activateRow", () => {
     expect(deps.legacy).not.toHaveBeenCalled();
   });
 
-  it("a legacy row closes the panel without restoring focus, then loads the Django list page, not a fragment", () => {
-    const { deps, calls } = makeDeps();
-    const open: PaletteOpenOut = {
-      employee: null,
-      event_type: null,
-      kind: "legacy",
-      order: null,
-      path: "/employees/leave/",
-      popup: null,
-      year: null,
-    };
-    activateRow(rowWith(open), deps);
-    expect(calls).toEqual(["close(false)", "legacy(/employees/leave/)"]);
-    expect(deps.legacy).toHaveBeenCalledWith("/employees/leave/");
-    expect(deps.popups.open).not.toHaveBeenCalled();
-  });
-
   it("a row with no open target does nothing at all, not even closing the panel", () => {
     const { deps, calls } = makeDeps();
     activateRow(rowWith(null), deps);
@@ -107,19 +90,4 @@ describe("activateRow", () => {
     expect(deps.popups.open).not.toHaveBeenCalled();
   });
 
-  it("a legacy row calls legacy once with the list page path, and never goes through the client route", () => {
-    const { deps } = makeDeps();
-    const open: PaletteOpenOut = { ...pageOpen("/employees/leave/"), kind: "legacy" };
-    activateRow(rowWith(open), deps);
-    expect(deps.legacy).toHaveBeenCalledTimes(1);
-    expect(deps.legacy).toHaveBeenCalledWith("/employees/leave/");
-    expect(deps.goPorted).not.toHaveBeenCalled();
-  });
-
-  it("a legacy row with a path that is not same-site does not load anything", () => {
-    const { deps, calls } = makeDeps();
-    const open: PaletteOpenOut = { ...pageOpen("//evil.example/x"), kind: "legacy" };
-    activateRow(rowWith(open), deps);
-    expect(calls).toEqual(["close(false)"]);
-  });
 });

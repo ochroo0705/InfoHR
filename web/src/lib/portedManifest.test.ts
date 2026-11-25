@@ -60,6 +60,28 @@ describe("portedManifest", () => {
     expect(isPorted("/leave/requests/check/")).toBe(false);
   });
 
+  it("serves the vacancy list, a vacancy page, a candidate page and the purge page, with or without a query", () => {
+    const paths = ["/recruitment/", "/recruitment/vacancies/5/", "/recruitment/candidates/5/", "/recruitment/purge/"];
+    for (const path of paths) {
+      expect(isPorted(path)).toBe(true);
+      expect(isPorted(`${path}?status=all`)).toBe(true);
+    }
+  });
+
+  it("does not serve the recruitment pop-ups and fragments, which stay Django-only", () => {
+    for (const path of [
+      "/recruitment/vacancies/add/",
+      "/recruitment/vacancies/slot-line/",
+      "/recruitment/vacancies/5/edit/",
+      "/recruitment/vacancies/5/candidates/add/",
+      "/recruitment/candidates/5/convert/",
+      "/recruitment/candidates/5/move/",
+      "/recruitment/files/5/",
+    ]) {
+      expect(isPorted(path)).toBe(false);
+    }
+  });
+
   it("maps the real PORTED list one to one", () => {
     expect(portedManifest(PORTED).length).toBe(PORTED.length);
   });
