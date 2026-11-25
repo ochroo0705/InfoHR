@@ -13,7 +13,7 @@ The page and rows answers need a signed-in session (401 without one), reports.vi
 carry people's data (and salaries, where the viewer may see them).
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from accounts.models import User
 from django.http import HttpRequest, HttpResponse, QueryDict
@@ -21,14 +21,18 @@ from django.urls import reverse
 from ninja import Router, Schema
 from ninja.security import django_auth
 from reports import registry
+from reports.services import popups as report_popups
+from reports.services import saved_views
 from reports.services.catalogue_page import Row, card_path, search_text, sections_for
 from reports.services.filter_bar import FilterBar, FilterOptions
-from reports.services.page_head import PageHead, default_view_redirect, page_head
+from reports.services.page_head import SHARED, PageHead, _view_url, default_view_redirect, page_head
+from reports.services.popups import ColourOut, ColumnKind, MarkOut, OpOut, Pick, check_popup
+from reports.services.saved_views import SaveResult
 from reports.services.table_page import CellOut, RowGroup, TablePage, parse_offset, table_page
 from reports.types import Report
 
 from api.errors import ApiError
-from api.popups import FORBIDDEN, NOT_FOUND, request_user
+from api.popups import FORBIDDEN, NOT_FOUND, request_user, service_errors
 
 report_router = Router(tags=["reports"], auth=django_auth)
 
@@ -208,7 +212,6 @@ class ReportSavedOut(Schema):
     current_view: int | None  # the id of the saved view the address matches; None when none does
     template_current: bool  # a template matches the address
     can_edit_view: bool  # the current view may be renamed or deleted by this viewer
-    save_url: str  # the Django address of the «Хадгалах» pop-up (5b replaces it)
 
 
 class ReportLayoutOut(Schema):
@@ -327,7 +330,6 @@ def _head(head: PageHead) -> ReportHeadOut:
             current_view=current.pk if current is not None else None,
             template_current=head.saved.template_current,
             can_edit_view=head.saved.can_edit_view,
-            save_url=head.saved.save_url,
         )
     tools = head.tools
     return ReportHeadOut(
@@ -432,3 +434,290 @@ def report_rows(request: HttpRequest, response: HttpResponse, key: str, offset: 
         with_bar=False,
     )
     return ReportRowsOut(groups=[_group(group) for group in page.groups], next_offset=page.next_offset)
+
+
+# --- the pop-ups: «Багана сонгох», «Шүүлтүүр», «Хэлбэр» (read only: the model each pop-up draws) ---------------------
+# The rules are reports.services.popups; these routes read the address (the raw query, as the Django pop-ups do) and
+# answer the model. Apply in React navigates to the report path, so nothing here writes.
+
+
+class ReportPickOut(Schema):
+    key: str
+    label: str
+    checked: bool  # the column is shown now
+
+
+class ReportPickGroupOut(Schema):
+    title: str  # the picker group's title
+    picks: list[ReportPickOut]
+
+
+class ReportGroupChoiceOut(Schema):
+    key: str  # the column key the report may group by
+    label: str
+
+
+class ReportColumnsModelOut(Schema):
+    groups: list[ReportPickGroupOut]  # the columns the user may see, by group, in the order the columns come
+    group_choices: list[ReportGroupChoiceOut]
+    group: str  # the grouping now ("" for none)
+    group_text: str  # the label of a grouping with several keys, "" otherwise
+    keep: list[list[str]]  # [name, value] pairs: the cleaned address the pop-up does not own
+
+
+class ReportColumnKindOut(Schema):
+    key: str
+    label: str
+    kind: str  # "text", "number" or "date"
+
+
+class ReportOpOut(Schema):
+    code: str  # the operator code the rules use
+    label: str
+
+
+class ReportColourOut(Schema):
+    key: str  # the colour name the colour rules use
+    label: str
+    classes: str  # the Tailwind classes a marked cell is painted with
+
+
+class ReportMarkOut(Schema):
+    c: str  # column key
+    o: str  # operator code
+    v: str  # value
+    k: str  # colour key
+
+
+class ReportRulesModelOut(Schema):
+    columns: list[ReportColumnKindOut]  # the columns the user may use in a condition
+    ops: dict[str, list[ReportOpOut]]  # by kind: "text", "number", "date"
+    rules: str  # the current rules as compact JSON text, "" for none
+    keep: list[list[str]]
+
+
+class ReportFormatModelOut(Schema):
+    columns: list[ReportColumnKindOut]
+    shown: list[str]  # the column keys the table shows now
+    ops: dict[str, list[ReportOpOut]]
+    aggs: dict[str, list[str]]  # the aggregates a column of each kind offers, by kind
+    agg_labels: dict[str, str]
+    colours: list[ReportColourOut]
+    totals: list[list[str]]  # [column key, aggregate] pairs
+    marks: list[ReportMarkOut]
+    pin: int  # the number of pinned columns, 0 to 3
+    keep: list[list[str]]
+
+
+def _pick(pick: Pick) -> ReportPickOut:
+    return ReportPickOut(key=pick.key, label=pick.label, checked=pick.checked)
+
+
+def _op(op: OpOut) -> ReportOpOut:
+    return ReportOpOut(code=op.code, label=op.label)
+
+
+def _ops(ops: dict[str, list[OpOut]]) -> dict[str, list[ReportOpOut]]:
+    return {kind: [_op(op) for op in items] for kind, items in ops.items()}
+
+
+def _column_kind(column: ColumnKind) -> ReportColumnKindOut:
+    return ReportColumnKindOut(key=column.key, label=column.label, kind=column.kind)
+
+
+def _pairs(pairs: list[tuple[str, str]]) -> list[list[str]]:
+    return [[name, value] for name, value in pairs]
+
+
+def _colour(colour: ColourOut) -> ReportColourOut:
+    return ReportColourOut(key=colour.key, label=colour.label, classes=colour.classes)
+
+
+def _mark(mark: MarkOut) -> ReportMarkOut:
+    return ReportMarkOut(c=mark.c, o=mark.o, v=mark.v, k=mark.k)
+
+
+def _popup_report(key: str, user: User, needs: Literal["picks_columns", "shows_count"]) -> Report:
+    """The report of a pop-up: 404 when it is missing or lacks the feature, 403 when the user may not open it."""
+    report = registry.get(key)
+    with service_errors():
+        check_popup(user, report, needs=needs)
+    assert report is not None  # check_popup refuses a missing report
+    return report
+
+
+@report_router.get("/{key}/columns", response=ReportColumnsModelOut)
+def columns_pop(request: HttpRequest, response: HttpResponse, key: str) -> ReportColumnsModelOut:
+    """The «Багана сонгох» pop-up's model for the address."""
+    user = request_user(request)
+    report = _popup_report(key, user, "picks_columns")
+    response["Cache-Control"] = "no-store"
+    model = report_popups.columns_model(request.GET, user, report)
+    return ReportColumnsModelOut(
+        groups=[
+            ReportPickGroupOut(title=title, picks=[_pick(pick) for pick in picks]) for title, picks in model.groups
+        ],
+        group_choices=[ReportGroupChoiceOut(key=c.key, label=c.label) for c in model.group_choices],
+        group=model.group,
+        group_text=model.group_text,
+        keep=_pairs(model.keep),
+    )
+
+
+@report_router.get("/{key}/rules", response=ReportRulesModelOut)
+def rules_pop(request: HttpRequest, response: HttpResponse, key: str) -> ReportRulesModelOut:
+    """The «Шүүлтүүр» pop-up's model for the address."""
+    user = request_user(request)
+    report = _popup_report(key, user, "shows_count")
+    response["Cache-Control"] = "no-store"
+    model = report_popups.rules_model(request.GET, user, report)
+    return ReportRulesModelOut(
+        columns=[_column_kind(c) for c in model.columns],
+        ops=_ops(model.ops),
+        rules=model.rules,
+        keep=_pairs(model.keep),
+    )
+
+
+@report_router.get("/{key}/format", response=ReportFormatModelOut)
+def format_pop(request: HttpRequest, response: HttpResponse, key: str) -> ReportFormatModelOut:
+    """The «Хэлбэр» pop-up's model for the address."""
+    user = request_user(request)
+    report = _popup_report(key, user, "shows_count")
+    response["Cache-Control"] = "no-store"
+    model = report_popups.format_model(request.GET, user, report)
+    return ReportFormatModelOut(
+        columns=[_column_kind(c) for c in model.columns],
+        shown=model.shown,
+        ops=_ops(model.ops),
+        aggs={kind: list(aggs) for kind, aggs in model.aggs.items()},
+        agg_labels=model.agg_labels,
+        colours=[_colour(c) for c in model.colours],
+        totals=_pairs(model.totals),
+        marks=[_mark(m) for m in model.marks],
+        pin=model.pin,
+        keep=_pairs(model.keep),
+    )
+
+
+# --- the saved views: «Хадгалах», «Засах», «Устгах» -------------------------------------------------------------------
+# The rules are reports.services.saved_views. A write answers 200: ok true (redirect is the view's address after a save,
+# "" when the page should refetch), or ok false with the form's own errors (field_errors, form_errors). A refused write
+# changes nothing. A view the viewer may not see is 404, one they may not change is 403 (service_errors).
+
+NEW_VIEW_TITLE = "Харагдац хадгалах"
+EDIT_VIEW_TITLE = "Харагдац засах"
+
+
+class ReportViewFormOut(Schema):
+    title: str  # the pop-up's title
+    name: str
+    visibility: str  # "shared" or "private"
+    is_default: bool  # opens first
+    query: str  # the address the view stores: the viewer's address for a new view; "" when editing
+    can_delete: bool  # the «Устгах» button: true when editing
+    view_id: int | None  # the view being edited; None for a new one
+
+
+class ReportViewIn(Schema):
+    name: str
+    visibility: str = ""  # "" is shared; an edit that leaves it out keeps the view's own visibility
+    is_default: bool = False
+    query: str = ""  # the address to store (a new view); ignored on an edit
+
+
+class ReportViewResultOut(Schema):
+    ok: bool
+    redirect: str  # the address to open after a save; "" when the page should refetch
+    error: str  # the service's message for a refused write; "" for the saved views (their errors are the form's)
+    form_errors: list[str]
+    field_errors: dict[str, list[str]]
+
+
+def _view_saved(redirect: str) -> dict[str, Any]:
+    return {"ok": True, "redirect": redirect, "error": "", "form_errors": [], "field_errors": {}}
+
+
+def _view_refused(result: SaveResult) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "redirect": "",
+        "error": "",
+        "form_errors": result.form_errors,
+        "field_errors": result.field_errors,
+    }
+
+
+@report_router.get("/{key}/views/new", response=ReportViewFormOut)
+def view_new_form(request: HttpRequest, response: HttpResponse, key: str) -> ReportViewFormOut:
+    """The «Хадгалах» pop-up: the address the viewer is looking at, to be stored under a name."""
+    user = request_user(request)
+    with service_errors():
+        saved_views.saveable_report(user, key)
+    response["Cache-Control"] = "no-store"
+    return ReportViewFormOut(
+        title=NEW_VIEW_TITLE,
+        name="",
+        visibility=SHARED,
+        is_default=False,
+        query=saved_views.initial_query(request.GET),
+        can_delete=False,
+        view_id=None,
+    )
+
+
+@report_router.get("/views/{pk}", response=ReportViewFormOut)
+def view_edit_form(request: HttpRequest, response: HttpResponse, pk: int) -> ReportViewFormOut:
+    """The «Засах» pop-up with the view's own values."""
+    user = request_user(request)
+    with service_errors():
+        view = saved_views.view_for(user, pk)
+    response["Cache-Control"] = "no-store"
+    return ReportViewFormOut(
+        title=EDIT_VIEW_TITLE,
+        name=view.name,
+        visibility=view.visibility,
+        is_default=view.is_default,
+        query="",  # the stored query was cleaned for its author, not this viewer: a manager may lack its columns
+        can_delete=True,
+        view_id=view.pk,
+    )
+
+
+@report_router.post("/{key}/views", response=ReportViewResultOut)
+def view_create(request: HttpRequest, key: str, payload: ReportViewIn) -> dict[str, Any]:
+    """Stores the cleaned address under the posted name. The redirect is the saved view's address."""
+    user = request_user(request)
+    with service_errors():
+        report = saved_views.saveable_report(user, key)
+    result = saved_views.create_view(user, report, payload.model_dump())
+    if result.view is None:
+        return _view_refused(result)
+    return _view_saved(_view_url(reverse("reports:report", args=[key]), result.view.query))
+
+
+@report_router.post("/views/{pk}", response=ReportViewResultOut)
+def view_update(request: HttpRequest, pk: int, payload: ReportViewIn) -> dict[str, Any]:
+    """Renames the view and changes who sees it and whether it opens first. The query is not used on an edit."""
+    user = request_user(request)
+    with service_errors():
+        view = saved_views.view_for(user, pk)
+    data = payload.model_dump()
+    if "visibility" not in payload.model_fields_set:
+        del data["visibility"]  # a body that names no visibility keeps the view's own (update_view's default)
+    if "is_default" not in payload.model_fields_set:
+        data["is_default"] = view.is_default  # a body that names no is_default keeps the view's current default
+    result = saved_views.update_view(user, view, data)
+    if result.view is None:
+        return _view_refused(result)  # the view object is unchanged; only the result says what was refused
+    return _view_saved("")
+
+
+@report_router.post("/views/{pk}/delete", response=ReportViewResultOut)
+def view_delete(request: HttpRequest, pk: int) -> dict[str, Any]:
+    """Deletes the view (its author or a manager). The redirect is the bare report."""
+    user = request_user(request)
+    with service_errors():
+        view = saved_views.view_for(user, pk)
+        key = saved_views.delete_view(user, view)
+    return _view_saved(reverse("reports:report", args=[key]))

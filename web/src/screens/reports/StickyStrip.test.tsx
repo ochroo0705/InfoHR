@@ -1,11 +1,58 @@
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import type { components } from "../../api/schema";
 import { StickyStrip } from "./StickyStrip";
-import { ToolRibbon } from "./ToolRibbon";
+import { ReportPopUp, ToolRibbon, type OpenPopUp } from "./ToolRibbon";
 
 type ReportHeadOut = components["schemas"]["ReportHeadOut"];
+
+// The pop-ups are stubbed (their own tests cover them): the stub names the pop-up, the query it got, and a close button.
+vi.mock("./popups/ColumnsModal", async () => {
+  const { createElement } = await import("react");
+  return {
+    ColumnsModal: (props: { query: string; onClose: () => void }) =>
+      createElement(
+        "div",
+        { role: "dialog", "data-pop": "columns", "data-query": props.query },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub-close"),
+      ),
+  };
+});
+vi.mock("./popups/RulesModal", async () => {
+  const { createElement } = await import("react");
+  return {
+    RulesModal: (props: { query: string; onClose: () => void }) =>
+      createElement(
+        "div",
+        { role: "dialog", "data-pop": "rules", "data-query": props.query },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub-close"),
+      ),
+  };
+});
+vi.mock("./popups/FormatModal", async () => {
+  const { createElement } = await import("react");
+  return {
+    FormatModal: (props: { query: string; onClose: () => void }) =>
+      createElement(
+        "div",
+        { role: "dialog", "data-pop": "format", "data-query": props.query },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub-close"),
+      ),
+  };
+});
+vi.mock("./popups/SavedViewModal", async () => {
+  const { createElement } = await import("react");
+  return {
+    SavedViewModal: (props: { onClose: () => void }) =>
+      createElement(
+        "div",
+        { role: "dialog", "data-pop": "saved" },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub-close"),
+      ),
+  };
+});
 
 const TOOLS = { columns: true, rules: true, format: true };
 
@@ -112,26 +159,43 @@ describe("StickyStrip", () => {
     expect(chips()).toEqual(["Дархан", "2026-01-01 – 2026-02-01", "Төрөл: А"]);
   });
 
-  it("strip_tool_click_activates_ribbon_link", () => {
+  it("strip_tool_click_opens_the_same_modal", () => {
     mountPanel(FILTERS, 300);
+    // The page's pop-up state, as ReportPage holds it: the ribbon asks, the pop-up shows.
+    function Host() {
+      const [open, setOpen] = useState<OpenPopUp>(null);
+      return (
+        <>
+          <StickyStrip tools={TOOLS} />
+          <ToolRibbon reportKey="staff" head={headFixture(TOOLS)} clearUrl="/reports/staff/?view=plain" onOpen={setOpen} />
+          <ReportPopUp
+            reportKey="staff"
+            open={open}
+            query="q=a"
+            savedQuery="q=a"
+            editPk={null}
+            onClose={() => setOpen(null)}
+          />
+        </>
+      );
+    }
     const { container } = render(
-      <MemoryRouter initialEntries={["/reports/staff/?q=a"]}>
-        <StickyStrip tools={TOOLS} />
-        <ToolRibbon
-          reportKey="staff"
-          head={headFixture(TOOLS)}
-          columnsQuery="cols=name"
-          clearUrl="/reports/staff/?view=plain"
-          search="?q=a"
-        />
+      <MemoryRouter initialEntries={["/reports/staff/?q=a&offset=40"]}>
+        <Host />
       </MemoryRouter>,
     );
-    const ribbonRules = container.querySelector<HTMLAnchorElement>('a[data-tool="rules"]')!;
-    const seen = vi.fn((event: Event) => event.preventDefault());
-    ribbonRules.addEventListener("click", seen);
+    const ribbonRules = container.querySelector<HTMLButtonElement>('button[data-tool="rules"]');
+    expect(ribbonRules).not.toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
 
+    // The strip's button clicks the ribbon's button, so the same pop-up opens, with the same address.
     fireEvent.click(container.querySelector('[data-strip-tool="rules"]')!);
-    expect(seen).toHaveBeenCalledTimes(1);
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.getAttribute("data-pop")).toBe("rules");
+    expect(dialog?.getAttribute("data-query")).toBe("q=a");
+
+    fireEvent.click(screen.getByText("stub-close"));
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it("strip_top_scrolls_filter_panel_into_view", () => {

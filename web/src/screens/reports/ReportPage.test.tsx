@@ -2,7 +2,7 @@
 import { fetchMock, jsonResponse, metaBody, newClient, resetFetch, resetObservers } from "../../api/testSupport";
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MemoryRouter,
   Route,
@@ -16,6 +16,56 @@ import { setCsrf } from "../../api/client";
 import type { components } from "../../api/schema";
 import { legacyOrigin } from "../../lib/AppLink";
 import { ReportPage } from "./ReportPage";
+
+// The rules and saved-view pop-ups are stubbed: each stub names the pop-up, the address or target it got, and closes.
+vi.mock("./popups/RulesModal", async () => {
+  const { createElement } = await import("react");
+  return {
+    RulesModal: (props: { query: string; onClose: () => void }) =>
+      createElement(
+        "div",
+        { role: "dialog", "data-pop": "rules", "data-query": props.query },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub-close"),
+      ),
+  };
+});
+vi.mock("./popups/SavedViewModal", async () => {
+  const { createElement } = await import("react");
+  return {
+    SavedViewModal: (props: { target: unknown; onClose: () => void }) =>
+      createElement(
+        "div",
+        { role: "dialog", "data-pop": "saved", "data-target": JSON.stringify(props.target) },
+        createElement("button", { type: "button", onClick: props.onClose }, "stub-close"),
+      ),
+  };
+});
+
+// The columns pop-up is stubbed: its stub applies by navigating to a new address, then closing, as the real pop-up does.
+vi.mock("./popups/ColumnsModal", async () => {
+  const { createElement } = await import("react");
+  const { useNavigate } = await import("react-router");
+  return {
+    ColumnsModal: (props: { onClose: () => void }) => {
+      const navigate = useNavigate();
+      return createElement(
+        "div",
+        { role: "dialog", "data-pop": "columns" },
+        createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => {
+              navigate("/reports/staff/?cols=name");
+              props.onClose();
+            },
+          },
+          "stub-apply",
+        ),
+      );
+    },
+  };
+});
 
 type ReportPageOut = components["schemas"]["ReportPageOut"];
 type ReportBarOut = components["schemas"]["ReportBarOut"];
@@ -373,9 +423,13 @@ describe("ReportPage", () => {
     expect(text.textContent).toBe("Бүртгэлийн огноо");
     const rulesLine = text.closest("p");
     expect(rulesLine?.textContent).toBe("Нөхцөл: Бүртгэлийн огноо · Засах · Цэвэрлэх");
-    const edit = rulesLine?.querySelector("a");
-    expect(edit?.getAttribute("href")).toBe(legacyOrigin() + "/reports/staff/?q=a");
-    expect(edit?.getAttribute("title")).toBe("Хуучин хуудсанд нээгдэнэ, тэндээс товчийг дахин дарна уу");
+    // «Засах» on the line opens the same rules pop-up as the ribbon's «Шүүлтүүр», with the page's address.
+    const edit = within(rulesLine as HTMLElement).getByText("Засах");
+    expect(edit.tagName).toBe("BUTTON");
+    fireEvent.click(edit);
+    expect(document.querySelector('[data-pop="rules"]')?.getAttribute("data-query")).toBe("q=a");
+    fireEvent.click(screen.getByText("stub-close"));
+    expect(document.querySelector('[data-pop="rules"]')).toBeNull();
 
     // The filter bar has its own «Цэвэрлэх»; the rules line's one is the link inside the line.
     const clear = within(rulesLine as HTMLElement).getByText("Цэвэрлэх");
@@ -495,5 +549,52 @@ describe("ReportPage", () => {
     // The bare answer ("Бат") is drawn at once, and nothing replaces the address.
     expect(await screen.findByText("Бат")).toBeTruthy();
     expect(where()).toBe("/reports/staff/");
+  });
+
+  it("apply_in_modal_changes_address_and_closes", async () => {
+    answer((url) => {
+      if (url.pathname !== "/api/v1/reports/staff") return jsonResponse(404, {});
+      return jsonResponse(200, tablePage({}, { tools: { columns: true, rules: false, format: false } }));
+    });
+    renderPage("/reports/staff/?q=a&offset=40");
+    await screen.findByText("Бат");
+
+    // The strip has a «Багана» button too (hidden until scrolled): the ribbon's one is the page's tool.
+    fireEvent.click(document.querySelector<HTMLButtonElement>('button[data-tool="columns"]')!);
+    expect(document.querySelector('[data-pop="columns"]')).not.toBeNull();
+
+    fireEvent.click(screen.getByText("stub-apply"));
+    expect(where()).toBe("/reports/staff/?cols=name");
+    expect(document.querySelector('[data-pop="columns"]')).toBeNull();
+  });
+
+  it("save_on_a_non_table_layout_gets_the_address_query", async () => {
+    // A cards layout has no table, so the table's cleaned query is absent: «Хадгалах» saves the address without offset.
+    const saved = {
+      can_edit_view: false,
+      current_view: null,
+      options: [],
+      plain_url: "/reports/staff/",
+      template_current: false,
+      templates: [],
+    };
+    answer((url) => {
+      if (url.pathname !== "/api/v1/reports/staff") return jsonResponse(404, {});
+      return jsonResponse(200, {
+        bar: barFixture(),
+        head: headFixture({ saved }),
+        layout: "cards",
+        redirect: "",
+        table: null,
+        title: "Ажилчдын жагсаалт",
+      });
+    });
+    renderPage("/reports/staff/?q=a&offset=40");
+    fireEvent.click(await screen.findByText("Хадгалах", { selector: "button" }));
+
+    expect(JSON.parse(document.querySelector('[data-pop="saved"]')?.getAttribute("data-target") ?? "null")).toEqual({
+      mode: "new",
+      query: "q=a",
+    });
   });
 });

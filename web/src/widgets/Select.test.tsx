@@ -440,3 +440,32 @@ describe("Select: form attribute (Soft's boxes in the employee page form)", () =
     expect(container.querySelector('input[type="hidden"][name="fx"]')?.hasAttribute("form")).toBe(false);
   });
 });
+
+describe("Select: ariaLabel on the visible control", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    delete (window as { matchMedia?: unknown }).matchMedia;
+  });
+
+  it("click-list mode: the native select carries aria-label", () => {
+    stubMatchMedia(false);
+    render(<Select name="a" value="1" onChange={() => {}} options={SEVEN} ariaLabel="Багана" />);
+    const el = screen.getByRole("combobox", { name: "Багана" });
+    expect(el.tagName).toBe("SELECT");
+  });
+
+  it("combo mode: the typing box carries aria-label, not the hidden field", () => {
+    stubMatchMedia(false);
+    const { container } = render(<Select name="a" value="" onChange={() => {}} options={EIGHT} ariaLabel="Багана" />);
+    const box = screen.getByRole("combobox", { name: "Багана" });
+    expect(box.tagName).toBe("INPUT");
+    expect(container.querySelector('input[type="hidden"]')?.getAttribute("aria-label")).toBeNull();
+  });
+
+  it("unset ariaLabel adds no attribute", () => {
+    stubMatchMedia(false);
+    render(<Select name="a" value="1" onChange={() => {}} options={SEVEN} />);
+    expect(screen.getByRole("combobox").hasAttribute("aria-label")).toBe(false);
+  });
+});

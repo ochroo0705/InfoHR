@@ -100,7 +100,6 @@ def test_options_list_views_the_user_may_see_then_templates(hr_user: User, repor
     assert saved.plain_url == REPORT_URL + "?view=plain"
     template_names = {t.name for t in report.templates}
     assert saved.templates and {o.name for o in saved.templates} <= template_names
-    assert saved.save_url.startswith(reverse("reports:view_new", args=[KEY]) + "?")
 
 
 def test_current_view_matches_cleaned_address(hr_user: User, report: Report) -> None:

@@ -60,6 +60,8 @@ export interface SelectProps {
   // The id of the <form> the box posts with (the `form` attribute). Set on the visible box, the native select and the
   // hidden field, so Enter in a typing box and the posted value both belong to that form. Unset: no attribute.
   form?: string;
+  // The aria-label of the visible control (the typing box in combo mode, the select otherwise). Unset: no attribute.
+  ariaLabel?: string;
 }
 
 const SEARCH_FROM = 8;
@@ -112,12 +114,14 @@ function NativeSelect({
   invalid,
   describedBy,
   form,
+  ariaLabel,
 }: SelectProps) {
   return (
     <select
       id={id}
       name={name}
       form={form}
+      aria-label={ariaLabel}
       value={value}
       required={required}
       disabled={disabled}
@@ -153,6 +157,7 @@ function PickerSelect({
   invalid,
   describedBy,
   form,
+  ariaLabel,
 }: SelectProps) {
   // select.js isCombo: addUrl, or search on, or 8+ options; search off never. addModal alone does not count.
   const combo = search !== false && (Boolean(addUrl) || search === true || options.length >= SEARCH_FROM);
@@ -490,6 +495,7 @@ function PickerSelect({
           ref={setTrigger}
           // select.js names the typing box «sel-» + the select's id; the select keeps the plain id (hiddenField).
           id={id ? `sel-${id}` : undefined}
+          aria-label={ariaLabel}
           form={form}
           type="text"
           role="combobox"
@@ -567,6 +573,7 @@ function PickerSelect({
         id={id}
         name={name}
         form={form}
+        aria-label={ariaLabel}
         value={value}
         required={required}
         disabled={disabled}

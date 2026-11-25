@@ -48,7 +48,7 @@ HEAD_KEYS = {
     "print_url",
     "excel_url",
 }
-SAVED_KEYS = {"plain_url", "options", "templates", "current_view", "template_current", "can_edit_view", "save_url"}
+SAVED_KEYS = {"plain_url", "options", "templates", "current_view", "template_current", "can_edit_view"}
 BAR_KEYS = {"items", "picker", "column_chips", "adds", "clear_url", "columns_query", "options"}
 TABLE_KEYS = {
     "heads",

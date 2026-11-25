@@ -2397,6 +2397,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/views/{pk}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Edit Form
+         * @description The «Засах» pop-up with the view's own values.
+         */
+        get: operations["api_reports_view_edit_form"];
+        put?: never;
+        /**
+         * View Update
+         * @description Renames the view and changes who sees it and whether it opens first. The query is not used on an edit.
+         */
+        post: operations["api_reports_view_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/views/{pk}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * View Delete
+         * @description Deletes the view (its author or a manager). The redirect is the bare report.
+         */
+        post: operations["api_reports_view_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/{key}": {
         parameters: {
             query?: never;
@@ -2418,6 +2462,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/{key}/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Columns Pop
+         * @description The «Багана сонгох» pop-up's model for the address.
+         */
+        get: operations["api_reports_columns_pop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/format": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Format Pop
+         * @description The «Хэлбэр» pop-up's model for the address.
+         */
+        get: operations["api_reports_format_pop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/{key}/rows": {
         parameters: {
             query?: never;
@@ -2430,6 +2514,66 @@ export interface paths {
          * @description One batch of the table for the address (every row of a grouped table, with next_offset None).
          */
         get: operations["api_reports_report_rows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rules Pop
+         * @description The «Шүүлтүүр» pop-up's model for the address.
+         */
+        get: operations["api_reports_rules_pop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * View Create
+         * @description Stores the cleaned address under the posted name. The redirect is the saved view's address.
+         */
+        post: operations["api_reports_view_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/views/new": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View New Form
+         * @description The «Хадгалах» pop-up: the address the viewer is looking at, to be stored under a name.
+         */
+        get: operations["api_reports_view_new_form"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6219,6 +6363,15 @@ export interface components {
             /** Value */
             value: string | null;
         };
+        /** ReportColourOut */
+        ReportColourOut: {
+            /** Classes */
+            classes: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /** ReportColumnChipOut */
         ReportColumnChipOut: {
             /** Kind */
@@ -6235,6 +6388,28 @@ export interface components {
             remove_href: string;
             /** Values */
             values: string[];
+        };
+        /** ReportColumnKindOut */
+        ReportColumnKindOut: {
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+        };
+        /** ReportColumnsModelOut */
+        ReportColumnsModelOut: {
+            /** Group */
+            group: string;
+            /** Group Choices */
+            group_choices: components["schemas"]["ReportGroupChoiceOut"][];
+            /** Group Text */
+            group_text: string;
+            /** Groups */
+            groups: components["schemas"]["ReportPickGroupOut"][];
+            /** Keep */
+            keep: string[][];
         };
         /** ReportFilterOptionsOut */
         ReportFilterOptionsOut: {
@@ -6288,6 +6463,42 @@ export interface components {
             training_types: components["schemas"]["ReportOptionOut"][];
             /** Year */
             year: number | null;
+        };
+        /** ReportFormatModelOut */
+        ReportFormatModelOut: {
+            /** Agg Labels */
+            agg_labels: {
+                [key: string]: string;
+            };
+            /** Aggs */
+            aggs: {
+                [key: string]: string[];
+            };
+            /** Colours */
+            colours: components["schemas"]["ReportColourOut"][];
+            /** Columns */
+            columns: components["schemas"]["ReportColumnKindOut"][];
+            /** Keep */
+            keep: string[][];
+            /** Marks */
+            marks: components["schemas"]["ReportMarkOut"][];
+            /** Ops */
+            ops: {
+                [key: string]: components["schemas"]["ReportOpOut"][];
+            };
+            /** Pin */
+            pin: number;
+            /** Shown */
+            shown: string[];
+            /** Totals */
+            totals: string[][];
+        };
+        /** ReportGroupChoiceOut */
+        ReportGroupChoiceOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
         };
         /** ReportGroupOut */
         ReportGroupOut: {
@@ -6345,6 +6556,24 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** ReportMarkOut */
+        ReportMarkOut: {
+            /** C */
+            c: string;
+            /** K */
+            k: string;
+            /** O */
+            o: string;
+            /** V */
+            v: string;
+        };
+        /** ReportOpOut */
+        ReportOpOut: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+        };
         /** ReportOptionOut */
         ReportOptionOut: {
             /** Label */
@@ -6364,6 +6593,22 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ReportPickGroupOut */
+        ReportPickGroupOut: {
+            /** Picks */
+            picks: components["schemas"]["ReportPickOut"][];
+            /** Title */
+            title: string;
+        };
+        /** ReportPickOut */
+        ReportPickOut: {
+            /** Checked */
+            checked: boolean;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /** ReportPickerOut */
         ReportPickerOut: {
             /** Heading */
@@ -6379,6 +6624,19 @@ export interface components {
             groups: components["schemas"]["ReportGroupOut"][];
             /** Next Offset */
             next_offset: number | null;
+        };
+        /** ReportRulesModelOut */
+        ReportRulesModelOut: {
+            /** Columns */
+            columns: components["schemas"]["ReportColumnKindOut"][];
+            /** Keep */
+            keep: string[][];
+            /** Ops */
+            ops: {
+                [key: string]: components["schemas"]["ReportOpOut"][];
+            };
+            /** Rules */
+            rules: string;
         };
         /** ReportSavedOptionOut */
         ReportSavedOptionOut: {
@@ -6399,8 +6657,6 @@ export interface components {
             options: components["schemas"]["ReportSavedOptionOut"][];
             /** Plain Url */
             plain_url: string;
-            /** Save Url */
-            save_url: string;
             /** Template Current */
             template_current: boolean;
             /** Templates */
@@ -6456,6 +6712,58 @@ export interface components {
             format: boolean;
             /** Rules */
             rules: boolean;
+        };
+        /** ReportViewFormOut */
+        ReportViewFormOut: {
+            /** Can Delete */
+            can_delete: boolean;
+            /** Is Default */
+            is_default: boolean;
+            /** Name */
+            name: string;
+            /** Query */
+            query: string;
+            /** Title */
+            title: string;
+            /** View Id */
+            view_id: number | null;
+            /** Visibility */
+            visibility: string;
+        };
+        /** ReportViewIn */
+        ReportViewIn: {
+            /**
+             * Is Default
+             * @default false
+             */
+            is_default: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Query
+             * @default
+             */
+            query: string;
+            /**
+             * Visibility
+             * @default
+             */
+            visibility: string;
+        };
+        /** ReportViewResultOut */
+        ReportViewResultOut: {
+            /** Error */
+            error: string;
+            /** Field Errors */
+            field_errors: {
+                [key: string]: string[];
+            };
+            /** Form Errors */
+            form_errors: string[];
+            /** Ok */
+            ok: boolean;
+            /** Redirect */
+            redirect: string;
         };
         /** RequestOut */
         RequestOut: {
@@ -10171,6 +10479,76 @@ export interface operations {
             };
         };
     };
+    api_reports_view_edit_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportViewFormOut"];
+                };
+            };
+        };
+    };
+    api_reports_view_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportViewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportViewResultOut"];
+                };
+            };
+        };
+    };
+    api_reports_view_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportViewResultOut"];
+                };
+            };
+        };
+    };
     api_reports_report_page: {
         parameters: {
             query?: {
@@ -10195,6 +10573,50 @@ export interface operations {
             };
         };
     };
+    api_reports_columns_pop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportColumnsModelOut"];
+                };
+            };
+        };
+    };
+    api_reports_format_pop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportFormatModelOut"];
+                };
+            };
+        };
+    };
     api_reports_report_rows: {
         parameters: {
             query?: {
@@ -10215,6 +10637,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportRowsOut"];
+                };
+            };
+        };
+    };
+    api_reports_rules_pop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRulesModelOut"];
+                };
+            };
+        };
+    };
+    api_reports_view_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportViewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportViewResultOut"];
+                };
+            };
+        };
+    };
+    api_reports_view_new_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportViewFormOut"];
                 };
             };
         };

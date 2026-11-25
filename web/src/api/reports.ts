@@ -1,7 +1,14 @@
-import { useInfiniteQuery, useQuery, type InfiniteData } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { api } from "./client";
 import { retryMe } from "./me";
-import { unwrapQuery } from "./mutate";
+import { postWithCsrfRetry, unwrapQuery } from "./mutate";
 import type { components } from "./schema";
 
 export type ReportCatalogueOut = components["schemas"]["ReportCatalogueOut"];
@@ -11,6 +18,16 @@ export type ReportRowsOut = components["schemas"]["ReportRowsOut"];
 export type ReportGroupOut = components["schemas"]["ReportGroupOut"];
 export type ReportCellOut = components["schemas"]["ReportCellOut"];
 export type ReportHeadCellOut = components["schemas"]["ReportHeadCellOut"];
+export type ReportColumnsModelOut = components["schemas"]["ReportColumnsModelOut"];
+export type ReportRulesModelOut = components["schemas"]["ReportRulesModelOut"];
+export type ReportFormatModelOut = components["schemas"]["ReportFormatModelOut"];
+export type ReportViewFormOut = components["schemas"]["ReportViewFormOut"];
+export type ReportViewIn = components["schemas"]["ReportViewIn"];
+export type ReportViewResultOut = components["schemas"]["ReportViewResultOut"];
+
+// Where a saved-view form comes from: the «Хадгалах» pop-up of a report (the address goes with it, the server reads it),
+// or the «Засах» pop-up of a view by its id.
+export type ViewFormTarget = { key: string; query: string } | { pk: number };
 
 export const reportKeys = {
   catalogue: ["reports", "catalogue"] as const,
@@ -18,6 +35,11 @@ export const reportKeys = {
   // `seed` is the page's dataUpdatedAt the first batch came from: a new page answer is a new query, seeded afresh.
   rows: (key: string, query: string, seed: number) => ["reports", key, "rows", query, seed] as const,
 };
+
+// The pop-up models take the address without an offset: the query is sent verbatim, a leading "?" dropped.
+function addressQuery(query: string): string {
+  return query.startsWith("?") ? query.slice(1) : query;
+}
 
 // The address query is the filters, sent exactly as the address carries them. A leading "?" is dropped, nothing else is
 // touched: the percent-encoding, repeated keys and their order are the API's input. `offset` is the one value this
@@ -96,5 +118,128 @@ export function useReportRows(key: string, query: string, first: ReportTableOut,
     retry: retryMe,
     getNextPageParam: (last: ReportRowsOut) => last.next_offset ?? undefined,
     queryFn: ({ pageParam }) => fetchReportRows(key, query, pageParam),
+  });
+}
+
+// The «Багана сонгох» pop-up's model for the address.
+export async function fetchColumnsModel(key: string, query: string): Promise<ReportColumnsModelOut> {
+  const result = await api.GET("/api/v1/reports/{key}/columns", {
+    params: { path: { key } },
+    querySerializer: () => addressQuery(query),
+  });
+  return unwrapQuery<ReportColumnsModelOut>(result, "report request failed");
+}
+
+// The «Шүүлтүүр» pop-up's model for the address.
+export async function fetchRulesModel(key: string, query: string): Promise<ReportRulesModelOut> {
+  const result = await api.GET("/api/v1/reports/{key}/rules", {
+    params: { path: { key } },
+    querySerializer: () => addressQuery(query),
+  });
+  return unwrapQuery<ReportRulesModelOut>(result, "report request failed");
+}
+
+// The «Хэлбэр» pop-up's model for the address.
+export async function fetchFormatModel(key: string, query: string): Promise<ReportFormatModelOut> {
+  const result = await api.GET("/api/v1/reports/{key}/format", {
+    params: { path: { key } },
+    querySerializer: () => addressQuery(query),
+  });
+  return unwrapQuery<ReportFormatModelOut>(result, "report request failed");
+}
+
+// The «Хадгалах» pop-up (a report and the address) or the «Засах» pop-up (a view id) as the API draws it.
+export async function fetchViewForm(target: ViewFormTarget): Promise<ReportViewFormOut> {
+  const result =
+    "pk" in target
+      ? await api.GET("/api/v1/reports/views/{pk}", { params: { path: { pk: target.pk } } })
+      : await api.GET("/api/v1/reports/{key}/views/new", {
+          params: { path: { key: target.key } },
+          querySerializer: () => addressQuery(target.query),
+        });
+  return unwrapQuery<ReportViewFormOut>(result, "report request failed");
+}
+
+// The pop-up models are read fresh on every open: stale at once and never kept after the pop-up closes (gcTime 0).
+// `enabled` is the pop-up being open, so a closed pop-up sends nothing.
+export function useColumnsModel(key: string, query: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["reports", key, "columns", query],
+    enabled,
+    retry: retryMe,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    queryFn: () => fetchColumnsModel(key, query),
+  });
+}
+
+export function useRulesModel(key: string, query: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["reports", key, "rules", query],
+    enabled,
+    retry: retryMe,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    queryFn: () => fetchRulesModel(key, query),
+  });
+}
+
+export function useFormatModel(key: string, query: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["reports", key, "format", query],
+    enabled,
+    retry: retryMe,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    queryFn: () => fetchFormatModel(key, query),
+  });
+}
+
+// The saved-view form (name, visibility, default, query), read fresh on every open.
+export function useViewForm(target: ViewFormTarget, enabled: boolean) {
+  const targetKey = "pk" in target ? ["pk", target.pk] : ["key", target.key, target.query];
+  return useQuery({
+    queryKey: ["reports", "view-form", ...targetKey],
+    enabled,
+    retry: retryMe,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    queryFn: () => fetchViewForm(target),
+  });
+}
+
+// After a saved-view write that saved (ok true), the report's pages are stale: a view changes the address and the
+// list of views. A refused write (ok false) changed nothing, so nothing is refreshed.
+async function refreshAfterViewWrite(queryClient: QueryClient, key: string | null, result: ReportViewResultOut) {
+  if (!result.ok) return;
+  await queryClient.invalidateQueries({ queryKey: key === null ? ["reports"] : ["reports", key] });
+}
+
+// Stores the address under a new view name for report `key`. A refusal answers ok false with the messages.
+export function useSaveView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, body }: { key: string; body: ReportViewIn }) =>
+      postWithCsrfRetry<ReportViewResultOut>(queryClient, () =>
+        api.POST("/api/v1/reports/{key}/views", { params: { path: { key } }, body }),
+      ),
+    onSuccess: (result, variables) => refreshAfterViewWrite(queryClient, variables.key, result),
+  });
+}
+
+// Renames view `pk` and changes who sees it and whether it opens first. The key of the report is not known here, so
+// every report query is refreshed on a saved write.
+export function useUpdateView(pk: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ReportViewIn) =>
+      postWithCsrfRetry<ReportViewResultOut>(queryClient, () =>
+        api.POST("/api/v1/reports/views/{pk}", { params: { path: { pk } }, body }),
+      ),
+    onSuccess: (result) => refreshAfterViewWrite(queryClient, null, result),
   });
 }

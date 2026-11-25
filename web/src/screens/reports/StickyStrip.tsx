@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 
 // The sticky tool strip of a report page (app/reports/templates/reports/report.html, app/static/js/report_sticky.js,
 // UI_RULES §4b). Once the filter panel has scrolled under the top bar, a thin strip shows the applied filters as chips
-// and the «Багана», «Шүүлтүүр», «Хэлбэр» buttons (they click the real ribbon links) and «↑ Дээш». The wrapper has no
+// and the «Багана», «Шүүлтүүр», «Хэлбэр» buttons (they click the real ribbon buttons, so the same pop-up opens) and «↑ Дээш». The wrapper has no
 // height, so the page never shifts. Pure display: no value is changed.
 
 const TOPBAR = 56; // the top bar is h-14 (report_sticky.js TOPBAR)
@@ -57,7 +57,7 @@ function isBelowTopBar(): boolean {
   return panel !== null && panel.getBoundingClientRect().bottom < TOPBAR;
 }
 
-// A tool button clicks the real control of the ribbon (report_sticky.js data-strip-tool).
+// A tool button clicks the real control of the ribbon (report_sticky.js data-strip-tool); the ribbon button opens the pop-up.
 function clickRibbonTool(tool: string) {
   document.querySelector<HTMLElement>(`[data-tool="${tool}"]`)?.click();
 }

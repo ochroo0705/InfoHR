@@ -8,11 +8,16 @@ import { setCsrf } from "./client";
 import {
   fetchCatalogue,
   reportKeys,
+  useColumnsModel,
+  useSaveView,
+  useUpdateView,
+  useViewForm,
   useCatalogue,
   useReportPage,
   useReportRows,
   type ReportPageOut,
   type ReportTableOut,
+  type ReportViewIn,
 } from "./reports";
 
 const TABLE_FIRST = {
@@ -212,5 +217,103 @@ describe("report API", () => {
     expect(result.current.data?.redirect).toBe(redirect);
     expect(result.current.data?.table).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("columns model path sends query verbatim, without an offset", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { groups: [], group: "", group_text: "", group_choices: [], keep: [] }));
+
+    const { result } = renderHook(() => useColumnsModel("staff", "?q=a%20b&add=branch&cols=name", true), {
+      wrapper: wrapperFor(client),
+    });
+    await vi.waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/columns");
+    expect(urlOf(0).search).toBe("?q=a%20b&add=branch&cols=name");
+    expect(urlOf(0).searchParams.has("offset")).toBe(false);
+  });
+
+  it("model hooks do not fetch while closed", async () => {
+    const { result } = renderHook(() => useColumnsModel("staff", "q=a", false), { wrapper: wrapperFor(client) });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("view form for a new view sends the address as its query", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { title: "Харагдац хадгалах", name: "", visibility: "shared", is_default: false, query: "q=a", can_delete: false, view_id: null }),
+    );
+
+    const { result } = renderHook(() => useViewForm({ key: "staff", query: "q=a&sort=-name" }, true), {
+      wrapper: wrapperFor(client),
+    });
+    await vi.waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/views/new");
+    expect(urlOf(0).search).toBe("?q=a&sort=-name");
+  });
+
+  it("view form for an edit reads the view by its id, and sends nothing while closed", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { title: "Харагдац засах", name: "A", visibility: "private", is_default: false, query: "", can_delete: true, view_id: 4 }));
+
+    const { result } = renderHook(() => useViewForm({ pk: 4 }, true), { wrapper: wrapperFor(client) });
+    await vi.waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/views/4");
+
+    const closed = renderHook(() => useViewForm({ pk: 9 }, false), { wrapper: wrapperFor(client) });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+    expect(closed.result.current.fetchStatus).toBe("idle");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("save view posts body and returns result", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true, redirect: "/reports/staff/?view=7", error: "", field_errors: {}, form_errors: [] }));
+    const body: ReportViewIn = { name: "Миний", visibility: "shared", is_default: false, query: "q=a" };
+
+    const { result } = renderHook(() => useSaveView(), { wrapper: wrapperFor(client) });
+    let saved: unknown;
+    await act(async () => {
+      saved = await result.current.mutateAsync({ key: "staff", body });
+    });
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/views");
+    expect(JSON.parse(await request.text())).toEqual(body);
+    expect(saved).toMatchObject({ ok: true, redirect: "/reports/staff/?view=7" });
+  });
+
+  it("update view posts to its pk path and a refused save answers ok false", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: false, redirect: "", error: "", field_errors: { name: ["Ийм нэртэй харагдац байна."] }, form_errors: [] }));
+    const body: ReportViewIn = { name: "Дубль", visibility: "shared", is_default: true, query: "" };
+
+    const { result } = renderHook(() => useUpdateView(3), { wrapper: wrapperFor(client) });
+    let saved: unknown;
+    await act(async () => {
+      saved = await result.current.mutateAsync(body);
+    });
+
+    expect((fetchMock.mock.calls[0][0] as Request).method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/views/3");
+    expect(saved).toMatchObject({ ok: false, field_errors: { name: ["Ийм нэртэй харагдац байна."] } });
+  });
+
+  it("view write 404 is a typed error and a 404 on a view by id is not a 403", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(404, { field_errors: {}, form_errors: [] }));
+    const { result } = renderHook(() => useViewForm({ pk: 11 }, true), { wrapper: wrapperFor(client) });
+    await vi.waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toMatchObject({ status: 404 });
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(403, { field_errors: {}, form_errors: [], code: "forbidden" }));
+    const { result: update } = renderHook(() => useUpdateView(11), { wrapper: wrapperFor(client) });
+    const caught = await rejectionOf(() =>
+      update.current.mutateAsync({ name: "x", visibility: "shared", is_default: false, query: "" }),
+    );
+    expect(caught).toMatchObject({ status: 403 });
   });
 });

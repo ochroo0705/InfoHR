@@ -4,16 +4,17 @@ import { useReportPage, type ReportPageOut } from "../../api/reports";
 import { TLink, useTransitionNavigate } from "../../lib/viewTransition";
 import { Forbidden, NotFound } from "../../routes/ErrorPage";
 import { useMainWidth } from "../../shell/mainWidth";
+import { clearOffset } from "./filterAddress";
 import { FilterBar } from "./FilterBar";
 import { ReportHeader } from "./ReportHeader";
 import { ReportTable } from "./ReportTable";
 import { StickyStrip } from "./StickyStrip";
-import { ToolRibbon, legacyReportAddress } from "./ToolRibbon";
+import { ReportPopUp, ToolRibbon, legacyReportAddress, type OpenPopUp } from "./ToolRibbon";
 import { useReportMemory } from "./useReportMemory";
 
 // Port of app/reports/templates/reports/report.html at /reports/<key>/ (the table layout). Only the frame: the header,
-// the tool ribbon, the filter bar, the rules line, the note, the table and the count. The other layouts and the pop-ups
-// are links to the Django origin (5a); the sticky strip is the StickyStrip component.
+// the tool ribbon, the filter bar, the rules line, the note, the table and the count. The other layouts are links to the
+// Django origin (5a); the settings and saved-view pop-ups are React (5b, in ToolRibbon); the sticky strip is StickyStrip.
 // The page answer (head, bar, table) comes from the API. A bare address with a default saved view answers `redirect`,
 // which the page follows once. The body under the header is inert while a new address loads (the 3d-3 register rule).
 
@@ -41,6 +42,10 @@ export function ReportPage() {
   const navigate = useNavigate();
   const goTo = useTransitionNavigate();
   const search = location.search;
+  // The one pop-up open on the page (the ribbon and the rules line open it). The settings pop-ups get the latest requested
+  // address without its batch position.
+  const [openPop, setOpenPop] = useState<OpenPopUp>(null);
+  const popQuery = clearOffset(search.replace(/^\?/, ""));
   useMainWidth(MAIN_WIDTH);
 
   const query = useReportPage(key, search);
@@ -122,13 +127,7 @@ export function ReportPage() {
       ) : null}
       <StickyStrip tools={head.tools} />
       <ReportHeader title={head.title} layouts={head.layouts} />
-      <ToolRibbon
-        reportKey={key}
-        head={head}
-        columnsQuery={bar?.columns_query ?? ""}
-        clearUrl={bar?.clear_url ?? ""}
-        search={view.search}
-      />
+      <ToolRibbon reportKey={key} head={head} clearUrl={bar?.clear_url ?? ""} onOpen={setOpenPop} />
 
       {answer.layout !== "table" || table === null ? (
         <p className="mt-3 text-sm text-slate-500">
@@ -152,9 +151,9 @@ export function ReportPage() {
           {table.rules_text && table.shows_count ? (
             <p className="mt-3 text-sm text-slate-700">
               Нөхцөл: <span data-rules-text>{table.rules_text}</span> ·{" "}
-              <a href={legacyReportAddress(key, view.search)} title={LEGACY_TITLE} className="text-violet-700 hover:underline">
+              <button type="button" onClick={() => setOpenPop("rules")} className="text-violet-700 hover:underline">
                 Засах
-              </a>{" "}
+              </button>{" "}
               ·{" "}
               <TLink to={table.clear_rules_url} className="text-violet-700 hover:underline">
                 Цэвэрлэх
@@ -181,6 +180,14 @@ export function ReportPage() {
           </div>
         </>
       )}
+      <ReportPopUp
+        reportKey={key}
+        open={openPop}
+        query={popQuery}
+        savedQuery={table?.query ?? popQuery}
+        editPk={head.saved?.current_view ?? null}
+        onClose={() => setOpenPop(null)}
+      />
     </div>
   );
 }

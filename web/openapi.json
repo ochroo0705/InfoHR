@@ -9789,6 +9789,29 @@
         "title": "ReportCellOut",
         "type": "object"
       },
+      "ReportColourOut": {
+        "properties": {
+          "classes": {
+            "title": "Classes",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "classes"
+        ],
+        "title": "ReportColourOut",
+        "type": "object"
+      },
       "ReportColumnChipOut": {
         "properties": {
           "kind": {
@@ -9839,6 +9862,74 @@
           "remove_href"
         ],
         "title": "ReportColumnChipOut",
+        "type": "object"
+      },
+      "ReportColumnKindOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "kind"
+        ],
+        "title": "ReportColumnKindOut",
+        "type": "object"
+      },
+      "ReportColumnsModelOut": {
+        "properties": {
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "group_choices": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGroupChoiceOut"
+            },
+            "title": "Group Choices",
+            "type": "array"
+          },
+          "group_text": {
+            "title": "Group Text",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/ReportPickGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "keep": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Keep",
+            "type": "array"
+          }
+        },
+        "required": [
+          "groups",
+          "group_choices",
+          "group",
+          "group_text",
+          "keep"
+        ],
+        "title": "ReportColumnsModelOut",
         "type": "object"
       },
       "ReportFilterOptionsOut": {
@@ -10048,6 +10139,121 @@
         "title": "ReportFilterOptionsOut",
         "type": "object"
       },
+      "ReportFormatModelOut": {
+        "properties": {
+          "agg_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Agg Labels",
+            "type": "object"
+          },
+          "aggs": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Aggs",
+            "type": "object"
+          },
+          "colours": {
+            "items": {
+              "$ref": "#/components/schemas/ReportColourOut"
+            },
+            "title": "Colours",
+            "type": "array"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ReportColumnKindOut"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "keep": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Keep",
+            "type": "array"
+          },
+          "marks": {
+            "items": {
+              "$ref": "#/components/schemas/ReportMarkOut"
+            },
+            "title": "Marks",
+            "type": "array"
+          },
+          "ops": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ReportOpOut"
+              },
+              "type": "array"
+            },
+            "title": "Ops",
+            "type": "object"
+          },
+          "pin": {
+            "title": "Pin",
+            "type": "integer"
+          },
+          "shown": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Shown",
+            "type": "array"
+          },
+          "totals": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Totals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "columns",
+          "shown",
+          "ops",
+          "aggs",
+          "agg_labels",
+          "colours",
+          "totals",
+          "marks",
+          "pin",
+          "keep"
+        ],
+        "title": "ReportFormatModelOut",
+        "type": "object"
+      },
+      "ReportGroupChoiceOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ReportGroupChoiceOut",
+        "type": "object"
+      },
       "ReportGroupOut": {
         "properties": {
           "count": {
@@ -10207,6 +10413,52 @@
         "title": "ReportLayoutOut",
         "type": "object"
       },
+      "ReportMarkOut": {
+        "properties": {
+          "c": {
+            "title": "C",
+            "type": "string"
+          },
+          "k": {
+            "title": "K",
+            "type": "string"
+          },
+          "o": {
+            "title": "O",
+            "type": "string"
+          },
+          "v": {
+            "title": "V",
+            "type": "string"
+          }
+        },
+        "required": [
+          "c",
+          "o",
+          "v",
+          "k"
+        ],
+        "title": "ReportMarkOut",
+        "type": "object"
+      },
+      "ReportOpOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "ReportOpOut",
+        "type": "object"
+      },
       "ReportOptionOut": {
         "properties": {
           "label": {
@@ -10281,6 +10533,50 @@
         "title": "ReportPageOut",
         "type": "object"
       },
+      "ReportPickGroupOut": {
+        "properties": {
+          "picks": {
+            "items": {
+              "$ref": "#/components/schemas/ReportPickOut"
+            },
+            "title": "Picks",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "picks"
+        ],
+        "title": "ReportPickGroupOut",
+        "type": "object"
+      },
+      "ReportPickOut": {
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "checked"
+        ],
+        "title": "ReportPickOut",
+        "type": "object"
+      },
       "ReportPickerOut": {
         "properties": {
           "heading": {
@@ -10330,6 +10626,49 @@
           "next_offset"
         ],
         "title": "ReportRowsOut",
+        "type": "object"
+      },
+      "ReportRulesModelOut": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ReportColumnKindOut"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "keep": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Keep",
+            "type": "array"
+          },
+          "ops": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ReportOpOut"
+              },
+              "type": "array"
+            },
+            "title": "Ops",
+            "type": "object"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "string"
+          }
+        },
+        "required": [
+          "columns",
+          "ops",
+          "rules",
+          "keep"
+        ],
+        "title": "ReportRulesModelOut",
         "type": "object"
       },
       "ReportSavedOptionOut": {
@@ -10383,10 +10722,6 @@
             "title": "Plain Url",
             "type": "string"
           },
-          "save_url": {
-            "title": "Save Url",
-            "type": "string"
-          },
           "template_current": {
             "title": "Template Current",
             "type": "boolean"
@@ -10405,8 +10740,7 @@
           "templates",
           "current_view",
           "template_current",
-          "can_edit_view",
-          "save_url"
+          "can_edit_view"
         ],
         "title": "ReportSavedOut",
         "type": "object"
@@ -10564,6 +10898,126 @@
           "format"
         ],
         "title": "ReportToolsOut",
+        "type": "object"
+      },
+      "ReportViewFormOut": {
+        "properties": {
+          "can_delete": {
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "view_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View Id"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "name",
+          "visibility",
+          "is_default",
+          "query",
+          "can_delete",
+          "view_id"
+        ],
+        "title": "ReportViewFormOut",
+        "type": "object"
+      },
+      "ReportViewIn": {
+        "properties": {
+          "is_default": {
+            "default": false,
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "query": {
+            "default": "",
+            "title": "Query",
+            "type": "string"
+          },
+          "visibility": {
+            "default": "",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ReportViewIn",
+        "type": "object"
+      },
+      "ReportViewResultOut": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "field_errors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Field Errors",
+            "type": "object"
+          },
+          "form_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Form Errors",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "redirect": {
+            "title": "Redirect",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "redirect",
+          "error",
+          "form_errors",
+          "field_errors"
+        ],
+        "title": "ReportViewResultOut",
         "type": "object"
       },
       "RequestOut": {
@@ -18583,6 +19037,128 @@
         ]
       }
     },
+    "/api/v1/reports/views/{pk}": {
+      "get": {
+        "description": "The «Засах» pop-up with the view's own values.",
+        "operationId": "api_reports_view_edit_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportViewFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "View Edit Form",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "Renames the view and changes who sees it and whether it opens first. The query is not used on an edit.",
+        "operationId": "api_reports_view_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportViewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportViewResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "View Update",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/views/{pk}/delete": {
+      "post": {
+        "description": "Deletes the view (its author or a manager). The redirect is the bare report.",
+        "operationId": "api_reports_view_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportViewResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "View Delete",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/{key}": {
       "get": {
         "description": "The report's head, filter bar and table layout for the address. The redirect is answered before the table is\nbuilt, as the Django page does. A layout other than the table answers the head and the bar with no table.",
@@ -18631,6 +19207,82 @@
         ]
       }
     },
+    "/api/v1/reports/{key}/columns": {
+      "get": {
+        "description": "The «Багана сонгох» pop-up's model for the address.",
+        "operationId": "api_reports_columns_pop",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportColumnsModelOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Columns Pop",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/format": {
+      "get": {
+        "description": "The «Хэлбэр» pop-up's model for the address.",
+        "operationId": "api_reports_format_pop",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportFormatModelOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Format Pop",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/{key}/rows": {
       "get": {
         "description": "One batch of the table for the address (every row of a grouped table, with next_offset None).",
@@ -18674,6 +19326,130 @@
           }
         ],
         "summary": "Report Rows",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/rules": {
+      "get": {
+        "description": "The «Шүүлтүүр» pop-up's model for the address.",
+        "operationId": "api_reports_rules_pop",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRulesModelOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Rules Pop",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/views": {
+      "post": {
+        "description": "Stores the cleaned address under the posted name. The redirect is the saved view's address.",
+        "operationId": "api_reports_view_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportViewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportViewResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "View Create",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/views/new": {
+      "get": {
+        "description": "The «Хадгалах» pop-up: the address the viewer is looking at, to be stored under a name.",
+        "operationId": "api_reports_view_new_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportViewFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "View New Form",
         "tags": [
           "reports"
         ]

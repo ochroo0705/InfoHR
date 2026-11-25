@@ -76,7 +76,6 @@ class SavedHead:
     current_view: SavedView | None
     template_current: bool  # a template matches the address (it wins the selection when no view matches)
     can_edit_view: bool  # the current view may be renamed or deleted by this viewer
-    save_url: str  # the Django address of the «Хадгалах» pop-up with the page's query (5b replaces it)
 
 
 @dataclass(frozen=True)
@@ -190,7 +189,7 @@ def _template_allowed(user: User, report: Report, template: Template) -> bool:
     return used <= {c.key for c in allowed_columns(report, user)}
 
 
-def saved_head(user: User, report: Report, query: str, save_url: str) -> SavedHead:
+def saved_head(user: User, report: Report, query: str) -> SavedHead:
     """The saved views of the report for this viewer: the options they may see, the starter templates they may use, the
     one the cleaned address `query` matches, and whether they may change it. Each view's address and the match use the
     query as this viewer may see it."""
@@ -218,7 +217,6 @@ def saved_head(user: User, report: Report, query: str, save_url: str) -> SavedHe
         current_view=current,
         template_current=any(o.selected for o in template_options),
         can_edit_view=current is not None and _may_change(user, current),
-        save_url=save_url,
     )
 
 
@@ -311,8 +309,7 @@ def page_head(
         # the match uses the address as this viewer may use it, cleaned the same way a stored view is (defaults such as
         # the default columns are not part of it, so an empty view matches the plain address)
         query = to_query(_cleaned_for(user, report, parse_filters(request_get)))
-        save_url = f"{reverse('reports:view_new', args=[report.key])}?{to_query(f)}"
-        saved = saved_head(user, report, query, save_url)
+        saved = saved_head(user, report, query)
     return PageHead(
         redirect=default_view_redirect(request_get, is_htmx, method, user, report),
         saved=saved,

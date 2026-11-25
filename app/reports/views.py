@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, replace
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -13,7 +13,6 @@ from accounts.models import User
 from config import batching
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db import IntegrityError, transaction
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -33,7 +32,6 @@ from reports import marks as marks_mod
 from reports import row_edit as row_edit_service
 from reports import rules as rules_mod
 from reports import selection as selection_mod
-from reports import totals as totals_mod
 from reports.filters import (
     MAX_YEAR,
     MIN_MONTH_YEAR,
@@ -43,15 +41,12 @@ from reports.filters import (
     to_query,
 )
 from reports.forms import SavedViewForm
-from reports.kinds import KINDS, column_kind
+from reports.kinds import column_kind
 from reports.models import SavedView
 from reports.page_rules import (
     FOLDABLE,  # noqa: F401 (tests import it from views)
     PLAIN_VIEW,  # noqa: F401 (palette.py imports it from views)
     HeaderCell,  # noqa: F401 (tests import it from views)
-)
-from reports.page_rules import (
-    added_names as _added_names,
 )
 from reports.page_rules import (
     address as _address,
@@ -63,16 +58,10 @@ from reports.page_rules import (
     column_filter_panels as _column_filter_panels,  # noqa: F401 (kept importable from views)
 )
 from reports.page_rules import (
-    group_text as _group_text,
-)
-from reports.page_rules import (
     month_param as _month_param,
 )
 from reports.page_rules import (
     next_sort as _next_sort,  # noqa: F401 (tests import it from views)
-)
-from reports.page_rules import (
-    offered_adds as _offered_adds,
 )
 from reports.page_rules import (
     secondary_filters as _secondary_filters,  # noqa: F401 (tests import it from views)
@@ -80,22 +69,19 @@ from reports.page_rules import (
 from reports.page_rules import (
     sort_mark as _sort_mark,  # noqa: F401 (kept importable from views)
 )
+from reports.services import popups, saved_views
 from reports.services.catalogue_page import sections_for
 from reports.services.filter_bar import filter_bar
 from reports.services.page_head import (
     EXPORT_PERM,
     LAYOUT_LABELS,
     NEW_LAYOUT_BLANKS,
-    PRIVATE,
     SELECTION_KEYS,  # noqa: F401 (kept importable from views)
-    SHARED,
     LayoutOption,  # noqa: F401 (kept importable from views)
     SavedOption,  # noqa: F401 (kept importable from views)
-    _cleaned_for,
+    _cleaned_for,  # noqa: F401 (tests import it from views)
     _known_only,  # noqa: F401 (tests import it from views)
-    _may_change,
     _option_name,  # noqa: F401 (kept importable from views)
-    _sees_private,
     _selection_urls,  # noqa: F401 (kept importable from views)
     _template_allowed,  # noqa: F401 (today_tiles uses it from views)
     _view_url,
@@ -106,6 +92,35 @@ from reports.services.page_head import (
     page_head,
     page_tools,
 )
+from reports.services.popups import (
+    AGG_LABELS,  # noqa: F401 (kept importable from views)
+    AGGS_BY_KIND,  # noqa: F401 (kept importable from views)
+    FORMAT_COLOURS,  # noqa: F401 (kept importable from views)
+    Pick,  # noqa: F401 (kept importable from views)
+    _rule_kind,  # noqa: F401 (kept importable from views)
+    check_popup,
+)
+from reports.services.saved_views import (
+    DUPLICATE_NAME,  # noqa: F401 (kept importable from views)
+    NAME_CONSTRAINT,  # noqa: F401 (kept importable from views)
+    QUERY_LIMIT,  # noqa: F401 (tests import it from views)
+    TOO_LONG,  # noqa: F401 (kept importable from views)
+)
+from reports.services.saved_views import (
+    clear_defaults as _clear_defaults,  # noqa: F401 (kept importable from views)
+)
+from reports.services.saved_views import (
+    default_allowed as _default_allowed,  # noqa: F401 (kept importable from views)
+)
+from reports.services.saved_views import (
+    is_name_clash as _is_name_clash,  # noqa: F401 (kept importable from views)
+)
+from reports.services.saved_views import (
+    saveable_report as _saveable_report,  # noqa: F401 (kept importable from views)
+)
+from reports.services.saved_views import (
+    visibility_and_default as _visibility_and_default,  # noqa: F401 (kept importable from views)
+)
 from reports.services.table_page import parse_offset, table_page
 from reports.summary import summary_of
 from reports.table import (
@@ -113,19 +128,11 @@ from reports.table import (
     allowed_columns,
     build_table,
     column_classes,
-    offered_filters,
-    restricted_filters,
-    shown_keys,
-    usable_filters,
 )
 from reports.types import Column, Report
 
 MAX_PORTRAIT_COLUMNS = 7  # more columns than this print on A4 landscape
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-DUPLICATE_NAME = "Ийм нэртэй харагдац байна."
-TOO_LONG = "Харагдац хэт урт байна."
-NAME_CONSTRAINT = "reports_savedview_unique_name"  # UniqueConstraint(report, name) on SavedView
-QUERY_LIMIT = SavedView._meta.get_field("query").max_length  # the stored query is cut at this many characters
 
 
 @login_required
@@ -138,53 +145,24 @@ def catalogue(request: HttpRequest) -> HttpResponse:
     return render(request, "reports/catalogue.html", {"sections": sections_for(request.user), "q": q})
 
 
-@dataclass(frozen=True)
-class Pick:
-    key: str
-    label: str
-    checked: bool  # the column is shown now
-
-
 @login_required
 def columns_modal(request: HttpRequest, key: str) -> HttpResponse:
     """The «Багана сонгох» pop-up: the columns the user may see (shown ones ticked) and the grouping."""
     user = request.user
     assert isinstance(user, User)  # login_required guarantees a real user
     report = registry.get(key)
-    if report is None or not report.picks_columns:
-        raise Http404
-    if not registry.can_open(user, report):
-        raise PermissionDenied
-    f = parse_filters(request.GET)
-    allowed = allowed_columns(report, user)
-    shown = set(shown_keys(report, user, f))
-    by_group: dict[str, list[Pick]] = {}
-    for c in allowed:
-        by_group.setdefault(c.group, []).append(Pick(key=c.key, label=c.label, checked=c.key in shown))
-    group_choices: list[Column] = [c for c in allowed if c.key in report.group_options]
+    check_popup(user, report, needs="picks_columns")
+    assert report is not None  # check_popup refuses a missing report
+    model = popups.columns_model(request.GET, user, report)
     context = {
         "report": report,
-        "groups": list(by_group.items()),
-        "group_choices": group_choices,
-        "group": f.group,
-        "group_text": _group_text(f.group, group_choices),
-        # the filters the form keeps as hidden inputs: every current filter except the columns and the grouping
-        # the chips named by `add` survive the pop-up's round trip too, as the page's own filter form keeps them
-        # the hidden inputs carry this viewer's cleaned address, so a hidden column key never echoes back
-        "keep": parse_qsl(to_query(replace(_cleaned_for(user, report, f), columns=(), group="")))
-        + [
-            ("add", name)
-            for name in _added_names(request.GET, _offered_adds(report, user, offered_filters(report, user)))
-        ],
+        "groups": model.groups,
+        "group_choices": model.group_choices,
+        "group": model.group,
+        "group_text": model.group_text,
+        "keep": model.keep,
     }
     return render(request, "reports/_columns_modal.html", context)
-
-
-def _rule_kind(column: Column) -> str:
-    """The kind a pop-up can use without rows: the column's own kind, else number for amounts, else text."""
-    if column.kind in KINDS:
-        return column.kind
-    return "number" if column.numeric or column.money else "text"
 
 
 @login_required
@@ -194,40 +172,17 @@ def rules_modal(request: HttpRequest, key: str) -> HttpResponse:
     user = request.user
     assert isinstance(user, User)  # login_required guarantees a real user
     report = registry.get(key)
-    if report is None or not report.shows_count:
-        raise Http404
-    if not registry.can_open(user, report):
-        raise PermissionDenied
-    f = parse_filters(request.GET)
-    allowed = allowed_columns(report, user)
-    current = rules_mod.restrict(rules_mod.parse_rules(f.rules), {c.key for c in allowed})
+    check_popup(user, report, needs="shows_count")
+    assert report is not None  # check_popup refuses a missing report
+    model = popups.rules_model(request.GET, user, report)
     context = {
         "report": report,
-        "columns_json": [{"key": c.key, "label": c.label, "kind": _rule_kind(c)} for c in allowed],
-        "ops_json": {
-            kind: [{"code": code, "label": rules_mod.OP_LABELS[code]} for code in codes]
-            for kind, codes in rules_mod.OPS.items()
-        },
-        "rules_json": rules_mod.dump_rules(current),
-        # every current filter except the rules, as the page's own filter form keeps them; the `add` chips survive too
-        "keep": parse_qsl(to_query(replace(_cleaned_for(user, report, f), rules="")))
-        + [
-            ("add", name)
-            for name in _added_names(request.GET, _offered_adds(report, user, offered_filters(report, user)))
-        ],
+        "columns_json": [asdict(c) for c in model.columns],
+        "ops_json": {kind: [asdict(op) for op in ops] for kind, ops in model.ops.items()},
+        "rules_json": model.rules,
+        "keep": model.keep,
     }
     return render(request, "reports/_rules_modal.html", context)
-
-
-# the colour names of the «Хэлбэр» pop-up, in the order the pop-up offers them
-FORMAT_COLOURS = (("red", "Улаан"), ("amber", "Шар"), ("green", "Ногоон"), ("blue", "Цэнхэр"), ("grey", "Саарал"))
-AGG_LABELS = {"sum": "Нийлбэр", "avg": "Дундаж", "min": "Хамгийн бага", "max": "Хамгийн их", "count": "Тоо"}
-# the aggregates a column of each kind offers: a number all five, a date the three that mean something for dates
-AGGS_BY_KIND = {
-    "number": ("sum", "avg", "min", "max", "count"),
-    "date": ("min", "max", "count"),
-    "text": ("count",),
-}
 
 
 @login_required
@@ -237,39 +192,21 @@ def format_modal(request: HttpRequest, key: str) -> HttpResponse:
     user = request.user
     assert isinstance(user, User)  # login_required guarantees a real user
     report = registry.get(key)
-    if report is None or not report.shows_count:
-        raise Http404
-    if not registry.can_open(user, report):
-        raise PermissionDenied
-    f = parse_filters(request.GET)
-    allowed = allowed_columns(report, user)
-    # the current totals and colours as the table applies them: only the columns this user may see
-    current = restricted_filters(report, user, usable_filters(report, user, f))
+    check_popup(user, report, needs="shows_count")
+    assert report is not None  # check_popup refuses a missing report
+    model = popups.format_model(request.GET, user, report)
     context = {
         "report": report,
-        "columns_json": [{"key": c.key, "label": c.label, "kind": _rule_kind(c)} for c in allowed],
-        "shown_json": shown_keys(report, user, current),
-        "ops_json": {
-            kind: [{"code": code, "label": rules_mod.OP_LABELS[code]} for code in codes]
-            for kind, codes in rules_mod.OPS.items()
-        },
-        "aggs_json": AGGS_BY_KIND,
-        "agg_labels_json": AGG_LABELS,
-        "colours_json": [
-            {"key": name, "label": label, "classes": marks_mod.COLOURS[name]} for name, label in FORMAT_COLOURS
-        ],
-        "totals_json": [list(pair) for pair in totals_mod.parse_totals(current.totals)],
-        "marks_json": [
-            {"c": m.column, "o": m.rule_op, "v": m.value, "k": m.colour} for m in marks_mod.parse_marks(current.marks)
-        ],
-        "pin": current.pin,
-        # every current filter except the totals, colours and pin, as the page's own filter form keeps them;
-        # the `add` chips survive too
-        "keep": parse_qsl(to_query(replace(_cleaned_for(user, report, f), totals="", marks="", pin=0)))
-        + [
-            ("add", name)
-            for name in _added_names(request.GET, _offered_adds(report, user, offered_filters(report, user)))
-        ],
+        "columns_json": [asdict(c) for c in model.columns],
+        "shown_json": model.shown,
+        "ops_json": {kind: [asdict(op) for op in ops] for kind, ops in model.ops.items()},
+        "aggs_json": model.aggs,
+        "agg_labels_json": model.agg_labels,
+        "colours_json": [asdict(c) for c in model.colours],
+        "totals_json": [list(pair) for pair in model.totals],
+        "marks_json": [asdict(m) for m in model.marks],
+        "pin": model.pin,
+        "keep": model.keep,
     }
     return render(request, "reports/_format_modal.html", context)
 
@@ -620,31 +557,6 @@ def report_page(request: HttpRequest, key: str) -> HttpResponse:
     return response
 
 
-def _default_allowed(user: User, report_key: str, pk: int | None) -> bool:
-    """May this user make the view `pk` the report's default? Yes when no other view is the default, or when they may
-    change the current default (its author, or a manager). A plain author cannot displace someone else's default."""
-    current = SavedView.objects.filter(report=report_key, is_default=True)
-    if pk is not None:
-        current = current.exclude(pk=pk)
-    current_default = current.first()
-    return current_default is None or _may_change(user, current_default)
-
-
-def _clear_defaults(report_key: str, keep: int | None = None) -> None:
-    """Unsets the report's default view, except `keep`: a report has at most one default. Runs inside the caller's
-    transaction, so a refused save puts the old default back."""
-    others = SavedView.objects.filter(report=report_key, is_default=True)
-    if keep is not None:
-        others = others.exclude(pk=keep)
-    others.update(is_default=False)
-
-
-def _visibility_and_default(form: SavedViewForm) -> tuple[str, bool]:
-    """The view's visibility (blank is shared) and whether it opens first. Only a shared view can be the default."""
-    visibility = form.cleaned_data["visibility"] or SHARED
-    return visibility, bool(form.cleaned_data["is_default"]) and visibility == SHARED
-
-
 @login_required
 def report_print(request: HttpRequest, key: str) -> HttpResponse:
     """The print page: the same table as the screen, with the filters named at the top (orders_print style)."""
@@ -712,26 +624,9 @@ def _user(request: HttpRequest) -> User:
     return request.user
 
 
-def _saveable_report(user: User, key: str) -> Report:
-    """The report of a saved view: 404 when it keeps no saved views, 403 when the user may not open it."""
-    report = registry.get(key)
-    if report is None or not report.saved_views:
-        raise Http404
-    if not registry.can_open(user, report):
-        raise PermissionDenied
-    return report
-
-
 def _view_for(request: HttpRequest, pk: int) -> SavedView:
     """A saved view the user may rename or delete: 404 if missing, 403 if the user may not change it."""
-    user = _user(request)
-    view = get_object_or_404(SavedView, pk=pk)
-    if view.visibility == PRIVATE and not _sees_private(user, view):
-        raise Http404  # a private view is not visible to anyone else, a manager included
-    _saveable_report(user, view.report)
-    if not _may_change(user, view):
-        raise PermissionDenied
-    return view
+    return saved_views.view_for(_user(request), pk)
 
 
 def _view_modal(
@@ -741,55 +636,37 @@ def _view_modal(
     return render(request, "reports/_view_modal.html", context)
 
 
-def _is_name_clash(error: IntegrityError) -> bool:
-    """True when the database refused the (report, name) pair; any other integrity error is not ours to hide.
-    Accepted (decision, low impact): the name is unique across private views too, so a clash reveals that another
-    user's private view has that name; removing it needs a schema change."""
-    diag = getattr(error.__cause__, "diag", None)  # psycopg puts the violated constraint's name here
-    if getattr(diag, "constraint_name", None) == NAME_CONSTRAINT:
-        return True
-    # Firebird has no such attribute: its message names the (upper-case) index, e.g. ... "REPORTS_SAVEDVIEW_UNIQUE_NAME".
-    return diag is None and NAME_CONSTRAINT in str(error).lower()
+def _modal_form(data: QueryDict | dict[str, Any], result: saved_views.SaveResult) -> SavedViewForm:
+    """The «Хадгалах» / «Засах» form bound to what was posted, with the service's errors on it. The form has already
+    shown its own errors when the service ran it, so an error it holds is not added twice."""
+    form = SavedViewForm(data)
+    form.is_valid()
+    for name, messages in result.field_errors.items():
+        shown = [str(m) for m in form.errors.get(name, [])]
+        for message in messages:
+            if message not in shown:
+                form.add_error(name, message)
+    shown_general = [str(m) for m in form.non_field_errors()]
+    for message in result.form_errors:
+        if message not in shown_general:
+            form.add_error(None, message)
+    return form
 
 
 @login_required
 def view_new(request: HttpRequest, key: str) -> HttpResponse:
     """The «Хадгалах» pop-up. Saves the cleaned address under a name; every user who can open the report sees it."""
     user = _user(request)
-    report = _saveable_report(user, key)
+    report = saved_views.saveable_report(user, key)
     action = reverse("reports:view_new", args=[key])
     if request.method != "POST":
-        initial = {"query": to_query(parse_filters(request.GET))}
+        initial = {"query": saved_views.initial_query(request.GET)}
         return _view_modal(request, "Харагдац хадгалах", SavedViewForm(initial=initial), action, None)
-    form = SavedViewForm(request.POST)
-    if not form.is_valid():
-        return _view_modal(request, "Харагдац хадгалах", form, action, None)
-    # never the raw text: what the author may not use or see (a hidden filter, rule, sort or group) is not stored
-    query = to_query(_cleaned_for(user, report, parse_filters(QueryDict(form.cleaned_data["query"]))))
-    if QUERY_LIMIT is not None and len(query) > QUERY_LIMIT:
-        form.add_error(None, TOO_LONG)
-        return _view_modal(request, "Харагдац хадгалах", form, action, None)
-    visibility, wants_default = _visibility_and_default(form)
-    make_default = wants_default and _default_allowed(user, key, None)  # not displacing someone else's default
-    try:
-        with transaction.atomic():
-            if make_default:
-                _clear_defaults(key)
-            SavedView.objects.create(
-                report=key,
-                name=form.cleaned_data["name"],
-                query=query,
-                author=user,
-                visibility=visibility,
-                is_default=make_default,
-            )
-    except IntegrityError as error:
-        if not _is_name_clash(error):
-            raise
-        form.add_error("name", DUPLICATE_NAME)
-        return _view_modal(request, "Харагдац хадгалах", form, action, None)
+    result = saved_views.create_view(user, report, request.POST)
+    if result.view is None:
+        return _view_modal(request, "Харагдац хадгалах", _modal_form(request.POST, result), action, None)
     response = HttpResponse(status=204)
-    response["HX-Redirect"] = _view_url(reverse("reports:report", args=[key]), query)
+    response["HX-Redirect"] = _view_url(reverse("reports:report", args=[key]), result.view.query)
     return response
 
 
@@ -806,22 +683,9 @@ def view_edit(request: HttpRequest, pk: int) -> HttpResponse:
         return _view_modal(request, title, SavedViewForm(initial=initial), action, view)
     data = request.POST.copy()
     data.setdefault("visibility", view.visibility)  # a POST that names no visibility keeps the view's own
-    form = SavedViewForm(data)
-    if not form.is_valid():
-        return _view_modal(request, title, form, action, view)
-    view.name = form.cleaned_data["name"]
-    view.visibility, wants_default = _visibility_and_default(form)
-    view.is_default = wants_default and _default_allowed(user, view.report, view.pk)
-    try:
-        with transaction.atomic():
-            if view.is_default:
-                _clear_defaults(view.report, keep=view.pk)
-            view.save(update_fields=["name", "visibility", "is_default", "updated_at"])
-    except IntegrityError as error:
-        if not _is_name_clash(error):
-            raise
-        form.add_error("name", DUPLICATE_NAME)
-        return _view_modal(request, title, form, action, view)
+    result = saved_views.update_view(user, view, data)
+    if result.view is None:
+        return _view_modal(request, title, _modal_form(data, result), action, view)
     response = HttpResponse(status=204)
     response["HX-Refresh"] = "true"  # the address keeps the same setup, so the page reloads on the same view
     return response
@@ -831,8 +695,7 @@ def view_edit(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def view_delete(request: HttpRequest, pk: int) -> HttpResponse:
     view = _view_for(request, pk)
-    key = view.report
-    view.delete()
+    key = saved_views.delete_view(_user(request), view)
     response = HttpResponse(status=204)
     response["HX-Redirect"] = reverse("reports:report", args=[key])
     return response
