@@ -1,3 +1,4 @@
+# ruff: noqa: S608  -- SQL text here is built only from constants of this module and %s marks; values are parameters
 """Aggregate repair sheets (агрегат засвар) in MACS: SERVCARDS (SERVCARD_TYPE = 1) with SERVJOBS (works), EMP_WORKS
 (the mechanic of each work), SERV_TRANS (parts) and JOURNAL (payments).
 
@@ -9,14 +10,26 @@ Money columns follow pricing.py. Rules read out of the database's own procedures
 """
 
 import logging
-from datetime import datetime
+from collections.abc import Iterator
+from datetime import datetime, timedelta
 from typing import Any
 
 from django.conf import settings
 from django.db import DatabaseError, connection
 
 from autoservice import pricing
-from autoservice.quotes import QuoteError, _clean_lines, _insert, _next_id, _number, _optional_id, _text, cut, vehicle
+from autoservice.quotes import (
+    QuoteError,
+    _clean_lines,
+    _day_start,
+    _insert,
+    _next_id,
+    _number,
+    _optional_id,
+    _text,
+    cut,
+    vehicle,
+)
 
 log = logging.getLogger(__name__)
 
@@ -134,69 +147,97 @@ def _header(values: tuple[Any, ...]) -> dict[str, Any]:
     return h
 
 
-def _work_lines(pk: int) -> list[dict[str, Any]]:
-    out = []
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT j.WORK_IDENT, w.CODE, w.DESCRIPTION, j.QUANTITY, j.PRICE, j.DISC_PERCENT, j.CARD_PERCENT, "
-            "j.TOTAL_NT, j.PRICE_NT, j.BASEPRICE, j.PROC_N, j.EMP_IDENT, e.DESCRIPTION "
-            "FROM SERVJOBS j JOIN WORKS w ON w.WORK_ID = j.WORK_IDENT LEFT JOIN CUSTOMER e ON e.CUST_ID = j.EMP_IDENT "
-            "WHERE j.SERVCARD_IDENT = %s ORDER BY j.SERVJOB_ID",
-            [pk],
-        )
-        for ref, code, name, qty, _price, disc, card, _total_nt, price_nt, base, rate, emp, emp_name in c.fetchall():
-            # `vat` follows the line's own rate: SERVJOBS has no VAT_AMOUNT column.
-            line = pricing.line_from_db(qty, _price, disc, card, rate, price_nt, base, rate)
-            line.update(
-                ref=ref, code=_text(code) or "", name=_text(name) or "", mech_id=emp, mech=_text(emp_name) or ""
+CHUNK = 200  # ids per IN (...): Firebird allows at most 1500
+
+
+def _chunks(ids: list[int]) -> Iterator[list[int]]:
+    for i in range(0, len(ids), CHUNK):
+        yield ids[i : i + CHUNK]
+
+
+def _marks(ids: list[int]) -> str:
+    return ", ".join(["%s"] * len(ids))
+
+
+def _work_lines(pks: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """The works of these cards, by card id (a few queries however many cards there are)."""
+    out: dict[int, list[dict[str, Any]]] = {pk: [] for pk in pks}
+    for chunk in _chunks(pks):
+        with connection.cursor() as c:
+            c.execute(  # noqa: S608 - the f-string only holds %s marks
+                "SELECT j.SERVCARD_IDENT, j.WORK_IDENT, w.CODE, w.DESCRIPTION, j.QUANTITY, j.PRICE, j.DISC_PERCENT, "
+                "j.CARD_PERCENT, j.PRICE_NT, j.BASEPRICE, j.PROC_N, j.EMP_IDENT, e.DESCRIPTION, e.CODE "
+                "FROM SERVJOBS j JOIN WORKS w ON w.WORK_ID = j.WORK_IDENT "
+                "LEFT JOIN CUSTOMER e ON e.CUST_ID = j.EMP_IDENT "
+                f"WHERE j.SERVCARD_IDENT IN ({_marks(chunk)}) ORDER BY j.SERVJOB_ID",  # noqa: S608 - only %s marks
+                chunk,
             )
-            out.append(line)
+            for row in c.fetchall():
+                card, ref, code, name, qty, price, disc, cardpct, price_nt, base, rate, emp, emp_name, emp_code = row
+                # `vat` follows the line's own rate: SERVJOBS has no VAT_AMOUNT column.
+                line = pricing.line_from_db(qty, price, disc, cardpct, rate, price_nt, base, rate)
+                line.update(
+                    ref=ref,
+                    code=_text(code) or "",
+                    name=_text(name) or "",
+                    mech_id=emp,
+                    mech=_text(emp_name) or "",
+                    mech_code=_text(emp_code) or "",
+                )
+                out[card].append(line)
     return out
 
 
-def _part_lines(pk: int) -> list[dict[str, Any]]:
-    out = []
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT t.ITEM_IDENT, i.ITEMCODE, i.DESCRIPTION, i.BARCODE, t.TRANSDATE, t.QUANTITY, t.PRICE, t.DISCOUNT, "
-            "t.CARD_PERCENT, t.VAT_AMOUNT, t.PRICE_NT, t.PROC_N, t.BAL_QTY "
-            "FROM SERV_TRANS t JOIN ITEM i ON i.ITEM_ID = t.ITEM_IDENT WHERE t.SERVCARD_IDENT = %s ORDER BY t.TRANS_ID",
-            [pk],
-        )
-        for ref, code, name, barcode, when, qty, price, disc, card, vat_amount, price_nt, rate, bal in c.fetchall():
-            line = pricing.line_from_db(qty, price, disc, card, vat_amount, price_nt, price_nt, rate)
-            line.update(
-                ref=ref,
-                code=_text(code) or "",
-                barcode=_text(barcode) or "",
-                name=_text(name) or _text(barcode) or "",
-                date=when.isoformat(timespec="seconds") if when else "",
-                stock=float(bal) if bal is not None else None,
+def _part_lines(pks: list[int]) -> dict[int, list[dict[str, Any]]]:
+    out: dict[int, list[dict[str, Any]]] = {pk: [] for pk in pks}
+    for chunk in _chunks(pks):
+        with connection.cursor() as c:
+            c.execute(  # noqa: S608 - the f-string only holds %s marks
+                "SELECT t.SERVCARD_IDENT, t.ITEM_IDENT, i.ITEMCODE, i.DESCRIPTION, i.BARCODE, t.TRANSDATE, t.QUANTITY, "
+                "t.PRICE, t.DISCOUNT, t.CARD_PERCENT, t.VAT_AMOUNT, t.PRICE_NT, t.PROC_N, t.BAL_QTY "
+                "FROM SERV_TRANS t JOIN ITEM i ON i.ITEM_ID = t.ITEM_IDENT "
+                f"WHERE t.SERVCARD_IDENT IN ({_marks(chunk)}) ORDER BY t.TRANS_ID",  # noqa: S608 - only %s marks
+                chunk,
             )
-            out.append(line)
+            for row in c.fetchall():
+                card, ref, code, name, barcode, when, qty, price, disc, cardpct, vat_amount, price_nt, rate, bal = row
+                line = pricing.line_from_db(qty, price, disc, cardpct, vat_amount, price_nt, price_nt, rate)
+                line.update(
+                    ref=ref,
+                    code=_text(code) or "",
+                    barcode=_text(barcode) or "",
+                    name=_text(name) or _text(barcode) or "",
+                    date=when.isoformat(timespec="seconds") if when else "",
+                    stock=float(bal) if bal is not None else None,
+                )
+                out[card].append(line)
     return out
 
 
-def payments(pk: int) -> list[dict[str, Any]]:
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT p.JOURNAL_ID, p.JDATE, p.JAMOUNT, p.BANK_IDENT, k.DESCRIPTION, p.DBACC_NUM, p.USER_NAME "
-            "FROM JOURNAL p LEFT JOIN BANKS k ON k.BANK_ID = p.BANK_IDENT WHERE p.SERVCARD_IDENT = %s "
-            "ORDER BY p.JDATE, p.JOURNAL_ID",
-            [pk],
-        )
-        return [
-            {
-                "id": jid,
-                "date": when.isoformat(timespec="seconds") if when else "",
-                "amount": float(amount or 0),
-                "bank_id": bank,
-                "method": _text(method) or "",
-                "account": _text(acc) or "",
-                "user": _text(user) or "",
-            }
-            for jid, when, amount, bank, method, acc, user in c.fetchall()
-        ]
+def payments(pks: list[int]) -> dict[int, list[dict[str, Any]]]:
+    out: dict[int, list[dict[str, Any]]] = {pk: [] for pk in pks}
+    for chunk in _chunks(pks):
+        with connection.cursor() as c:
+            c.execute(  # noqa: S608 - the f-string only holds %s marks
+                "SELECT p.SERVCARD_IDENT, p.JOURNAL_ID, p.JDATE, p.JAMOUNT, p.BANK_IDENT, k.DESCRIPTION, p.DBACC_NUM, "
+                "p.CRACC_NUM, p.USER_NAME FROM JOURNAL p LEFT JOIN BANKS k ON k.BANK_ID = p.BANK_IDENT "
+                f"WHERE p.SERVCARD_IDENT IN ({_marks(chunk)}) ORDER BY p.JDATE, p.JOURNAL_ID",  # noqa: S608
+                chunk,
+            )
+            for card, jid, when, amount, bank, method, debit, credit, user in c.fetchall():
+                out[card].append(
+                    {
+                        "id": jid,
+                        "date": when.isoformat(timespec="seconds") if when else "",
+                        "amount": float(amount or 0),
+                        "bank_id": bank,
+                        "method": _text(method) or "",
+                        "account": _text(debit) or "",
+                        "credit": _text(credit) or "",
+                        "user": _text(user) or "",
+                    }
+                )
+    return out
 
 
 def balance(pk: int) -> dict[str, float]:
@@ -213,16 +254,39 @@ def balance(pk: int) -> dict[str, float]:
 
 
 def load(pk: int) -> dict[str, Any] | None:
+    """One card, whole, with the database's own totals."""
     with connection.cursor() as c:
         c.execute(
-            f"SELECT {HEADER_SELECT} {HEADER_FROM} WHERE s.SERVCARD_ID = %s AND s.SERVCARD_TYPE = %s", [pk, AGGREGATE]
-        )  # noqa: S608
+            f"SELECT {HEADER_SELECT} {HEADER_FROM} WHERE s.SERVCARD_ID = %s AND s.SERVCARD_TYPE = %s",  # noqa: S608
+            [pk, AGGREGATE],
+        )
         row = c.fetchone()
     if row is None:
         return None
     card = _header(row)
-    card.update(works=_work_lines(pk), parts=_part_lines(pk), pays=payments(pk), totals=balance(pk))
+    card.update(works=_work_lines([pk])[pk], parts=_part_lines([pk])[pk], pays=payments([pk])[pk], totals=balance(pk))
     return card
+
+
+def load_many(ids: list[int]) -> list[dict[str, Any]]:
+    """Whole cards (header, works, parts, payments) for these ids, in this order. No `totals`: that is one database
+    procedure call per card, and the reports add the lines up themselves."""
+    headers: dict[int, dict[str, Any]] = {}
+    for chunk in _chunks(ids):
+        with connection.cursor() as c:
+            c.execute(
+                f"SELECT {HEADER_SELECT} {HEADER_FROM} WHERE s.SERVCARD_TYPE = %s "  # noqa: S608 - constants, %s marks
+                f"AND s.SERVCARD_ID IN ({_marks(chunk)})",
+                [AGGREGATE, *chunk],
+            )
+            for row in c.fetchall():
+                card = _header(row)
+                headers[card["id"]] = card
+    known = [i for i in ids if i in headers]
+    works, parts, pays = _work_lines(known), _part_lines(known), payments(known)
+    for i in known:
+        headers[i].update(works=works[i], parts=parts[i], pays=pays[i])
+    return [headers[i] for i in known]
 
 
 def listing(filters: dict[str, str], limit: int, offset: int) -> tuple[list[dict[str, Any]], int]:
@@ -269,6 +333,58 @@ def listing(filters: dict[str, str], limit: int, offset: int) -> tuple[list[dict
 
 
 # --- writing -----------------------------------------------------------------------------------------------------
+
+
+def journal(filters: dict[str, str], limit: int) -> list[dict[str, Any]]:
+    """The real journal of the aggregate cards: the payments (JOURNALCODE GEN, JOURNAL.SERVCARD_IDENT) and the
+    postings the database makes when a card is finished (SRV: income, VAT, material cost; JOURNAL.JORDER_IDENT).
+    For SRV rows JORDER_IDENT is the card id; for other codes it is an order id, hence the code in the join."""
+    where = ["s.SERVCARD_TYPE = %s"]
+    params: list[Any] = [AGGREGATE]
+    if filters.get("from"):
+        where.append("p.JDATE >= %s")
+        params.append(_day_start(filters["from"]))
+    if filters.get("to"):
+        where.append("p.JDATE < %s")
+        params.append(_day_start(filters["to"]) + timedelta(days=1))
+    with connection.cursor() as c:
+        c.execute(
+            f"SELECT FIRST {int(limit)} p.JOURNAL_ID, p.JDATE, p.JNUMBER, p.DBACC_NUM, p.CRACC_NUM, p.JAMOUNT, "  # noqa: S608
+            "p.JWHAT, p.JOURNALCODE, s.SERVCARD_ID, s.DOC_NO, s.CAR_NO, s.IS_EXPENSE, s.NOTE, s.VIN_NUMBER, "
+            "dc.DESCRIPTION, cc.DESCRIPTION FROM JOURNAL p "
+            "JOIN SERVCARDS s ON (p.JOURNALCODE = 'GEN' AND p.SERVCARD_IDENT = s.SERVCARD_ID) "
+            "OR (p.JOURNALCODE = 'SRV' AND p.JORDER_IDENT = s.SERVCARD_ID) "
+            "LEFT JOIN CUSTOMER dc ON dc.CUST_ID = p.DBCUST_IDENT "
+            "LEFT JOIN CUSTOMER cc ON cc.CUST_ID = p.CRCUST_IDENT "
+            f"WHERE {' AND '.join(where)} ORDER BY p.JDATE, p.JOURNAL_ID",
+            params,
+        )
+        rows = c.fetchall()
+    out = []
+    for r in rows:
+        (jid, when, number, debit, credit, amount, memo, code, card) = r[:9]
+        (doc_no, plate, internal, note, vin, partner, cpartner) = r[9:]
+        out.append(
+            {
+                "id": jid,
+                "date": when.isoformat(timespec="seconds") if when else "",
+                "no": _text(number) or "",
+                "debit": _text(debit) or "",
+                "credit": _text(credit) or "",
+                "amount": round(float(amount or 0), 2),
+                "memo": _text(memo) or "",
+                "code": _text(code) or "",
+                "card_id": card,
+                "doc_no": _text(doc_no) or "",
+                "plate": _text(plate) or "",
+                "internal": _text(internal) == "yes",
+                "remark": _text(note) or "",
+                "vin": _text(vin) or "",
+                "partner": _text(partner) or "",
+                "cpartner": _text(cpartner) or "",
+            }
+        )
+    return out
 
 
 def _item(c: Any, item_id: int) -> dict[str, Any]:

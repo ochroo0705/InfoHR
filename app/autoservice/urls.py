@@ -13,6 +13,7 @@ urlpatterns = [
     path("quotes", views_quotes.quote_list, name="quotes"),
     path("quotes/<int:pk>", views_quotes.quote_detail, name="quote"),
     path("repairs", views_repairs.repair_list, name="repairs"),
+    path("repairs/journal", views_repairs.repair_journal, name="repair-journal"),
     path("repairs/<int:pk>", views_repairs.repair_detail, name="repair"),
     path("repairs/<int:pk>/start", views_repairs.repair_start, name="repair-start"),
     path("repairs/<int:pk>/finish", views_repairs.repair_finish, name="repair-finish"),

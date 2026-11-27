@@ -106,6 +106,7 @@ DIRECTORIES: dict[str, Directory] = {
             "price": "PRICE",
             "sale_price": "SALE_PRICE",
             "work_type_id": "WORKSTYPE_IDENT",
+            "kind": "WORK_TYPE",  # 1 Төмрийн, 2 Замаск, 3 Будаг, other Бусад (FINISH_SERVCARDS)
             "car_type_id": "CARTYPE_IDENT",
             "norm_days": "NORM_DAYS",
             "max_days": "MAX_DAY",

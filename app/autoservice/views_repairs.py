@@ -67,6 +67,8 @@ def _list(request: HttpRequest) -> HttpResponse:
     offset = _int(request.GET.get("offset"), 0, 0, 10_000_000)
     filters = {k: request.GET.get(k, "").strip() for k in FILTERS if request.GET.get(k, "").strip()}
     rows, total = repairs.listing(filters, limit, offset)
+    if request.GET.get("expand") == "1":  # whole cards (works, parts, payments) for the report windows
+        rows = repairs.load_many([r["id"] for r in rows])
     return ok({"count": total, "limit": limit, "offset": offset, "results": rows})
 
 
@@ -139,6 +141,14 @@ def repair_payment(request: HttpRequest, pk: int, journal_id: int) -> HttpRespon
     return _run(
         lambda: HttpResponse(status=204) if repairs.remove_payment(pk, journal_id) else error(404, "Төлбөр олдсонгүй.")
     )
+
+
+@require_GET
+@token_required
+def repair_journal(request: HttpRequest) -> HttpResponse:
+    filters = {k: request.GET.get(k, "").strip() for k in ("from", "to") if request.GET.get(k, "").strip()}
+    limit = _int(request.GET.get("limit"), 5000, 1, 20000)
+    return _run(lambda: ok({"results": repairs.journal(filters, limit)}))
 
 
 @require_GET

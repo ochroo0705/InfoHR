@@ -108,6 +108,13 @@ def test_header_row_becomes_the_screens_fields() -> None:
     assert (h["garage_on"], h["garage"], h["no"], h["doc_no"]) == (True, 5000.0, 225217, "225217")
 
 
+def test_ids_are_sent_to_the_database_in_chunks_that_fit_an_in_list() -> None:
+    chunks = list(repairs._chunks(list(range(450))))
+    assert [len(c) for c in chunks] == [200, 200, 50] and chunks[2][0] == 400
+    assert repairs._marks([1, 2, 3]) == "%s, %s, %s"
+    assert list(repairs._chunks([])) == []
+
+
 def test_the_mechanic_directory_is_limited_to_customers_flagged_as_employees() -> None:
     d = DIRECTORIES["mechanics"]
     assert d.table == "CUSTOMER" and d.where == "EMPLOYEE = 'yes'"
