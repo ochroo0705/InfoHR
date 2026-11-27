@@ -28,6 +28,9 @@ DIRECTORIES: dict[str, Directory] = {
     "car-types": _d(
         "CAR_TYPE", "CARTYPE_ID", {"id": "CARTYPE_ID", "name": "DESCRIPTION"}, ("DESCRIPTION",), "DESCRIPTION"
     ),
+    "car-manufacturers": _d(
+        "MANUF_REF", "MANUF_ID", {"id": "MANUF_ID", "name": "DESCRIPTION"}, ("DESCRIPTION",), "DESCRIPTION"
+    ),
     "car-makes": _d(
         "CAR_REF",
         "CAR_ID",
