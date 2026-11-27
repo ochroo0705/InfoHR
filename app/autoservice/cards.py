@@ -132,3 +132,42 @@ def intervals() -> list[dict[str, Any]]:
             {"id": r[0], "min": clean(r[1]) or 0, "max": clean(r[2]) or 0, "percent": clean(r[3]) or 0, "order": r[4]}
             for r in c.fetchall()
         ]
+
+
+# DIS_CARD_CONFIG_DETAIL.DTYPE as the desktop's "Төрөл" list (its only value in the data is 0, the first entry).
+LIMIT_TYPES = {0: "Мөнгөн дүнгээр /хүртэл/", 1: "Мөнгөн дүнгээр", 2: "Хувиар"}
+
+
+def configs() -> list[dict[str, Any]]:
+    """Card limit settings: a name, the per-shop limits (type, amount, once a day) and the goods they cover."""
+    with connection.cursor() as c:
+        c.execute("SELECT ID, DESCRIPTION, DCODE FROM DIS_CARD_CONFIG ORDER BY DESCRIPTION, ID")
+        out: dict[int, dict[str, Any]] = {
+            r[0]: {"id": r[0], "name": clean(r[1]) or "", "dcode": r[2], "stores": [], "goods": []}
+            for r in c.fetchall()
+        }
+        c.execute("SELECT ID, CONFIG_IDENT, DTYPE, AMOUNT, SHOPID, USEONE FROM DIS_CARD_CONFIG_DETAIL ORDER BY ID")
+        owner: dict[int, int] = {}
+        for r in c.fetchall():
+            owner[r[0]] = r[1]
+            if r[1] in out:
+                out[r[1]]["stores"].append(
+                    {
+                        "id": r[0],
+                        "store_id": r[4],
+                        "type": LIMIT_TYPES.get(int(r[2] or 0), str(r[2])),
+                        "amount": clean(r[3]) or 0,
+                        "daily": bool(r[5]),
+                    }
+                )
+        c.execute(
+            "SELECT i.DETAIL_IDENT, i.ITEMNAME_IDENT, "
+            "(SELECT FIRST 1 m.DESCRIPTION FROM ITEM m WHERE m.ITEMNAME_IDENT = i.ITEMNAME_IDENT), "
+            "(SELECT FIRST 1 m.BARCODE FROM ITEM m WHERE m.ITEMNAME_IDENT = i.ITEMNAME_IDENT) "
+            "FROM DIS_CARD_CONFIG_ITEMS i ORDER BY 3"
+        )
+        for r in c.fetchall():
+            cfg = out.get(owner.get(r[0], -1))
+            if cfg is not None and all(g["ref"] != r[1] for g in cfg["goods"]):
+                cfg["goods"].append({"ref": r[1], "name": clean(r[2]) or "", "barcode": clean(r[3]) or ""})
+    return list(out.values())

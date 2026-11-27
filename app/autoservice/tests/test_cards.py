@@ -7,7 +7,14 @@ from autoservice import cards, tokens
 
 
 @pytest.mark.parametrize(
-    "url", ["discount-cards", "discount-cards/1", "discount-cards/1/statement", "discount-cards/intervals"]
+    "url",
+    [
+        "discount-cards",
+        "discount-cards/1",
+        "discount-cards/1/statement",
+        "discount-cards/intervals",
+        "discount-card-configs",
+    ],
 )
 def test_routes_need_a_token(url: str) -> None:
     assert Client().get(f"/api/autoservice/{url}").status_code == 401

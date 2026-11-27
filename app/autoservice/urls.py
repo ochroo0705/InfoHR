@@ -31,6 +31,7 @@ urlpatterns = [
     *_shop("body-repairs", repairs.BODY, "body-repairs"),
     path("payment-methods", views_repairs.payment_methods, name="payment-methods"),
     path("discount-cards", views_cards.card_list, name="discount-cards"),
+    path("discount-card-configs", views_cards.card_configs, name="discount-card-configs"),
     path("discount-cards/intervals", views_cards.card_intervals, name="discount-card-intervals"),
     path("discount-cards/<int:pk>", views_cards.card_detail, name="discount-card"),
     path("discount-cards/<int:pk>/statement", views_cards.card_statement, name="discount-card-statement"),

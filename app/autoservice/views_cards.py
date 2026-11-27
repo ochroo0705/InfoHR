@@ -56,3 +56,9 @@ def card_statement(request: HttpRequest, pk: int) -> JsonResponse:
 @token_required
 def card_intervals(request: HttpRequest) -> JsonResponse:
     return ok({"results": cards.intervals()})
+
+
+@require_GET
+@token_required
+def card_configs(request: HttpRequest) -> JsonResponse:
+    return ok({"results": cards.configs()})
