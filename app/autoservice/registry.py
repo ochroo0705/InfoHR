@@ -136,6 +136,8 @@ DIRECTORIES: dict[str, Directory] = {
             "cost": "COST",
             "on_hand": "ONHAND",
             "class_id": "ITEMCLASS",
+            "unit_id": "ITEMUNIT_IDENT",
+            "account": "ASSET_ACC",
         },
         ("DESCRIPTION", "ITEMCODE", "BARCODE"),
         "DESCRIPTION",
@@ -177,6 +179,7 @@ DIRECTORIES: dict[str, Directory] = {
         {
             "id": "EMPLOYEE_ID",
             "name": "FULLNAME",
+            "code": "ECODE",
             "position": "POST",
             "department_id": "DEP_IDENT",
             "phone": "WORKPHONE",
@@ -189,7 +192,7 @@ DIRECTORIES: dict[str, Directory] = {
     "mechanics": _d(
         "CUSTOMER",
         "CUST_ID",
-        {"id": "CUST_ID", "name": "DESCRIPTION", "code": "CODE"},
+        {"id": "CUST_ID", "name": "DESCRIPTION", "code": "CODE", "employee_id": "EMPLOYEE_IDENT"},
         ("DESCRIPTION", "CODE"),
         "DESCRIPTION",
         "EMPLOYEE = 'yes'",
