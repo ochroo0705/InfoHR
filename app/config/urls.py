@@ -24,5 +24,6 @@ urlpatterns = [
     path("reports/", include("reports.urls")),
     path("logs/", include("logs.urls")),
     path("i18n/", include("django.conf.urls.i18n")),  # language switcher
+    path("api/autoservice/", include("autoservice.urls")),
     path("admin/", admin.site.urls),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

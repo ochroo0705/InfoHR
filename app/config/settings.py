@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "reports",
     "logs",
     "assistant",
+    "autoservice",  # Online Auto Service JSON API (/api/autoservice/), same process as the HR app
     "hr_mcp",
 ]
 
