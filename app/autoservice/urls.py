@@ -1,6 +1,6 @@
 from django.urls import path
 
-from autoservice import repairs, views, views_discounts, views_quotes, views_repairs, views_settings
+from autoservice import repairs, views, views_cards, views_discounts, views_quotes, views_repairs, views_settings
 
 app_name = "autoservice"
 
@@ -30,6 +30,10 @@ urlpatterns = [
     *_shop("repairs", repairs.AGGREGATE, "repairs"),
     *_shop("body-repairs", repairs.BODY, "body-repairs"),
     path("payment-methods", views_repairs.payment_methods, name="payment-methods"),
+    path("discount-cards", views_cards.card_list, name="discount-cards"),
+    path("discount-cards/intervals", views_cards.card_intervals, name="discount-card-intervals"),
+    path("discount-cards/<int:pk>", views_cards.card_detail, name="discount-card"),
+    path("discount-cards/<int:pk>/statement", views_cards.card_statement, name="discount-card-statement"),
     path("discounts", views_discounts.discount_list, name="discounts"),
     path("discounts/lookups", views_discounts.discount_lookups, name="discount-lookups"),
     path("discounts/items", views_discounts.discount_items, name="discount-items"),
