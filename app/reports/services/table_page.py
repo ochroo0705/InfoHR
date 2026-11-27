@@ -23,6 +23,7 @@ from reports.page_rules import HeaderCell
 from reports.page_rules import address as page_address
 from reports.page_rules import next_sort as page_next_sort
 from reports.page_rules import sort_mark as page_sort_mark
+from reports.services.edit_targets import EditFlags, EditTarget, edit_target, marks_of
 from reports.services.filter_bar import FilterBar, bar_adds, filter_bar
 from reports.table import Cell, Table, build_table, column_classes, pin_style
 from reports.types import Report
@@ -51,6 +52,7 @@ class CellOut:
     css: str  # the td's classes: alignment, colour and pinning (Cell.css)
     style: str  # the inline offset of a pinned cell, "" when not pinned
     person: int  # the employee id of the row (Report.person); 0 when the report has none
+    edit: EditTarget | None = None  # the inline editor this cell opens for this viewer; None when it opens none
 
 
 @dataclass(frozen=True)
@@ -87,6 +89,7 @@ class TablePage:
     bar: FilterBar | None  # None when the caller asked for no bar (with_bar=False: the batch answers)
     batched: bool  # True when the rows are one batch of an ungrouped table (the page's pill may follow)
     table: Table  # the page's own table (cells with their edit fields); the Django template draws from it
+    edit_marks: list[str]  # the editor kinds the cells open, in legend order (edit_targets.EDIT_MARKS)
 
 
 def _text(value: object) -> str:
@@ -100,7 +103,9 @@ def _text(value: object) -> str:
     return str(value)
 
 
-def cell_out(cell: Cell) -> CellOut:
+def cell_out(cell: Cell, flags: EditFlags | None = None) -> CellOut:
+    """One cell as the page shows it. With `flags` (the table page's rights) it also names its inline editor; without
+    them (the print page) the cell opens none."""
     value = None if cell.value is None else _text(cell.value)
     return CellOut(
         text="" if value is None else value,
@@ -110,6 +115,7 @@ def cell_out(cell: Cell) -> CellOut:
         css=cell.css,
         style=cell.sticky_left,
         person=cell.person,
+        edit=None if flags is None else edit_target(cell, flags),
     )
 
 
@@ -132,6 +138,19 @@ def table_page(
         table.groups = [("", shown)]
     plain = bool(report.saved_views)  # an empty address then says view=plain, not the bare default-view address
     bar = filter_bar(request_get, path, user, report, table, plain) if with_bar else None
+    table_layout = table.spec.layout == "table"
+    # the rights of the inline editors, read once per page (the same expressions as the Django page's context)
+    can_edit_cells = table_layout and (access.can_manage(user) or access.can_manage_salary(user))
+    can_correct_cells = table_layout and corrections.enabled() and access.can_manage(user)
+    can_edit_rows = table_layout and access.can_manage(user)
+    flags = EditFlags(
+        cells=can_edit_cells,
+        plain=access.can_manage(user),
+        salary=access.can_manage_salary(user),
+        correct=can_correct_cells,
+        correct_salary=can_correct_cells and access.can_manage_salary(user),
+        rows=can_edit_rows,
+    )
     adds = bar.adds if bar is not None else bar_adds(request_get, user, report)
     heads = []
     for i, (c, cls) in enumerate(zip(table.columns, column_classes(table.columns), strict=True)):
@@ -147,13 +166,12 @@ def table_page(
                 sticky_left=pin_style(i, table.pin, table.pin_base),
             )
         )
-    table_layout = table.spec.layout == "table"
     selectable = report.person is not None and table_layout
     pinned = selectable and table.pin > 0
     # cells are converted for the table layout only: the other layouts' pages never read these rows here
     groups = (
         [
-            RowGroup(label=label, count=len(rows), rows=[[cell_out(cell) for cell in row] for row in rows])
+            RowGroup(label=label, count=len(rows), rows=[[cell_out(cell, flags) for cell in row] for row in rows])
             for label, rows in table.groups
         ]
         if table_layout
@@ -171,18 +189,19 @@ def table_page(
         rules_text=table.rules_text,
         clear_rules_url=page_address(path, replace(f, rules=""), adds, plain=plain),
         note=report.note(f) if report.note is not None else "",
-        footer=None if table.footer is None or not table_layout else [cell_out(cell) for cell in table.footer],
+        footer=None if table.footer is None or not table_layout else [cell_out(cell, flags) for cell in table.footer],
         selectable=selectable,
         check_css=CHECK_PINNED_CSS if pinned else "w-10",
         check_style=CHECK_PINNED_STYLE if pinned else "",
         table_span=len(heads) + (1 if selectable else 0),
         pin=table.pin,
-        can_edit_cells=table_layout and (access.can_manage(user) or access.can_manage_salary(user)),
-        can_correct_cells=table_layout and corrections.enabled() and access.can_manage(user),
-        can_edit_rows=table_layout and access.can_manage(user),
+        can_edit_cells=can_edit_cells,
+        can_correct_cells=can_correct_cells,
+        can_edit_rows=can_edit_rows,
         layout=table.spec.layout,
         adds=adds,
         bar=bar,
         batched=batched,
         table=table,
+        edit_marks=marks_of(out.edit for group in groups for row in group.rows for out in row),
     )

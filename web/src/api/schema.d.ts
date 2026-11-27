@@ -922,6 +922,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/employees/{pk}/reporting-line": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Employee Reporting Line
+         * @description The managers above one employee the signed-in user may see, on a day (today when none is given). 404 otherwise,
+         *     400 when the day is not an ISO date.
+         */
+        get: operations["api_employee_employee_reporting_line"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{pk}/salary": {
         parameters: {
             query?: never;
@@ -2389,6 +2410,151 @@ export interface paths {
         };
         /** Catalogue */
         get: operations["api_reports_catalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/cell": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cell Save
+         * @description Saves one employee field through the cell_edit rules. A refusal answers ok false with the editor to show.
+         */
+        post: operations["api_reports_edit_cell_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/cell/editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cell Editor
+         * @description The editor of one employee field in a report cell, with the stored value and the stale token.
+         */
+        get: operations["api_reports_edit_cell_editor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/cells": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cells Bulk
+         * @description Checks every cell (a dry run when apply is false) and saves the ok ones when true. The body is read here, not by
+         *     Ninja, so a body of the wrong shape or over 500 cells is the Django view's 400 {"error": ...}. A refused field or
+         *     right is a refused cell, answered with 200.
+         */
+        post: operations["api_reports_edit_cells_bulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/correct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct Save
+         * @description Saves one correction through the corrections rules (the activity log, the stale check). A blocked cell writes
+         *     nothing and answers its message.
+         */
+        post: operations["api_reports_edit_correct_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/correct/editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Correct Editor
+         * @description The correction editor of one job field (with the job record) or of the base salary (no record). A cell that may
+         *     not be corrected now answers only its message in `blocked`.
+         */
+        get: operations["api_reports_edit_correct_editor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/row-cell": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Row Save
+         * @description Saves one field of one row through the row_edit rules. A row changed meanwhile answers ok false with a fresh
+         *     editor showing the current values.
+         */
+        post: operations["api_reports_edit_row_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/row-cell/editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Row Editor
+         * @description The editor of one cell of a children or contacts row, with the other fields of the row as hidden values.
+         */
+        get: operations["api_reports_edit_row_editor"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6599,6 +6765,7 @@ export interface components {
         ReportCellOut: {
             /** Css */
             css: string;
+            edit: components["schemas"]["ReportEditTarget"] | null;
             /** Href */
             href: string;
             /** Money */
@@ -6798,6 +6965,160 @@ export interface components {
             /** Number */
             number: number;
         };
+        /** ReportEditBulkCellOut */
+        ReportEditBulkCellOut: {
+            /** Error */
+            error: string;
+            /** Field */
+            field: string;
+            /** Ok */
+            ok: boolean;
+            /** Person */
+            person: number;
+            /** Text */
+            text: string;
+        };
+        /** ReportEditBulkOut */
+        ReportEditBulkOut: {
+            /** Cells */
+            cells: components["schemas"]["ReportEditBulkCellOut"][];
+            /** Saved */
+            saved: number;
+        };
+        /** ReportEditCellIn */
+        ReportEditCellIn: {
+            /** Field */
+            field: string;
+            /**
+             * Loaded
+             * @default
+             */
+            loaded: string;
+            /** Person */
+            person: number;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+        };
+        /** ReportEditCorrectIn */
+        ReportEditCorrectIn: {
+            /** Key */
+            key: string;
+            /**
+             * Old
+             * @default
+             */
+            old: string;
+            /** Person */
+            person: number;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Record */
+            record?: number | null;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+        };
+        /** ReportEditResultOut */
+        ReportEditResultOut: {
+            editor: components["schemas"]["ReportEditorOut"] | null;
+            /** Error */
+            error: string;
+            /** Ok */
+            ok: boolean;
+            /** Text */
+            text: string;
+        };
+        /** ReportEditRowIn */
+        ReportEditRowIn: {
+            /** Field */
+            field: string;
+            /** Key */
+            key: number;
+            /** Kind */
+            kind: string;
+            /** Person */
+            person: number;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /** ReportEditTarget */
+        ReportEditTarget: {
+            /** Field */
+            field: string;
+            /** Key */
+            key: number;
+            /** Kind */
+            kind: string;
+            /** Person */
+            person: number;
+            /** Record */
+            record: number;
+            /**
+             * Route
+             * @enum {string}
+             */
+            route: "cell" | "row" | "correct";
+            /** Salary */
+            salary: boolean;
+        };
+        /** ReportEditorChoiceOut */
+        ReportEditorChoiceOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** ReportEditorOut */
+        ReportEditorOut: {
+            /** Blocked */
+            blocked: string;
+            /** Choices */
+            choices: components["schemas"]["ReportEditorChoiceOut"][];
+            /** Error */
+            error: string;
+            /** Hidden */
+            hidden: {
+                [key: string]: string;
+            };
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "choice" | "date" | "number";
+            /** Label */
+            label: string;
+            /** Loaded */
+            loaded: string;
+            /** Maxlength */
+            maxlength: number | null;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string;
+            /** Old */
+            old: string;
+            /** Reason */
+            reason: boolean;
+            /** Reason Text */
+            reason_text: string;
+            /** Required */
+            required: boolean;
+            /** Value */
+            value: string;
+        };
         /** ReportEntryOut */
         ReportEntryOut: {
             /** Href */
@@ -6933,6 +7254,8 @@ export interface components {
         };
         /** ReportHeadOut */
         ReportHeadOut: {
+            /** Edit Marks */
+            edit_marks: string[];
             /** Excel Url */
             excel_url: string;
             /** Layouts */
@@ -7455,6 +7778,37 @@ export interface components {
             ok: boolean;
             /** Redirect */
             redirect: string;
+        };
+        /** ReportingLineOut */
+        ReportingLineOut: {
+            /** Day */
+            day: string;
+            employee: components["schemas"]["ReportingPersonOut"];
+            /** Levels */
+            levels: components["schemas"]["ReportingPersonOut"][];
+        };
+        /** ReportingPersonOut */
+        ReportingPersonOut: {
+            /** Department */
+            department: string;
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /** Given Initial */
+            given_initial: string;
+            /** Photo Srcset */
+            photo_srcset: string;
+            /** Photo Url */
+            photo_url: string;
+            /** Pk */
+            pk: number;
+            /** Position */
+            position: string;
+            /** Until */
+            until: string;
+            /** Work Phone */
+            work_phone: string;
         };
         /** RequestOut */
         RequestOut: {
@@ -9188,6 +9542,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmployeeWriteResultOut"];
+                };
+            };
+        };
+    };
+    api_employee_employee_reporting_line: {
+        parameters: {
+            query?: {
+                day?: string;
+            };
+            header?: never;
+            path: {
+                pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportingLineOut"];
                 };
             };
         };
@@ -11166,6 +11544,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportCatalogueOut"];
+                };
+            };
+        };
+    };
+    api_reports_edit_cell_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportEditCellIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEditResultOut"];
+                };
+            };
+        };
+    };
+    api_reports_edit_cell_editor: {
+        parameters: {
+            query: {
+                person: number;
+                field: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEditorOut"];
+                };
+            };
+        };
+    };
+    api_reports_edit_cells_bulk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEditBulkOut"];
+                };
+            };
+        };
+    };
+    api_reports_edit_correct_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportEditCorrectIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEditResultOut"];
+                };
+            };
+        };
+    };
+    api_reports_edit_correct_editor: {
+        parameters: {
+            query: {
+                person: number;
+                key: string;
+                record?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEditorOut"];
+                };
+            };
+        };
+    };
+    api_reports_edit_row_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportEditRowIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEditResultOut"];
+                };
+            };
+        };
+    };
+    api_reports_edit_row_editor: {
+        parameters: {
+            query: {
+                person: number;
+                kind: string;
+                key: number;
+                field: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEditorOut"];
                 };
             };
         };

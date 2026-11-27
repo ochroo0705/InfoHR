@@ -311,7 +311,8 @@ def test_print_page_has_the_mirror_shape_and_no_store(register: Callable[..., Re
     assert body["footer"] is None
     assert body["summary"] is None
     assert body["groups"][0]["label"] == ""
-    assert set(body["groups"][0]["rows"][0][0]) == {"text", "value", "money", "href", "css", "style", "person"}
+    # the page's cell shape (print opens no editor, so its edit is null)
+    assert set(body["groups"][0]["rows"][0][0]) == {"text", "value", "money", "href", "css", "style", "person", "edit"}
 
 
 def test_print_of_a_selection_is_only_the_picked_people(register: Callable[..., Report], hr: User) -> None:

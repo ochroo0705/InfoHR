@@ -31,6 +31,9 @@ export const PORTED: RegExp[] = [
   /^\/recruitment\/purge\/$/,
   /^\/reports\/$/,
   /^\/reports\/[^/]+\/print\/$/,
+  // The report page of every key, but not the four editor endpoints Django serves under /reports/ (reports/urls.py, which
+  // are matched before <slug:key>/): cell, row-cell, correct, cells.
+  /^\/reports\/(?!(?:cell|row-cell|correct|cells)\/$)[^/]+\/$/,
 ];
 
 // True when the path (without query string or hash) is served by the React app.

@@ -20,7 +20,7 @@ vi.mock("../../api/client", () => ({
 }));
 
 function cell(text: string, extra: Partial<ReportCellOut> = {}): ReportCellOut {
-  return { css: "", href: "", money: false, person: 0, style: "", text, value: null, ...extra };
+  return { css: "", edit: null, href: "", money: false, person: 0, style: "", text, value: null, ...extra };
 }
 
 const TITLE = "Ажилтны жагсаалт";

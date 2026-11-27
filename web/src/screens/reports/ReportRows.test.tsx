@@ -7,7 +7,7 @@ import { createState, type SelState } from "./selectionState";
 import type { ReportSelection } from "./useReportSelection";
 
 function text(value: string): ReportCellOut {
-  return { value, text: value, money: false, href: "", css: "", style: "", person: 0 };
+  return { value, text: value, money: false, href: "", css: "", style: "", person: 0, edit: null };
 }
 
 const GROUPED: ReportGroupOut[] = [
@@ -60,7 +60,7 @@ describe("ReportRows", () => {
 // Selection: the checkbox column, the picked class and the row click rules (report_select.js).
 
 function personCell(value: string, person: number, href: string): ReportCellOut {
-  return { value, text: value, money: false, href, css: "", style: "", person };
+  return { value, text: value, money: false, href, css: "", style: "", person, edit: null };
 }
 
 const PEOPLE: ReportGroupOut[] = [

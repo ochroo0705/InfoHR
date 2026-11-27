@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { ReportHeadCellOut } from "../../api/reports";
 import { useTransitionNavigate, TLink } from "../../lib/viewTransition";
 import { inlineStyle } from "./ReportCell";
+import { markClass, TITLE_CORRECT, TITLE_EDIT, type ColumnMark } from "./grid/EditMarks";
 
 // The head row of a report table (_table.html <tr> in <thead>). Labels, sort addresses, arrows, classes and the pinned
 // offset all come from the API. A plain click sorts in place (TLink to head.href). A Shift click goes to head.append_href
@@ -44,12 +45,16 @@ export function HeaderRow({
   heads,
   check = null,
   select = null,
+  marks = null,
 }: {
   heads: ReportHeadCellOut[];
   check?: CheckColumn | null;
   select?: HeaderSelect | null;
+  // The editable-column mark of each grid column (EditMarks.columnMarks); the header takes its column's mark and title.
+  marks?: ReadonlyArray<ColumnMark> | null;
 }) {
   const go = useTransitionNavigate();
+  const offset = check ? 1 : 0;
   return (
     <tr>
       {check ? (
@@ -57,33 +62,43 @@ export function HeaderRow({
           {select ? <HeaderBox mark={select.mark} onPick={select.onPick} /> : null}
         </th>
       ) : null}
-      {heads.map((head, index) => (
-        <th key={index} className={head.css || undefined} style={inlineStyle(head.sticky_left)}>
-          <TLink
-            to={head.href}
-            data-append={head.append_href}
-            title="Shift+товшилт: нэмэлт эрэмбэ"
-            className="hover:text-violet-700"
-            onClick={(event) => {
-              if (!event.shiftKey || event.button !== 0) return;
-              event.preventDefault();
-              go(head.append_href);
-            }}
+      {heads.map((head, index) => {
+        const mark = marks?.[index + offset] ?? "";
+        const className = [head.css, markClass(mark)].filter(Boolean).join(" ");
+        const title = mark === "edit" ? TITLE_EDIT : mark === "correct" ? TITLE_CORRECT : undefined;
+        return (
+          <th
+            key={index}
+            className={className || undefined}
+            title={title}
+            style={inlineStyle(head.sticky_left)}
           >
-            {head.label}{" "}
-            <span
-              aria-hidden="true"
-              style={{
-                display: "inline-block",
-                minWidth: "2ch",
-                visibility: head.arrow ? undefined : "hidden",
+            <TLink
+              to={head.href}
+              data-append={head.append_href}
+              title="Shift+товшилт: нэмэлт эрэмбэ"
+              className="hover:text-violet-700"
+              onClick={(event) => {
+                if (!event.shiftKey || event.button !== 0) return;
+                event.preventDefault();
+                go(head.append_href);
               }}
             >
-              {head.arrow || "↑"}
-            </span>
-          </TLink>
-        </th>
-      ))}
+              {head.label}{" "}
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-block",
+                  minWidth: "2ch",
+                  visibility: head.arrow ? undefined : "hidden",
+                }}
+              >
+                {head.arrow || "↑"}
+              </span>
+            </TLink>
+          </th>
+        );
+      })}
     </tr>
   );
 }

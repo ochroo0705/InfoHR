@@ -6,6 +6,7 @@ import { ColumnsModal } from "./popups/ColumnsModal";
 import { FormatModal } from "./popups/FormatModal";
 import { RulesModal } from "./popups/RulesModal";
 import { SavedViewModal } from "./popups/SavedViewModal";
+import { EditMarks } from "./grid/EditMarks";
 import { ToolIcon } from "./ToolIcon";
 import { isOn } from "./selectionState";
 import type { ReportSelection } from "./useReportSelection";
@@ -32,6 +33,8 @@ export interface ToolRibbonProps {
   query?: string; // the report's address query without the batch position: the print and Excel links carry it
   selection?: ReportSelection; // the page's row selection; given only when the table layout is on screen
   onOpen: (pop: Exclude<OpenPopUp, null>) => void;
+  marksOn?: boolean; // the editable-column marks' choice (EditMarks.useEditMarks); the pencil shows its pressed state
+  onToggleMarks?: () => void; // the pencil toggle; the pencil shows only when head.edit_marks is not empty
 }
 
 const GROUP_CLASS =
@@ -125,8 +128,20 @@ function SavedViews({
   );
 }
 
-export function ToolRibbon({ reportKey, head, clearUrl, query = "", selection, onOpen }: ToolRibbonProps) {
+export function ToolRibbon({
+  reportKey,
+  head,
+  clearUrl,
+  query = "",
+  selection,
+  onOpen,
+  marksOn = true,
+  onToggleMarks,
+}: ToolRibbonProps) {
   const { columns, rules, format } = head.tools;
+  // The page's editable kinds (head.edit_marks): an answer without the field draws no pencil.
+  const editKinds = head.edit_marks ?? [];
+  const showMarks = editKinds.length > 0 && onToggleMarks !== undefined;
   const showToggle = head.selectable && selection !== undefined;
   const showExport = head.print_url !== "" || head.excel_url !== "" || showToggle;
   const search = query === "" ? "" : `?${query}`;
@@ -135,7 +150,7 @@ export function ToolRibbon({ reportKey, head, clearUrl, query = "", selection, o
     <div data-sticky-anchor="" className="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">
       {head.saved !== null ? <SavedViews reportKey={reportKey} saved={head.saved} onOpen={onOpen} /> : null}
 
-      {columns || rules || format ? (
+      {columns || rules || format || showMarks ? (
         <div className="flex flex-col gap-1">
           <div className={GROUP_CLASS}>
             {columns ? (
@@ -155,6 +170,9 @@ export function ToolRibbon({ reportKey, head, clearUrl, query = "", selection, o
                 <ToolIcon kind="format" />
                 Хэлбэр
               </button>
+            ) : null}
+            {showMarks && onToggleMarks ? (
+              <EditMarks kinds={editKinds} on={marksOn} onToggle={onToggleMarks} />
             ) : null}
           </div>
           <span className="text-xs text-slate-500">Тохируулах</span>

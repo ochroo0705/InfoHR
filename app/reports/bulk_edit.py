@@ -16,6 +16,7 @@ from employees import access
 from reports import cell_edit
 
 MAX_CELLS = 500
+BAD_REQUEST = "Буруу хүсэлт"
 TOO_MANY = "Нэг удаад 500 хүртэл нүд"
 NOT_ALLOWED = "Энэ нүдийг засах эрхгүй"
 NO_CHOICE = '"{}" гэсэн сонголт алга'
@@ -89,6 +90,26 @@ def to_posted(form: forms.Form, field: str, text: str) -> tuple[str, str]:
                 pass
         return "", BAD_DATE
     return value, ""
+
+
+def parse_body(body: object) -> tuple[bool, list[BulkCell]]:
+    """The decoded JSON body of a bulk request: `apply` (a real bool) and the cells. Raises ValueError with the text of
+    the answer: BAD_REQUEST for a body of the wrong shape (an object with a bool `apply` and a list of objects, each
+    with an int `person` and string `field`, `text`, `old`), TOO_MANY over MAX_CELLS. A field that is not editable is
+    not a shape error: `run` refuses that cell."""
+    if not isinstance(body, dict) or not isinstance(body.get("apply"), bool) or not isinstance(body.get("cells"), list):
+        raise ValueError(BAD_REQUEST)
+    cells: list[BulkCell] = []
+    for raw in body["cells"]:
+        if not isinstance(raw, dict):
+            raise ValueError(BAD_REQUEST)
+        person, field, text, old = raw.get("person"), raw.get("field"), raw.get("text"), raw.get("old")
+        if type(person) is not int or not all(isinstance(v, str) for v in (field, text, old)):
+            raise ValueError(BAD_REQUEST)
+        cells.append(BulkCell(person=person, field=field, text=text, old=old))
+    if len(cells) > MAX_CELLS:
+        raise ValueError(TOO_MANY)
+    return body["apply"], cells
 
 
 def run(user: User, cells: list[BulkCell], apply: bool) -> list[BulkOutcome]:

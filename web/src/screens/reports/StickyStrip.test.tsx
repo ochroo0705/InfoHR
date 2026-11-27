@@ -109,6 +109,7 @@ afterEach(() => {
 
 function headFixture(tools: ReportHeadOut["tools"]): ReportHeadOut {
   return {
+    edit_marks: [],
     excel_url: "",
     layouts: [],
     print_url: "",

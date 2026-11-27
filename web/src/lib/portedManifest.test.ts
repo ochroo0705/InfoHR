@@ -82,17 +82,39 @@ describe("portedManifest", () => {
     }
   });
 
-  it("catalogue_is_ported_report_pages_are_not", () => {
+  it("serves the report catalogue, with or without a query", () => {
     expect(isPorted("/reports/")).toBe(true);
     expect(isPorted("/reports/?q=a")).toBe(true);
-    expect(isPorted("/reports/staff-list/")).toBe(false);
+  });
+
+  it("serves the React report page of every key, with or without its address", () => {
+    expect(isPorted("/reports/staff-list/")).toBe(true);
+    expect(isPorted("/reports/staff-list/?x=1")).toBe(true);
+    expect(isPorted("/reports/absence-totals/?year=2026&sort=-name")).toBe(true);
+  });
+
+  it("does not serve the report sub-pages, the Django fragments or the editor endpoints under /reports/", () => {
+    for (const path of [
+      "/reports/staff-list/columns/",
+      "/reports/staff-list/rules/",
+      "/reports/staff-list/format/",
+      "/reports/staff-list/excel/",
+      "/reports/staff-list/selected/csv/",
+      "/reports/staff-list/views/new/",
+      "/reports/views/5/",
+      "/reports/cell/",
+      "/reports/row-cell/",
+      "/reports/correct/",
+      "/reports/cells/",
+    ]) {
+      expect(isPorted(path)).toBe(false);
+    }
   });
 
   it("serves the print page of every report key, with or without its address, but not the report page or its sub-pages", () => {
     expect(isPorted("/reports/staff-list/print/")).toBe(true);
     expect(isPorted("/reports/staff-list/print/?sel=abc123")).toBe(true);
     expect(isPorted("/reports/staff-list/print/?year=2026&sort=-id")).toBe(true);
-    expect(isPorted("/reports/staff-list/")).toBe(false);
     expect(isPorted("/reports/staff-list/excel/")).toBe(false);
     expect(isPorted("/reports/staff-list/print/excel/")).toBe(false);
   });

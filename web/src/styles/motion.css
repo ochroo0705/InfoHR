@@ -214,3 +214,51 @@
 @media print {
   [role="group"] > a.is-picked { background-color: transparent !important; color: inherit !important; font-weight: inherit !important; }
 }
+
+/* Keyboard grid (input.css 665-667, UI_RULES section 4): the cell cursor (violet 2px inset outline), its Shift range (a light violet tint).
+   Unlayered on purpose: a Tailwind utility such as bg-surface would beat a components-layer rule. The table's own focus ring is off.
+   The cursor cell shows where the keys go. */
+table[data-grid] td.is-cell-active { outline: 2px solid var(--color-violet-600); outline-offset: -2px; }
+table[data-grid] td.is-cell-range { background-color: color-mix(in oklch, var(--color-violet-600) 12%, transparent); }
+table[data-grid]:focus { outline: none; }
+
+/* Bulk edit preview (input.css 668-669, UI_RULES section 4 «Bulk edit on report tables»): amber will change, red refused
+   (the reason is the cell's title). Unlayered, as the cursor rules above. */
+table[data-grid] td.is-cell-pending { background-color: var(--color-amber-100, #fef3c7); }
+table[data-grid] td.is-cell-rejected { background-color: var(--color-red-100, #fee2e2); }
+
+/* Floating cell editor (input.css 700-716, UI_RULES section 4 «Floating cell editor», grid_nav.js mountEditor): the correction
+   editor (form.cell-pop) opens as a panel over the cell and its neighbours, at least 20rem wide; the cell keeps its old text
+   faded underneath (data-cell-ghost), so the row keeps its height. Unlayered, as the cursor rules above. */
+table[data-grid] td.is-popped:not(.sticky) { position: relative; }
+table[data-grid] td.is-popped > [data-cell-ghost] { opacity: .35; }
+table[data-grid] td.is-popped > form.cell-pop {
+  position: absolute; top: -1px; left: -1px; z-index: 35;
+  width: max(calc(100% + 2px), 20rem); padding: .625rem .75rem;
+  background: var(--color-surface); color: var(--color-slate-800);
+  border: 2px solid var(--color-violet-600); border-radius: .5rem;
+  box-shadow: 0 10px 28px rgb(0 0 0 / .22);
+  white-space: normal; text-align: left;
+}
+table[data-grid] td.is-popped > form.cell-pop.pop-left { left: auto; right: -1px; }
+table[data-grid] td.is-popped > form.cell-pop.pop-up { top: auto; bottom: -1px; }
+table[data-grid] td.is-popped > form.cell-pop :is(select, input[type="text"], input:not([type])) { width: 100%; }
+@media print { table[data-grid] td.is-popped > form.cell-pop { position: static; box-shadow: none; } }
+
+/* Editable-column marks (input.css 674-688, UI_RULES section 4b, grid/EditMarks.tsx): a background-image overlay, so it stacks
+   on the row tint, the selection and the pending or rejected colours. The sticky header copy sets an inline background, so
+   its tint carries !important. Unlayered, as the cursor rules above. */
+table.edit-marks td.col-edit, table.edit-marks th.col-edit { background-image: linear-gradient(var(--edit-tint), var(--edit-tint)); }
+table.edit-marks td.col-correct, table.edit-marks th.col-correct { background-image: linear-gradient(var(--correct-tint), var(--correct-tint)); }
+table.edit-marks td.col-edit, table.edit-marks td.col-correct, table.edit-marks th.col-edit, table.edit-marks th.col-correct {
+  box-shadow: inset 1px 0 0 0 color-mix(in oklch, var(--color-amber-500) 40%, transparent);
+}
+[data-sticky-head] th.col-edit { background-image: linear-gradient(var(--edit-tint), var(--edit-tint)) !important; }
+[data-sticky-head] th.col-correct { background-image: linear-gradient(var(--correct-tint), var(--correct-tint)) !important; }
+/* The legend above the table: swatches share the tints, three times their strength. */
+[data-edit-legend] .edit-swatch, [data-edit-legend] .correct-swatch {
+  display: inline-block; width: 1.25rem; height: .75rem; margin-right: .375rem; vertical-align: -.1rem;
+  border-radius: 3px; background-color: var(--color-surface);
+}
+[data-edit-legend] .edit-swatch { background-image: linear-gradient(var(--edit-tint), var(--edit-tint)), linear-gradient(var(--edit-tint), var(--edit-tint)), linear-gradient(var(--edit-tint), var(--edit-tint)); }
+[data-edit-legend] .correct-swatch { background-image: linear-gradient(var(--correct-tint), var(--correct-tint)), linear-gradient(var(--correct-tint), var(--correct-tint)), linear-gradient(var(--correct-tint), var(--correct-tint)); box-shadow: inset 2px 0 0 0 color-mix(in oklch, var(--color-amber-500) 60%, transparent); }

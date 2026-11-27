@@ -246,6 +246,18 @@ def _sorted_rows(rows: list[Any], column: Column, descending: bool) -> list[Any]
     return [row for _, row in present] + [row for value, row in keyed if _is_blank(value)]
 
 
+def _by_person(rows: list[Any], report: Report) -> list[Any]:
+    """The rows in employee-id order (ascending), so a sort's ties always come out in that order whatever order the
+    source query gave them. A row with no id (0 or none) goes after the rows that have one, keeping its order. A report
+    with neither Report.person nor Report.edit_person keeps its rows as they are."""
+    person_of = report.person or report.edit_person
+    if person_of is None:
+        return rows
+    keyed = [(person_of(row) or 0, row) for row in rows]
+    with_id = sorted((p for p in keyed if p[0]), key=lambda p: p[0])
+    return [row for _, row in with_id] + [row for pid, row in keyed if not pid]
+
+
 def _sort_spec(sort: str, by_key: dict[str, Column]) -> list[tuple[Column, bool]]:
     """The sort keys this user may use, in order, each with True when descending (a "-" prefix). A key that is not an
     allowed column is dropped, a repeated key is kept once, and at most MAX_SORT_KEYS are used."""
@@ -401,6 +413,9 @@ def build_table(report: Report, user: User, filters: Filters) -> Table:
     # the search sees the shown columns only, all loaded above; every row path (the count, totals, sort, batches, print,
     # Excel, CSV, selections, layouts) takes its rows from here, so they all see the same rows
     rows = search_rows(rows, shown, filters.q)
+    # ties are put in employee-id order first (the source order of rows is not fixed), then the keys are applied
+    if sort_cols:
+        rows = _by_person(rows, report)
     # the last key is sorted first: each pass is stable and keeps blanks last, so the first key decides the order
     for column, descending in reversed(sort_cols):
         rows = _sorted_rows(rows, column, descending)

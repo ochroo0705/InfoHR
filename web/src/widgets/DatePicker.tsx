@@ -450,6 +450,7 @@ export function DatePicker({
             <div
               ref={setPopup}
               className="dp-popup"
+              data-widget-popup=""
               role="dialog"
               aria-label={month ? "Сар сонгох" : "Огноо сонгох"}
               data-leaving={presence.leaving ? "" : undefined}

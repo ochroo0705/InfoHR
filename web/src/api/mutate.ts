@@ -32,12 +32,12 @@ export function unwrapQuery<T>(result: Settled<T>, message: string): T {
 }
 
 // Django's own CSRF failure page is HTML, not the JSON error shape.
-function isJsonAnswer(response: Response): boolean {
+export function isJsonAnswer(response: Response): boolean {
   return (response.headers.get("content-type") ?? "").includes("application/json");
 }
 
 // The API's CSRF failure: a JSON 403 with code "csrf_failed" (api/main.py http_error_handler).
-function isApiCsrfFailure(response: Response, error: unknown): boolean {
+export function isApiCsrfFailure(response: Response, error: unknown): boolean {
   const body = (error !== null && typeof error === "object" ? error : {}) as Partial<ErrorBody>;
   return response.status === 403 && body.code === "csrf_failed";
 }

@@ -10,6 +10,7 @@ import { LayoutBar } from "./layouts/LayoutBar";
 import { LayoutBody, hasLayoutBody } from "./layouts/LayoutBody";
 import { ReportHeader } from "./ReportHeader";
 import { ReportTable } from "./ReportTable";
+import { useEditMarks } from "./grid/EditMarks";
 import { StickyStrip } from "./StickyStrip";
 import { ReportPopUp, ToolRibbon, legacyReportAddress, type OpenPopUp } from "./ToolRibbon";
 import { useReportMemory } from "./useReportMemory";
@@ -51,6 +52,9 @@ export function ReportPage() {
   // The one pop-up open on the page (the ribbon and the rules line open it). The settings pop-ups get the latest requested
   // address without its batch position.
   const [openPop, setOpenPop] = useState<OpenPopUp>(null);
+  // The editable-column marks' choice: one for the page, held here because the pencil is in the ribbon and the marks in the
+  // table (UI_RULES §4b). It is remembered in localStorage under the key grid_nav.js uses.
+  const editMarks = useEditMarks();
   const popQuery = clearOffset(search.replace(/^\?/, ""));
   const selection = useReportSelection(popQuery);
   useMainWidth(MAIN_WIDTH);
@@ -143,6 +147,8 @@ export function ReportPage() {
         query={popQuery}
         selection={answer.layout === "table" ? selection : undefined}
         onOpen={setOpenPop}
+        marksOn={editMarks.on}
+        onToggleMarks={editMarks.toggle}
       />
 
       {answer.layout === "table" && table !== null ? (
@@ -172,6 +178,8 @@ export function ReportPage() {
               table={table}
               dataUpdatedAt={view.dataUpdatedAt}
               inert={settling}
+              marksOn={editMarks.on}
+              editKinds={head.edit_marks}
               selection={
                 head.selectable
                   ? {

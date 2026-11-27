@@ -134,7 +134,7 @@ function headFixture(overrides: Partial<ReportHeadOut> = {}): ReportHeadOut {
 }
 
 function cell(value: string): ReportCellOut {
-  return { value, text: value, money: false, href: "", css: "", style: "", person: 0 };
+  return { value, text: value, money: false, href: "", css: "", style: "", person: 0, edit: null };
 }
 
 function tableFixture(overrides: Partial<ReportTableOut> = {}): ReportTableOut {
@@ -602,7 +602,7 @@ describe("ReportPage", () => {
 
 // A person cell: the first cell of a row carries the person id the selection ticks.
 function personCell(text: string, person: number): ReportCellOut {
-  return { value: text, text, money: false, href: "", css: "", style: "", person };
+  return { value: text, text, money: false, href: "", css: "", style: "", person, edit: null };
 }
 
 // The head of a selectable report: the selection urls and cap the API sends, and the export links.

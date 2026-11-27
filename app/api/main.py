@@ -28,6 +28,7 @@ from api.orders import orders_router
 from api.palette import palette_router
 from api.recruitment import recruitment_router
 from api.reports import report_router
+from api.reports_edit import edit_router
 from api.selfforms import selfform_list_router
 from api.slots import slot_router
 from api.today import today_router
@@ -109,6 +110,7 @@ api.add_router("/logs", log_router)
 api.add_router("/company", company_router)
 api.add_router("/slots", slot_router)
 api.add_router("/recruitment", recruitment_router)
+api.add_router("/reports", edit_router)  # before /reports/{key}: "cell", "row-cell" and "correct" are not report keys
 api.add_router("/reports", report_router)
 api.add_router("/leave/requests", leave_requests_router)  # before /leave: "requests" must not be read as a leave id
 api.add_router("/leave", leave_pages_router)  # before /leave: "balances" and "calendar" must not be read as a leave id

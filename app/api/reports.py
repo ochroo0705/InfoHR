@@ -41,6 +41,7 @@ from reports.services import exports, saved_views
 from reports.services import popups as report_popups
 from reports.services import selection_checklist as checklist_service
 from reports.services.catalogue_page import Row, card_path, search_text, sections_for
+from reports.services.edit_targets import EditTarget
 from reports.services.filter_bar import FilterBar, FilterOptions
 from reports.services.layout_page import (
     BarGroupOut,
@@ -126,6 +127,16 @@ class ReportOptionOut(Schema):
     label: str
 
 
+class ReportEditTarget(Schema):
+    route: Literal["cell", "row", "correct"]  # the editor: an employee field, a list row's field, or a correction
+    person: int  # the employee the editor saves for
+    field: str  # the cell field, the row field or the correction key; the editor's own field name
+    kind: str  # the list kind of a row target, "" otherwise
+    key: int  # the row's id in that list of a row target, 0 otherwise
+    record: int  # the job record a correction edits, 0 when there is none
+    salary: bool  # the salary right opens it (a salary field, or the salary correction)
+
+
 class ReportCellOut(Schema):
     text: str  # what the template prints: an ISO date, "" for no value; HTML is text, not markup
     value: str | None  # the raw value as text; None when blank. A money cell's value is the raw number, unformatted
@@ -134,6 +145,7 @@ class ReportCellOut(Schema):
     css: str  # the cell's classes: alignment, colour and pinning
     style: str  # the inline offset of a pinned cell, "" when not pinned
     person: int  # the employee id of the row; 0 when the report names no person
+    edit: ReportEditTarget | None  # the inline editor this cell opens for the viewer; None when it opens none
 
 
 class ReportGroupOut(Schema):
@@ -273,6 +285,7 @@ class ReportHeadOut(Schema):
     print_url: str
     excel_url: str  # "" without the export right
     selection_max: int  # the most people one bulk action covers (the selection bar's cap)
+    edit_marks: list[str]  # the kinds of inline editor the table's cells open: "plain", "salary", "correct", "row"
 
 
 class ReportBarSelectOut(Schema):
@@ -494,6 +507,20 @@ def _options(rows: list[tuple[str, str]]) -> list[ReportOptionOut]:
     return [ReportOptionOut(value=value, label=label) for value, label in rows]
 
 
+def _edit(target: EditTarget | None) -> ReportEditTarget | None:
+    if target is None:
+        return None
+    return ReportEditTarget(
+        route=target.route,
+        person=target.person,
+        field=target.field,
+        kind=target.kind,
+        key=target.key,
+        record=target.record,
+        salary=target.salary,
+    )
+
+
 def _cell(cell: CellOut) -> ReportCellOut:
     return ReportCellOut(
         text=cell.text,
@@ -503,6 +530,7 @@ def _cell(cell: CellOut) -> ReportCellOut:
         css=cell.css,
         style=cell.style,
         person=cell.person,
+        edit=_edit(cell.edit),
     )
 
 
@@ -567,7 +595,7 @@ def _bar(bar: FilterBar) -> ReportBarOut:
     )
 
 
-def _head(head: PageHead) -> ReportHeadOut:
+def _head(head: PageHead, edit_marks: list[str]) -> ReportHeadOut:
     saved = None
     if head.saved is not None:
         current = head.saved.current_view
@@ -593,6 +621,7 @@ def _head(head: PageHead) -> ReportHeadOut:
         print_url=tools.print_url,
         excel_url=tools.excel_url,
         selection_max=head.selection_max,
+        edit_marks=edit_marks,
     )
 
 
@@ -883,7 +912,7 @@ def report_page(request: HttpRequest, response: HttpResponse, key: str, offset: 
         redirect="",
         title=head.title,
         layout=page.layout,
-        head=_head(head),
+        head=_head(head, page.edit_marks),
         bar=_bar(page.bar) if page.bar is not None else None,
         table=_table(page) if page.layout == "table" else None,
         layout_page=_layout_page(layout, page) if layout is not None else None,

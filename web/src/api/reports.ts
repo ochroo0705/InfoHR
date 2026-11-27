@@ -106,6 +106,8 @@ export function useReportPage(key: string, query: string) {
     retry: retryMe,
     staleTime: 0,
     refetchOnWindowFocus: false,
+    // A network reconnect would refetch the page and seed a new epoch, which closes an open cell editor: not refetched.
+    refetchOnReconnect: false,
     queryFn: () => fetchReportPage(key, query),
   });
 }

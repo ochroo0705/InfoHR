@@ -12,7 +12,8 @@ export type ToolIconKind =
   | "select"
   | "reset"
   | "import"
-  | "person_add";
+  | "person_add"
+  | "pencil";
 
 const PATHS: Record<ToolIconKind, ReactNode> = {
   select: (
@@ -53,6 +54,12 @@ const PATHS: Record<ToolIconKind, ReactNode> = {
     <>
       <circle cx="9" cy="8" r="3.5" />
       <path d="M2.5 20c.8-3.4 3.4-5.2 6.5-5.2s5.7 1.8 6.5 5.2M19 8v6M16 11h6" />
+    </>
+  ),
+  pencil: (
+    <>
+      <path d="M15.5 4.5l4 4L8 20H4v-4z" />
+      <path d="M13.5 6.5l4 4" />
     </>
   ),
   reset: (

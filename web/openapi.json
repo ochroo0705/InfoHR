@@ -9928,6 +9928,16 @@
             "title": "Css",
             "type": "string"
           },
+          "edit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportEditTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "href": {
             "title": "Href",
             "type": "string"
@@ -9967,7 +9977,8 @@
           "href",
           "css",
           "style",
-          "person"
+          "person",
+          "edit"
         ],
         "title": "ReportCellOut",
         "type": "object"
@@ -10473,6 +10484,370 @@
         "title": "ReportDayOut",
         "type": "object"
       },
+      "ReportEditBulkCellOut": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "person": {
+            "title": "Person",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person",
+          "field",
+          "ok",
+          "text",
+          "error"
+        ],
+        "title": "ReportEditBulkCellOut",
+        "type": "object"
+      },
+      "ReportEditBulkOut": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/ReportEditBulkCellOut"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cells",
+          "saved"
+        ],
+        "title": "ReportEditBulkOut",
+        "type": "object"
+      },
+      "ReportEditCellIn": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "loaded": {
+            "default": "",
+            "title": "Loaded",
+            "type": "string"
+          },
+          "person": {
+            "title": "Person",
+            "type": "integer"
+          },
+          "value": {
+            "default": "",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person",
+          "field"
+        ],
+        "title": "ReportEditCellIn",
+        "type": "object"
+      },
+      "ReportEditCorrectIn": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "old": {
+            "default": "",
+            "title": "Old",
+            "type": "string"
+          },
+          "person": {
+            "title": "Person",
+            "type": "integer"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record"
+          },
+          "value": {
+            "default": "",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person",
+          "key"
+        ],
+        "title": "ReportEditCorrectIn",
+        "type": "object"
+      },
+      "ReportEditResultOut": {
+        "properties": {
+          "editor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportEditorOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "text",
+          "error",
+          "editor"
+        ],
+        "title": "ReportEditResultOut",
+        "type": "object"
+      },
+      "ReportEditRowIn": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "person": {
+            "title": "Person",
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "person",
+          "kind",
+          "key",
+          "field"
+        ],
+        "title": "ReportEditRowIn",
+        "type": "object"
+      },
+      "ReportEditTarget": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "person": {
+            "title": "Person",
+            "type": "integer"
+          },
+          "record": {
+            "title": "Record",
+            "type": "integer"
+          },
+          "route": {
+            "enum": [
+              "cell",
+              "row",
+              "correct"
+            ],
+            "title": "Route",
+            "type": "string"
+          },
+          "salary": {
+            "title": "Salary",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "route",
+          "person",
+          "field",
+          "kind",
+          "key",
+          "record",
+          "salary"
+        ],
+        "title": "ReportEditTarget",
+        "type": "object"
+      },
+      "ReportEditorChoiceOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ReportEditorChoiceOut",
+        "type": "object"
+      },
+      "ReportEditorOut": {
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/ReportEditorChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "hidden": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Hidden",
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "choice",
+              "date",
+              "number"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "loaded": {
+            "title": "Loaded",
+            "type": "string"
+          },
+          "maxlength": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxlength"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "boolean"
+          },
+          "reason_text": {
+            "title": "Reason Text",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "value",
+          "label",
+          "choices",
+          "required",
+          "maxlength",
+          "loaded",
+          "hidden",
+          "reason",
+          "old",
+          "note",
+          "reason_text",
+          "blocked",
+          "error"
+        ],
+        "title": "ReportEditorOut",
+        "type": "object"
+      },
       "ReportEntryOut": {
         "properties": {
           "href": {
@@ -10915,6 +11290,13 @@
       },
       "ReportHeadOut": {
         "properties": {
+          "edit_marks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Edit Marks",
+            "type": "array"
+          },
           "excel_url": {
             "title": "Excel Url",
             "type": "string"
@@ -10977,7 +11359,8 @@
           "selection_urls",
           "print_url",
           "excel_url",
-          "selection_max"
+          "selection_max",
+          "edit_marks"
         ],
         "title": "ReportHeadOut",
         "type": "object"
@@ -12489,6 +12872,89 @@
           "field_errors"
         ],
         "title": "ReportViewResultOut",
+        "type": "object"
+      },
+      "ReportingLineOut": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "employee": {
+            "$ref": "#/components/schemas/ReportingPersonOut"
+          },
+          "levels": {
+            "items": {
+              "$ref": "#/components/schemas/ReportingPersonOut"
+            },
+            "title": "Levels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "day",
+          "employee",
+          "levels"
+        ],
+        "title": "ReportingLineOut",
+        "type": "object"
+      },
+      "ReportingPersonOut": {
+        "properties": {
+          "department": {
+            "title": "Department",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "given_initial": {
+            "title": "Given Initial",
+            "type": "string"
+          },
+          "photo_srcset": {
+            "title": "Photo Srcset",
+            "type": "string"
+          },
+          "photo_url": {
+            "title": "Photo Url",
+            "type": "string"
+          },
+          "pk": {
+            "title": "Pk",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "until": {
+            "title": "Until",
+            "type": "string"
+          },
+          "work_phone": {
+            "title": "Work Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pk",
+          "full_name",
+          "given_initial",
+          "photo_url",
+          "photo_srcset",
+          "position",
+          "department",
+          "work_phone",
+          "email",
+          "until"
+        ],
+        "title": "ReportingPersonOut",
         "type": "object"
       },
       "RequestOut": {
@@ -16411,6 +16877,54 @@
           }
         ],
         "summary": "Employee Personal Row Delete",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/v1/employees/{pk}/reporting-line": {
+      "get": {
+        "description": "The managers above one employee the signed-in user may see, on a day (today when none is given). 404 otherwise,\n400 when the day is not an ISO date.",
+        "operationId": "api_employee_employee_reporting_line",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pk",
+            "required": true,
+            "schema": {
+              "title": "Pk",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportingLineOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Employee Reporting Line",
         "tags": [
           "employees"
         ]
@@ -20503,6 +21017,317 @@
           }
         ],
         "summary": "Catalogue",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/cell": {
+      "post": {
+        "description": "Saves one employee field through the cell_edit rules. A refusal answers ok false with the editor to show.",
+        "operationId": "api_reports_edit_cell_save",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportEditCellIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEditResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Cell Save",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/cell/editor": {
+      "get": {
+        "description": "The editor of one employee field in a report cell, with the stored value and the stale token.",
+        "operationId": "api_reports_edit_cell_editor",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "person",
+            "required": true,
+            "schema": {
+              "title": "Person",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "field",
+            "required": true,
+            "schema": {
+              "title": "Field",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEditorOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Cell Editor",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/cells": {
+      "post": {
+        "description": "Checks every cell (a dry run when apply is false) and saves the ok ones when true. The body is read here, not by\nNinja, so a body of the wrong shape or over 500 cells is the Django view's 400 {\"error\": ...}. A refused field or\nright is a refused cell, answered with 200.",
+        "operationId": "api_reports_edit_cells_bulk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEditBulkOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Cells Bulk",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/correct": {
+      "post": {
+        "description": "Saves one correction through the corrections rules (the activity log, the stale check). A blocked cell writes\nnothing and answers its message.",
+        "operationId": "api_reports_edit_correct_save",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportEditCorrectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEditResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Correct Save",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/correct/editor": {
+      "get": {
+        "description": "The correction editor of one job field (with the job record) or of the base salary (no record). A cell that may\nnot be corrected now answers only its message in `blocked`.",
+        "operationId": "api_reports_edit_correct_editor",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "person",
+            "required": true,
+            "schema": {
+              "title": "Person",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "record",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Record",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEditorOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Correct Editor",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/row-cell": {
+      "post": {
+        "description": "Saves one field of one row through the row_edit rules. A row changed meanwhile answers ok false with a fresh\neditor showing the current values.",
+        "operationId": "api_reports_edit_row_save",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportEditRowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEditResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Row Save",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/row-cell/editor": {
+      "get": {
+        "description": "The editor of one cell of a children or contacts row, with the other fields of the row as hidden values.",
+        "operationId": "api_reports_edit_row_editor",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "person",
+            "required": true,
+            "schema": {
+              "title": "Person",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "field",
+            "required": true,
+            "schema": {
+              "title": "Field",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEditorOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Row Editor",
         "tags": [
           "reports"
         ]

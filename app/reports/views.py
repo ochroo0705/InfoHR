@@ -805,24 +805,14 @@ def cells_bulk(request: HttpRequest) -> HttpResponse:
     """Bulk cell edit (reports.bulk_edit, D-080 phase 3). The JSON body is a batch of cells: a dry run when `apply` is
     false, a save of the ok cells when true. Answers the outcome of every cell. 400 for a body of the wrong shape or
     over 500 cells; a field that is not editable is a refused cell, not a 400."""
-    bad = JsonResponse({"error": "Буруу хүсэлт"}, status=400)
     try:
         body = json.loads(request.body)
     except ValueError:
-        return bad
-    if not isinstance(body, dict) or not isinstance(body.get("apply"), bool) or not isinstance(body.get("cells"), list):
-        return bad
-    cells: list[bulk_edit_service.BulkCell] = []
-    for raw in body["cells"]:
-        if not isinstance(raw, dict):
-            return bad
-        person, field, text, old = raw.get("person"), raw.get("field"), raw.get("text"), raw.get("old")
-        if type(person) is not int or not all(isinstance(v, str) for v in (field, text, old)):
-            return bad
-        cells.append(bulk_edit_service.BulkCell(person=person, field=field, text=text, old=old))
-    if len(cells) > bulk_edit_service.MAX_CELLS:
-        return JsonResponse({"error": bulk_edit_service.TOO_MANY}, status=400)
-    apply = body["apply"]
+        return JsonResponse({"error": bulk_edit_service.BAD_REQUEST}, status=400)
+    try:
+        apply, cells = bulk_edit_service.parse_body(body)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
     outcomes = bulk_edit_service.run(request.user, cells, apply=apply)
     saved = sum(1 for outcome in outcomes if outcome.ok) if apply else 0
     return JsonResponse({"cells": [asdict(outcome) for outcome in outcomes], "saved": saved})

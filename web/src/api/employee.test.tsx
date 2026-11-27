@@ -72,7 +72,7 @@ describe("employee and company routes", () => {
     expect(isPorted("/employees/12/")).toBe(true);
     expect(isPorted("/employees/company/")).toBe(true);
     expect(isPorted("/employees/orders/")).toBe(true);
-    expect(isPorted("/reports/orders/")).toBe(false);
+    expect(isPorted("/reports/orders/excel/")).toBe(false);
   });
 
   it("openLegacyEmployee sends a full page load to the Django employee page", () => {

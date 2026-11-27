@@ -12,7 +12,7 @@ describe("isPorted", () => {
 
   it("treats the order register as ported, and a Django-only page as not", () => {
     expect(isPorted("/employees/orders/")).toBe(true);
-    expect(isPorted("/reports/orders/")).toBe(false);
+    expect(isPorted("/reports/orders/excel/")).toBe(false);
   });
 
   it("isPorted true for /employees/orders/print/", () => {
@@ -66,11 +66,11 @@ describe("AppLink", () => {
   it("renders a full-page link into the Django UI for a path that is not ported", () => {
     render(
       <MemoryRouter>
-        <AppLink to="/reports/orders/">Profile</AppLink>
+        <AppLink to="/reports/orders/excel/">Profile</AppLink>
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe(
-      "http://dj/reports/orders/",
+      "http://dj/reports/orders/excel/",
     );
   });
 

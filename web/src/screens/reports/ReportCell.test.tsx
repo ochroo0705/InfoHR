@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 import type { ReportCellOut } from "../../api/reports";
 import { ReportCell, inlineStyle, moneyText } from "./ReportCell";
 
-const TEXT: ReportCellOut = { value: "Бат", text: "Бат", money: false, href: "", css: "", style: "", person: 0 };
+const TEXT: ReportCellOut = { value: "Бат", text: "Бат", money: false, href: "", css: "", style: "", person: 0, edit: null };
 
 function renderCell(cell: Partial<ReportCellOut>) {
   return render(
@@ -98,5 +98,40 @@ describe("ReportCell", () => {
     expect(inlineStyle("left: 1rem; position:fixed")).toBeUndefined();
     expect(inlineStyle("background-color: red; left: 1rem")).toBeUndefined();
     expect(inlineStyle("left: 1px")).toBeUndefined();
+  });
+});
+
+describe("ReportCell editor", () => {
+  it("panel_editor_keeps_the_old_text_faded_under_it", () => {
+    const { container } = render(
+      <table>
+        <tbody>
+          <tr>
+            <ReportCell cell={{ ...TEXT, text: "Бат", css: "w-[9rem]" }} editor={<form data-cell-form>x</form>} panel />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const td = container.querySelector("td")!;
+    expect(td.classList.contains("is-popped")).toBe(true);
+    expect(td.classList.contains("w-[9rem]")).toBe(true);
+    expect(td.querySelector("[data-cell-ghost]")?.textContent).toBe("Бат");
+    expect(td.querySelector("form[data-cell-form]")).not.toBeNull();
+  });
+
+  it("plain_editor_replaces_the_text", () => {
+    const { container } = render(
+      <table>
+        <tbody>
+          <tr>
+            <ReportCell cell={{ ...TEXT, text: "Бат" }} editor={<input aria-label="x" />} />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const td = container.querySelector("td")!;
+    expect(td.textContent).toBe("");
+    expect(td.querySelector("[data-cell-ghost]")).toBeNull();
+    expect(td.querySelector("input")).not.toBeNull();
   });
 });

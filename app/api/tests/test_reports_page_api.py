@@ -48,6 +48,7 @@ HEAD_KEYS = {
     "print_url",
     "excel_url",
     "selection_max",
+    "edit_marks",
 }
 SAVED_KEYS = {"plain_url", "options", "templates", "current_view", "template_current", "can_edit_view"}
 BAR_KEYS = {"items", "picker", "column_chips", "adds", "clear_url", "columns_query", "options"}
@@ -69,7 +70,7 @@ TABLE_KEYS = {
     "address",
     "query",
 }
-CELL_KEYS = {"text", "value", "money", "href", "css", "style", "person"}
+CELL_KEYS = {"text", "value", "money", "href", "css", "style", "person", "edit"}
 
 
 def _client(role: str | None) -> Client:
@@ -356,3 +357,51 @@ def test_rows_route_reads_no_option_lists(monkeypatch: pytest.MonkeyPatch) -> No
     assert touches(page_ctx), "the page should read the option lists (positive control)"
     assert touches(rows_ctx) == []
     assert len(rows_ctx.captured_queries) < len(page_ctx.captured_queries)
+
+
+# --- the inline editors of the cells (reports.services.edit_targets) ---------------------------------------------
+
+
+def _register_editable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A report whose first column edits an employee field and whose second column edits nothing."""
+    rows = [SimpleNamespace(pk=i + 1, name=name, salary=SECRET_SALARY) for i, name in enumerate(NAMES)]
+    report = Report(
+        key=KEY,
+        title="Тестийн тайлан",
+        filters=(),
+        columns=(
+            Column(key="name", label="Нэр", value=lambda r: r.name, edit="family_name"),
+            Column(key="note", label="Тэмдэглэл", value=lambda r: "тэмдэглэл"),
+        ),
+        default_columns=("name", "note"),
+        rows=lambda user, f: rows,
+        saved_views=True,
+        person=lambda r: r.pk,
+    )
+    monkeypatch.setitem(REPORTS, KEY, report)
+
+
+def test_edit_target_on_each_cell_for_a_manager(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register_editable(monkeypatch)
+    body = _get(_client("HR"))
+    rows = [group["rows"] for group in body["table"]["groups"]][0]
+    for i, row in enumerate(rows):
+        assert row[0]["edit"] == {
+            "route": "cell",
+            "person": i + 1,
+            "field": "family_name",
+            "kind": "",
+            "key": 0,
+            "record": 0,
+            "salary": False,
+        }
+        assert row[1]["edit"] is None  # a read-only column opens no editor
+    assert body["head"]["edit_marks"] == ["plain"]
+
+
+def test_no_edit_target_without_the_management_right(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register_editable(monkeypatch)
+    body = _get(_client("Accountant"))  # views the report and salary, but may not manage employees
+    cells = [cell for group in body["table"]["groups"] for row in group["rows"] for cell in row]
+    assert cells and all(cell["edit"] is None for cell in cells)
+    assert body["head"]["edit_marks"] == []

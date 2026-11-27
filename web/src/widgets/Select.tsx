@@ -51,6 +51,9 @@ export interface SelectProps {
   onAddModal?: (text: string) => void;
   // The hint shown while the typing box has focus.
   placeholder?: string;
+  // false: focusing the typing box does not open its list (the user opens it by a click, a typed key or an arrow). Unset or
+  // true: the list opens on focus, as select.js does. A report cell editor passes false: its list is not open on mount.
+  openOnFocus?: boolean;
   // Replaces the default box classes (FIELD) on the visible box, for a caller's own look (Soft's soft box). Unset: FIELD.
   className?: string;
   // Sets aria-invalid="true" on the visible box. Unset: no attribute.
@@ -153,6 +156,7 @@ function PickerSelect({
   addModal = false,
   onAddModal,
   placeholder = HINT,
+  openOnFocus = true,
   className,
   invalid,
   describedBy,
@@ -425,6 +429,7 @@ function PickerSelect({
           role="listbox"
           tabIndex={-1}
           className="sel-popup"
+          data-widget-popup=""
           data-leaving={presence.leaving ? "" : undefined}
           inert={presence.leaving}
           onKeyDown={combo ? undefined : onListKey}
@@ -514,7 +519,7 @@ function PickerSelect({
           onFocus={() => {
             setFocused(true);
             setFlash(null);
-            openList();
+            if (openOnFocus) openList();
             justFocused.current = true;
             if (focusTimer.current !== null) window.clearTimeout(focusTimer.current);
             focusTimer.current = window.setTimeout(() => {
