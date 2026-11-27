@@ -24,6 +24,12 @@ export type ReportFormatModelOut = components["schemas"]["ReportFormatModelOut"]
 export type ReportViewFormOut = components["schemas"]["ReportViewFormOut"];
 export type ReportViewIn = components["schemas"]["ReportViewIn"];
 export type ReportViewResultOut = components["schemas"]["ReportViewResultOut"];
+export type ReportLayoutPageOut = components["schemas"]["ReportLayoutPageOut"];
+export type ReportLayoutBarOut = components["schemas"]["ReportLayoutBarOut"];
+export type ReportBarSelectOut = components["schemas"]["ReportBarSelectOut"];
+export type ReportOptionOut = components["schemas"]["ReportOptionOut"];
+export type ReportCardsOut = components["schemas"]["ReportCardsOut"];
+export type ReportLayoutCardOut = components["schemas"]["ReportLayoutCardOut"];
 
 // Where a saved-view form comes from: the «Хадгалах» pop-up of a report (the address goes with it, the server reads it),
 // or the «Засах» pop-up of a view by its id.
@@ -34,6 +40,8 @@ export const reportKeys = {
   page: (key: string, query: string) => ["reports", key, query] as const,
   // `seed` is the page's dataUpdatedAt the first batch came from: a new page answer is a new query, seeded afresh.
   rows: (key: string, query: string, seed: number) => ["reports", key, "rows", query, seed] as const,
+  // The cards layout's «Цааш харуулах» batches: seeded the same way as the rows.
+  cards: (key: string, query: string, seed: number) => ["reports", key, "cards", query, seed] as const,
 };
 
 // The pop-up models take the address without an offset: the query is sent verbatim, a leading "?" dropped.
@@ -118,6 +126,37 @@ export function useReportRows(key: string, query: string, first: ReportTableOut,
     retry: retryMe,
     getNextPageParam: (last: ReportRowsOut) => last.next_offset ?? undefined,
     queryFn: ({ pageParam }) => fetchReportRows(key, query, pageParam),
+  });
+}
+
+// One batch of the cards layout of the address, from `offset` (the same cards the page draws). A non-cards address answers
+// 404 «not_found»; that is thrown as ApiFailure with its `status`.
+export async function fetchReportCards(key: string, query: string, offset: number): Promise<ReportCardsOut> {
+  const result = await api.GET("/api/v1/reports/{key}/cards", {
+    params: { path: { key } },
+    querySerializer: () => addressSearch(query, offset),
+  });
+  return unwrapQuery<ReportCardsOut>(result, "report request failed");
+}
+
+// The cards of the address, batch by batch, the same way as useReportRows: the first batch is the page's own `cards`
+// (seeded, nothing requested on mount); further batches come from /cards?offset=N, until `next_offset` is null.
+export function useReportCards(key: string, query: string, first: ReportCardsOut, seed: number) {
+  const initial: InfiniteData<ReportCardsOut, number> = {
+    pages: [first],
+    pageParams: [0],
+  };
+  return useInfiniteQuery({
+    queryKey: reportKeys.cards(key, query, seed),
+    initialPageParam: 0,
+    initialData: initial,
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    gcTime: 0,
+    retry: retryMe,
+    getNextPageParam: (last: ReportCardsOut) => last.next_offset ?? undefined,
+    queryFn: ({ pageParam }) => fetchReportCards(key, query, pageParam),
   });
 }
 

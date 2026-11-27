@@ -26,18 +26,27 @@ def window_at[T](items: list[T], offset: int, size: int | None = None) -> tuple[
     return items[offset : offset + size], offset + size < len(items)
 
 
+def batch_at[T](items: list[T], offset: int, size: int | None = None) -> Batch[T]:
+    """The batch of `items` that starts at `offset`, as a Batch that needs no request. `next_query` is
+    «offset=<next>» when more items follow, else "" (the request-aware `window` adds the request's other parameters).
+    The slice is the one window_at gives."""
+    size = size or LIST_BATCH  # read at call time so tests can shrink the batch
+    shown, more = window_at(items, offset, size)
+    return Batch(shown, offset, f"offset={offset + size}" if more else "")
+
+
 def window[T](request: HttpRequest, items: list[T], size: int | None = None) -> Batch[T]:
     size = size or LIST_BATCH  # read at call time so tests can shrink the batch
     raw = request.GET.get("offset", "")
     htmx = request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
     offset = int(raw) if htmx and raw.isdecimal() and len(raw) <= 18 else 0  # isdigit() accepts «²», int() does not
-    shown, more = window_at(items, offset, size)
+    batch = batch_at(items, offset, size)
     next_query = ""
-    if more:
+    if batch.next_query:
         params = request.GET.copy()
         params["offset"] = str(offset + size)
         next_query = params.urlencode()
-    return Batch(shown, offset, next_query)
+    return Batch(batch.shown, offset, next_query)
 
 
 def paged[T](

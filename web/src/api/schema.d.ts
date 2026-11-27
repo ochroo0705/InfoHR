@@ -2451,9 +2451,31 @@ export interface paths {
         /**
          * Report Page
          * @description The report's head, filter bar and table layout for the address. The redirect is answered before the table is
-         *     built, as the Django page does. A layout other than the table answers the head and the bar with no table.
+         *     built, as the Django page does. A layout other than the table answers the head, the bar and the layout page (its
+         *     payload) with no table.
          */
         get: operations["api_reports_report_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report Cards
+         * @description One batch of the cards layout for the address (the same cards the page draws). The address must name the
+         *     cards layout, else 404 «not_found» (no cards to batch). The table is built without its filter bar, as rows is.
+         */
+        get: operations["api_reports_report_cards"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6324,6 +6346,57 @@ export interface components {
             /** Picker */
             picker: components["schemas"]["ReportPickerOut"][];
         };
+        /** ReportBarSelectOut */
+        ReportBarSelectOut: {
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Options */
+            options: components["schemas"]["ReportOptionOut"][];
+            /** Selected */
+            selected: string;
+        };
+        /** ReportBoardOut */
+        ReportBoardOut: {
+            /** Cap */
+            cap: number;
+            /** Lanes */
+            lanes: components["schemas"]["ReportLaneOut"][];
+            /** Shown */
+            shown: number;
+            /** Total */
+            total: number;
+            /** Value Label */
+            value_label: string;
+        };
+        /** ReportCalendarOut */
+        ReportCalendarOut: {
+            /** Days */
+            days: components["schemas"]["ReportDayOut"][];
+            /** Heading */
+            heading: string;
+            /** Keep */
+            keep: string[][];
+            /** Mode */
+            mode: string;
+            /** Month Value */
+            month_value: string;
+            /** Next Href */
+            next_href: string;
+            /** Prev Href */
+            prev_href: string;
+            /** Switch Href */
+            switch_href: string;
+            /** Today Href */
+            today_href: string;
+            /** Total */
+            total: number;
+            /** Undated */
+            undated: number;
+            /** Weeks */
+            weeks: components["schemas"]["ReportDayOut"][][];
+        };
         /** ReportCardOut */
         ReportCardOut: {
             /** Description */
@@ -6340,6 +6413,15 @@ export interface components {
             search: string;
             /** Title */
             title: string;
+        };
+        /** ReportCardsOut */
+        ReportCardsOut: {
+            /** Items */
+            items: components["schemas"]["ReportLayoutCardOut"][];
+            /** Next Offset */
+            next_offset: number | null;
+            /** Total */
+            total: number;
         };
         /** ReportCatalogueOut */
         ReportCatalogueOut: {
@@ -6362,6 +6444,55 @@ export interface components {
             text: string;
             /** Value */
             value: string | null;
+        };
+        /** ReportChartOut */
+        ReportChartOut: {
+            /** Category Label */
+            category_label: string;
+            /** Hrefs */
+            hrefs: string[];
+            /** Kind */
+            kind: string;
+            /** Kind Label */
+            kind_label: string;
+            /** Labels */
+            labels: string[];
+            /** Masked */
+            masked: boolean;
+            /** Money */
+            money: boolean;
+            /** Note */
+            note: string;
+            /** Percent */
+            percent: boolean;
+            /** Rows */
+            rows: components["schemas"]["ReportChartRowOut"][];
+            /** Series */
+            series: components["schemas"]["ReportChartSeriesOut"][];
+            /** Series Labels */
+            series_labels: string[];
+            /** Value Label */
+            value_label: string;
+            /** Values */
+            values: (number | null)[];
+        };
+        /** ReportChartRowOut */
+        ReportChartRowOut: {
+            /** Cells */
+            cells: string[];
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+            /** Total */
+            total: string;
+        };
+        /** ReportChartSeriesOut */
+        ReportChartSeriesOut: {
+            /** Label */
+            label: string;
+            /** Values */
+            values: (number | null)[];
         };
         /** ReportColourOut */
         ReportColourOut: {
@@ -6410,6 +6541,43 @@ export interface components {
             groups: components["schemas"]["ReportPickGroupOut"][];
             /** Keep */
             keep: string[][];
+        };
+        /** ReportDayOut */
+        ReportDayOut: {
+            /** Entries */
+            entries: components["schemas"]["ReportEntryOut"][];
+            /** In Month */
+            in_month: boolean;
+            /** Is Today */
+            is_today: boolean;
+            /** Iso */
+            iso: string;
+            /** More */
+            more: number;
+            /** More Href */
+            more_href: string;
+            /** Number */
+            number: number;
+        };
+        /** ReportEntryOut */
+        ReportEntryOut: {
+            /** Href */
+            href: string;
+            /** Mark */
+            mark: string;
+            /** Note */
+            note: string;
+            /** Title */
+            title: string;
+        };
+        /** ReportExtraOut */
+        ReportExtraOut: {
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
         };
         /** ReportFilterOptionsOut */
         ReportFilterOptionsOut: {
@@ -6545,6 +6713,47 @@ export interface components {
             title: string;
             tools: components["schemas"]["ReportToolsOut"];
         };
+        /** ReportLaneOut */
+        ReportLaneOut: {
+            /** Cards */
+            cards: components["schemas"]["ReportLayoutCardOut"][];
+            /** Count */
+            count: number;
+            /** Figure */
+            figure: string;
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+        };
+        /** ReportLayoutBarOut */
+        ReportLayoutBarOut: {
+            /** Keep */
+            keep: string[][];
+            /** Layout */
+            layout: string;
+            /** Selects */
+            selects: components["schemas"]["ReportBarSelectOut"][];
+        };
+        /** ReportLayoutCardOut */
+        ReportLayoutCardOut: {
+            /** Extras */
+            extras: components["schemas"]["ReportExtraOut"][];
+            /** Href */
+            href: string;
+            /** Mark */
+            mark: string;
+            /** Photo Initial */
+            photo_initial: string;
+            /** Photo Srcset */
+            photo_srcset: string;
+            /** Photo Url */
+            photo_url: string;
+            /** Subtitle */
+            subtitle: string;
+            /** Title */
+            title: string;
+        };
         /** ReportLayoutOut */
         ReportLayoutOut: {
             /** Current */
@@ -6555,6 +6764,30 @@ export interface components {
             name: string;
             /** Url */
             url: string;
+        };
+        /** ReportLayoutPageOut */
+        ReportLayoutPageOut: {
+            bar: components["schemas"]["ReportLayoutBarOut"];
+            board: components["schemas"]["ReportBoardOut"] | null;
+            calendar: components["schemas"]["ReportCalendarOut"] | null;
+            cards: components["schemas"]["ReportCardsOut"] | null;
+            chart: components["schemas"]["ReportChartOut"] | null;
+            /** Clear Rules Url */
+            clear_rules_url: string;
+            /** Count */
+            count: number;
+            /** Kind */
+            kind: string;
+            /** Note */
+            note: string;
+            pivot: components["schemas"]["ReportPivotOut"] | null;
+            /** Query */
+            query: string;
+            /** Rules Text */
+            rules_text: string;
+            /** Shows Count */
+            shows_count: boolean;
+            timeline: components["schemas"]["ReportTimelineOut"] | null;
         };
         /** ReportMarkOut */
         ReportMarkOut: {
@@ -6587,6 +6820,7 @@ export interface components {
             head: components["schemas"]["ReportHeadOut"] | null;
             /** Layout */
             layout: string;
+            layout_page: components["schemas"]["ReportLayoutPageOut"] | null;
             /** Redirect */
             redirect: string;
             table: components["schemas"]["ReportTableOut"] | null;
@@ -6617,6 +6851,57 @@ export interface components {
             href: string;
             /** Label */
             label: string;
+        };
+        /** ReportPivotCellOut */
+        ReportPivotCellOut: {
+            /** Href */
+            href: string;
+            /** Text */
+            text: string;
+        };
+        /** ReportPivotGridOut */
+        ReportPivotGridOut: {
+            /** Caption */
+            caption: string;
+            /** Col Heads */
+            col_heads: components["schemas"]["ReportPivotHeadOut"][];
+            /** Col Totals */
+            col_totals: string[];
+            /** Corner Label */
+            corner_label: string;
+            /** Empty */
+            empty: boolean;
+            /** Grand */
+            grand: string;
+            /** Masked */
+            masked: boolean;
+            /** Note */
+            note: string;
+            /** Rows */
+            rows: components["schemas"]["ReportPivotRowOut"][];
+        };
+        /** ReportPivotHeadOut */
+        ReportPivotHeadOut: {
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+        };
+        /** ReportPivotOut */
+        ReportPivotOut: {
+            /** Grids */
+            grids: components["schemas"]["ReportPivotGridOut"][];
+        };
+        /** ReportPivotRowOut */
+        ReportPivotRowOut: {
+            /** Cells */
+            cells: components["schemas"]["ReportPivotCellOut"][];
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+            /** Total */
+            total: string;
         };
         /** ReportRowsOut */
         ReportRowsOut: {
@@ -6703,6 +6988,78 @@ export interface components {
             shows_count: boolean;
             /** Table Span */
             table_span: number;
+        };
+        /** ReportTickOut */
+        ReportTickOut: {
+            /** Label */
+            label: string;
+            /** Left Pct */
+            left_pct: number;
+        };
+        /** ReportTimelineBarOut */
+        ReportTimelineBarOut: {
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+            /** Left Pct */
+            left_pct: number;
+            /** Mark */
+            mark: string;
+            /** Tip */
+            tip: string;
+            /** Tip Title */
+            tip_title: string;
+            /** Title */
+            title: string;
+            /** Width Pct */
+            width_pct: number;
+        };
+        /** ReportTimelineGroupOut */
+        ReportTimelineGroupOut: {
+            /** Bars */
+            bars: components["schemas"]["ReportTimelineBarOut"][];
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+        };
+        /** ReportTimelineOut */
+        ReportTimelineOut: {
+            /** All Href */
+            all_href: string;
+            /** Cap */
+            cap: number;
+            /** Clipped */
+            clipped: boolean;
+            /** Enter Href */
+            enter_href: string;
+            /** First */
+            first: string;
+            /** Groups */
+            groups: components["schemas"]["ReportTimelineGroupOut"][];
+            /** Last */
+            last: string;
+            /** Off Axis */
+            off_axis: number;
+            /** Over Cap */
+            over_cap: number;
+            /** Ticks */
+            ticks: components["schemas"]["ReportTickOut"][];
+            /** Today Pct */
+            today_pct: number | null;
+            /** Total */
+            total: number;
+            /** Undated */
+            undated: number;
+            /** Year */
+            year: number | null;
+            /** Year Next Href */
+            year_next_href: string | null;
+            /** Year Prev Href */
+            year_prev_href: string | null;
+            /** Years */
+            years: number;
         };
         /** ReportToolsOut */
         ReportToolsOut: {
@@ -10569,6 +10926,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportPageOut"];
+                };
+            };
+        };
+    };
+    api_reports_report_cards: {
+        parameters: {
+            query?: {
+                offset?: string;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCardsOut"];
                 };
             };
         };

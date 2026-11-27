@@ -7,6 +7,7 @@
   string IS the filters: the raw query goes to the same services the Django report page calls, so the API parses
   nothing itself. A bare address with a default saved view answers `redirect` and nothing else.
 - GET /api/v1/reports/{key}/rows?offset=: one batch of the same table, with the same query.
+- GET /api/v1/reports/{key}/cards?offset=: one batch of the cards layout (404 "not_found" if it is not cards).
 
 The page and rows answers need a signed-in session (401 without one), reports.view_reports and the report's own rights
 (403 "forbidden"), and an unknown key is 404. Every page and rows answer is marked Cache-Control: no-store: the rows
@@ -25,6 +26,29 @@ from reports.services import popups as report_popups
 from reports.services import saved_views
 from reports.services.catalogue_page import Row, card_path, search_text, sections_for
 from reports.services.filter_bar import FilterBar, FilterOptions
+from reports.services.layout_page import (
+    BarGroupOut,
+    BarOut,
+    BarSelect,
+    BoardOut,
+    CalendarOut,
+    CardOut,
+    CardsOut,
+    ChartOut,
+    ChartRowOut,
+    DayOut,
+    EntryOut,
+    ExtraOut,
+    LaneOut,
+    LayoutBar,
+    LayoutPage,
+    PivotGridOut,
+    PivotOut,
+    PivotRowOut,
+    TickOut,
+    TimelineOut,
+    layout_page,
+)
 from reports.services.page_head import SHARED, PageHead, _view_url, default_view_redirect, page_head
 from reports.services.popups import ColourOut, ColumnKind, MarkOut, OpOut, Pick, check_popup
 from reports.services.saved_views import SaveResult
@@ -233,6 +257,211 @@ class ReportHeadOut(Schema):
     excel_url: str  # "" without the export right
 
 
+class ReportBarSelectOut(Schema):
+    name: str  # the parameter name, e.g. "lby"
+    label: str  # the select's label, e.g. «Ангилал»
+    selected: str  # the value it shows now; "" = none chosen
+    options: list[ReportOptionOut]  # the options in the order the bar draws them
+
+
+class ReportLayoutBarOut(Schema):
+    layout: str  # the layout the bar is for
+    keep: list[list[str]]  # [name, value] pairs: the hidden inputs the bar carries
+    selects: list[ReportBarSelectOut]
+
+
+class ReportExtraOut(Schema):
+    label: str
+    text: str  # money by mnt («—» when none), a date as ISO, else the value's text ("" for none)
+    href: str  # the mailto: or tel: link of a contact column; "" for none (money and dates are never links)
+
+
+class ReportLayoutCardOut(Schema):
+    title: str
+    subtitle: str
+    href: str
+    mark: str  # the CSS classes of the first passing mark; "" for none
+    extras: list[ReportExtraOut]
+    photo_url: str  # the 72 px thumbnail; "" without a photo
+    photo_initial: str  # the soft tile's letter when there is a photo slot but no image; else ""
+    photo_srcset: str  # the 2x and 3x thumbnails («url 2x, url 3x»); "" without an image
+
+
+class ReportLaneOut(Schema):
+    label: str
+    count: int  # the lane's filtered row count
+    figure: str  # the figure's text; "" when the value is the count
+    href: str  # the category link; "" for none
+    cards: list[ReportLayoutCardOut]
+
+
+class ReportBoardOut(Schema):
+    lanes: list[ReportLaneOut]
+    total: int  # the filtered row count
+    shown: int  # the cards drawn
+    cap: int  # the most cards drawn
+    value_label: str  # the caption of the value; "" = the count
+
+
+class ReportCardsOut(Schema):
+    items: list[ReportLayoutCardOut]
+    next_offset: int | None  # the offset of the next batch; None when it is the last
+    total: int  # every row, not only the batch
+
+
+class ReportEntryOut(Schema):
+    title: str
+    href: str  # "" for none
+    mark: str  # the CSS classes of the first passing mark; "" for none
+    note: str  # e.g. «36 жил» for a repeated yearly entry; "" otherwise
+
+
+class ReportDayOut(Schema):
+    iso: str  # YYYY-MM-DD
+    number: int  # the day of the month
+    in_month: bool
+    is_today: bool
+    entries: list[ReportEntryOut]
+    more: int  # the entries past the cap
+    more_href: str  # "" = the count is plain text
+
+
+class ReportCalendarOut(Schema):
+    mode: str  # "month" or "week"
+    heading: str
+    weeks: list[list[ReportDayOut]]  # the month grid; [] in week mode
+    days: list[ReportDayOut]  # the week; [] in month mode
+    undated: int
+    prev_href: str  # "" when the arrow is disabled
+    next_href: str  # "" when the arrow is disabled
+    today_href: str
+    switch_href: str
+    month_value: str  # «YYYY-MM» in month mode, else ""
+    keep: list[list[str]]  # [name, value] pairs of the month picker's hidden inputs
+    total: int
+
+
+class ReportTickOut(Schema):
+    label: str
+    left_pct: float  # the place on the axis in percent
+
+
+class ReportTimelineBarOut(Schema):
+    title: str
+    href: str  # "" for none
+    mark: str  # the CSS classes of the first passing mark; "" for none
+    left_pct: float  # the place on the axis in percent
+    width_pct: float  # the width in percent
+    label: str  # the aria text «title: from – to»
+    tip_title: str
+    tip: str
+
+
+class ReportTimelineGroupOut(Schema):
+    label: str  # «—» for the blank group, "" when ungrouped
+    count: int
+    bars: list[ReportTimelineBarOut]
+
+
+class ReportTimelineOut(Schema):
+    groups: list[ReportTimelineGroupOut]
+    ticks: list[ReportTickOut]
+    today_pct: float | None  # None when today is off the axis
+    first: str  # the axis start as ISO; "" when no drawn row has a start
+    last: str  # the axis end as ISO; "" when no drawn row has a start
+    undated: int
+    off_axis: int
+    clipped: bool
+    over_cap: int
+    cap: int
+    years: int
+    total: int
+    year: int | None  # the year window; None for «Бүгд»
+    year_prev_href: str | None  # None at the year bound
+    year_next_href: str | None  # None at the year bound
+    all_href: str
+    enter_href: str
+
+
+class ReportChartRowOut(Schema):
+    label: str
+    href: str  # "" = none
+    cells: list[str]  # one text per stack of a stacked bar; [] for a plain bar or a donut
+    total: str  # the category's total as finished text
+
+
+class ReportChartSeriesOut(Schema):
+    label: str
+    values: list[float | None]  # one per category; None = no figure (a hidden money figure too)
+
+
+class ReportChartOut(Schema):
+    kind: str  # "bar", "stacked", "line" or "donut"
+    kind_label: str
+    value_label: str
+    category_label: str
+    series_labels: list[str]
+    rows: list[ReportChartRowOut]
+    labels: list[str]  # the drawing's category labels
+    values: list[float | None]  # the drawing's figures; None = no figure (a hidden money figure too)
+    series: list[ReportChartSeriesOut]
+    money: bool
+    percent: bool
+    hrefs: list[str]  # one per category, "" = none
+    masked: bool  # a money figure was hidden
+    note: str  # the note of the hidden money figure; "" when nothing was hidden
+
+
+class ReportPivotCellOut(Schema):
+    text: str
+    href: str  # "" = none
+
+
+class ReportPivotHeadOut(Schema):
+    label: str  # the column head's text
+    href: str  # "" = none
+
+
+class ReportPivotRowOut(Schema):
+    label: str
+    href: str  # "" = none
+    cells: list[ReportPivotCellOut]  # in the column order
+    total: str
+
+
+class ReportPivotGridOut(Schema):
+    caption: str  # the value's label
+    corner_label: str  # the row and column categories
+    col_heads: list[ReportPivotHeadOut]
+    rows: list[ReportPivotRowOut]
+    col_totals: list[str]
+    grand: str
+    masked: bool  # a money figure was hidden
+    note: str
+    empty: bool  # no rows: the page shows «Өгөгдөл олдсонгүй»
+
+
+class ReportPivotOut(Schema):
+    grids: list[ReportPivotGridOut]  # one grid, or two when the pivot has a second value
+
+
+class ReportLayoutPageOut(Schema):
+    kind: str  # "cards", "board", "calendar", "timeline", "chart" or "pivot"
+    bar: ReportLayoutBarOut
+    count: int  # every filtered row
+    board: ReportBoardOut | None  # exactly one payload is set: the one of `kind`
+    cards: ReportCardsOut | None
+    calendar: ReportCalendarOut | None
+    timeline: ReportTimelineOut | None
+    chart: ReportChartOut | None
+    pivot: ReportPivotOut | None
+    rules_text: str  # the rules line of the page (the filter bar's «Шүүлтүүр» text)
+    shows_count: bool  # the «Нийт: N» line is drawn
+    note: str  # a grey line above the layout, "" when none
+    clear_rules_url: str
+    query: str  # the cleaned filters as a query string
+
+
 class ReportPageOut(Schema):
     redirect: str  # the default saved view's address for a bare address; "" when there is nothing to follow
     title: str
@@ -240,6 +469,7 @@ class ReportPageOut(Schema):
     head: ReportHeadOut | None  # None when redirect is set
     bar: ReportBarOut | None  # None when redirect is set
     table: ReportTableOut | None  # None when redirect is set or the layout is not "table"
+    layout_page: ReportLayoutPageOut | None  # None when redirect is set or the layout is "table"
 
 
 def _options(rows: list[tuple[str, str]]) -> list[ReportOptionOut]:
@@ -378,6 +608,222 @@ def _table(page: TablePage) -> ReportTableOut:
     )
 
 
+def _bar_select(select: BarSelect) -> ReportBarSelectOut:
+    return ReportBarSelectOut(
+        name=select.name,
+        label=select.label,
+        selected=select.selected,
+        options=_options(select.options),
+    )
+
+
+def _layout_bar(bar: LayoutBar) -> ReportLayoutBarOut:
+    return ReportLayoutBarOut(
+        layout=bar.layout,
+        keep=_pairs(bar.keep),
+        selects=[_bar_select(select) for select in bar.selects],
+    )
+
+
+def _extra(extra: ExtraOut) -> ReportExtraOut:
+    return ReportExtraOut(label=extra.label, text=extra.text, href=extra.href)
+
+
+def _layout_card(card: CardOut) -> ReportLayoutCardOut:
+    return ReportLayoutCardOut(
+        title=card.title,
+        subtitle=card.subtitle,
+        href=card.href,
+        mark=card.mark,
+        extras=[_extra(extra) for extra in card.extras],
+        photo_url=card.photo_url,
+        photo_initial=card.photo_initial,
+        photo_srcset=card.photo_srcset,
+    )
+
+
+def _lane(lane: LaneOut) -> ReportLaneOut:
+    return ReportLaneOut(
+        label=lane.label,
+        count=lane.count,
+        figure=lane.figure,
+        href=lane.href,
+        cards=[_layout_card(card) for card in lane.cards],
+    )
+
+
+def _board(board: BoardOut) -> ReportBoardOut:
+    return ReportBoardOut(
+        lanes=[_lane(lane) for lane in board.lanes],
+        total=board.total,
+        shown=board.shown,
+        cap=board.cap,
+        value_label=board.value_label,
+    )
+
+
+def _cards(cards: CardsOut) -> ReportCardsOut:
+    return ReportCardsOut(
+        items=[_layout_card(card) for card in cards.items],
+        next_offset=cards.next_offset,
+        total=cards.total,
+    )
+
+
+def _entry(entry: EntryOut) -> ReportEntryOut:
+    return ReportEntryOut(title=entry.title, href=entry.href, mark=entry.mark, note=entry.note)
+
+
+def _day(day: DayOut) -> ReportDayOut:
+    return ReportDayOut(
+        iso=day.iso,
+        number=day.number,
+        in_month=day.in_month,
+        is_today=day.is_today,
+        entries=[_entry(entry) for entry in day.entries],
+        more=day.more,
+        more_href=day.more_href,
+    )
+
+
+def _calendar(calendar: CalendarOut) -> ReportCalendarOut:
+    return ReportCalendarOut(
+        mode=calendar.mode,
+        heading=calendar.heading,
+        weeks=[[_day(day) for day in week] for week in calendar.weeks],
+        days=[_day(day) for day in calendar.days],
+        undated=calendar.undated,
+        prev_href=calendar.prev_href,
+        next_href=calendar.next_href,
+        today_href=calendar.today_href,
+        switch_href=calendar.switch_href,
+        month_value=calendar.month_value,
+        keep=_pairs(calendar.keep),
+        total=calendar.total,
+    )
+
+
+def _tick(tick: TickOut) -> ReportTickOut:
+    return ReportTickOut(label=tick.label, left_pct=tick.left_pct)
+
+
+def _timeline_bar(bar: BarOut) -> ReportTimelineBarOut:
+    return ReportTimelineBarOut(
+        title=bar.title,
+        href=bar.href,
+        mark=bar.mark,
+        left_pct=bar.left_pct,
+        width_pct=bar.width_pct,
+        label=bar.label,
+        tip_title=bar.tip_title,
+        tip=bar.tip,
+    )
+
+
+def _timeline_group(group: BarGroupOut) -> ReportTimelineGroupOut:
+    return ReportTimelineGroupOut(
+        label=group.label,
+        count=group.count,
+        bars=[_timeline_bar(bar) for bar in group.bars],
+    )
+
+
+def _timeline(timeline: TimelineOut) -> ReportTimelineOut:
+    return ReportTimelineOut(
+        groups=[_timeline_group(group) for group in timeline.groups],
+        ticks=[_tick(tick) for tick in timeline.ticks],
+        today_pct=timeline.today_pct,
+        first=timeline.first,
+        last=timeline.last,
+        undated=timeline.undated,
+        off_axis=timeline.off_axis,
+        clipped=timeline.clipped,
+        over_cap=timeline.over_cap,
+        cap=timeline.cap,
+        years=timeline.years,
+        total=timeline.total,
+        year=timeline.year,
+        year_prev_href=timeline.year_prev_href,
+        year_next_href=timeline.year_next_href,
+        all_href=timeline.all_href,
+        enter_href=timeline.enter_href,
+    )
+
+
+def _chart_row(row: ChartRowOut) -> ReportChartRowOut:
+    return ReportChartRowOut(label=row.label, href=row.href, cells=row.cells, total=row.total)
+
+
+def _chart(chart: ChartOut) -> ReportChartOut:
+    return ReportChartOut(
+        kind=chart.kind,
+        kind_label=chart.kind_label,
+        value_label=chart.value_label,
+        category_label=chart.category_label,
+        series_labels=chart.series_labels,
+        rows=[_chart_row(row) for row in chart.rows],
+        labels=chart.labels,
+        values=chart.values,
+        series=[ReportChartSeriesOut(label=s.label, values=s.values) for s in chart.series],
+        money=chart.money,
+        percent=chart.percent,
+        hrefs=chart.hrefs,
+        masked=chart.masked,
+        note=chart.note,
+    )
+
+
+def _pivot_cell(text: str, href: str) -> ReportPivotCellOut:
+    return ReportPivotCellOut(text=text, href=href)
+
+
+def _pivot_row(row: PivotRowOut) -> ReportPivotRowOut:
+    return ReportPivotRowOut(
+        label=row.label,
+        href=row.href,
+        cells=[_pivot_cell(text, href) for text, href in row.cells],
+        total=row.total,
+    )
+
+
+def _pivot_grid(grid: PivotGridOut) -> ReportPivotGridOut:
+    return ReportPivotGridOut(
+        caption=grid.caption,
+        corner_label=grid.corner_label,
+        col_heads=[ReportPivotHeadOut(label=label, href=href) for label, href in grid.col_heads],
+        rows=[_pivot_row(row) for row in grid.rows],
+        col_totals=grid.col_totals,
+        grand=grid.grand,
+        masked=grid.masked,
+        note=grid.note,
+        empty=grid.empty,
+    )
+
+
+def _pivot(pivot: PivotOut) -> ReportPivotOut:
+    return ReportPivotOut(grids=[_pivot_grid(grid) for grid in pivot.grids])
+
+
+def _layout_page(layout: LayoutPage, page: TablePage) -> ReportLayoutPageOut:
+    """The layout page: the layout's own payload (exactly one set), with the page-level lines the table answer has."""
+    return ReportLayoutPageOut(
+        kind=layout.kind,
+        bar=_layout_bar(layout.bar),
+        count=layout.count,
+        board=_board(layout.board) if layout.board is not None else None,
+        cards=_cards(layout.cards) if layout.cards is not None else None,
+        calendar=_calendar(layout.calendar) if layout.calendar is not None else None,
+        timeline=_timeline(layout.timeline) if layout.timeline is not None else None,
+        chart=_chart(layout.chart) if layout.chart is not None else None,
+        pivot=_pivot(layout.pivot) if layout.pivot is not None else None,
+        rules_text=page.rules_text,
+        shows_count=page.shows_count,
+        note=page.note,
+        clear_rules_url=page.clear_rules_url,
+        query=page.query,
+    )
+
+
 def _report_for(key: str, user: User) -> Report:
     report = registry.get(key)
     if report is None:
@@ -397,7 +843,8 @@ def _filters_query(request: HttpRequest) -> QueryDict:
 @report_router.get("/{key}", response=ReportPageOut)
 def report_page(request: HttpRequest, response: HttpResponse, key: str, offset: str = "0") -> ReportPageOut:
     """The report's head, filter bar and table layout for the address. The redirect is answered before the table is
-    built, as the Django page does. A layout other than the table answers the head and the bar with no table."""
+    built, as the Django page does. A layout other than the table answers the head, the bar and the layout page (its
+    payload) with no table."""
     user = request_user(request)
     report = _report_for(key, user)
     response["Cache-Control"] = "no-store"
@@ -405,9 +852,14 @@ def report_page(request: HttpRequest, response: HttpResponse, key: str, offset: 
     path = reverse("reports:report", args=[key])
     target = default_view_redirect(params, False, request.method or "GET", user, report)
     if target:
-        return ReportPageOut(redirect=target, title="", layout="", head=None, bar=None, table=None)
+        return ReportPageOut(redirect=target, title="", layout="", head=None, bar=None, table=None, layout_page=None)
     page = table_page(params, path, user, report, parse_offset(offset))
     head = page_head(params, False, path, user, report, page.table, bool(report.saved_views))
+    layout = None
+    if page.layout != "table":
+        layout = layout_page(
+            params, path, user, report, page.table, page.adds, bool(report.saved_views), parse_offset(offset)
+        )
     return ReportPageOut(
         redirect="",
         title=head.title,
@@ -415,6 +867,7 @@ def report_page(request: HttpRequest, response: HttpResponse, key: str, offset: 
         head=_head(head),
         bar=_bar(page.bar) if page.bar is not None else None,
         table=_table(page) if page.layout == "table" else None,
+        layout_page=_layout_page(layout, page) if layout is not None else None,
     )
 
 
@@ -434,6 +887,25 @@ def report_rows(request: HttpRequest, response: HttpResponse, key: str, offset: 
         with_bar=False,
     )
     return ReportRowsOut(groups=[_group(group) for group in page.groups], next_offset=page.next_offset)
+
+
+@report_router.get("/{key}/cards", response=ReportCardsOut)
+def report_cards(request: HttpRequest, response: HttpResponse, key: str, offset: str = "0") -> ReportCardsOut:
+    """One batch of the cards layout for the address (the same cards the page draws). The address must name the
+    cards layout, else 404 «not_found» (no cards to batch). The table is built without its filter bar, as rows is."""
+    user = request_user(request)
+    report = _report_for(key, user)
+    response["Cache-Control"] = "no-store"
+    params = _filters_query(request)
+    path = reverse("reports:report", args=[key])
+    page = table_page(params, path, user, report, parse_offset(offset), with_bar=False)
+    if page.layout != "cards":
+        raise ApiError(404, [NOT_FOUND], code="not_found")
+    layout = layout_page(
+        params, path, user, report, page.table, page.adds, bool(report.saved_views), parse_offset(offset)
+    )
+    assert layout is not None and layout.cards is not None  # the cards layout always has its payload
+    return _cards(layout.cards)
 
 
 # --- the pop-ups: «Багана сонгох», «Шүүлтүүр», «Хэлбэр» (read only: the model each pop-up draws) ---------------------

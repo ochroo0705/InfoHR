@@ -36,7 +36,7 @@ FORBIDDEN = {"field_errors": {}, "form_errors": ["Хандах эрх байхг
 NAMES = ("Бат", "Ганаа", "Дорж", "Номин", "Сараа")
 SECRET_SALARY = 731415  # the value of the salary column in the rows below; must never reach a user without the right
 
-PAGE_KEYS = {"redirect", "title", "layout", "head", "bar", "table"}
+PAGE_KEYS = {"redirect", "title", "layout", "head", "bar", "table", "layout_page"}
 HEAD_KEYS = {
     "title",
     "saved",

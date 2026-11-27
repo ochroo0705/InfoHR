@@ -165,6 +165,7 @@ function tablePage(table: Partial<ReportTableOut> = {}, head: Partial<ReportHead
     bar: barFixture(),
     head: headFixture(head),
     layout: "table",
+    layout_page: null,
     redirect: "",
     table: tableFixture(table),
     title: "Ажилчдын жагсаалт",

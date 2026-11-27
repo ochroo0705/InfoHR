@@ -92,6 +92,15 @@
         ],
         "createdAt": "2026-11-23T02:59:58.040Z",
         "reason": "Claude: Today mockup reproduces the real product's attention lines (border-l-4 in web/src/screens/today/AttentionGroup.tsx); fidelity, not decoration. Not user confirmed."
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "web/src/screens/reports/layouts/CardItem.tsx"
+        ],
+        "createdAt": "2026-11-25T10:30:26.257Z",
+        "reason": "controller: verbatim port of the Django _cards_batch.html photo-initial tile (flat bg-violet-100 text-violet-700, the product's existing accent); plan requires Django classes; not a gradient"
       }
     ]
   }

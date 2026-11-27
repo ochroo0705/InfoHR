@@ -13,12 +13,20 @@ import {
   useUpdateView,
   useViewForm,
   useCatalogue,
+  useReportCards,
   useReportPage,
   useReportRows,
+  type ReportCardsOut,
   type ReportPageOut,
   type ReportTableOut,
   type ReportViewIn,
 } from "./reports";
+
+const CARDS_FIRST = {
+  items: [{ title: "Нэг", href: "/a/1" }],
+  next_offset: 2,
+  total: 3,
+} as unknown as ReportCardsOut;
 
 const TABLE_FIRST = {
   address: "/reports/staff/",
@@ -144,6 +152,29 @@ describe("report API", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/rows");
     expect(urlOf(0).search).toBe("?q=a&add=branch&offset=50");
+    await vi.waitFor(() => expect(result.current.data?.pages.length).toBe(2));
+    expect(result.current.hasNextPage).toBe(false);
+  });
+
+  it("cards_request_adds_offset: the seeded first batch is not requested again, the next batch is", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { items: [], next_offset: null, total: 3 }));
+
+    const { result } = renderHook(() => useReportCards("staff", "q=a&add=branch", CARDS_FIRST, 1), {
+      wrapper: wrapperFor(client),
+    });
+
+    // The first batch comes from the page answer: nothing is sent on mount.
+    expect(result.current.data?.pages[0].next_offset).toBe(2);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.hasNextPage).toBe(true);
+
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/cards");
+    expect(urlOf(0).search).toBe("?q=a&add=branch&offset=2");
     await vi.waitFor(() => expect(result.current.data?.pages.length).toBe(2));
     expect(result.current.hasNextPage).toBe(false);
   });
