@@ -40,3 +40,27 @@ def read(token: str) -> TokenUser | None:
     except (signing.BadSignature, KeyError, TypeError, ValueError):
         return None
     return user if user.expires_at > time.time() else None
+
+
+# --- the short-lived key that opens the Advanced settings --------------------------------------------------------
+ADVANCED_SALT = "autoservice.advanced.v1"
+ADVANCED_TTL = 10 * 60  # seconds: asking for the password again is the point of this key
+
+
+def advanced_ttl() -> int:
+    return int(getattr(settings, "AUTOSERVICE_ADVANCED_TTL", ADVANCED_TTL))
+
+
+def issue_advanced(username: str) -> tuple[str, int]:
+    """A key that proves `username` just typed their password; it works for them only, for a few minutes."""
+    expires_at = int(time.time()) + advanced_ttl()
+    return signing.dumps({"u": username, "x": expires_at}, salt=ADVANCED_SALT), expires_at
+
+
+def read_advanced(token: str, username: str) -> bool:
+    """True when `token` is a live Advanced key issued to this very user."""
+    try:
+        data = signing.loads(token, salt=ADVANCED_SALT, max_age=advanced_ttl())
+        return str(data["u"]) == username and int(data["x"]) > time.time()
+    except (signing.BadSignature, KeyError, TypeError, ValueError):
+        return False

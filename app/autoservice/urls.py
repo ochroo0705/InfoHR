@@ -1,6 +1,6 @@
 from django.urls import path
 
-from autoservice import repairs, views, views_quotes, views_repairs
+from autoservice import repairs, views, views_quotes, views_repairs, views_settings
 
 app_name = "autoservice"
 
@@ -30,4 +30,7 @@ urlpatterns = [
     *_shop("repairs", repairs.AGGREGATE, "repairs"),
     *_shop("body-repairs", repairs.BODY, "body-repairs"),
     path("payment-methods", views_repairs.payment_methods, name="payment-methods"),
+    path("settings", views_settings.settings_main, name="settings"),
+    path("settings/advanced/unlock", views_settings.advanced_unlock, name="settings-advanced-unlock"),
+    path("settings/advanced", views_settings.settings_advanced, name="settings-advanced"),
 ]

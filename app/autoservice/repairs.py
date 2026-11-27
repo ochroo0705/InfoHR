@@ -737,22 +737,32 @@ def _status(c: Any, pk: int, kind: int = AGGREGATE) -> int | None:
     return None if row is None else int(row[0])
 
 
+def _claim_doc_no(c: Any, kind: int) -> str:
+    """The number the desktop program would give the next card: the shop's segment + INFO.<SHOP>_LASTNUMBER + 1
+    (225218 = "22" + 5218). Nothing in the database bumps LASTNUMBER, the desktop client does, so we do it too
+    (same transaction as the card): otherwise its next card would repeat ours."""
+    prefix = "KUZOV" if kind == BODY else "AGGREG"
+    c.execute(f"SELECT {prefix}_SEGMENT, {prefix}_LASTNUMBER FROM INFO")  # noqa: S608 - constant column names
+    segment, last = c.fetchone()
+    segment = (segment or "").strip()
+    number = int(last or 0) + 1
+    # Never reuse a number a card already has (INFO can lag behind cards made before it was kept up to date).
+    c.execute("SELECT DOC_NO FROM SERVCARDS WHERE SERVCARD_TYPE = %s", [kind])
+    taken = {n.strip() for (n,) in c.fetchall() if n}
+    while f"{segment}{number}" in taken:
+        number += 1
+    c.execute(f"UPDATE INFO SET {prefix}_LASTNUMBER = %s", [number])  # noqa: S608 - constant column name
+    return cut(f"{segment}{number}", "doc_no")
+
+
 def create(data: dict[str, Any], user: str) -> int:
-    """Insert a not-started card with its lines (call inside a transaction). The number is the last numeric one + 1."""
+    """Insert a not-started card with its lines (call inside a transaction), numbered like the desktop program."""
     with connection.cursor() as c:
-        # Some numbers are not numeric ('AGR-1'), so the highest number is taken here, not with a SQL CAST.
-        c.execute("SELECT DOC_NO FROM SERVCARDS WHERE SERVCARD_TYPE = %s", [data["kind"]])
-        number = (
-            max(
-                (int(n.strip()) for (n,) in c.fetchall() if n and n.strip().isdigit() and len(n.strip()) < 10),
-                default=0,
-            )
-            + 1
-        )
+        doc_no = _claim_doc_no(c, data["kind"])
         pk = _next_id(c, "GEN_SERVCARDS_ID")
         values = {
             "SERVCARD_ID": pk,
-            "DOC_NO": cut(number, "doc_no"),
+            "DOC_NO": doc_no,
             "SERVCARD_TYPE": data["kind"],
             "SERV_STATUS": NOT_STARTED,
             "REG_USER": cut(user, "user"),
