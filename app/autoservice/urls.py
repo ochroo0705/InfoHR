@@ -1,6 +1,6 @@
 from django.urls import path
 
-from autoservice import views
+from autoservice import views, views_quotes
 
 app_name = "autoservice"
 
@@ -10,4 +10,6 @@ urlpatterns = [
     path("me", views.me, name="me"),
     path("dirs", views.directory_index, name="directories"),
     path("dirs/<slug:slug>", views.directory, name="directory"),
+    path("quotes", views_quotes.quote_list, name="quotes"),
+    path("quotes/<int:pk>", views_quotes.quote_detail, name="quote"),
 ]
