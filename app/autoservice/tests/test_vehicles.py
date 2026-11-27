@@ -55,6 +55,83 @@ def test_parse_refuses_bad_input(patch: dict[str, Any]) -> None:
         vehicles.parse({**BASE, **patch})
 
 
+def test_a_mark_the_registry_named_can_stand_in_for_mark_id() -> None:
+    d = vehicles.parse({"plate": "1", "new_mark": {"make": "HYUNDAI", "model": " Porter 2 ", "class_name": "Ачааны"}})
+    assert d["mark_id"] == 0 and d["new_mark"] == {"make": "HYUNDAI", "model": "Porter 2", "class_name": "Ачааны"}
+    with pytest.raises(vehicles.VehicleError):  # neither a picked mark nor a registry one
+        vehicles.parse({"plate": "1", "new_mark": {"make": "", "model": ""}})
+
+
+class FakeCursor:
+    """Answers the SELECTs of resolve_mark from a dict and records the INSERTs."""
+
+    def __init__(self, marks: dict[str, int], types: list[tuple[int, str]], makes: dict[str, int]) -> None:
+        self.marks, self.types, self.makes = marks, types, makes
+        self.inserted: list[tuple[str, list[Any]]] = []
+        self._next = 100
+        self._rows: list[tuple[Any, ...]] = []
+
+    def execute(self, sql: str, params: list[Any] | None = None) -> None:
+        params = params or []
+        if sql.startswith("SELECT CAR_ID FROM CAR_REF"):
+            self._rows = [(self.marks[params[0]],)] if params[0] in self.marks else []
+        elif sql.startswith("SELECT MANUF_ID"):
+            self._rows = [(self.makes[params[0]],)] if params[0] in self.makes else []
+        elif sql.startswith("SELECT CARTYPE_ID"):
+            self._rows = list(self.types)
+        elif sql.startswith("SELECT GEN_ID"):
+            self._next += 1
+            self._rows = [(self._next,)]
+        elif sql.startswith("INSERT"):
+            self.inserted.append((sql.split("(")[0].strip(), params))
+
+    def fetchone(self) -> tuple[Any, ...] | None:
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self) -> list[tuple[Any, ...]]:
+        return self._rows
+
+
+TYPES = [(5, "Суудлын"), (6, "Ачааны"), (9, "Жип")]
+
+
+def _d(**mark: str) -> dict[str, Any]:
+    return {"mark_id": 0, "new_mark": {"make": "", "model": "", "class_name": "", **mark}}
+
+
+def test_resolve_mark_creates_the_manufacturer_and_the_mark() -> None:
+    c = FakeCursor({}, TYPES, {})
+    d = _d(make="HYUNDAI", model="Porter 2", class_name="Ачааны")
+    vehicles.resolve_mark(c, d)
+    assert d["mark_created"] and d["mark_id"] == 102
+    assert c.inserted == [
+        ("INSERT INTO MANUF_REF", [101, "Hyundai"]),  # "HYUNDAI" -> "Hyundai"
+        ("INSERT INTO CAR_REF", [102, "Porter 2", 101, 6]),  # cargo type from the class text
+    ]
+
+
+def test_resolve_mark_reuses_what_exists() -> None:
+    c = FakeCursor({"PRIUS 30": 49}, TYPES, {})
+    d = _d(make="TOYOTA", model="Prius 30")
+    vehicles.resolve_mark(c, d)
+    assert d["mark_id"] == 49 and not d["mark_created"] and c.inserted == []
+    c = FakeCursor({}, TYPES, {"TOYOTA": 9})  # a known make is not added twice
+    vehicles.resolve_mark(c, _d(make="toyota", model="Aqua 2"))
+    assert c.inserted == [("INSERT INTO CAR_REF", [101, "Aqua 2", 9, 5])]  # passenger by default
+
+
+def test_resolve_mark_leaves_a_picked_mark_alone() -> None:
+    c = FakeCursor({}, TYPES, {})
+    d = {**_d(make="X", model="Never"), "mark_id": 49}
+    vehicles.resolve_mark(c, d)
+    assert d["mark_id"] == 49 and not d["mark_created"] and c.inserted == []
+
+
+def test_car_type_follows_the_registry_class() -> None:
+    c = FakeCursor({}, TYPES, {})
+    assert [vehicles._car_type(c, t) for t in ("Ачаа", "Жип", "Суудал", "")] == [6, 9, 5, 5]
+
+
 def test_hur_answer_is_parsed_and_hidden_fields_are_dropped() -> None:
     v = hur.parse(HUR_ANSWER, "8366УБГ")
     assert (v["make"], v["model"], v["year"], v["vin"]) == ("TOYOTA", "Prius 30", 2012, "ZVW305452132")

@@ -79,11 +79,78 @@ def parse(body: dict[str, Any]) -> dict[str, Any]:
         out["year"] = int(year) if year else None
     except (TypeError, ValueError):
         raise VehicleError("Марк, байгууллага, он тоон утгатай байх ёстой.") from None
-    if out["mark_id"] <= 0:
+    # A mark the registry (ХУР) named that our list does not have yet: created on save (see resolve_mark).
+    raw = body.get("new_mark")
+    new_mark = raw if isinstance(raw, dict) else {}
+    out["new_mark"] = {k: str(new_mark.get(k) or "").strip() for k in ("make", "model", "class_name")}
+    if out["mark_id"] <= 0 and not (out["new_mark"]["model"] or out["new_mark"]["make"]):
         raise VehicleError("Марк сонгоно уу.")
     if out["year"] is not None and not 1900 <= out["year"] <= 2100:
         raise VehicleError("Үйлдвэрлэсэн он буруу байна.")
     return out
+
+
+MARK_LIMIT = 120  # CAR_REF.DESCRIPTION and MANUF_REF.DESCRIPTION
+
+
+def _car_type(c: Any, hint: str) -> int:
+    """CAR_TYPE for a registry class / purpose text: cargo, jeep, else passenger (the desktop's three types)."""
+    c.execute("SELECT CARTYPE_ID, DESCRIPTION FROM CAR_TYPE ORDER BY CARTYPE_ID")
+    types = [(r[0], (clean(r[1]) or "").lower()) for r in c.fetchall()]
+    if not types:
+        raise VehicleError("Машины төрөл (CAR_TYPE) бүртгэлгүй байна.")
+    text = hint.lower()
+    for words, stem in ((("ачаа", "тээвэр"), "ачаа"), (("жип", "джип", "jeep"), "жип")):
+        if any(w in text for w in words):
+            for type_id, name in types:
+                if stem in name:
+                    return int(type_id)
+    for type_id, name in types:
+        if "суудл" in name:
+            return int(type_id)
+    return int(types[0][0])
+
+
+def _manufacturer(c: Any, make: str) -> int:
+    """MANUF_REF id of a make (case-insensitive); created when we do not have it."""
+    c.execute("SELECT MANUF_ID FROM MANUF_REF WHERE UPPER(TRIM(DESCRIPTION)) = %s", [make.upper()])
+    row = c.fetchone()
+    if row:
+        return int(row[0])
+    name = make.capitalize() if make.isupper() and len(make) > 3 else make  # "TOYOTA" -> "Toyota", "BMW" stays
+    c.execute("SELECT GEN_ID(GEN_MANUF_REF_ID, 1) FROM RDB$DATABASE")
+    pk = int(c.fetchone()[0])
+    c.execute("INSERT INTO MANUF_REF (MANUF_ID, DESCRIPTION) VALUES (%s, %s)", [pk, name])
+    return pk
+
+
+def resolve_mark(c: Any, d: dict[str, Any]) -> None:
+    """Sets d["mark_id"]. A mark the registry named that CAR_REF lacks is created (with its manufacturer if needed).
+
+    d["mark_created"] tells the caller whether a row was added. Nothing happens when a mark was picked from the list.
+    """
+    d["mark_created"] = False
+    if d["mark_id"] > 0:
+        return
+    make, model = d["new_mark"]["make"], d["new_mark"]["model"]
+    name = (model or make)[:MARK_LIMIT]
+    c.execute("SELECT CAR_ID FROM CAR_REF WHERE UPPER(TRIM(DESCRIPTION)) = %s", [name.upper()])
+    row = c.fetchone()  # the name is unique in CAR_REF: reuse it
+    if row:
+        d["mark_id"] = int(row[0])
+        return
+    if len(make) > MARK_LIMIT:
+        raise VehicleError(f"Үйлдвэрлэгчийн нэр хэт урт байна ({MARK_LIMIT} тэмдэгтээс ихгүй).")
+    manufacturer = _manufacturer(c, make or name)
+    car_type = _car_type(c, d["new_mark"]["class_name"])
+    c.execute("SELECT GEN_ID(GEN_CAR_REF_ID, 1) FROM RDB$DATABASE")
+    pk = int(c.fetchone()[0])
+    c.execute(
+        "INSERT INTO CAR_REF (CAR_ID, DESCRIPTION, MANUF_IDENT, CARTYPE_IDENT) VALUES (%s, %s, %s, %s)",
+        [pk, name, manufacturer, car_type],
+    )
+    d["mark_id"] = pk
+    d["mark_created"] = True
 
 
 SELECT = (
@@ -150,6 +217,7 @@ def _check_plate(c: Any, plate: str, own: int | None) -> None:
 def create(d: dict[str, Any]) -> int:
     with connection.cursor() as c:
         _check_plate(c, d["plate"], None)
+        resolve_mark(c, d)
         c.execute("SELECT GEN_ID(GEN_CARS_ID, 1) FROM RDB$DATABASE")
         pk = int(c.fetchone()[0])
         c.execute(
@@ -168,6 +236,7 @@ def replace(pk: int, d: dict[str, Any]) -> bool:
         if c.fetchone() is None:
             return False
         _check_plate(c, d["plate"], pk)
+        resolve_mark(c, d)
         c.execute(
             "UPDATE CARS SET CAR_NO = %s, CAR_IDENT = %s, ENGINE_TYPE = %s, CAR_COLOR = %s, VIN_NUMBER = %s, "
             "KUZOV_NO = %s, ENGINE_NUMBER = %s, MAKE_YEAR = %s, CERTIFICATE = %s, DRIVER_NO = %s, SPECIFICATION = %s, "
@@ -201,7 +270,7 @@ def find_by_plate(plate: str) -> int | None:
 
 def match_hur(info: dict[str, Any]) -> dict[str, Any]:
     """What a registry answer means for our lists: the CAR_REF mark and CUSTOMER organisation it most likely names."""
-    out: dict[str, Any] = {"mark": None, "org": None}
+    out: dict[str, Any] = {"mark": None, "new_mark": None, "org": None}
     names = [n for n in (info.get("model"), f"{info.get('make') or ''} {info.get('model') or ''}".strip()) if n]
     with connection.cursor() as c:
         for name in names:
@@ -210,6 +279,14 @@ def match_hur(info: dict[str, Any]) -> dict[str, Any]:
             if row:
                 out["mark"] = {"id": row[0], "name": clean(row[1])}
                 break
+        if out["mark"] is None and (info.get("model") or info.get("make")):
+            # Not in our list: the screen sends this back on save and the mark is created then (resolve_mark).
+            out["new_mark"] = {
+                "make": info.get("make") or "",
+                "model": info.get("model") or "",
+                "class_name": info.get("class_name") or info.get("purpose") or "",
+                "name": info.get("model") or info.get("make"),
+            }
         register = (info.get("owner") or {}).get("register")
         if register and register.isdigit():  # 7 digits: an organisation (carcare.mn ownerKindFromRegnum)
             c.execute("SELECT FIRST 1 CUST_ID, DESCRIPTION FROM CUSTOMER WHERE REGISTER = %s", [register])

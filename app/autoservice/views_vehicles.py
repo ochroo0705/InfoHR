@@ -32,9 +32,12 @@ def _json(request: HttpRequest) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def _full(pk: int, status: int = 200) -> JsonResponse:
+def _full(pk: int, status: int = 200, mark_created: bool = False) -> JsonResponse:
     v = vehicles.load(pk)
-    return error(404, NOT_FOUND) if v is None else ok(v, status)
+    # `mark_created`: the mark came from the registry and was added to CAR_REF by this save
+    return (
+        error(404, NOT_FOUND) if v is None else ok({**v, "mark_created": mark_created} if mark_created else v, status)
+    )
 
 
 def _save(request: HttpRequest, pk: int | None) -> HttpResponse:
@@ -54,7 +57,7 @@ def _save(request: HttpRequest, pk: int | None) -> HttpResponse:
         return error(400, str(e))
     except IntegrityError:
         return error(400, "Марк эсвэл байгууллага олдсонгүй.")
-    return _full(new_id, 201 if pk is None else 200)
+    return _full(new_id, 201 if pk is None else 200, bool(data.get("mark_created")))
 
 
 @csrf_exempt
