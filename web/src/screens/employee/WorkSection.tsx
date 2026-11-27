@@ -3,14 +3,15 @@ import type { EmployeeHeadOut } from "../../api/employee";
 import { useEmployeeWork } from "../../api/employee";
 import { ChecklistPanels } from "./ChecklistPanels";
 import { LeaveBlock } from "./LeaveBlock";
+import { ReportingLine } from "./ReportingLine";
 import { SetupCard } from "./SetupCard";
 import { WorkFacts } from "./WorkFacts";
 import { WorkJobs } from "./WorkJobs";
 import { WorkOrders } from "./WorkOrders";
 
-// Port of `employees/_tab_work.html`: the Work tab body, in the template's order: the setup card (from the header, passed
-// in as `setup`), the job and contract facts, the waiting and history tables, the other orders, the leave block, and the
-// checklist panels. Nothing draws before the Work data arrives (the page's loading bar is the only feedback). A failed
+// Port of `employees/_tab_work.html`: the Work tab body, in the order: the setup card (from the header, passed in as
+// `setup`), the job and contract facts, the reporting line (the manager chain), the job rows, the waiting and history
+// tables, the other orders, the leave block, and the checklist panels. Nothing draws before the Work data arrives (the page's loading bar is the only feedback). A failed
 // request shows the section's error line, as the other step-2 screens do.
 export function WorkSection({ pk, setup }: { pk: number; setup: EmployeeHeadOut["setup"] }) {
   const query = useEmployeeWork(pk);
@@ -30,6 +31,7 @@ export function WorkSection({ pk, setup }: { pk: number; setup: EmployeeHeadOut[
         <>
           <SetupCard setup={setup} pk={pk} />
           <WorkFacts work={work} />
+          <ReportingLine key={pk} pk={pk} />
           <WorkJobs work={work} pk={pk} />
           <WorkOrders work={work} pk={pk} warning={warning} />
           <LeaveBlock work={work} pk={pk} />

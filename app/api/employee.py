@@ -17,9 +17,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import Truncator
 from employees import access, sections, stale
-from employees.models import ActivityEntry, ContractType, Employee, Event, OrderState, ext_of
+from employees.models import ActivityEntry, ContractType, Employee, Event, JobRecord, OrderState, ext_of
+from employees.services import history
 from employees.services.detail_page import ACTIVITY_BATCH, detail_facts
 from employees.services.form_schema import describe_field
+from employees.services.reporting_line import Level, reporting_line
 from employees.templatetags.hr import day_label, mnt, thumb
 from employees.views import ONE_TIME_LOGIN_KEY, ORDER_WARNING_KEY
 from leave.models import GrantKind
@@ -133,6 +135,25 @@ class EmployeeHeadOut(Schema):
     event_menu: list[EventMenuItemOut]
     can: CanOut
     one_time_login: OneTimeLoginOut | None  # once: the hire form's password, removed from the session on this read
+
+
+class ReportingPersonOut(Schema):
+    pk: int
+    full_name: str
+    given_initial: str  # the first letter of the given name (the placeholder square)
+    photo_url: str  # "" when there is no photo
+    photo_srcset: str  # the 2x and 3x thumbnails of the photo, "" when there is no photo
+    position: str  # the person's job in force on the day, "" without one
+    department: str  # as position
+    work_phone: str
+    email: str
+    until: str  # YYYY-MM-DD: the last day of the lower person's job record; "" when open-ended (or the subject)
+
+
+class ReportingLineOut(Schema):
+    day: str  # YYYY-MM-DD: the day the chain is read for (today when none was asked)
+    employee: ReportingPersonOut  # the subject
+    levels: list[ReportingPersonOut]  # the managers above the subject, direct manager first
 
 
 class ChipOut(Schema):
@@ -558,6 +579,48 @@ def employee_head(request: HttpRequest, response: HttpResponse, pk: int) -> dict
             "record_leave": bool(facts.get("can_record_leave", False)),
         },
         "one_time_login": one_time,
+    }
+
+
+_BAD_DAY = "Буруу огноо"
+
+
+def _person_out(employee: Employee, job: JobRecord | None, until: date | None) -> dict[str, Any]:
+    photo_url, srcset = _photo(employee)
+    return {
+        "pk": employee.pk,
+        "full_name": employee.full_name,
+        "given_initial": employee.given_name[:1],
+        "photo_url": photo_url,
+        "photo_srcset": srcset,
+        "position": _fk_text(job.position) if job is not None else "",
+        "department": _fk_text(job.department) if job is not None else "",
+        "work_phone": employee.work_phone or "",
+        "email": employee.email or "",
+        "until": _iso(until),
+    }
+
+
+@employee_router.get("/{pk}/reporting-line", auth=django_auth, response=ReportingLineOut)
+def employee_reporting_line(request: HttpRequest, pk: int, day: str = "") -> dict[str, Any]:
+    """The managers above one employee the signed-in user may see, on a day (today when none is given). 404 otherwise,
+    400 when the day is not an ISO date."""
+    user = _user(request)
+    employee = access.visible_employees(user).filter(pk=pk).first()
+    if employee is None:
+        raise HttpError(404, _NOT_FOUND)
+    if day:
+        try:
+            on = date.fromisoformat(day)
+        except ValueError:
+            raise HttpError(400, _BAD_DAY) from None
+    else:
+        on = timezone.localdate()
+    levels: list[Level] = reporting_line(employee.pk, on)
+    return {
+        "day": on.isoformat(),
+        "employee": _person_out(employee, history.job_on(employee, on), None),
+        "levels": [_person_out(level.employee, level.job, level.until) for level in levels],
     }
 
 

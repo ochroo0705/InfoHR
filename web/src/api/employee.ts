@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { api } from "./client";
 import { retryMe } from "./me";
 import { unwrapQuery } from "./mutate";
@@ -10,6 +10,8 @@ export type WorkFieldOut = components["schemas"]["WorkFieldOut"];
 export type EmployeeSalaryOut = components["schemas"]["EmployeeSalaryOut"];
 export type EmployeePersonalOut = components["schemas"]["EmployeePersonalOut"];
 export type EmployeeActivityOut = components["schemas"]["EmployeeActivityOut"];
+export type ReportingLineOut = components["schemas"]["ReportingLineOut"];
+export type ReportingPersonOut = components["schemas"]["ReportingPersonOut"];
 
 // The header, rail and rights of one employee (404 outside the user's scope). Its one-time login is returned once, so
 // the query is not kept in the cache after the page leaves (gcTime 0). The page keeps the value in its own state.
@@ -36,6 +38,24 @@ export function useEmployeeWork(pk: number) {
     queryFn: async () => {
       const result = await api.GET("/api/v1/employees/{pk}/work", { params: { path: { pk } } });
       return unwrapQuery<EmployeeWorkOut>(result, "employee request failed");
+    },
+  });
+}
+
+// The chain of managers above one employee, for `day` (YYYY-MM-DD; "" means today, so no day parameter is sent).
+export function useReportingLine(pk: number, day: string) {
+  return useQuery({
+    queryKey: ["employee", pk, "reporting-line", day],
+    // While another day loads, the previous chain stays on screen.
+    placeholderData: keepPreviousData,
+    retry: retryMe,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async () => {
+      const result = await api.GET("/api/v1/employees/{pk}/reporting-line", {
+        params: { path: { pk }, query: day ? { day } : {} },
+      });
+      return unwrapQuery<ReportingLineOut>(result, "employee request failed");
     },
   });
 }

@@ -8,12 +8,14 @@ import { MeHeader } from "./MeHeader";
 import { MyRequests } from "./MyRequests";
 import { MyTasks } from "./MyTasks";
 import { Notices } from "./Notices";
+import { ReportingLine } from "../employee/ReportingLine";
 import { Queue } from "./Queue";
 import { Recorded } from "./Recorded";
 import { TeamAway } from "./TeamAway";
 
-// The My page («Миний хуудас», Django me.html), at /me/. Sections top to bottom in me.html's order: notices, header
-// card, queue, tasks, team, holidays, leave balance, requests, recorded.
+// The My page («Миний хуудас», Django me.html), at /me/. Sections top to bottom: notices, header card, reporting line
+// (the manager chain, not in me.html), then me.html's order: queue, tasks, team, holidays, leave balance, requests,
+// recorded.
 const PAGE_TITLE = "Миний хуудас";
 // me.html: {% block main_width %}max-w-2xl px-4{% endblock %}
 const MAIN_WIDTH = "max-w-2xl px-4";
@@ -54,6 +56,10 @@ function MeBody({ data, failed }: { data: MeOut; failed: boolean }) {
       ) : null}
       <Notices notices={data.notices} />
       <MeHeader employee={data.employee} job={data.job} canRequest={data.can_request} />
+      {/* The signed-in user's own chain of managers (the API allows reading one's own record). It draws its own heading. */}
+      <div className="mt-6">
+        <ReportingLine key={data.employee.id} pk={data.employee.id} />
+      </div>
       <Queue queue={data.queue} />
       <MyTasks tasks={data.tasks} />
       <TeamAway hasTeam={data.has_team} teamAway={data.team_away} />

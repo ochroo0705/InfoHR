@@ -179,6 +179,16 @@ describe("MePage", () => {
     renderPage();
     expect(document.title).toBe("Миний хуудас · MACS Human Capital");
   });
+  it("shows the reporting line of the signed-in employee, asked by that employee's pk", async () => {
+    useMeReturns(makeMe({ employee: { id: 42, full_name: "Бат Дорж", initial: "Б", photo: "" } }));
+    renderPage();
+    expect(screen.getByRole("region", { name: "Удирдлагын шат" })).toBeTruthy();
+    await waitFor(() =>
+      expect(h.get).toHaveBeenCalledWith("/api/v1/employees/{pk}/reporting-line", {
+        params: { path: { pk: 42 }, query: {} },
+      }),
+    );
+  });
 });
 
 describe("MePage refetch and width", () => {
@@ -208,10 +218,14 @@ describe("MePage refetch and width", () => {
 
   it("sets the narrow main width only for the page body, not for NotFound", () => {
     const setWidth = vi.fn();
+    // The page renders the reporting line, which needs a query client (the same as renderPage).
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const withProvider = (ui: ReactNode) => (
-      <MemoryRouter>
-        <MainWidthContext.Provider value={setWidth}>{ui}</MainWidthContext.Provider>
-      </MemoryRouter>
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MainWidthContext.Provider value={setWidth}>{ui}</MainWidthContext.Provider>
+        </MemoryRouter>
+      </QueryClientProvider>
     );
 
     useMeReturns(undefined, Object.assign(new Error("not found"), { status: 404 }));

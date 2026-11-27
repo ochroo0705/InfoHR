@@ -7,6 +7,41 @@ import { type EmployeeWorkOut, useEmployeeWork } from "../../api/employee";
 import { openLegacyEmployee } from "../../lib/AppLink";
 import { WorkSection } from "./WorkSection";
 
+// fetch is stubbed before the api client is imported (openapi-fetch captures fetch when it is created), as in
+// ReportingLine.test.tsx. The reporting line is the only request the section makes; any other URL is a test bug.
+const h = vi.hoisted(() => {
+  const fetchMock = vi.fn();
+  const NativeRequest = globalThis.Request;
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => fetchMock(input, init));
+  vi.stubGlobal(
+    "Request",
+    class extends NativeRequest {
+      constructor(input: RequestInfo | URL, init?: RequestInit) {
+        super(typeof input === "string" ? new URL(input, window.location.origin) : input, init);
+      }
+    },
+  );
+  return { fetchMock };
+});
+const fetchMock = h.fetchMock;
+
+// The chain of managers for the employee: no managers above, so the tree shows only the employee.
+function reportingLine() {
+  const employee = {
+    pk: 7,
+    full_name: "Бат Болд",
+    given_initial: "ББ",
+    photo_url: "",
+    photo_srcset: "",
+    position: "Нягтлан",
+    department: "Санхүү",
+    work_phone: "",
+    email: "",
+    until: "",
+  };
+  return { day: "", employee, levels: [] };
+}
+
 vi.mock("../../lib/AppLink", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../lib/AppLink")>();
   return { ...actual, openLegacyEmployee: vi.fn(), legacyOrigin: () => "http://legacy.test" };
@@ -186,6 +221,14 @@ function renderSection(ui: ReactNode) {
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.mocked(openLegacyEmployee).mockClear();
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(async (input: unknown) => {
+    const request = input as Request;
+    if (request.method === "GET" && new URL(request.url).pathname.endsWith("/reporting-line")) {
+      return new Response(JSON.stringify(reportingLine()), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    throw new Error(`unexpected request ${request.method} ${request.url}`);
+  });
 });
 
 afterEach(() => {
@@ -259,6 +302,7 @@ describe("WorkSection", () => {
       "Гэрээ",
       "Ажлын нөхцөл, цаг",
       "Хуучин системээс (MACS)",
+      "Удирдлагын шат",
       "Гарын үсэг хүлээж буй өөрчлөлт",
       "Ажлын түүх",
       "Бусад тушаал 1",
@@ -270,6 +314,14 @@ describe("WorkSection", () => {
     const setupCard = container.querySelector("#setup");
     const first = container.querySelector("h3");
     expect(setupCard && first && setupCard.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("asks for the reporting line with the work answer and shows its region", async () => {
+    useWork(work());
+    renderSection(<WorkSection pk={7} setup={null} />);
+    expect(await screen.findByRole("region", { name: "Удирдлагын шат" })).toBeTruthy();
+    const asked = fetchMock.mock.calls.some((call) => new URL((call[0] as Request).url).pathname.endsWith("/api/v1/employees/7/reporting-line"));
+    expect(asked).toBe(true);
   });
 
   it("renders no leave block when leave.visible is false", () => {

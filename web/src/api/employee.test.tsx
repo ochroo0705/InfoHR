@@ -3,7 +3,7 @@ import { cleanup, renderHook, act, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCompany } from "./company";
-import { useEmployee, useEmployeeActivity, useEmployeeSalary } from "./employee";
+import { useEmployee, useEmployeeActivity, useEmployeeSalary, useReportingLine } from "./employee";
 import { openLegacyEmployee } from "../lib/AppLink";
 import { isPorted } from "../lib/ported";
 
@@ -148,5 +148,49 @@ describe("employee hooks", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(urlOf(0).pathname).toBe("/api/v1/company");
+  });
+});
+
+describe("reporting line hook", () => {
+  let client: QueryClient;
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("useReportingLine with an empty day asks for today's line with no day parameter", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { employee: {}, levels: [] }));
+
+    const { result } = renderHook(() => useReportingLine(5, ""), { wrapper: wrapperFor(client) });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(urlOf(0).pathname).toBe("/api/v1/employees/5/reporting-line");
+    expect(urlOf(0).searchParams.has("day")).toBe(false);
+  });
+
+  it("useReportingLine with a day asks for that day", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { employee: {}, levels: [] }));
+
+    const { result } = renderHook(() => useReportingLine(5, "2026-03-01"), { wrapper: wrapperFor(client) });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(urlOf(0).pathname).toBe("/api/v1/employees/5/reporting-line");
+    expect(urlOf(0).searchParams.get("day")).toBe("2026-03-01");
+  });
+
+  it("useReportingLine surfaces a 404 as the query error", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(404, { code: "not_found" }));
+
+    const { result } = renderHook(() => useReportingLine(5, ""), { wrapper: wrapperFor(client) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect((result.current.error as { status?: number }).status).toBe(404);
   });
 });

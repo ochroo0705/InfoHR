@@ -116,6 +116,12 @@ function emptySalary() {
   };
 }
 
+// The reporting line with no managers above the employee (the Work tab asks for it too).
+function emptyReportingLine() {
+  const employee = { pk: 7, full_name: "Бат Болд", given_initial: "ББ", photo_url: "", photo_srcset: "", position: "", department: "", work_phone: "", email: "", until: "" };
+  return { day: "", employee, levels: [] };
+}
+
 // Answers GET /api/v1/employees/<pk> with the given status and body. The Work request gets the empty Work payload.
 function answerHead(status: number, body: unknown) {
   fetchMock.mockImplementation(async (input: Request | string) => {
@@ -123,6 +129,7 @@ function answerHead(status: number, body: unknown) {
     if (url.endsWith("/work")) return jsonResponse(200, emptyWork());
     if (url.endsWith("/salary")) return jsonResponse(200, emptySalary());
     if (url.endsWith("/personal")) return jsonResponse(200, emptyPersonal());
+    if (url.endsWith("/reporting-line")) return jsonResponse(200, emptyReportingLine());
     return jsonResponse(status, body);
   });
 }
@@ -207,8 +214,8 @@ describe("EmployeePage", () => {
     await act(async () => {
       await client.refetchQueries({ queryKey: ["employee", 7], exact: true });
     });
-    // Four requests before the refetch (the header, the Work, Salary and Personal tabs), one more for the header.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    // Five requests before the refetch (the header, the Work, Salary, Personal tabs and the reporting line), one more for the header.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
     expect(screen.getByText("bat.bold")).toBeTruthy();
   });
 
@@ -352,6 +359,7 @@ describe("EmployeePage", () => {
     fetchMock.mockImplementation(async (input: Request | string) => {
       const url = typeof input === "string" ? input : input.url;
       if (url.endsWith("/page-form")) return jsonResponse(200, pageForm);
+      if (url.endsWith("/reporting-line")) return jsonResponse(200, emptyReportingLine());
       if (url.endsWith("/work")) return jsonResponse(200, emptyWork());
       if (url.endsWith("/salary")) return jsonResponse(200, emptySalary());
       if (url.endsWith("/personal")) return jsonResponse(200, emptyPersonal());
@@ -379,6 +387,7 @@ describe("EmployeePage", () => {
     fetchMock.mockImplementation(async (input: Request | string) => {
       const url = typeof input === "string" ? input : input.url;
       if (url.endsWith("/page-form")) return jsonResponse(200, pageForm);
+      if (url.endsWith("/reporting-line")) return jsonResponse(200, emptyReportingLine());
       if (url.endsWith("/save")) {
         return jsonResponse(200, { ok: true, field_errors: {}, form_errors: [], conflicts: {}, loaded: "L2", si_loaded: "", tab: "" });
       }
@@ -426,6 +435,7 @@ function setManagerFetch() {
   fetchMock.mockImplementation(async (input: Request | string) => {
     const url = typeof input === "string" ? input : input.url;
     if (url.endsWith("/page-form")) return jsonResponse(200, pageForm);
+    if (url.endsWith("/reporting-line")) return jsonResponse(200, emptyReportingLine());
     if (url.endsWith("/save")) {
       return jsonResponse(200, { ok: true, field_errors: {}, form_errors: [], conflicts: {}, loaded: "L2", si_loaded: "", tab: "" });
     }
