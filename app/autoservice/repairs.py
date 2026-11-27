@@ -33,7 +33,8 @@ from autoservice.quotes import (
 
 log = logging.getLogger(__name__)
 
-AGGREGATE = 1  # SERVCARDS.SERVCARD_TYPE of an aggregate repair (2 = body repair)
+AGGREGATE = 1  # SERVCARDS.SERVCARD_TYPE of an aggregate repair
+BODY = 2  # ... of a body (кузов) repair
 NOT_STARTED, STARTED, FINISHED = 0, 1, 2
 
 LIMITS = {"doc_no": 12, "user": 12, "journal_user": 20, "note": 800, "desc": 400}
@@ -83,6 +84,8 @@ HEADER_COLUMNS = (
     ("garage_price", "s.GARAGE_PRICE"),
     ("quote_id", "s.PRICEVOTE_IDENT"),
     ("user", "s.REG_USER"),
+    ("appraiser", "s.ESTIMATED_PERSON"),  # body sheets: who valued the damage, and when
+    ("appraisal_date", "s.ESTIMATED_DATE"),
 )
 HEADER_SELECT = ", ".join(sql for _, sql in HEADER_COLUMNS)
 
@@ -159,6 +162,10 @@ def _marks(ids: list[int]) -> str:
     return ", ".join(["%s"] * len(ids))
 
 
+def _day(v: Any) -> str:
+    return v.strftime("%Y-%m-%d") if v else ""
+
+
 def _work_lines(pks: list[int]) -> dict[int, list[dict[str, Any]]]:
     """The works of these cards, by card id (a few queries however many cards there are)."""
     out: dict[int, list[dict[str, Any]]] = {pk: [] for pk in pks}
@@ -166,14 +173,18 @@ def _work_lines(pks: list[int]) -> dict[int, list[dict[str, Any]]]:
         with connection.cursor() as c:
             c.execute(  # noqa: S608 - the f-string only holds %s marks
                 "SELECT j.SERVCARD_IDENT, j.WORK_IDENT, w.CODE, w.DESCRIPTION, j.QUANTITY, j.PRICE, j.DISC_PERCENT, "
-                "j.CARD_PERCENT, j.PRICE_NT, j.BASEPRICE, j.PROC_N, j.EMP_IDENT, e.DESCRIPTION, e.CODE "
+                "j.CARD_PERCENT, j.PRICE_NT, j.BASEPRICE, j.PROC_N, j.EMP_IDENT, e.DESCRIPTION, e.CODE, "
+                "j.STARTDATE, j.ENDDATE, j.DUEDATE, w.WORK_TYPE "
                 "FROM SERVJOBS j JOIN WORKS w ON w.WORK_ID = j.WORK_IDENT "
                 "LEFT JOIN CUSTOMER e ON e.CUST_ID = j.EMP_IDENT "
                 f"WHERE j.SERVCARD_IDENT IN ({_marks(chunk)}) ORDER BY j.SERVJOB_ID",  # noqa: S608 - only %s marks
                 chunk,
             )
             for row in c.fetchall():
-                card, ref, code, name, qty, price, disc, cardpct, price_nt, base, rate, emp, emp_name, emp_code = row
+                card, ref, code, name, qty, price, disc, cardpct, price_nt, base, rate, emp, emp_name, emp_code = row[
+                    :14
+                ]
+                started, ended, due, work_kind = row[14:]
                 # `vat` follows the line's own rate: SERVJOBS has no VAT_AMOUNT column.
                 line = pricing.line_from_db(qty, price, disc, cardpct, rate, price_nt, base, rate)
                 line.update(
@@ -183,8 +194,35 @@ def _work_lines(pks: list[int]) -> dict[int, list[dict[str, Any]]]:
                     mech_id=emp,
                     mech=_text(emp_name) or "",
                     mech_code=_text(emp_code) or "",
+                    started_on=_day(started),
+                    done_on=_day(ended),
+                    due=_day(due),
+                    kind=work_kind,  # WORKS.WORK_TYPE: 1 Төмрийн, 2 Замаск, 3 Будаг, other Бусад
                 )
                 out[card].append(line)
+    return out
+
+
+def _shares(pks: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """Body sheets: each mechanic's share (%) of the work types 1-4 (EMP_WORKPERCENT), by card id."""
+    out: dict[int, list[dict[str, Any]]] = {pk: [] for pk in pks}
+    for chunk in _chunks(pks):
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT p.SERVCARD_IDENT, p.EMP_IDENT, e.DESCRIPTION, e.CODE, p.WPERCENT1, p.WPERCENT2, "
+                "p.WPERCENT3, p.WPERCENT4 FROM EMP_WORKPERCENT p LEFT JOIN CUSTOMER e ON e.CUST_ID = p.EMP_IDENT "
+                f"WHERE p.SERVCARD_IDENT IN ({_marks(chunk)}) ORDER BY e.DESCRIPTION",
+                chunk,
+            )
+            for card, emp, name, code, *pct in c.fetchall():
+                out[card].append(
+                    {
+                        "mech_id": emp,
+                        "mech": _text(name) or "",
+                        "code": _text(code) or "",
+                        "pct": [float(v or 0) for v in pct],
+                    }
+                )
     return out
 
 
@@ -253,22 +291,28 @@ def balance(pk: int) -> dict[str, float]:
     return {k: round(float(v or 0), 2) for k, v in zip(keys, row or (), strict=False)}
 
 
-def load(pk: int) -> dict[str, Any] | None:
+def load(pk: int, kind: int = AGGREGATE) -> dict[str, Any] | None:
     """One card, whole, with the database's own totals."""
     with connection.cursor() as c:
         c.execute(
             f"SELECT {HEADER_SELECT} {HEADER_FROM} WHERE s.SERVCARD_ID = %s AND s.SERVCARD_TYPE = %s",  # noqa: S608
-            [pk, AGGREGATE],
+            [pk, kind],
         )
         row = c.fetchone()
     if row is None:
         return None
     card = _header(row)
-    card.update(works=_work_lines([pk])[pk], parts=_part_lines([pk])[pk], pays=payments([pk])[pk], totals=balance(pk))
+    card.update(
+        works=_work_lines([pk])[pk],
+        parts=_part_lines([pk])[pk],
+        pays=payments([pk])[pk],
+        shares=_shares([pk])[pk],
+        totals=balance(pk),
+    )
     return card
 
 
-def load_many(ids: list[int]) -> list[dict[str, Any]]:
+def load_many(ids: list[int], kind: int = AGGREGATE) -> list[dict[str, Any]]:
     """Whole cards (header, works, parts, payments) for these ids, in this order. No `totals`: that is one database
     procedure call per card, and the reports add the lines up themselves."""
     headers: dict[int, dict[str, Any]] = {}
@@ -277,21 +321,23 @@ def load_many(ids: list[int]) -> list[dict[str, Any]]:
             c.execute(
                 f"SELECT {HEADER_SELECT} {HEADER_FROM} WHERE s.SERVCARD_TYPE = %s "  # noqa: S608 - constants, %s marks
                 f"AND s.SERVCARD_ID IN ({_marks(chunk)})",
-                [AGGREGATE, *chunk],
+                [kind, *chunk],
             )
             for row in c.fetchall():
                 card = _header(row)
                 headers[card["id"]] = card
     known = [i for i in ids if i in headers]
-    works, parts, pays = _work_lines(known), _part_lines(known), payments(known)
+    works, parts, pays, shares = _work_lines(known), _part_lines(known), payments(known), _shares(known)
     for i in known:
-        headers[i].update(works=works[i], parts=parts[i], pays=pays[i])
+        headers[i].update(works=works[i], parts=parts[i], pays=pays[i], shares=shares[i])
     return [headers[i] for i in known]
 
 
-def listing(filters: dict[str, str], limit: int, offset: int) -> tuple[list[dict[str, Any]], int]:
+def listing(
+    filters: dict[str, str], limit: int, offset: int, kind: int = AGGREGATE
+) -> tuple[list[dict[str, Any]], int]:
     where = ["s.SERVCARD_TYPE = %s"]
-    params: list[Any] = [AGGREGATE]
+    params: list[Any] = [kind]
     if filters.get("status", "").isdigit():
         where.append("COALESCE(s.SERV_STATUS, 0) = %s")
         params.append(int(filters["status"]))
@@ -335,12 +381,12 @@ def listing(filters: dict[str, str], limit: int, offset: int) -> tuple[list[dict
 # --- writing -----------------------------------------------------------------------------------------------------
 
 
-def journal(filters: dict[str, str], limit: int) -> list[dict[str, Any]]:
+def journal(filters: dict[str, str], limit: int, kind: int = AGGREGATE) -> list[dict[str, Any]]:
     """The real journal of the aggregate cards: the payments (JOURNALCODE GEN, JOURNAL.SERVCARD_IDENT) and the
     postings the database makes when a card is finished (SRV: income, VAT, material cost; JOURNAL.JORDER_IDENT).
     For SRV rows JORDER_IDENT is the card id; for other codes it is an order id, hence the code in the join."""
     where = ["s.SERVCARD_TYPE = %s"]
-    params: list[Any] = [AGGREGATE]
+    params: list[Any] = [kind]
     if filters.get("from"):
         where.append("p.JDATE >= %s")
         params.append(_day_start(filters["from"]))
@@ -414,6 +460,9 @@ def _clean_works(raw: Any) -> list[dict[str, Any]]:
     lines = _clean_lines(raw, "work_id", "Ажил")
     for line, src in zip(lines, raw or [], strict=True):
         line["mech_id"] = _optional_id(src.get("mech_id"), "Засварчин")
+        line["started_on"] = _opt_when(src.get("started_on"))
+        line["done_on"] = _opt_when(src.get("done_on"))
+        line["due"] = _opt_when(src.get("due"))
     return lines
 
 
@@ -424,6 +473,39 @@ def _clean_parts(raw: Any) -> list[dict[str, Any]]:
     return lines
 
 
+def _opt_when(value: Any) -> datetime | None:
+    return _when(value) if value else None
+
+
+def _clean_shares(raw: Any) -> list[dict[str, Any]]:
+    """Body sheets: [{mech_id, pct: [p1, p2, p3, p4]}]. Per work type the shares may not add up to more than 100 %;
+    FINISH_SERVCARDS demands exactly 100 % for every type that has work, but a draft may be incomplete."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise RepairError("Засварчдын хувь: жагсаалт байх ёстой.")
+    out: list[dict[str, Any]] = []
+    for n, item in enumerate(raw, 1):
+        mech = _optional_id(item.get("mech_id") if isinstance(item, dict) else None, "Засварчин")
+        pct = item.get("pct") if isinstance(item, dict) else None
+        if mech is None or not isinstance(pct, list) or len(pct) != 4:
+            raise RepairError(f"Засварчин №{n}: засварчин ба 4 төрлийн хувь шаардлагатай.")
+        vals = []
+        for v in pct:
+            try:
+                f = float(v or 0)
+            except (TypeError, ValueError) as e:
+                raise RepairError(f"Засварчин №{n}: хувь тоо байх ёстой.") from e
+            if not 0 <= f <= 100:
+                raise RepairError(f"Засварчин №{n}: хувь 0–100 хооронд байх ёстой.")
+            vals.append(f)
+        out.append({"mech_id": mech, "pct": vals})
+    for k in range(4):
+        if sum(x["pct"][k] for x in out) > 100.0001:
+            raise RepairError("Нэг төрлийн ажлын засварчдын хувийн нийлбэр 100-аас хэтэрсэн.")
+    return out
+
+
 def _when(value: Any) -> datetime:
     try:
         return datetime.fromisoformat(str(value).replace(" ", "T")).replace(tzinfo=None, microsecond=0)
@@ -431,7 +513,7 @@ def _when(value: Any) -> datetime:
         raise RepairError("Огнооны хэлбэр буруу байна.") from e
 
 
-def parse(body: dict[str, Any]) -> dict[str, Any]:
+def parse(body: dict[str, Any], kind: int = AGGREGATE) -> dict[str, Any]:
     """Check a request body (the same fields as a repair sheet on the screen) and turn it into what is stored."""
     try:
         vehicle_id = int(body.get("vehicle_id") or 0)
@@ -448,6 +530,7 @@ def parse(body: dict[str, Any]) -> dict[str, Any]:
     if not customer:
         raise RepairError("Үйлчлүүлэгчийн нэрийг бөглөнө үү.")
     works, parts = _clean_works(body.get("works")), _clean_parts(body.get("parts"))
+    shares = _clean_shares(body.get("shares")) if kind == BODY else []
     if not works and not parts:
         raise RepairError("Ажил эсвэл сэлбэгийн мөр нэмнэ үү.")
     internal = bool(body.get("internal"))
@@ -472,6 +555,10 @@ def parse(body: dict[str, Any]) -> dict[str, Any]:
         "quote_id": _optional_id(body.get("quote_id"), "Үнийн санал"),
         "works": works,
         "parts": parts,
+        "kind": kind,
+        "shares": shares,
+        "appraiser": str(body.get("appraiser") or "").strip()[:25],
+        "appraisal_date": _opt_when(body.get("appraisal_date")),
     }
 
 
@@ -529,11 +616,14 @@ def _header_values(c: Any, data: dict[str, Any], user: str) -> dict[str, Any]:
         "VAT_PERCENT": pricing.VAT_RATE if data["vat_on"] else 0.0,
         "BRANCH_IDENT": data["branch_id"],
         "PRICEVOTE_IDENT": data["quote_id"],
+        "ESTIMATED_PERSON": data["appraiser"] or None,
+        "ESTIMATED_DATE": data["appraisal_date"],
     }
 
 
 def _write_lines(c: Any, pk: int, data: dict[str, Any]) -> None:
     now = datetime.now().replace(microsecond=0)
+    body = data["kind"] == BODY
     for line in data["works"]:
         db = pricing.line_to_db(line, data["vat_on"])
         _insert(
@@ -553,13 +643,18 @@ def _write_lines(c: Any, pk: int, data: dict[str, Any]) -> None:
                 "PROC_N": db["PROC_N"],
                 "BASEPRICE": db["BASEPRICE"],
                 "IS_OTHER": "no",
-                "EMP_IDENT": line["mech_id"],
-                "WTOTAL": 0.0,
+                # Body: the mechanics are paid by share (EMP_WORKPERCENT), not per work, and the desktop starts
+                # WTOTAL at the full price (FINISH_SERVCARDS recalculates it).
+                "EMP_IDENT": None if body else line["mech_id"],
+                "WTOTAL": db["PRICE_NT"] if body else 0.0,
+                "STARTDATE": line["started_on"],
+                "ENDDATE": line["done_on"],
+                "DUEDATE": line["due"],
                 "IS_PEOPLETIME": 0,
                 "CITYTAX": 0.0,
             },
         )
-        if line["mech_id"]:
+        if not body and line["mech_id"]:
             _employee(c, line["mech_id"])
             rate = db["PROC_N"]
             _insert(
@@ -617,11 +712,26 @@ def _write_lines(c: Any, pk: int, data: dict[str, Any]) -> None:
                 "TAXTYPE": 1 if db["PROC_N"] else None,  # 1 on every line the desktop wrote with VAT
             },
         )
+    for share in data["shares"]:
+        _employee(c, share["mech_id"])
+        w1, w2, w3, w4 = share["pct"]
+        _insert(
+            c,
+            "EMP_WORKPERCENT",
+            {
+                "SERVCARD_IDENT": pk,
+                "EMP_IDENT": share["mech_id"],
+                "WPERCENT1": w1,
+                "WPERCENT2": w2,
+                "WPERCENT3": w3,
+                "WPERCENT4": w4,
+            },
+        )
 
 
-def _status(c: Any, pk: int) -> int | None:
+def _status(c: Any, pk: int, kind: int = AGGREGATE) -> int | None:
     c.execute(
-        "SELECT COALESCE(SERV_STATUS, 0) FROM SERVCARDS WHERE SERVCARD_ID = %s AND SERVCARD_TYPE = %s", [pk, AGGREGATE]
+        "SELECT COALESCE(SERV_STATUS, 0) FROM SERVCARDS WHERE SERVCARD_ID = %s AND SERVCARD_TYPE = %s", [pk, kind]
     )
     row = c.fetchone()
     return None if row is None else int(row[0])
@@ -631,7 +741,7 @@ def create(data: dict[str, Any], user: str) -> int:
     """Insert a not-started card with its lines (call inside a transaction). The number is the last numeric one + 1."""
     with connection.cursor() as c:
         # Some numbers are not numeric ('AGR-1'), so the highest number is taken here, not with a SQL CAST.
-        c.execute("SELECT DOC_NO FROM SERVCARDS WHERE SERVCARD_TYPE = %s", [AGGREGATE])
+        c.execute("SELECT DOC_NO FROM SERVCARDS WHERE SERVCARD_TYPE = %s", [data["kind"]])
         number = (
             max(
                 (int(n.strip()) for (n,) in c.fetchall() if n and n.strip().isdigit() and len(n.strip()) < 10),
@@ -643,7 +753,7 @@ def create(data: dict[str, Any], user: str) -> int:
         values = {
             "SERVCARD_ID": pk,
             "DOC_NO": cut(number, "doc_no"),
-            "SERVCARD_TYPE": AGGREGATE,
+            "SERVCARD_TYPE": data["kind"],
             "SERV_STATUS": NOT_STARTED,
             "REG_USER": cut(user, "user"),
             # the zeros and flags the desktop program writes on a new card
@@ -662,8 +772,9 @@ def create(data: dict[str, Any], user: str) -> int:
 
 def replace(pk: int, data: dict[str, Any], user: str) -> bool:
     """Rewrite a card (header and all lines). False when there is no such card; refused once it is finished."""
+    kind = data["kind"]
     with connection.cursor() as c:
-        status = _status(c, pk)
+        status = _status(c, pk, kind)
         if status is None:
             return False
         if status == FINISHED:
@@ -676,14 +787,15 @@ def replace(pk: int, data: dict[str, Any], user: str) -> bool:
         c.execute("DELETE FROM SERV_TRANS WHERE SERVCARD_IDENT = %s", [pk])
         c.execute("DELETE FROM SERVJOBS WHERE SERVCARD_IDENT = %s", [pk])
         c.execute("DELETE FROM EMP_WORKS WHERE SERVCARD_IDENT = %s", [pk])
+        c.execute("DELETE FROM EMP_WORKPERCENT WHERE SERVCARD_IDENT = %s", [pk])
         _write_lines(c, pk, data)
     return True
 
 
-def delete(pk: int) -> bool:
+def delete(pk: int, kind: int = AGGREGATE) -> bool:
     """Delete a card (the database removes its lines and refuses once a journal exists, see DB_MESSAGES)."""
     with connection.cursor() as c:
-        status = _status(c, pk)
+        status = _status(c, pk, kind)
         if status is None:
             return False
         if status == FINISHED:
@@ -691,6 +803,7 @@ def delete(pk: int) -> bool:
         c.execute("SELECT COUNT(*) FROM JOURNAL WHERE SERVCARD_IDENT = %s", [pk])
         if int(c.fetchone()[0]):
             raise RepairLocked("Төлбөр бүртгэгдсэн тул устгах боломжгүй. Эхлээд төлбөрийг устгана уу.")
+        c.execute("DELETE FROM EMP_WORKPERCENT WHERE SERVCARD_IDENT = %s", [pk])
         c.execute("DELETE FROM EMP_WORKS WHERE SERVCARD_IDENT = %s", [pk])
         c.execute("DELETE FROM SERV_TRANS WHERE SERVCARD_IDENT = %s", [pk])
         c.execute("DELETE FROM SERVJOBS WHERE SERVCARD_IDENT = %s", [pk])
@@ -698,10 +811,10 @@ def delete(pk: int) -> bool:
     return True
 
 
-def start(pk: int) -> bool:
+def start(pk: int, kind: int = AGGREGATE) -> bool:
     """Mark a not-started card as started now."""
     with connection.cursor() as c:
-        status = _status(c, pk)
+        status = _status(c, pk, kind)
         if status is None:
             return False
         if status != NOT_STARTED:
@@ -713,10 +826,10 @@ def start(pk: int) -> bool:
     return True
 
 
-def finish(pk: int, when: datetime | None = None) -> bool:
+def finish(pk: int, when: datetime | None = None, kind: int = AGGREGATE) -> bool:
     """Finish a card: set the exit date, then let FINISH_SERVCARDS do the checks and the status change."""
     with connection.cursor() as c:
-        status = _status(c, pk)
+        status = _status(c, pk, kind)
         if status is None:
             return False
         if status == FINISHED:
@@ -731,7 +844,7 @@ def finish(pk: int, when: datetime | None = None) -> bool:
     return True
 
 
-def pay(pk: int, body: dict[str, Any], user: str) -> int:
+def pay(pk: int, body: dict[str, Any], user: str, kind: int = AGGREGATE) -> int:
     """Record a payment as the desktop program does: one JOURNAL row, debit the payment method's account
     (BANKS.RECACC), credit the receivable account (settings.AUTOSERVICE_RECEIVABLE_ACCOUNT), both for the
     card's customer."""
@@ -741,7 +854,7 @@ def pay(pk: int, body: dict[str, Any], user: str) -> int:
     except ValueError as e:
         raise RepairError("Төлбөрийн төрөл (bank_id) сонгоно уу.") from e
     with connection.cursor() as c:
-        status = _status(c, pk)
+        status = _status(c, pk, kind)
         if status is None:
             raise RepairError("Карт олдсонгүй.")
         if status == FINISHED:
@@ -752,8 +865,8 @@ def pay(pk: int, body: dict[str, Any], user: str) -> int:
             raise RepairError("Төлбөрийн төрөл олдсонгүй эсвэл данс нь тохируулаагүй байна.")
         c.execute("SELECT DOC_NO, REQCUST_IDENT FROM SERVCARDS WHERE SERVCARD_ID = %s", [pk])
         doc_no, customer = c.fetchone()
-        if customer is None:  # the desktop falls back to the company-wide customer of aggregate repairs
-            c.execute("SELECT AGGREG_CUST FROM INFO")
+        if customer is None:  # the desktop falls back to the company-wide customer of the shop
+            c.execute("SELECT KUZOV_CUST FROM INFO" if kind == BODY else "SELECT AGGREG_CUST FROM INFO")
             customer = c.fetchone()[0]
         due = balance(pk)["due"]
         if amount > due + 0.01:
@@ -781,7 +894,7 @@ def pay(pk: int, body: dict[str, Any], user: str) -> int:
     return jid
 
 
-def remove_payment(pk: int, journal_id: int) -> bool:
+def remove_payment(pk: int, journal_id: int, kind: int = AGGREGATE) -> bool:
     with connection.cursor() as c:
         c.execute(
             "SELECT COUNT(*) FROM JOURNAL WHERE JOURNAL_ID = %s AND SERVCARD_IDENT = %s AND JOURNALCODE = 'GEN'",
@@ -789,7 +902,7 @@ def remove_payment(pk: int, journal_id: int) -> bool:
         )
         if not int(c.fetchone()[0]):
             return False
-        status = _status(c, pk)
+        status = _status(c, pk, kind)
         if status == FINISHED:
             raise RepairLocked(DB_MESSAGES["SERVCARD_CANNOTDELETE"])
         c.execute("DELETE FROM JOURNAL WHERE JOURNAL_ID = %s", [journal_id])

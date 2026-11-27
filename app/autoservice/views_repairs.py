@@ -53,8 +53,8 @@ def _run(action: Any) -> HttpResponse:
         return _refused(repairs.db_error(e))
 
 
-def _full(pk: int, status: int = 200) -> HttpResponse:
-    card = repairs.load(pk)
+def _full(pk: int, status: int = 200, kind: int = repairs.AGGREGATE) -> HttpResponse:
+    card = repairs.load(pk, kind)
     if card is None:
         return error(404, NOT_FOUND)
     response = ok(card)
@@ -62,64 +62,65 @@ def _full(pk: int, status: int = 200) -> HttpResponse:
     return response
 
 
-def _list(request: HttpRequest) -> HttpResponse:
+def _list(request: HttpRequest, kind: int) -> HttpResponse:
     limit = _int(request.GET.get("limit"), DEFAULT_LIMIT, 1, MAX_LIMIT)
     offset = _int(request.GET.get("offset"), 0, 0, 10_000_000)
     filters = {k: request.GET.get(k, "").strip() for k in FILTERS if request.GET.get(k, "").strip()}
-    rows, total = repairs.listing(filters, limit, offset)
+    rows, total = repairs.listing(filters, limit, offset, kind)
     if request.GET.get("expand") == "1":  # whole cards (works, parts, payments) for the report windows
-        rows = repairs.load_many([r["id"] for r in rows])
+        rows = repairs.load_many([r["id"] for r in rows], kind)
     return ok({"count": total, "limit": limit, "offset": offset, "results": rows})
 
 
-def _save(request: HttpRequest, pk: int | None) -> HttpResponse:
+def _save(request: HttpRequest, pk: int | None, kind: int) -> HttpResponse:
     body = _body(request)
     if body is None:
         return error(400, "JSON биш хүсэлт байна.")
 
     def action() -> HttpResponse:
-        data = repairs.parse(body)
+        data = repairs.parse(body, kind)
         if pk is None:
-            return _full(repairs.create(data, _user(request)), 201)
-        return _full(pk) if repairs.replace(pk, data, _user(request)) else error(404, NOT_FOUND)
+            return _full(repairs.create(data, _user(request)), 201, kind)
+        return _full(pk, 200, kind) if repairs.replace(pk, data, _user(request)) else error(404, NOT_FOUND)
 
     return _run(action)
 
 
+# Every route exists twice: aggregate repairs (repairs/...) and body repairs (body-repairs/...); urls.py passes `kind`.
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 @token_required
-def repair_list(request: HttpRequest) -> HttpResponse:
-    return _list(request) if request.method == "GET" else _save(request, None)
+def repair_list(request: HttpRequest, kind: int = repairs.AGGREGATE) -> HttpResponse:
+    return _list(request, kind) if request.method == "GET" else _save(request, None, kind)
 
 
 @csrf_exempt
 @require_http_methods(["GET", "PUT", "DELETE"])
 @token_required
-def repair_detail(request: HttpRequest, pk: int) -> HttpResponse:
+def repair_detail(request: HttpRequest, pk: int, kind: int = repairs.AGGREGATE) -> HttpResponse:
     if request.method == "GET":
-        return _full(pk)
+        return _full(pk, 200, kind)
     if request.method == "PUT":
-        return _save(request, pk)
-    return _run(lambda: HttpResponse(status=204) if repairs.delete(pk) else error(404, NOT_FOUND))
+        return _save(request, pk, kind)
+    return _run(lambda: HttpResponse(status=204) if repairs.delete(pk, kind) else error(404, NOT_FOUND))
 
 
 @csrf_exempt
 @require_POST
 @token_required
-def repair_start(request: HttpRequest, pk: int) -> HttpResponse:
-    return _run(lambda: _full(pk) if repairs.start(pk) else error(404, NOT_FOUND))
+def repair_start(request: HttpRequest, pk: int, kind: int = repairs.AGGREGATE) -> HttpResponse:
+    return _run(lambda: _full(pk, 200, kind) if repairs.start(pk, kind) else error(404, NOT_FOUND))
 
 
 @csrf_exempt
 @require_POST
 @token_required
-def repair_finish(request: HttpRequest, pk: int) -> HttpResponse:
+def repair_finish(request: HttpRequest, pk: int, kind: int = repairs.AGGREGATE) -> HttpResponse:
     body = _body(request) or {}
 
     def action() -> HttpResponse:
         when = repairs._when(body["date_out"]) if body.get("date_out") else None
-        return _full(pk) if repairs.finish(pk, when) else error(404, NOT_FOUND)
+        return _full(pk, 200, kind) if repairs.finish(pk, when, kind) else error(404, NOT_FOUND)
 
     return _run(action)
 
@@ -127,28 +128,30 @@ def repair_finish(request: HttpRequest, pk: int) -> HttpResponse:
 @csrf_exempt
 @require_POST
 @token_required
-def repair_pay(request: HttpRequest, pk: int) -> HttpResponse:
+def repair_pay(request: HttpRequest, pk: int, kind: int = repairs.AGGREGATE) -> HttpResponse:
     body = _body(request)
     if body is None:
         return error(400, "JSON биш хүсэлт байна.")
-    return _run(lambda: (repairs.pay(pk, body, _user(request)), _full(pk, 201))[1])
+    return _run(lambda: (repairs.pay(pk, body, _user(request), kind), _full(pk, 201, kind))[1])
 
 
 @csrf_exempt
 @require_http_methods(["DELETE"])
 @token_required
-def repair_payment(request: HttpRequest, pk: int, journal_id: int) -> HttpResponse:
+def repair_payment(request: HttpRequest, pk: int, journal_id: int, kind: int = repairs.AGGREGATE) -> HttpResponse:
     return _run(
-        lambda: HttpResponse(status=204) if repairs.remove_payment(pk, journal_id) else error(404, "Төлбөр олдсонгүй.")
+        lambda: HttpResponse(status=204)
+        if repairs.remove_payment(pk, journal_id, kind)
+        else error(404, "Төлбөр олдсонгүй.")
     )
 
 
 @require_GET
 @token_required
-def repair_journal(request: HttpRequest) -> HttpResponse:
+def repair_journal(request: HttpRequest, kind: int = repairs.AGGREGATE) -> HttpResponse:
     filters = {k: request.GET.get(k, "").strip() for k in ("from", "to") if request.GET.get(k, "").strip()}
     limit = _int(request.GET.get("limit"), 5000, 1, 20000)
-    return _run(lambda: ok({"results": repairs.journal(filters, limit)}))
+    return _run(lambda: ok({"results": repairs.journal(filters, limit, kind)}))
 
 
 @require_GET

@@ -108,6 +108,47 @@ def test_header_row_becomes_the_screens_fields() -> None:
     assert (h["garage_on"], h["garage"], h["no"], h["doc_no"]) == (True, 5000.0, 225217, "225217")
 
 
+def test_body_sheets_take_mechanic_shares_and_the_appraisal(car: dict[str, Any]) -> None:
+    data = repairs.parse(
+        _body(
+            shares=[{"mech_id": 4699, "pct": [100, 0, 0, 40]}, {"mech_id": 4905, "pct": [0, 0, 0, 60]}],
+            appraiser="Байгалмаа",
+            appraisal_date="2026-11-17",
+        ),
+        repairs.BODY,
+    )
+    assert data["kind"] == repairs.BODY and len(data["shares"]) == 2 and data["shares"][0]["pct"] == [100, 0, 0, 40]
+    assert data["appraiser"] == "Байгалмаа" and data["appraisal_date"].day == 17
+
+
+def test_aggregate_sheets_ignore_shares(car: dict[str, Any]) -> None:
+    assert repairs.parse(_body(shares=[{"mech_id": 1, "pct": [1, 1, 1, 1]}]))["shares"] == []
+
+
+@pytest.mark.parametrize(
+    "shares, text",
+    [
+        ("x", "жагсаалт"),
+        ([{"mech_id": 4699, "pct": [100, 0, 0]}], "4 төрлийн"),
+        ([{"pct": [0, 0, 0, 100]}], "4 төрлийн"),
+        ([{"mech_id": 4699, "pct": [101, 0, 0, 0]}], "0–100"),
+        ([{"mech_id": 4699, "pct": ["a", 0, 0, 0]}], "тоо"),
+        ([{"mech_id": 1, "pct": [60, 0, 0, 0]}, {"mech_id": 2, "pct": [50, 0, 0, 0]}], "100-аас хэтэрсэн"),
+    ],
+)
+def test_body_shares_are_checked(car: dict[str, Any], shares: Any, text: str) -> None:
+    with pytest.raises(QuoteError) as e:
+        repairs.parse(_body(shares=shares), repairs.BODY)
+    assert text in str(e.value)
+
+
+def test_incomplete_shares_are_fine_for_a_draft(car: dict[str, Any]) -> None:
+    """Only finishing demands 100 % per work type, and the database checks that."""
+    assert (
+        repairs.parse(_body(shares=[{"mech_id": 1, "pct": [50, 0, 0, 0]}]), repairs.BODY)["shares"][0]["pct"][0] == 50
+    )
+
+
 def test_ids_are_sent_to_the_database_in_chunks_that_fit_an_in_list() -> None:
     chunks = list(repairs._chunks(list(range(450))))
     assert [len(c) for c in chunks] == [200, 200, 50] and chunks[2][0] == 400

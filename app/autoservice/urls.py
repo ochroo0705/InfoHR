@@ -1,8 +1,23 @@
 from django.urls import path
 
-from autoservice import views, views_quotes, views_repairs
+from autoservice import repairs, views, views_quotes, views_repairs
 
 app_name = "autoservice"
+
+
+def _shop(prefix: str, kind: int, tag: str) -> list:  # type: ignore[type-arg]
+    """The repair routes of one shop: aggregate (`repairs/...`) or body (`body-repairs/...`)."""
+    k = {"kind": kind}
+    return [
+        path(f"{prefix}", views_repairs.repair_list, k, name=tag),
+        path(f"{prefix}/journal", views_repairs.repair_journal, k, name=f"{tag}-journal"),
+        path(f"{prefix}/<int:pk>", views_repairs.repair_detail, k, name=f"{tag}-detail"),
+        path(f"{prefix}/<int:pk>/start", views_repairs.repair_start, k, name=f"{tag}-start"),
+        path(f"{prefix}/<int:pk>/finish", views_repairs.repair_finish, k, name=f"{tag}-finish"),
+        path(f"{prefix}/<int:pk>/payments", views_repairs.repair_pay, k, name=f"{tag}-pay"),
+        path(f"{prefix}/<int:pk>/payments/<int:journal_id>", views_repairs.repair_payment, k, name=f"{tag}-payment"),
+    ]
+
 
 urlpatterns = [
     path("login", views.login, name="login"),
@@ -12,12 +27,7 @@ urlpatterns = [
     path("dirs/<slug:slug>", views.directory, name="directory"),
     path("quotes", views_quotes.quote_list, name="quotes"),
     path("quotes/<int:pk>", views_quotes.quote_detail, name="quote"),
-    path("repairs", views_repairs.repair_list, name="repairs"),
-    path("repairs/journal", views_repairs.repair_journal, name="repair-journal"),
-    path("repairs/<int:pk>", views_repairs.repair_detail, name="repair"),
-    path("repairs/<int:pk>/start", views_repairs.repair_start, name="repair-start"),
-    path("repairs/<int:pk>/finish", views_repairs.repair_finish, name="repair-finish"),
-    path("repairs/<int:pk>/payments", views_repairs.repair_pay, name="repair-pay"),
-    path("repairs/<int:pk>/payments/<int:journal_id>", views_repairs.repair_payment, name="repair-payment"),
+    *_shop("repairs", repairs.AGGREGATE, "repairs"),
+    *_shop("body-repairs", repairs.BODY, "body-repairs"),
     path("payment-methods", views_repairs.payment_methods, name="payment-methods"),
 ]
