@@ -168,10 +168,12 @@ def directory(request: HttpRequest, slug: str) -> JsonResponse:
         return error(404, "Ийм лавлах байхгүй.")
     limit = _int(request.GET.get("limit"), DEFAULT_LIMIT, 1, MAX_LIMIT)
     offset = _int(request.GET.get("offset"), 0, 0, 10_000_000)
-    where, params = "", []
+    conditions: list[str] = [f"({d.where})"] if d.where else []
+    params: list[Any] = []
     q = request.GET.get("q", "").strip()
     if q and d.search:
-        where = " WHERE " + " OR ".join(f"UPPER({col}) LIKE UPPER(%s)" for col in d.search)
+        conditions.append("(" + " OR ".join(f"UPPER({col}) LIKE UPPER(%s)" for col in d.search) + ")")
         params = [f"%{q}%"] * len(d.search)
+    where = " WHERE " + " AND ".join(conditions) if conditions else ""
     rows, total = _select(d, where, params, limit, offset)
     return ok({"count": total, "limit": limit, "offset": offset, "results": rows})

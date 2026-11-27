@@ -18,10 +18,13 @@ class Directory:
     columns: dict[str, str]  # output key -> column
     search: tuple[str, ...] = ()  # text columns `?q=` looks in
     order: str = ""  # default: the primary key
+    where: str = ""  # a fixed condition (a constant of this file) that limits the rows, e.g. only mechanics
 
 
-def _d(table: str, pk: str, columns: dict[str, str], search: tuple[str, ...] = (), order: str = "") -> Directory:
-    return Directory(table, pk, columns, search, order or pk)
+def _d(
+    table: str, pk: str, columns: dict[str, str], search: tuple[str, ...] = (), order: str = "", where: str = ""
+) -> Directory:
+    return Directory(table, pk, columns, search, order or pk, where)
 
 
 DIRECTORIES: dict[str, Directory] = {
@@ -180,6 +183,15 @@ DIRECTORIES: dict[str, Directory] = {
         },
         ("FULLNAME", "POST"),
         "FULLNAME",
+    ),
+    # Mechanics are customers flagged as employees: SERVJOBS.EMP_IDENT and EMP_WORKS.EMP_IDENT point at CUSTOMER.
+    "mechanics": _d(
+        "CUSTOMER",
+        "CUST_ID",
+        {"id": "CUST_ID", "name": "DESCRIPTION", "code": "CODE"},
+        ("DESCRIPTION", "CODE"),
+        "DESCRIPTION",
+        "EMPLOYEE = 'yes'",
     ),
     "branches": _d(
         "BRANCH",
