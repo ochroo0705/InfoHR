@@ -83,6 +83,9 @@ def test_database_exceptions_become_messages_and_locked_ones_are_conflicts() -> 
     finish = repairs.db_error(DatabaseError("exception 12 EMPJOB_NOT_EQUAL at procedure FINISH_SERVCARDS"))
     assert isinstance(finish, repairs.RepairLocked) and "засварчин" in str(finish)
     assert "Төлбөр" in str(repairs.db_error(DatabaseError("exception PAYMENT_NOT_EQUAL")))
+    assert "тохиргоо" in str(
+        repairs.db_error(DatabaseError("exception 47 -SERVCARD_CONFIG_ISNULL At procedure SERVCARDS2JOURNAL"))
+    )
     unknown = repairs.db_error(DatabaseError("something else broke"))
     assert not isinstance(unknown, repairs.RepairLocked)
 

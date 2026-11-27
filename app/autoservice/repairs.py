@@ -103,6 +103,8 @@ DB_MESSAGES = {
     "SERVCARD_JOURNALEXISTS": "Журнал үүссэн тул устгах боломжгүй.",
     "CHKPREVENT_DATE": "Энэ огноо хаагдсан тул өөрчлөх боломжгүй.",
     "NOTSELECTCUST": "Авлагын дансанд харилцагч заавал байх ёстой.",
+    "SERVCARD_CONFIG_ISNULL": "Захиалгат засварын дансны тохиргоо (НӨАТ-ийн данс гэх мэт) дутуу байна. "
+    "Салбарын тохиргоог шалгана уу.",
 }
 
 
@@ -357,6 +359,16 @@ def parse(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _check_branch(c: Any, branch_id: int | None) -> None:
+    """Finishing posts the journal with the VAT account of the card's branch (SPRAVC, code 1; no branch = the
+    company's own row). A branch without that row would only fail at the very end, so refuse it up front."""
+    if branch_id is None:
+        return
+    c.execute("SELECT COUNT(*) FROM SPRAVC WHERE CODE = 1 AND BRANCH_IDENT = %s", [branch_id])
+    if not int(c.fetchone()[0]):
+        raise RepairError("Энэ салбарт захиалгат засварын дансны тохиргоо хийгдээгүй тул салбар сонгох боломжгүй.")
+
+
 def _card_id_of(c: Any, card_no: str) -> int | None:
     if not card_no:
         return None
@@ -370,6 +382,7 @@ def _card_id_of(c: Any, card_no: str) -> int | None:
 def _header_values(c: Any, data: dict[str, Any], user: str) -> dict[str, Any]:
     car = data["car"]
     garage = data["garage"]
+    _check_branch(c, data["branch_id"])
     return {
         "REQCUST_NAME": data["customer"],
         "REQCUST_IDENT": data["customer_id"],
