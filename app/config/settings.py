@@ -34,6 +34,12 @@ MCP_BIND_HOST = env.str("MCP_BIND_HOST", default="127.0.0.1")
 MCP_BIND_PORT = env.int("MCP_BIND_PORT", default=8765)
 MCP_RATE_PER_MINUTE = env.int("MCP_RATE_PER_MINUTE", default=30)  # requests per token per minute
 MCP_ALLOWED_HOSTS = env.list("MCP_ALLOWED_HOSTS", default=["127.0.0.1:*", "localhost:*"])  # Host header allow-list
+# HUR (MACS state vehicle registry): the plate lookup of the Online Auto Service (app/autoservice/hur.py).
+# Empty username/password/code = the lookup is off. The password lives in .env only.
+HUR_URL = env.str("HUR_URL", default="https://hur.api.macs.mn/")
+HUR_USERNAME = env.str("HUR_USERNAME", default="")
+HUR_PASSWORD = env.str("HUR_PASSWORD", default="")
+HUR_CODE = env.str("HUR_CODE", default="")
 
 INSTALLED_APPS = [
     "unfold",  # admin theme; must come before django.contrib.admin

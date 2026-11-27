@@ -9,6 +9,7 @@ from autoservice import (
     views_quotes,
     views_repairs,
     views_settings,
+    views_vehicles,
 )
 
 app_name = "autoservice"
@@ -40,6 +41,9 @@ urlpatterns = [
     *_shop("body-repairs", repairs.BODY, "body-repairs"),
     path("payment-methods", views_repairs.payment_methods, name="payment-methods"),
     path("discount-cards", views_cards.card_list, name="discount-cards"),
+    path("vehicles", views_vehicles.vehicle_list, name="vehicles"),
+    path("vehicles/hur", views_vehicles.vehicle_hur, name="vehicle-hur"),
+    path("vehicles/<int:pk>", views_vehicles.vehicle_detail, name="vehicle"),
     path("promotions", views_promotions.promotion_list, name="promotions"),
     path("promotions/<int:pk>", views_promotions.promotion_detail, name="promotion"),
     path("discount-card-configs", views_cards.card_configs, name="discount-card-configs"),
