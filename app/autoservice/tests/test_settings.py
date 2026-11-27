@@ -69,14 +69,15 @@ def test_a_key_does_not_open_advanced_for_someone_else(api: dict[str, Any]) -> N
 
 
 def test_wrong_empty_password(api: dict[str, Any]) -> None:
-    assert _unlock(api["dash"], "999").status_code == 401
+    # 403 on purpose: a 401 would tell the web app its session ended and sign the user out.
+    assert _unlock(api["dash"], "999").status_code == 403
     assert _unlock(api["dash"], "").status_code == 400
-    assert _unlock(api["dash"], "777").status_code == 401  # somebody else's password is still wrong for dash
+    assert _unlock(api["dash"], "777").status_code == 403  # somebody else's password is still wrong for dash
 
 
 def test_guessing_is_throttled_even_for_the_right_password(api: dict[str, Any]) -> None:
     codes = [_unlock(api["dash"], f"bad{i}").status_code for i in range(7)]
-    assert codes == [401] * 5 + [429] * 2
+    assert codes == [403] * 5 + [429] * 2
     assert _unlock(api["dash"], "123").status_code == 429
 
 

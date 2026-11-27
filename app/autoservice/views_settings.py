@@ -46,7 +46,8 @@ def advanced_unlock(request: HttpRequest) -> JsonResponse:
     found = _find_login(username)
     if found is None or not passwords.matches(found[1], password):
         login_throttle.record_failure(request, key)
-        return error(401, "Нууц үг буруу байна.")
+        # 403, not 401: a 401 means "the session ended" to the web app and its proxy, and would sign the user out.
+        return error(403, "Нууц үг буруу байна.")
     login_throttle.reset(request, key)
     token, expires_at = tokens.issue_advanced(username)
     return ok({"advancedToken": token, "expiresAt": expires_at})
