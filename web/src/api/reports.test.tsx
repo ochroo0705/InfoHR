@@ -29,8 +29,12 @@ import {
   useReportPrint,
   useReportRows,
   copySelection,
+  fetchChecklistForm,
   postSelection,
   printTicket,
+  startChecklists,
+  type ReportChecklistStartIn,
+  type ReportSelectionIn,
   type ReportCardsOut,
   type ReportPageOut,
   type ReportTableOut,
@@ -517,5 +521,88 @@ describe("report API", () => {
 
     const caught = await rejectionOf(() => printTicket(client, "staff", { query: "", ids: ["1"], all: false }));
     expect(caught).toMatchObject({ status: 500, message: "Татаж чадсангүй. Дахин оролдоно уу." });
+  });
+
+  it("fetchChecklistForm posts the address, the ids and the all flag only, to the checklist form route", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        all: false,
+        anchor_max: "",
+        anchor_min: "",
+        count: 2,
+        reasons: [{ label: "Ажлаас гарсан", value: "resigned" }],
+        template_missing: false,
+        today: "2026-11-27",
+      }),
+    );
+
+    const body = { query: "q=a", ids: ["3", "11"], all: false, reason: "resigned" } as unknown as ReportSelectionIn;
+    const form = await fetchChecklistForm(client, "staff", body);
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/selected/checklist/form");
+    expect(JSON.parse(await request.text())).toEqual({ query: "q=a", ids: ["3", "11"], all: false });
+    expect(form).toMatchObject({ count: 2, template_missing: false, today: "2026-11-27" });
+  });
+
+  it("fetchChecklistForm refusal is a 400 with the Mongolian first form error as its message", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(400, { field_errors: {}, form_errors: ["Сонгосон хүн алга."] }));
+
+    const caught = await rejectionOf(() =>
+      fetchChecklistForm(client, "staff", { query: "", ids: [], all: false }),
+    );
+    expect(caught).toMatchObject({ status: 400, message: "Сонгосон хүн алга.", formErrors: ["Сонгосон хүн алга."] });
+  });
+
+  it("fetchChecklistForm network failure is thrown with the exact network text", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    const caught = await rejectionOf(() => fetchChecklistForm(client, "staff", { query: "", ids: ["1"], all: false }));
+    expect((caught as Error).message).toBe("Холбогдож чадсангүй. Дахин оролдоно уу.");
+  });
+
+  it("startChecklists posts the reason and anchor day to the checklist route and returns the counts", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        counts: { started: 1, skipped: 1 },
+        dropped: 0,
+        rows: [
+          { code: "101", name: "Бат", outcome: "started" },
+          { code: "102", name: "Дорж", outcome: "skipped" },
+        ],
+      }),
+    );
+
+    const body: ReportChecklistStartIn = {
+      query: "q=a",
+      ids: ["1", "2"],
+      all: false,
+      reason: "resigned",
+      anchor_day: "2026-11-30",
+    };
+    const result = await startChecklists(client, "staff", body);
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/selected/checklist");
+    expect(JSON.parse(await request.text())).toEqual(body);
+    expect(result.counts).toEqual({ started: 1, skipped: 1 });
+    expect(result.rows).toHaveLength(2);
+  });
+
+  it("startChecklists refusal keeps every form error on the thrown error, the first one as its message", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, { field_errors: {}, form_errors: ["Шалтгаанаа сонгоно уу.", "Огноо буруу байна."] }),
+    );
+
+    const caught = await rejectionOf(() =>
+      startChecklists(client, "staff", { query: "", ids: ["1"], all: false, reason: "", anchor_day: "" }),
+    );
+    expect(caught).toMatchObject({
+      status: 400,
+      message: "Шалтгаанаа сонгоно уу.",
+      formErrors: ["Шалтгаанаа сонгоно уу.", "Огноо буруу байна."],
+    });
   });
 });

@@ -13,6 +13,8 @@
 - GET /api/v1/reports/{key}/excel?<address>: the report's Excel file.
 - POST /api/v1/reports/{key}/selected/excel and /selected/csv: the picked people's files. POST /selected/print answers
   a print ticket; POST /selected/copy answers the names as text. The body is the address plus the ticked ids or `all`.
+- POST /api/v1/reports/{key}/selected/checklist/form and /selected/checklist: the offboarding checklist for the picked
+  people (the form, then the start). They also need the right to start a checklist (403 "forbidden" without it).
 
 The page and rows answers need a signed-in session (401 without one), reports.view_reports and the report's own rights
 (403 "forbidden"), and an unknown key is 404. Every page and rows answer is marked Cache-Control: no-store: the rows
@@ -25,8 +27,10 @@ from typing import Any, Literal
 
 from accounts.audit import record_export
 from accounts.models import User
+from checklists import access as checklist_access
 from django.http import HttpRequest, HttpResponse, QueryDict
 from django.urls import reverse
+from django.utils import timezone
 from employees.templatetags.hr import mnt
 from ninja import Router, Schema
 from ninja.security import django_auth
@@ -35,6 +39,7 @@ from reports.filters import parse_filters
 from reports.selection import Picked, SelectionError, pick_from
 from reports.services import exports, saved_views
 from reports.services import popups as report_popups
+from reports.services import selection_checklist as checklist_service
 from reports.services.catalogue_page import Row, card_path, search_text, sections_for
 from reports.services.filter_bar import FilterBar, FilterOptions
 from reports.services.layout_page import (
@@ -1151,6 +1156,95 @@ def selected_copy(
     record_export(request, "copy_selected", report.title, filters=result.log_label, rows=result.count)
     response["Cache-Control"] = "no-store"
     return ReportSelectionCopyOut(text=result.text, count=result.count, dropped=result.dropped)
+
+
+class ReportChecklistReasonOut(Schema):
+    value: str  # the reason's text as a template stores it (posted back as `reason`)
+    label: str  # the reason's name, as the pop-up shows it
+
+
+class ReportChecklistFormOut(Schema):
+    count: int  # the number of people picked
+    all: bool  # every person the address matches is picked (the ids are not sent back)
+    reasons: list[ReportChecklistReasonOut]  # the reasons some active offboarding template lists
+    template_missing: bool  # no active offboarding template exists
+    anchor_min: str  # the earliest anchor day, ISO (YYYY-MM-DD)
+    anchor_max: str  # the latest anchor day, ISO
+    today: str  # the anchor day the form starts on, ISO
+
+
+class ReportChecklistStartIn(Schema):
+    query: str = ""  # the report's address (the layout keys are dropped by the server)
+    ids: list[str] = []  # the ticked employee ids, as text
+    all: bool = False  # every person the address matches; ids are then ignored
+    reason: str = ""  # the offboarding reason's text, "" for none
+    anchor_day: str = ""  # the checklist's day, YYYY-MM-DD; "" (omitted) is refused with the date message (400)
+
+
+class ReportChecklistRowOut(Schema):
+    code: str  # the employee's code, or the id text when it has none
+    name: str  # the person's full name, "" when the person could not be read back
+    outcome: str  # what happened for this person, as text
+
+
+class ReportChecklistResultOut(Schema):
+    counts: dict[str, int]  # the number of people per outcome; every outcome is a key, zero or more
+    rows: list[ReportChecklistRowOut]  # one row per picked person, in the order they were started
+    dropped: int  # posted ids the user may not act on
+
+
+def _checklist_report(key: str, user: User) -> Report:
+    """The report, for the offboarding checklist: the selection's 404 and 403 first, then the right to start a
+    checklist by hand (403 "forbidden")."""
+    report = _picking_report(key, user, export=False)
+    if not checklist_access.can_start(user):
+        raise ApiError(403, [FORBIDDEN], code="forbidden")
+    return report
+
+
+@report_router.post("/{key}/selected/checklist/form", response=ReportChecklistFormOut)
+def selected_checklist_form(
+    request: HttpRequest, response: HttpResponse, key: str, payload: ReportSelectionIn
+) -> ReportChecklistFormOut:
+    """The offboarding checklist's form for the picked people: the count, the reasons and whether a template is missing.
+    The selection is checked first (a refusal is 400); nothing is started."""
+    user = request_user(request)
+    report = _checklist_report(key, user)
+    picked = _picked(user, report, payload.query, payload.ids, payload.all)
+    form = checklist_service.form_model(timezone.localdate())
+    response["Cache-Control"] = "no-store"  # the count and the picked people are not for caches
+    return ReportChecklistFormOut(
+        count=len(picked.ids),
+        all=payload.all,
+        reasons=[ReportChecklistReasonOut(value=value, label=label) for value, label in form.reasons],
+        template_missing=form.template_missing,
+        anchor_min=form.anchor_min,
+        anchor_max=form.anchor_max,
+        today=form.today,
+    )
+
+
+@report_router.post("/{key}/selected/checklist", response=ReportChecklistResultOut)
+def selected_checklist(
+    request: HttpRequest, response: HttpResponse, key: str, payload: ReportChecklistStartIn
+) -> ReportChecklistResultOut:
+    """Starts an offboarding checklist for each picked person and answers the outcome per person. The selection is
+    checked before the fields (both refusals are 400 with the messages in form_errors). Needs the right to start a
+    checklist by hand."""
+    user = request_user(request)
+    report = _checklist_report(key, user)
+    picked = _picked(user, report, payload.query, payload.ids, payload.all)
+    values, anchor, errors = checklist_service.read_values(payload.reason, payload.anchor_day)
+    if anchor is None or errors:
+        raise ApiError(400, errors)
+    outcomes = checklist_service.start_each(user, picked, values, anchor, timezone.localdate())
+    result = checklist_service.result_of(outcomes, picked.dropped)
+    response["Cache-Control"] = "no-store"  # the rows name people
+    return ReportChecklistResultOut(
+        counts=result.counts,
+        rows=[ReportChecklistRowOut(code=code, name=name, outcome=outcome) for code, name, outcome in result.rows],
+        dropped=result.dropped,
+    )
 
 
 # --- the pop-ups: «Багана сонгох», «Шүүлтүүр», «Хэлбэр» (read only: the model each pop-up draws) ---------------------

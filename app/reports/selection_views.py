@@ -1,17 +1,11 @@
 """The Excel, CSV and print files of the rows a user picked on a report. Each is one POST: the report's address
 (`query`) plus the ticked ids or `all`, checked by selection.pick before anything is written."""
 
-import logging
-import re
-from dataclasses import dataclass
 from datetime import date
 
 from accounts.audit import record_export
 from accounts.models import User
 from checklists import access as checklist_access
-from checklists.forms import template_match_choices
-from checklists.models import ChecklistKind, ChecklistTemplate
-from checklists.services import lifecycle
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseNotAllowed, JsonResponse, QueryDict
@@ -19,14 +13,14 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from employees import listing
-from macs.models import Employee
 
 from reports import registry
 from reports.selection import Picked, SelectionError, pick
 from reports.services import exports
+from reports.services import selection_checklist as checklist_service
 from reports.services.exports import LINE_BREAKS, NO_NAME_COLUMN, _one_line  # noqa: F401 (tests import them from here)
 from reports.services.print_page import build_print
+from reports.services.selection_checklist import DATE_TEXT_LENGTH, KIND, MSG_KIND, Values
 from reports.types import Report
 from reports.views import EXPORT_PERM
 
@@ -131,91 +125,13 @@ def selected_copy(request: HttpRequest, key: str) -> HttpResponse:
     return JsonResponse({"text": result.text, "count": result.count, "dropped": result.dropped})
 
 
-logger = logging.getLogger(__name__)
-
-KIND = ChecklistKind.OFFBOARDING.value  # the only kind the pop-up starts; onboarding starts itself at the hire
-ANCHOR_MIN = date(1990, 1, 1)  # the earliest anchor day a checklist may take
-ANCHOR_MAX = date(2100, 12, 31)
-DATE_TEXT_LENGTH = 10  # YYYY-MM-DD, the only date text read
-OUTCOME_LABELS = {
-    "started": "Эхэлсэн",
-    "already_open": "Нээлттэй байсан",
-    "no_template": "Загвар алга",
-    "not_allowed": "Харах эрх алга",
-    "left": "Ажлаас гарсан",
-    "error": "Алдаа гарлаа",
-}
-MSG_KIND = "Энд зөвхөн «Ажлаас гарах» жагсаалт эхлүүлнэ."
-MSG_DATE = "Огноог 2026-11-07 хэлбэрээр оруулна уу."
-MSG_RANGE = f"Огноо {ANCHOR_MIN.isoformat()}-ээс {ANCHOR_MAX.isoformat()} хооронд байх ёстой."
-MSG_REASON = "Шалтгаан буруу байна. Жагсаалтаас сонгоно уу."
-
-
-@dataclass(frozen=True)
-class _Values:
-    """The checklist pop-up's fields as the user left them. The date is kept as typed, for showing again."""
-
-    kind: str
-    reason: str
-    anchor_day: str
-
-
-DATE_TEXT = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")  # ASCII digits only; week dates and other forms are refused
-
-
-@dataclass(frozen=True)
-class _Outcome:
-    """What happened for one picked person. `employee` is None only when the person could not be read back."""
-
-    pk: int
-    employee: Employee | None
-    outcome: str
-
-
-def _typed(data: QueryDict, today: str) -> _Values:
+def _typed(data: QueryDict, today: str) -> Values:
     """The fields as the user typed them, for showing the form again after a refusal. The date text is shown as typed
     (at most 10 characters), today when nothing was typed."""
-    return _Values(
-        kind=KIND,
+    return Values(
         reason=data.get("reason", ""),
         anchor_day=data.get("anchor_day", "")[:DATE_TEXT_LENGTH] or today,
     )
-
-
-def _anchor_day(text: str) -> date:
-    """A calendar day written as YYYY-MM-DD with ASCII digits. Raises ValueError for any other text."""
-    if DATE_TEXT.fullmatch(text) is None:
-        raise ValueError(text)
-    return date.fromisoformat(text)
-
-
-def _reason_choices(kind: str) -> list[tuple[str, str]]:
-    """The reasons that some active template of `kind` lists, with their names (value = the text a template stores)."""
-    listed: set[str] = set()
-    for template in ChecklistTemplate.objects.filter(kind=kind, active=True):
-        listed.update(str(reason) for reason in template.reasons or [])
-    return [(value, label) for value, label in template_match_choices(kind) if value in listed]
-
-
-def _read_values(data: QueryDict) -> tuple[_Values, date | None, list[str]]:
-    """The posted fields, checked. Returns the values, the anchor day (None when not valid) and the errors."""
-    errors: list[str] = []
-    if "kind" in data and data["kind"] != KIND:  # the field is no longer shown; an absent kind means offboarding
-        errors.append(MSG_KIND)
-    reason = data.get("reason", "")
-    if reason and reason not in {value for value, _ in _reason_choices(KIND)}:
-        errors.append(MSG_REASON)
-    text = data.get("anchor_day", "")
-    anchor: date | None = None
-    try:
-        anchor = _anchor_day(text)
-    except ValueError:
-        errors.append(MSG_DATE)
-    else:
-        if not ANCHOR_MIN <= anchor <= ANCHOR_MAX:
-            errors.append(MSG_RANGE)
-            anchor = None
-    return _Values(kind=KIND, reason=reason, anchor_day=text[:DATE_TEXT_LENGTH]), anchor, errors
 
 
 def _checklist_form(
@@ -223,61 +139,29 @@ def _checklist_form(
     key: str,
     *,
     picked: Picked | None,
-    values: _Values,
+    values: Values,
     errors: list[str],
 ) -> HttpResponse:
     """The checklist pop-up, always status 200 (htmx swaps 2xx; UI_RULES §6): a refused field shows its error in the
     form. The selection goes back as hidden fields: the report address, the all-matching flag, or the ids `pick`
     checked (never raw input)."""
     all_people = request.POST.get("all") == "1"
+    form = checklist_service.form_model(timezone.localdate())
     context = {
         "action": reverse("reports:sel_checklist", args=[key]),
-        "reasons": _reason_choices(KIND),
+        "reasons": form.reasons,
         "reason": values.reason,
         "anchor_day": values.anchor_day,
-        "anchor_min": ANCHOR_MIN.isoformat(),
-        "anchor_max": ANCHOR_MAX.isoformat(),
+        "anchor_min": form.anchor_min,
+        "anchor_max": form.anchor_max,
         "query": request.POST.get("query", ""),
         "all_people": all_people,
         "ids": [] if picked is None or all_people else list(picked.ids),
         "count": len(picked.ids) if picked is not None else 0,
         "errors": errors,
-        "template_missing": not ChecklistTemplate.objects.filter(kind=KIND, active=True).exists(),
+        "template_missing": form.template_missing,
     }
     return render(request, "reports/_selection_checklist.html", context)
-
-
-def _outcome(user: User, employee: Employee, values: _Values, anchor_day: date, today: date) -> str:
-    """The outcome for one person. Checked in this order: a person who has left gets no checklist even if one is
-    open; an open checklist of the kind is left as it is (its day and task dates never move); else one is started."""
-    if not checklist_access.can_see_employee(user, employee):
-        return "not_allowed"
-    if listing.row_for(employee, today).state == "left":
-        return "left"
-    if lifecycle.open_checklist(employee, values.kind) is not None:
-        return "already_open"
-    started = lifecycle.start(employee, values.kind, reason=values.reason or None, anchor_day=anchor_day, by=user)
-    return "no_template" if started is None else "started"
-
-
-def _start_each(user: User, picked: Picked, values: _Values, anchor_day: date, today: date) -> list[_Outcome]:
-    """Check and start each picked person, one after another. A refusal or an unexpected error for one person is
-    that person's outcome and never stops the others. The start itself writes the activity entry and the log.
-    Every picked id gets one outcome, so the counts add up to the picked count."""
-    employees = Employee.objects.in_bulk(picked.ids)
-    outcomes: list[_Outcome] = []
-    for pk in picked.ids:
-        employee = employees.get(pk)
-        if employee is None:
-            outcomes.append(_Outcome(pk, None, "not_allowed"))  # picked, but not readable now: never silently dropped
-            continue
-        try:
-            outcome = _outcome(user, employee, values, anchor_day, today)
-        except Exception:  # one person's failure is reported on their line; the rest still run
-            logger.exception("Checklist start failed for employee %s", pk)
-            outcome = "error"
-        outcomes.append(_Outcome(pk, employee, outcome))
-    return outcomes
 
 
 @login_required
@@ -299,18 +183,15 @@ def selected_checklist(request: HttpRequest, key: str) -> HttpResponse:
         return _checklist_form(request, key, picked=None, values=typed, errors=[error.message])
     if "confirm" not in request.POST:
         return _checklist_form(request, key, picked=picked, values=typed, errors=[])
-    values, anchor, errors = _read_values(request.POST)
+    values, anchor, errors = checklist_service.read_values(
+        request.POST.get("reason", ""), request.POST.get("anchor_day", "")
+    )
+    if request.POST.get("kind", KIND) != KIND:  # the field is no longer shown; an absent kind means offboarding
+        errors.insert(0, MSG_KIND)
     if anchor is None or errors:
         return _checklist_form(request, key, picked=picked, values=values, errors=errors)
-    outcomes = _start_each(user, picked, values, anchor, today)
-    counts = {name: sum(1 for item in outcomes if item.outcome == name) for name in OUTCOME_LABELS}
-    rows = [
-        {
-            "code": (item.employee.code if item.employee else None) or str(item.pk),
-            "name": item.employee.full_name if item.employee else "",
-            "outcome": OUTCOME_LABELS[item.outcome],
-        }
-        for item in outcomes
-    ]
-    context = {"report": report, "counts": counts, "rows": rows, "dropped": picked.dropped}
+    outcomes = checklist_service.start_each(user, picked, values, anchor, today)
+    result = checklist_service.result_of(outcomes, picked.dropped)
+    rows = [{"code": code, "name": name, "outcome": outcome} for code, name, outcome in result.rows]
+    context = {"report": report, "counts": result.counts, "rows": rows, "dropped": result.dropped}
     return render(request, "reports/_selection_result.html", context)

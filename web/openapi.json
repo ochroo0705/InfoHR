@@ -10134,6 +10134,156 @@
         "title": "ReportChartSeriesOut",
         "type": "object"
       },
+      "ReportChecklistFormOut": {
+        "properties": {
+          "all": {
+            "title": "All",
+            "type": "boolean"
+          },
+          "anchor_max": {
+            "title": "Anchor Max",
+            "type": "string"
+          },
+          "anchor_min": {
+            "title": "Anchor Min",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReportChecklistReasonOut"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "template_missing": {
+            "title": "Template Missing",
+            "type": "boolean"
+          },
+          "today": {
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "all",
+          "reasons",
+          "template_missing",
+          "anchor_min",
+          "anchor_max",
+          "today"
+        ],
+        "title": "ReportChecklistFormOut",
+        "type": "object"
+      },
+      "ReportChecklistReasonOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ReportChecklistReasonOut",
+        "type": "object"
+      },
+      "ReportChecklistResultOut": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "dropped": {
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ReportChecklistRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "counts",
+          "rows",
+          "dropped"
+        ],
+        "title": "ReportChecklistResultOut",
+        "type": "object"
+      },
+      "ReportChecklistRowOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "outcome"
+        ],
+        "title": "ReportChecklistRowOut",
+        "type": "object"
+      },
+      "ReportChecklistStartIn": {
+        "properties": {
+          "all": {
+            "default": false,
+            "title": "All",
+            "type": "boolean"
+          },
+          "anchor_day": {
+            "default": "",
+            "title": "Anchor Day",
+            "type": "string"
+          },
+          "ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "query": {
+            "default": "",
+            "title": "Query",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "ReportChecklistStartIn",
+        "type": "object"
+      },
       "ReportColourOut": {
         "properties": {
           "classes": {
@@ -20812,6 +20962,102 @@
           }
         ],
         "summary": "Rules Pop",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/selected/checklist": {
+      "post": {
+        "description": "Starts an offboarding checklist for each picked person and answers the outcome per person. The selection is\nchecked before the fields (both refusals are 400 with the messages in form_errors). Needs the right to start a\nchecklist by hand.",
+        "operationId": "api_reports_selected_checklist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportChecklistStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportChecklistResultOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selected Checklist",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/selected/checklist/form": {
+      "post": {
+        "description": "The offboarding checklist's form for the picked people: the count, the reasons and whether a template is missing.\nThe selection is checked first (a refusal is 400); nothing is started.",
+        "operationId": "api_reports_selected_checklist_form",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSelectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportChecklistFormOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selected Checklist Form",
         "tags": [
           "reports"
         ]

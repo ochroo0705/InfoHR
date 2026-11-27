@@ -2,12 +2,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { copySelection, postSelection, printTicket } from "../../api/reports";
 import { copyNote, isOn } from "./selectionState";
+import { SelectionChecklistModal } from "./popups/SelectionChecklistModal";
 import type { ReportSelection } from "./useReportSelection";
 
 // The selection bar above a report table (app/reports/templates/reports/_selection_bar.html, the DOM and behaviour of
 // app/static/js/report_select.js, UI_RULES §4b). It is drawn only while selection is on. The actions act on the
-// picked people: Excel and CSV save a file, Хэвлэх opens the print page of the picks, Хуулах copies their names.
-// The checklist action is not drawn here (step 5e). An action whose URL is empty is not drawn.
+// picked people: Excel and CSV save a file, Хэвлэх opens the print page of the picks, Хуулах copies their names, and
+// Ажлаас гарах жагсаалт эхлүүлэх opens the checklist pop-up for them. The bar owns that pop-up's open state; while it
+// is open the action buttons are disabled and the selection stays. An action whose URL is empty is not drawn.
 
 const NETWORK_MSG = "Холбогдож чадсангүй. Дахин оролдоно уу.";
 const FAILED_MSG = "Татаж чадсангүй. Дахин оролдоно уу.";
@@ -15,12 +17,13 @@ const CLIPBOARD_MSG = "Хуулж чадсангүй.";
 const NOTE_MS = 4000;
 const BUTTON_CLASS = "rounded-lg border border-slate-300 bg-surface px-3 py-1.5 hover:bg-slate-50";
 
-type ActionKind = "excel" | "csv" | "print" | "copy";
+type ActionKind = "excel" | "csv" | "print" | "copy" | "checklist";
 const ACTIONS: { kind: ActionKind; label: string }[] = [
   { kind: "excel", label: "Excel" },
   { kind: "csv", label: "CSV" },
   { kind: "print", label: "Хэвлэх" },
   { kind: "copy", label: "Хуулах" },
+  { kind: "checklist", label: "Ажлаас гарах жагсаалт эхлүүлэх" },
 ];
 
 export interface SelectionBarProps {
@@ -111,6 +114,8 @@ function ActiveSelectionBar({
   const [note, setNote] = useState<Note | null>(null);
   const [busy, setBusy] = useState(0);
   const busyRef = useRef(0);
+  // The checklist pop-up is open: the bar's action buttons are off until it closes (the selection stays).
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const all = selection.state.all;
 
   // A success note clears itself; an error stays until the next action.
@@ -176,9 +181,15 @@ function ActiveSelectionBar({
       .finally(finish);
   }
 
+  function openChecklist(): void {
+    if (busyRef.current > 0 || checklistOpen) return;
+    setChecklistOpen(true);
+  }
+
   function runAction(kind: ActionKind): void {
     if (!urls[kind]) return;
     if (kind === "print") runPrint();
+    else if (kind === "checklist") openChecklist();
     else runFileOrCopy(kind);
   }
 
@@ -229,7 +240,7 @@ function ActiveSelectionBar({
             type="button"
             data-action={kind}
             data-url={urls[kind]}
-            disabled={busy > 0}
+            disabled={busy > 0 || checklistOpen}
             onClick={() => runAction(kind)}
             className={BUTTON_CLASS}
           >
@@ -245,6 +256,20 @@ function ActiveSelectionBar({
           Болих
         </button>
       </div>
+      {/* A portal: the pop-up is drawn over the page, not inside the bar's layout. */}
+      {checklistOpen && (
+        <SelectionChecklistModal
+          reportKey={reportKey}
+          query={query}
+          selection={selection}
+          onClose={() => setChecklistOpen(false)}
+          onRefused={(message) => {
+            // The refused read takes the pop-up away; its message shows in the bar's alert note.
+            setChecklistOpen(false);
+            setNote({ text: message, isError: true });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -33,6 +33,9 @@ export type ReportLayoutCardOut = components["schemas"]["ReportLayoutCardOut"];
 export type ReportPrintOut = components["schemas"]["ReportPrintOut"];
 export type ReportSelectionIn = components["schemas"]["ReportSelectionIn"];
 export type ReportSelectionCopyOut = components["schemas"]["ReportSelectionCopyOut"];
+export type ReportChecklistFormOut = components["schemas"]["ReportChecklistFormOut"];
+export type ReportChecklistStartIn = components["schemas"]["ReportChecklistStartIn"];
+export type ReportChecklistResultOut = components["schemas"]["ReportChecklistResultOut"];
 
 // Where a saved-view form comes from: the «Хадгалах» pop-up of a report (the address goes with it, the server reads it),
 // or the «Засах» pop-up of a view by its id.
@@ -312,7 +315,7 @@ export function useReportPrint(key: string, search: string) {
 // The text of a selection request that never reached the server (the same words as the other screens use).
 const SELECTION_NET_ERROR = "Холбогдож чадсангүй. Дахин оролдоно уу.";
 // The message of a refused selection answer that has no form error to show.
-const SELECTION_FAIL_ERROR = "Татаж чадсангүй. Дахин оролдоно уу.";
+export const SELECTION_FAIL_ERROR = "Татаж чадсангүй. Дахин оролдоно уу.";
 
 // The body the selection routes take: the report's address query, the picked ids as strings and the "all" flag. Only
 // these three fields are sent.
@@ -401,4 +404,31 @@ export async function printTicket(queryClient: QueryClient, key: string, body: R
     api.POST("/api/v1/reports/{key}/selected/print", { params: { path: { key } }, body: selectionBody(body) }),
   );
   return data.ticket;
+}
+
+// The offboarding checklist's form for the picked people (the count, the reasons, whether a template is missing). Nothing
+// is started. A refusal is thrown as ApiFailure, its message the first form error.
+export async function fetchChecklistForm(
+  queryClient: QueryClient,
+  key: string,
+  body: ReportSelectionIn,
+): Promise<ReportChecklistFormOut> {
+  return selectionPost<ReportChecklistFormOut>(queryClient, () =>
+    api.POST("/api/v1/reports/{key}/selected/checklist/form", {
+      params: { path: { key } },
+      body: selectionBody(body),
+    }),
+  );
+}
+
+// Starts an offboarding checklist for each picked person and answers the outcome per person. A refusal is thrown as
+// ApiFailure: its message is the first form error, and `formErrors` keeps every one of them for the pop-up to list.
+export async function startChecklists(
+  queryClient: QueryClient,
+  key: string,
+  body: ReportChecklistStartIn,
+): Promise<ReportChecklistResultOut> {
+  return selectionPost<ReportChecklistResultOut>(queryClient, () =>
+    api.POST("/api/v1/reports/{key}/selected/checklist", { params: { path: { key } }, body }),
+  );
 }

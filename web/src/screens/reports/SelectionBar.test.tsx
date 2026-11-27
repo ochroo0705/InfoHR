@@ -1,7 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { copySelection, postSelection, printTicket } from "../../api/reports";
+import {
+  copySelection,
+  fetchChecklistForm,
+  postSelection,
+  printTicket,
+  startChecklists,
+} from "../../api/reports";
 import { SelectionBar } from "./SelectionBar";
 import { useReportSelection } from "./useReportSelection";
 
@@ -9,11 +15,27 @@ vi.mock("../../api/reports", () => ({
   postSelection: vi.fn(),
   copySelection: vi.fn(),
   printTicket: vi.fn(),
+  fetchChecklistForm: vi.fn(),
+  startChecklists: vi.fn(),
+  SELECTION_FAIL_ERROR: "Татаж чадсангүй. Дахин оролдоно уу.",
 }));
 
 const postSelectionMock = vi.mocked(postSelection);
 const copySelectionMock = vi.mocked(copySelection);
 const printTicketMock = vi.mocked(printTicket);
+const fetchChecklistFormMock = vi.mocked(fetchChecklistForm);
+const startChecklistsMock = vi.mocked(startChecklists);
+
+const CHECKLIST = "Ажлаас гарах жагсаалт эхлүүлэх";
+const CHECKLIST_FORM = {
+  all: false,
+  anchor_max: "2026-12-31",
+  anchor_min: "2020-01-01",
+  count: 2,
+  reasons: [],
+  template_missing: false,
+  today: "2026-11-27",
+};
 
 const REAL_CREATE_OBJECT_URL = URL.createObjectURL;
 const REAL_REVOKE_OBJECT_URL = URL.revokeObjectURL;
@@ -137,6 +159,8 @@ beforeEach(() => {
   postSelectionMock.mockReset();
   copySelectionMock.mockReset();
   printTicketMock.mockReset();
+  fetchChecklistFormMock.mockReset();
+  startChecklistsMock.mockReset();
   URL.createObjectURL = vi.fn(() => "blob:staff");
   URL.revokeObjectURL = vi.fn();
 });
@@ -146,7 +170,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
   URL.createObjectURL = REAL_CREATE_OBJECT_URL;
-  URL.revokeObjectURL = REAL_REVOKE_OBJECT_URL;
+  // jsdom has no revokeObjectURL: a download timer still pending from an earlier test must find a function, not undefined.
+  URL.revokeObjectURL = REAL_REVOKE_OBJECT_URL ?? (() => {});
   Reflect.deleteProperty(navigator, "clipboard");
   Reflect.deleteProperty(window, "isSecureContext");
   Reflect.deleteProperty(document, "execCommand");
@@ -185,15 +210,15 @@ describe("SelectionBar visibility", () => {
 });
 
 describe("SelectionBar actions", () => {
-  it("draws the four actions and never the checklist, even when its URL is set", () => {
+  it("draws the four file and copy actions, and the checklist after them when its URL is set", () => {
     renderBar();
     pickTwo();
     expect(actionButton("Excel")).not.toBeNull();
     expect(actionButton("CSV")).not.toBeNull();
     expect(actionButton("Хэвлэх")).not.toBeNull();
     expect(actionButton("Хуулах")).not.toBeNull();
-    expect(actionButton("Ажлаас гарах жагсаалт эхлүүлэх")).toBeNull();
-    expect(document.querySelector('[data-action="checklist"]')).toBeNull();
+    expect(actionButton(CHECKLIST)).not.toBeNull();
+    expect(document.querySelector('[data-action="checklist"]')).not.toBeNull();
   });
 
   it("does not draw an action whose URL is empty", () => {
@@ -454,6 +479,77 @@ describe("SelectionBar pending and failures", () => {
       vi.advanceTimersByTime(10000);
     });
     expect(screen.getByRole("alert").textContent).toBe("Хугацаа дууссан.");
+  });
+});
+
+describe("SelectionBar checklist action", () => {
+  it("is drawn when its URL is set", () => {
+    renderBar();
+    pickTwo();
+    expect(actionButton(CHECKLIST)).not.toBeNull();
+  });
+
+  it("is absent when its URL is empty", () => {
+    renderBar({ urls: { ...URLS, checklist: "" } });
+    pickTwo();
+    expect(actionButton(CHECKLIST)).toBeNull();
+    expect(document.querySelector('[data-action="checklist"]')).toBeNull();
+  });
+
+  it("opens the pop-up with the current picks", async () => {
+    fetchChecklistFormMock.mockResolvedValue(CHECKLIST_FORM);
+    renderBar();
+    pickTwo();
+
+    fireEvent.click(actionButton(CHECKLIST) as HTMLButtonElement);
+    expect(await screen.findByRole("dialog", { name: CHECKLIST })).not.toBeNull();
+    await waitFor(() =>
+      expect(fetchChecklistFormMock).toHaveBeenCalledWith(client, "staff", {
+        query: "q=a",
+        ids: ["12", "34"],
+        all: false,
+      }),
+    );
+  });
+
+  it("a refused form read shows the message in the bar's alert and no pop-up stays", async () => {
+    fetchChecklistFormMock.mockRejectedValue(refusal("Ажлаас гарах жагсаалт эхлүүлэх эрх алга."));
+    renderBar();
+    pickTwo();
+
+    fireEvent.click(actionButton(CHECKLIST) as HTMLButtonElement);
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe("Ажлаас гарах жагсаалт эхлүүлэх эрх алга."),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.getElementById("selection-bar")).not.toBeNull();
+    expect(document.querySelector("[data-count]")?.textContent).toBe("2");
+  });
+
+  it("closing the pop-up keeps the selection on screen", async () => {
+    fetchChecklistFormMock.mockResolvedValue(CHECKLIST_FORM);
+    renderBar();
+    pickTwo();
+
+    fireEvent.click(actionButton(CHECKLIST) as HTMLButtonElement);
+    const dialog = await screen.findByRole("dialog", { name: CHECKLIST });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Хаах" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.querySelector("[data-count]")?.textContent).toBe("2");
+    expect(document.getElementById("selection-bar")).not.toBeNull();
+    expect(actionButton("Excel")?.disabled).toBe(false);
+  });
+
+  it("the other action buttons are disabled while the pop-up is open", async () => {
+    fetchChecklistFormMock.mockResolvedValue(CHECKLIST_FORM);
+    renderBar();
+    pickTwo();
+
+    fireEvent.click(actionButton(CHECKLIST) as HTMLButtonElement);
+    await screen.findByRole("dialog", { name: CHECKLIST });
+    for (const name of ["Excel", "CSV", "Хэвлэх", "Хуулах", CHECKLIST]) {
+      expect((actionButton(name) as HTMLButtonElement).disabled).toBe(true);
+    }
   });
 });
 

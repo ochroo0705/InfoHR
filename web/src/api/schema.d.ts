@@ -2606,6 +2606,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/{key}/selected/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selected Checklist
+         * @description Starts an offboarding checklist for each picked person and answers the outcome per person. The selection is
+         *     checked before the fields (both refusals are 400 with the messages in form_errors). Needs the right to start a
+         *     checklist by hand.
+         */
+        post: operations["api_reports_selected_checklist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/selected/checklist/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selected Checklist Form
+         * @description The offboarding checklist's form for the picked people: the count, the reasons and whether a template is missing.
+         *     The selection is checked first (a refusal is 400); nothing is started.
+         */
+        post: operations["api_reports_selected_checklist_form"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/{key}/selected/copy": {
         parameters: {
             query?: never;
@@ -6617,6 +6660,78 @@ export interface components {
             label: string;
             /** Values */
             values: (number | null)[];
+        };
+        /** ReportChecklistFormOut */
+        ReportChecklistFormOut: {
+            /** All */
+            all: boolean;
+            /** Anchor Max */
+            anchor_max: string;
+            /** Anchor Min */
+            anchor_min: string;
+            /** Count */
+            count: number;
+            /** Reasons */
+            reasons: components["schemas"]["ReportChecklistReasonOut"][];
+            /** Template Missing */
+            template_missing: boolean;
+            /** Today */
+            today: string;
+        };
+        /** ReportChecklistReasonOut */
+        ReportChecklistReasonOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** ReportChecklistResultOut */
+        ReportChecklistResultOut: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Dropped */
+            dropped: number;
+            /** Rows */
+            rows: components["schemas"]["ReportChecklistRowOut"][];
+        };
+        /** ReportChecklistRowOut */
+        ReportChecklistRowOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Outcome */
+            outcome: string;
+        };
+        /** ReportChecklistStartIn */
+        ReportChecklistStartIn: {
+            /**
+             * All
+             * @default false
+             */
+            all: boolean;
+            /**
+             * Anchor Day
+             * @default
+             */
+            anchor_day: string;
+            /**
+             * Ids
+             * @default []
+             */
+            ids: string[];
+            /**
+             * Query
+             * @default
+             */
+            query: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** ReportColourOut */
         ReportColourOut: {
@@ -11303,6 +11418,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportRulesModelOut"];
+                };
+            };
+        };
+    };
+    api_reports_selected_checklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportChecklistStartIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportChecklistResultOut"];
+                };
+            };
+        };
+    };
+    api_reports_selected_checklist_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSelectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportChecklistFormOut"];
                 };
             };
         };
