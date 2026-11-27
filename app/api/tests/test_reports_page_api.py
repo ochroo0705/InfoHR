@@ -47,6 +47,7 @@ HEAD_KEYS = {
     "selection_urls",
     "print_url",
     "excel_url",
+    "selection_max",
 }
 SAVED_KEYS = {"plain_url", "options", "templates", "current_view", "template_current", "can_edit_view"}
 BAR_KEYS = {"items", "picker", "column_chips", "adds", "clear_url", "columns_query", "options"}
@@ -187,6 +188,7 @@ def test_report_shape_for_a_table_report(monkeypatch: pytest.MonkeyPatch) -> Non
     assert set(body["head"]) == HEAD_KEYS
     assert set(body["head"]["tools"]) == {"columns", "rules", "format"}
     assert set(body["head"]["saved"]) == SAVED_KEYS
+    assert body["head"]["selection_max"] == 500  # the default cap of one bulk action
     assert set(body["bar"]) == BAR_KEYS
     assert set(body["table"]) == TABLE_KEYS
     assert [head["label"] for head in body["table"]["heads"]] == ["Нэр"]

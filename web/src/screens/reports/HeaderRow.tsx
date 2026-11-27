@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ReportHeadCellOut } from "../../api/reports";
 import { useTransitionNavigate, TLink } from "../../lib/viewTransition";
 import { inlineStyle } from "./ReportCell";
@@ -7,17 +8,55 @@ import { inlineStyle } from "./ReportCell";
 // instead, as report_sort_width.js and the template's onclick did (the template did a full load; this navigates in-app,
 // as every sort link of this page does).
 
-// The selection column's placeholder (step 5d draws the checkbox in it). Blank here: no input, no control.
+// The selection column's placeholder. Without `select` it stays blank; with it, the header box is drawn in it.
 export interface CheckColumn {
   css: string;
   style: string;
 }
 
-export function HeaderRow({ heads, check = null }: { heads: ReportHeadCellOut[]; check?: CheckColumn | null }) {
+// The header box (_table.html's data-select-all). `mark` is headerMark over the rows on screen; a click picks every row
+// on screen, or clears them (onPick(!mark.checked), as report_select.js's header change handler did).
+export interface HeaderSelect {
+  mark: { checked: boolean; indeterminate: boolean };
+  onPick: (on: boolean) => void;
+}
+
+function HeaderBox({ mark, onPick }: HeaderSelect) {
+  const ref = useRef<HTMLInputElement>(null);
+  // Indeterminate is a DOM property, not an attribute: it is written from the mark on every change.
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = mark.indeterminate;
+  }, [mark.checked, mark.indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      data-select-all
+      autoComplete="off"
+      aria-label="Бүгдийг сонгох"
+      checked={mark.checked}
+      onChange={() => onPick(!mark.checked)}
+    />
+  );
+}
+
+export function HeaderRow({
+  heads,
+  check = null,
+  select = null,
+}: {
+  heads: ReportHeadCellOut[];
+  check?: CheckColumn | null;
+  select?: HeaderSelect | null;
+}) {
   const go = useTransitionNavigate();
   return (
     <tr>
-      {check ? <th className={check.css || undefined} style={inlineStyle(check.style)} /> : null}
+      {check ? (
+        <th className={check.css || undefined} style={inlineStyle(check.style)}>
+          {select ? <HeaderBox mark={select.mark} onPick={select.onPick} /> : null}
+        </th>
+      ) : null}
       {heads.map((head, index) => (
         <th key={index} className={head.css || undefined} style={inlineStyle(head.sticky_left)}>
           <TLink

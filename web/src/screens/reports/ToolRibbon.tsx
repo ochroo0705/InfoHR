@@ -7,12 +7,16 @@ import { FormatModal } from "./popups/FormatModal";
 import { RulesModal } from "./popups/RulesModal";
 import { SavedViewModal } from "./popups/SavedViewModal";
 import { ToolIcon } from "./ToolIcon";
+import { isOn } from "./selectionState";
+import type { ReportSelection } from "./useReportSelection";
 
 // The tool ribbon of app/reports/templates/reports/report.html: captioned groups of tools. Classes and Mongolian texts
 // are copied from the template. The API decides which tools exist (head.tools, head.saved, print_url, excel_url,
-// staff_actions); this component only draws them. «Багана», «Шүүлтүүр», «Хэлбэр», «Хадгалах» and «Засах» report the
-// pop-up they want through `onOpen`; the page owns the one open pop-up (ReportPopUp below). Print and Excel are plain
-// links to the Django exports. The reset link and the saved-view select stay in the report's own address (in-app).
+// selectable, staff_actions); this component only draws them. «Багана», «Шүүлтүүр», «Хэлбэр», «Хадгалах» and «Засах»
+// report the pop-up they want through `onOpen`; the page owns the one open pop-up (ReportPopUp below). Print and Excel
+// are React-served: print opens /reports/<key>/print/ in a new tab, Excel downloads /api/v1/reports/<key>/excel, both
+// with the report's address query. «Сонгох» toggles the row selection of the page (`selection`). The reset link and the
+// saved-view select stay in the report's own address (in-app).
 
 type ReportHeadOut = components["schemas"]["ReportHeadOut"];
 type ReportSavedOut = components["schemas"]["ReportSavedOut"];
@@ -25,11 +29,11 @@ export interface ToolRibbonProps {
   reportKey: string;
   head: ReportHeadOut;
   clearUrl: string; // bar.clear_url: the «Бүгдийг арилгах» address
+  query?: string; // the report's address query without the batch position: the print and Excel links carry it
+  selection?: ReportSelection; // the page's row selection; given only when the table layout is on screen
   onOpen: (pop: Exclude<OpenPopUp, null>) => void;
 }
 
-// The title of the links that leave for the Django page (print and Excel): the export opens in another page.
-const LEGACY_TITLE = "Хуучин хуудсанд нээгдэнэ, тэндээс товчийг дахин дарна уу";
 const GROUP_CLASS =
   "inline-flex max-w-full overflow-x-auto divide-x divide-slate-300 rounded-lg border border-slate-300 bg-surface text-sm [&>*]:inline-flex [&>*]:items-center [&>*]:gap-1.5 [&>*]:whitespace-nowrap [&>*]:px-3 [&>*]:py-2 [&>*:hover]:bg-slate-50";
 const SAVE_GROUP_CLASS =
@@ -121,9 +125,11 @@ function SavedViews({
   );
 }
 
-export function ToolRibbon({ reportKey, head, clearUrl, onOpen }: ToolRibbonProps) {
+export function ToolRibbon({ reportKey, head, clearUrl, query = "", selection, onOpen }: ToolRibbonProps) {
   const { columns, rules, format } = head.tools;
-  const showExport = head.print_url !== "" || head.excel_url !== "";
+  const showToggle = head.selectable && selection !== undefined;
+  const showExport = head.print_url !== "" || head.excel_url !== "" || showToggle;
+  const search = query === "" ? "" : `?${query}`;
 
   return (
     <div data-sticky-anchor="" className="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">
@@ -159,16 +165,22 @@ export function ToolRibbon({ reportKey, head, clearUrl, onOpen }: ToolRibbonProp
         <div className="flex flex-col gap-1">
           <div className={GROUP_CLASS}>
             {head.print_url !== "" ? (
-              <a href={legacy(head.print_url)} target="_blank" rel="noopener" title={LEGACY_TITLE}>
+              <a href={`/reports/${reportKey}/print/${search}`} target="_blank" rel="noopener">
                 <ToolIcon kind="print" />
                 Хэвлэх
               </a>
             ) : null}
             {head.excel_url !== "" ? (
-              <a href={legacy(head.excel_url)} title={LEGACY_TITLE}>
+              <a href={`/api/v1/reports/${reportKey}/excel${search}`}>
                 <ToolIcon kind="excel" />
                 Excel
               </a>
+            ) : null}
+            {showToggle ? (
+              <button type="button" data-select-toggle aria-pressed={isOn(selection.state)} onClick={selection.toggle}>
+                <ToolIcon kind="select" />
+                Сонгох
+              </button>
             ) : null}
           </div>
           <span className="text-xs text-slate-500">Гаргах, сонгох</span>

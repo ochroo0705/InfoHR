@@ -68,6 +68,30 @@ describe("App", () => {
     expect(screen.queryByText("stub: EmployeePage")).toBeNull();
   });
 
+  it("the report print page at /reports/:key/print/ is outside the app shell, while the report page stays inside it", () => {
+    const printClient = new QueryClient();
+    const { unmount } = render(
+      <QueryClientProvider client={printClient}>
+        <MemoryRouter initialEntries={["/reports/staff-list/print/?sel=abc"]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByTestId("app-shell")).toBeNull();
+    expect(screen.getByRole("button", { name: "Хэвлэх" })).toBeTruthy();
+    unmount();
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/reports/staff-list/"]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId("app-shell")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Хэвлэх" })).toBeNull();
+  });
+
   it("renders the order print page at /employees/orders/print/ with its heading", () => {
     const client = new QueryClient();
     render(

@@ -1,10 +1,21 @@
 // The harness is imported first: it stubs fetch before ./client (and so ./reports) load.
-import { fetchMock, jsonResponse, newClient, rejectionOf, resetFetch, resetObservers, urlOf, wrapperFor } from "./testSupport";
+import {
+  csrfFailure,
+  fetchMock,
+  jsonResponse,
+  metaBody,
+  newClient,
+  rejectionOf,
+  resetFetch,
+  resetObservers,
+  urlOf,
+  wrapperFor,
+} from "./testSupport";
 import type { QueryClient } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { focusManager, onlineManager } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setCsrf } from "./client";
+import { getCsrf, setCsrf } from "./client";
 import {
   fetchCatalogue,
   reportKeys,
@@ -15,7 +26,11 @@ import {
   useCatalogue,
   useReportCards,
   useReportPage,
+  useReportPrint,
   useReportRows,
+  copySelection,
+  postSelection,
+  printTicket,
   type ReportCardsOut,
   type ReportPageOut,
   type ReportTableOut,
@@ -346,5 +361,161 @@ describe("report API", () => {
       update.current.mutateAsync({ name: "x", visibility: "shared", is_default: false, query: "" }),
     );
     expect(caught).toMatchObject({ status: 403 });
+  });
+
+  it("print query sends the address query verbatim, sel included, and is not refetched on focus", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { title: "Ажилтны жагсаалт" }));
+
+    const { result } = renderHook(() => useReportPrint("staff", "?sel=abc.def&q=a%20b"), { wrapper: wrapperFor(client) });
+    await vi.waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/print");
+    expect(urlOf(0).search).toBe("?sel=abc.def&q=a%20b");
+    expect(result.current.data).toEqual({ title: "Ажилтны жагсаалт" });
+
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+    onlineManager.setOnline(false);
+    onlineManager.setOnline(true);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("postSelection reads the file name from Content-Disposition and sends the three fields as JSON", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("xlsx-bytes", {
+        status: 200,
+        headers: { "Content-Disposition": 'attachment; filename="staff-selected-2026-11-27.xlsx"' },
+      }),
+    );
+
+    const body = { query: "q=a&add=branch", ids: ["3", "11"], all: false };
+    const file = await postSelection(client, "staff", "excel", body);
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/selected/excel");
+    expect(JSON.parse(await request.text())).toEqual(body);
+    expect(file.filename).toBe("staff-selected-2026-11-27.xlsx");
+    expect(await file.blob.text()).toBe("xlsx-bytes");
+  });
+
+  it("postSelection falls back to the key's selected name when no Content-Disposition comes back", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("a,b", { status: 200 }));
+    const excel = await postSelection(client, "staff", "excel", { query: "", ids: ["1"], all: false });
+    expect(excel.filename).toBe("staff-selected.xlsx");
+
+    fetchMock.mockResolvedValueOnce(new Response("a,b", { status: 200 }));
+    const csv = await postSelection(client, "staff", "csv", { query: "", ids: ["1"], all: false });
+    expect(csv.filename).toBe("staff-selected.csv");
+    expect(urlOf(1).pathname).toBe("/api/v1/reports/staff/selected/csv");
+  });
+
+  it("postSelection reads an RFC 5987 file name", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("x", {
+        status: 200,
+        headers: { "Content-Disposition": "attachment; filename*=UTF-8''staff%20sel.csv" },
+      }),
+    );
+    const file = await postSelection(client, "staff", "csv", { query: "", ids: ["1"], all: false });
+    expect(file.filename).toBe("staff sel.csv");
+  });
+
+  it("a 400 refusal is thrown as ApiFailure with the first form error as its message", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(400, { field_errors: {}, form_errors: ["Сонгосон хүн алга."] }));
+
+    const caught = await rejectionOf(() =>
+      postSelection(client, "staff", "excel", { query: "", ids: [], all: false }),
+    );
+    expect(caught).toMatchObject({ status: 400, message: "Сонгосон хүн алга.", formErrors: ["Сонгосон хүн алга."] });
+  });
+
+  it("a 403 with no form error is thrown as ApiFailure with its status", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(403, { field_errors: {}, form_errors: [], code: "forbidden" }));
+
+    const caught = await rejectionOf(() => copySelection(client, "staff", { query: "", ids: ["1"], all: false }));
+    expect(caught).toMatchObject({ status: 403, code: "forbidden", message: "Татаж чадсангүй. Дахин оролдоно уу." });
+  });
+
+  it("a network failure is thrown with the exact network text", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    const caught = await rejectionOf(() => printTicket(client, "staff", { query: "", ids: ["1"], all: false }));
+    expect((caught as Error).message).toBe("Холбогдож чадсангүй. Дахин оролдоно уу.");
+  });
+
+  it("copySelection returns the text, count and dropped, and posts the three fields", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { text: "Бат\nДорж", count: 2, dropped: 1 }));
+
+    const body = { query: "q=a", ids: ["1", "2", "9"], all: false };
+    const copied = await copySelection(client, "staff", body);
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/selected/copy");
+    expect(JSON.parse(await request.text())).toEqual(body);
+    expect(copied).toEqual({ text: "Бат\nДорж", count: 2, dropped: 1 });
+  });
+
+  it("printTicket returns the ticket string and posts to the print route", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ticket: "t-123" }));
+
+    const ticket = await printTicket(client, "staff", { query: "", ids: [], all: true });
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.method).toBe("POST");
+    expect(urlOf(0).pathname).toBe("/api/v1/reports/staff/selected/print");
+    expect(JSON.parse(await request.text())).toEqual({ query: "", ids: [], all: true });
+    expect(ticket).toBe("t-123");
+  });
+
+  it("a selection POST refused for a stale CSRF token is sent once more with the fresh token", async () => {
+    setCsrf("old-token");
+    fetchMock
+      .mockResolvedValueOnce(csrfFailure())
+      .mockResolvedValueOnce(jsonResponse(200, metaBody("fresh-token")))
+      .mockResolvedValueOnce(jsonResponse(200, { text: "Бат", count: 1, dropped: 0 }));
+
+    const copied = await copySelection(client, "staff", { query: "", ids: ["1"], all: false });
+
+    expect(copied).toEqual({ text: "Бат", count: 1, dropped: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(urlOf(1).pathname).toBe("/api/v1/meta");
+    expect((fetchMock.mock.calls[0][0] as Request).headers.get("X-CSRFToken")).toBe("old-token");
+    expect((fetchMock.mock.calls[2][0] as Request).headers.get("X-CSRFToken")).toBe("fresh-token");
+    expect(getCsrf()).toBe("fresh-token");
+  });
+
+  it("a file POST refused for a stale CSRF token takes its file name from the answer that succeeded", async () => {
+    setCsrf("old-token");
+    fetchMock
+      .mockResolvedValueOnce(csrfFailure())
+      .mockResolvedValueOnce(jsonResponse(200, metaBody("fresh-token")))
+      .mockResolvedValueOnce(
+        new Response("xlsx-bytes", {
+          status: 200,
+          headers: { "Content-Disposition": 'attachment; filename="staff-selected-2026-11-27.xlsx"' },
+        }),
+      );
+
+    const file = await postSelection(client, "staff", "excel", { query: "", ids: ["1"], all: false });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(file.filename).toBe("staff-selected-2026-11-27.xlsx");
+    expect(await file.blob.text()).toBe("xlsx-bytes");
+    expect(getCsrf()).toBe("fresh-token");
+  });
+
+  it("a second CSRF refusal is thrown with the Mongolian fallback when the body has no form error", async () => {
+    fetchMock
+      .mockResolvedValueOnce(csrfFailure())
+      .mockResolvedValueOnce(jsonResponse(200, metaBody("fresh-token")))
+      .mockResolvedValueOnce(jsonResponse(500, {}));
+
+    const caught = await rejectionOf(() => printTicket(client, "staff", { query: "", ids: ["1"], all: false }));
+    expect(caught).toMatchObject({ status: 500, message: "Татаж чадсангүй. Дахин оролдоно уу." });
   });
 });

@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { ReportHeadCellOut } from "../../api/reports";
-import { HeaderRow } from "./HeaderRow";
+import { HeaderRow, type HeaderSelect } from "./HeaderRow";
 
 const NAME: ReportHeadCellOut = {
   label: "Нэр",
@@ -89,5 +89,71 @@ describe("HeaderRow", () => {
     expect(nameTh.style.left).toBe("0rem");
     expect(numberTh.hasAttribute("class")).toBe(false);
     expect(numberTh.hasAttribute("style")).toBe(false);
+  });
+});
+
+describe("HeaderRow selection box", () => {
+  const CHECK = { css: "sticky z-10", style: "left: 0rem" };
+
+  function renderSelect(select: HeaderSelect | null, check: typeof CHECK | null = CHECK) {
+    return render(
+      <MemoryRouter>
+        <table>
+          <thead>
+            <HeaderRow heads={[NAME]} check={check} select={select} />
+          </thead>
+        </table>
+      </MemoryRouter>,
+    );
+  }
+
+  it("the box is unchecked when no row on screen is picked", () => {
+    const { container } = renderSelect({ mark: { checked: false, indeterminate: false }, onPick: vi.fn() });
+    const box = container.querySelector<HTMLInputElement>("th input[data-select-all]")!;
+    expect(box.getAttribute("aria-label")).toBe("Бүгдийг сонгох");
+    expect(box.checked).toBe(false);
+    expect(box.indeterminate).toBe(false);
+  });
+
+  it("the box is indeterminate when some rows on screen are picked", () => {
+    const { container } = renderSelect({ mark: { checked: false, indeterminate: true }, onPick: vi.fn() });
+    const box = container.querySelector<HTMLInputElement>("th input[data-select-all]")!;
+    expect(box.checked).toBe(false);
+    expect(box.indeterminate).toBe(true);
+  });
+
+  it("the box is checked when every row on screen is picked", () => {
+    const { container } = renderSelect({ mark: { checked: true, indeterminate: false }, onPick: vi.fn() });
+    const box = container.querySelector<HTMLInputElement>("th input[data-select-all]")!;
+    expect(box.checked).toBe(true);
+    expect(box.indeterminate).toBe(false);
+  });
+
+  it("a click on an indeterminate box picks every row on screen", () => {
+    const onPick = vi.fn();
+    const { container } = renderSelect({ mark: { checked: false, indeterminate: true }, onPick });
+    fireEvent.click(container.querySelector("th input[data-select-all]")!);
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick).toHaveBeenCalledWith(true);
+  });
+
+  it("a click on a checked box clears the picks", () => {
+    const onPick = vi.fn();
+    const { container } = renderSelect({ mark: { checked: true, indeterminate: false }, onPick });
+    fireEvent.click(container.querySelector("th input[data-select-all]")!);
+    expect(onPick).toHaveBeenCalledWith(false);
+  });
+
+  it("without select the selection column head stays blank", () => {
+    const { container } = renderSelect(null);
+    const th = container.querySelector("th")!;
+    expect(th.querySelector("input")).toBeNull();
+    expect(th.className).toBe("sticky z-10");
+  });
+
+  it("no selection column at all when check is null", () => {
+    const { container } = renderSelect({ mark: { checked: false, indeterminate: false }, onPick: vi.fn() }, null);
+    expect(container.querySelector("input[data-select-all]")).toBeNull();
+    expect(container.querySelectorAll("th")).toHaveLength(1);
   });
 });

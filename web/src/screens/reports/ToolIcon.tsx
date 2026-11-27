@@ -2,9 +2,25 @@ import type { ReactNode } from "react";
 
 // The 16px line icons of app/reports/templates/reports/_tool_icon.html, path by path. Decorative: the label beside the
 // icon names the control. Only the kinds the report ribbon draws are here (search is drawn by FilterBar).
-export type ToolIconKind = "save" | "columns" | "filter" | "format" | "print" | "excel" | "reset" | "import" | "person_add";
+export type ToolIconKind =
+  | "save"
+  | "columns"
+  | "filter"
+  | "format"
+  | "print"
+  | "excel"
+  | "select"
+  | "reset"
+  | "import"
+  | "person_add";
 
 const PATHS: Record<ToolIconKind, ReactNode> = {
+  select: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M8 12l3 3 5-6" />
+    </>
+  ),
   save: (
     <>
       <path d="M5 3h11l3 3v15H5z" />

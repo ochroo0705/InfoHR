@@ -2504,6 +2504,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/{key}/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report Excel
+         * @description The Excel file of the report for the address: the same visible columns, sort and groups as the screen.
+         */
+        get: operations["api_reports_report_excel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/{key}/format": {
         parameters: {
             query?: never;
@@ -2516,6 +2536,28 @@ export interface paths {
          * @description The «Хэлбэр» pop-up's model for the address.
          */
         get: operations["api_reports_format_pop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report Print
+         * @description The print page of the report for the address. With `sel` (a print ticket from POST .../selected/print) it is the
+         *     picked people's print for the ticket's address, and the query string is ignored. Writes one export line:
+         *     print_page, or print_selected for a ticket.
+         */
+        get: operations["api_reports_report_print"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2558,6 +2600,88 @@ export interface paths {
         get: operations["api_reports_rules_pop"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/selected/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selected Copy
+         * @description The picked people's names, one line each in report order, with the work email after a tab when the user may
+         *     see the report's email column. Audited as copy_selected. Without a name column the copy is refused (400).
+         */
+        post: operations["api_reports_selected_copy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/selected/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selected Csv
+         * @description The picked people's rows as a CSV file (UTF-8 with BOM).
+         */
+        post: operations["api_reports_selected_csv"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/selected/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selected Excel
+         * @description The picked people's rows as an Excel file: the screen's visible columns, no footer.
+         */
+        post: operations["api_reports_selected_excel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{key}/selected/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Selected Print
+         * @description A print ticket for the picked people: the selection is checked now (a refusal is 400), and GET .../print?sel=
+         *     prints it. No line is written here; the print page writes the audit line when it is read.
+         */
+        post: operations["api_reports_selected_print"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6703,6 +6827,8 @@ export interface components {
             saved: components["schemas"]["ReportSavedOut"] | null;
             /** Selectable */
             selectable: boolean;
+            /** Selection Max */
+            selection_max: number;
             /** Selection Urls */
             selection_urls: {
                 [key: string]: string;
@@ -6903,6 +7029,67 @@ export interface components {
             /** Total */
             total: string;
         };
+        /** ReportPrintGroupOut */
+        ReportPrintGroupOut: {
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: components["schemas"]["ReportCellOut"][][];
+        };
+        /** ReportPrintHeadOut */
+        ReportPrintHeadOut: {
+            /** Css */
+            css: string;
+            /** Label */
+            label: string;
+        };
+        /** ReportPrintOut */
+        ReportPrintOut: {
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Footer */
+            footer: components["schemas"]["ReportCellOut"][] | null;
+            /** Grouped */
+            grouped: boolean;
+            /** Groups */
+            groups: components["schemas"]["ReportPrintGroupOut"][];
+            /** Heads */
+            heads: components["schemas"]["ReportPrintHeadOut"][];
+            /** Landscape */
+            landscape: boolean;
+            /** Lines */
+            lines: string[];
+            /** Min Group */
+            min_group: number;
+            /** Note */
+            note: string;
+            /** Printed By */
+            printed_by: string;
+            /** Shows Count */
+            shows_count: boolean;
+            summary: components["schemas"]["ReportPrintSummaryOut"] | null;
+            /** Title */
+            title: string;
+            /** Today */
+            today: string;
+        };
+        /** ReportPrintSummaryOut */
+        ReportPrintSummaryOut: {
+            /** Foot */
+            foot: string[] | null;
+            /** Head */
+            head: string[];
+            /** Lines */
+            lines: string[][];
+            /** Masked */
+            masked: boolean;
+            /** Money */
+            money: boolean;
+            /** Title */
+            title: string;
+        };
         /** ReportRowsOut */
         ReportRowsOut: {
             /** Groups */
@@ -6953,6 +7140,38 @@ export interface components {
             rows: components["schemas"]["ReportCardOut"][];
             /** Title */
             title: string;
+        };
+        /** ReportSelectionCopyOut */
+        ReportSelectionCopyOut: {
+            /** Count */
+            count: number;
+            /** Dropped */
+            dropped: number;
+            /** Text */
+            text: string;
+        };
+        /** ReportSelectionIn */
+        ReportSelectionIn: {
+            /**
+             * All
+             * @default false
+             */
+            all: boolean;
+            /**
+             * Ids
+             * @default []
+             */
+            ids: string[];
+            /**
+             * Query
+             * @default
+             */
+            query: string;
+        };
+        /** ReportSelectionTicketOut */
+        ReportSelectionTicketOut: {
+            /** Ticket */
+            ticket: string;
         };
         /** ReportTableOut */
         ReportTableOut: {
@@ -10976,6 +11195,26 @@ export interface operations {
             };
         };
     };
+    api_reports_report_excel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_reports_format_pop: {
         parameters: {
             query?: never;
@@ -10994,6 +11233,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportFormatModelOut"];
+                };
+            };
+        };
+    };
+    api_reports_report_print: {
+        parameters: {
+            query?: {
+                sel?: string;
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPrintOut"];
                 };
             };
         };
@@ -11040,6 +11303,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportRulesModelOut"];
+                };
+            };
+        };
+    };
+    api_reports_selected_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSelectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSelectionCopyOut"];
+                };
+            };
+        };
+    };
+    api_reports_selected_csv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSelectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_reports_selected_excel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSelectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_reports_selected_print: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSelectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSelectionTicketOut"];
                 };
             };
         };

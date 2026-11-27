@@ -88,6 +88,15 @@ describe("portedManifest", () => {
     expect(isPorted("/reports/staff-list/")).toBe(false);
   });
 
+  it("serves the print page of every report key, with or without its address, but not the report page or its sub-pages", () => {
+    expect(isPorted("/reports/staff-list/print/")).toBe(true);
+    expect(isPorted("/reports/staff-list/print/?sel=abc123")).toBe(true);
+    expect(isPorted("/reports/staff-list/print/?year=2026&sort=-id")).toBe(true);
+    expect(isPorted("/reports/staff-list/")).toBe(false);
+    expect(isPorted("/reports/staff-list/excel/")).toBe(false);
+    expect(isPorted("/reports/staff-list/print/excel/")).toBe(false);
+  });
+
   it("maps the real PORTED list one to one", () => {
     expect(portedManifest(PORTED).length).toBe(PORTED.length);
   });

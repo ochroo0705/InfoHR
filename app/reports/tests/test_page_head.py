@@ -16,7 +16,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from macs.models import Branch, Department, Position
 
-from reports import views
+from reports import selection, views
 from reports.filters import parse_filters
 from reports.models import SavedView
 from reports.registry import REPORTS
@@ -203,3 +203,11 @@ def test_htmx_batch_reads_no_option_lists(client: Client, login_hr: User, monkey
     assert reads_options(full), "the full page should read the option lists (positive control)"
     assert not reads_options(batch)
     assert len(batch.captured_queries) < len(full.captured_queries)
+
+
+def test_selection_max_is_the_live_cap(hr_user: User, report: Report, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The head carries the cap read at call time, for every report (selectable or not)."""
+    assert _head(hr_user, report).selection_max == selection.MAX_PEOPLE == 500
+    monkeypatch.setattr(selection, "MAX_PEOPLE", 7)
+    assert _head(hr_user, report).selection_max == 7
+    assert _head(_no_rights_user(), report).selection_max == 7

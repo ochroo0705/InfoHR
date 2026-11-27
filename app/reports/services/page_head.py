@@ -19,6 +19,7 @@ from employees import access
 
 from reports import marks as marks_mod
 from reports import rules as rules_mod
+from reports import selection as selection_mod
 from reports import totals as totals_mod
 from reports.filters import Filters, parse_filters, to_query
 from reports.layouts import offered_layouts
@@ -100,6 +101,7 @@ class PageHead:
     tools: PageTools
     title: str
     layout_options: list[LayoutOption]  # the switcher; the template draws it with two or more
+    selection_max: int  # the most people one bulk action covers: the live selection.MAX_PEOPLE, for every report
 
 
 def _may_change(user: User, view: SavedView) -> bool:
@@ -316,4 +318,5 @@ def page_head(
         tools=page_tools(user, report, table),
         title=report.title,
         layout_options=layout_options(path, user, report, f, table.spec.layout, adds, plain),
+        selection_max=selection_mod.MAX_PEOPLE,
     )

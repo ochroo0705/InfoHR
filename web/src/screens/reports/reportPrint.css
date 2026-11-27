@@ -1,0 +1,56 @@
+/* The <style> of app/reports/templates/reports/print.html, every selector under .report-print (the page wrapper), so
+   the app's Tailwind base does not change the table. The @page size is set by ReportPrintPage (it depends on landscape).
+   body rules stay on body (the print block only). */
+.report-print {
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  line-height: normal;
+  margin: 16px;
+  color: #000;
+}
+/* Arial is deliberate: parity with the Django print page (print.html), not the app's font. */
+.report-print .top { display: flex; justify-content: space-between; align-items: baseline; }
+.report-print h1 { font-size: 16px; font-weight: bold; text-align: center; margin: 8px 0 8px; }
+.report-print .filters { margin-bottom: 8px; }
+.report-print .note { font-style: italic; color: #444; margin: 0 0 8px; }
+.report-print table { width: 100%; border-collapse: collapse; }
+.report-print th, .report-print td { border: 1px solid #444; padding: 3px 5px; text-align: left; vertical-align: top; }
+.report-print th { background: #eee; }
+.report-print .text-right { text-align: right; }
+.report-print .pl-6 { padding-left: 1.5rem; }
+/* The colour rules (reports/marks.py COLOURS): print has no app.css, so the light values are written here; each oklch
+   value has a hex fallback before it for browsers without oklch. */
+.report-print .bg-red-50 { background-color: #fef2f2; background-color: oklch(97.1% .013 17.38); }
+.report-print .text-red-700 { color: #b91c1c; color: oklch(50.5% .213 27.518); }
+.report-print .bg-amber-50 { background-color: #fffbeb; background-color: oklch(98.7% .022 95.277); }
+.report-print .text-amber-800 { color: #92400e; color: oklch(47.3% .137 46.201); }
+.report-print .bg-green-50 { background-color: #f0fdf4; background-color: oklch(98.2% .018 155.826); }
+.report-print .text-green-700 { color: #15803d; color: oklch(52.7% .154 150.069); }
+.report-print .bg-blue-50 { background-color: #eff6ff; background-color: oklch(97% .014 254.604); }
+.report-print .text-blue-700 { color: #1d4ed8; color: oklch(48.8% .243 264.376); }
+.report-print .bg-slate-100 { background-color: #ecf0f1; }
+.report-print .text-slate-600 { color: #475669; }
+.report-print td.group { font-weight: bold; background: #f6f6f6; }
+.report-print tfoot td { font-weight: bold; border-top: 2px solid #000; }
+.report-print .summary-title { font-size: 13px; margin: 8px 0 4px; }
+.report-print table.summary { margin-bottom: 12px; }
+.report-print .total { margin-top: 8px; }
+.report-print .noprint { margin-bottom: 8px; }
+/* The browser's own button look, as Django's page shows it (the app's preflight would make it a flat text). */
+.report-print .noprint button { all: revert; }
+/* Django's page is white; the app's body background is not used on this page. Scoped like the print rules. */
+body:has(.report-print) { background: #fff; }
+/* The app's global html gutter and body min-height (100vh) are not Django's: the page is as tall as its content. */
+html:has(.report-print) { scrollbar-gutter: auto; }
+body:has(.report-print) { min-height: 0; }
+@media print {
+  .report-print .noprint { display: none; }
+  /* Scoped to this page, so printing any other route is unaffected. */
+  body:has(.report-print) { margin: 0; }
+  .report-print { margin: 0; }
+  .report-print tr { page-break-inside: avoid; }
+  .report-print thead { display: table-header-group; }
+  /* Only the page is printed: the top loading bar (body::before) and anything outside #root are hidden. */
+  body:has(.report-print)::before { display: none; }
+  body:has(.report-print) > *:not(#root) { display: none; }
+}

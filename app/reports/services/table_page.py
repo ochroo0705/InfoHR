@@ -100,7 +100,7 @@ def _text(value: object) -> str:
     return str(value)
 
 
-def _cell_out(cell: Cell) -> CellOut:
+def cell_out(cell: Cell) -> CellOut:
     value = None if cell.value is None else _text(cell.value)
     return CellOut(
         text="" if value is None else value,
@@ -153,7 +153,7 @@ def table_page(
     # cells are converted for the table layout only: the other layouts' pages never read these rows here
     groups = (
         [
-            RowGroup(label=label, count=len(rows), rows=[[_cell_out(cell) for cell in row] for row in rows])
+            RowGroup(label=label, count=len(rows), rows=[[cell_out(cell) for cell in row] for row in rows])
             for label, rows in table.groups
         ]
         if table_layout
@@ -171,7 +171,7 @@ def table_page(
         rules_text=table.rules_text,
         clear_rules_url=page_address(path, replace(f, rules=""), adds, plain=plain),
         note=report.note(f) if report.note is not None else "",
-        footer=None if table.footer is None or not table_layout else [_cell_out(cell) for cell in table.footer],
+        footer=None if table.footer is None or not table_layout else [cell_out(cell) for cell in table.footer],
         selectable=selectable,
         check_css=CHECK_PINNED_CSS if pinned else "w-10",
         check_style=CHECK_PINNED_STYLE if pinned else "",

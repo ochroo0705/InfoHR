@@ -21,11 +21,11 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django.views.decorators.vary import vary_on_headers
 from employees import access, stale
 from employees.images import attach_photo_digests
-from employees.models import CompanySettings, Employee
+from employees.models import Employee
 
 from reports import bulk_edit as bulk_edit_service
 from reports import cell_edit as cell_edit_service
-from reports import corrections, excel, privacy, registry
+from reports import corrections, privacy, registry
 from reports import layouts as layouts_mod
 from reports import marks as marks_mod
 from reports import row_edit as row_edit_service
@@ -33,7 +33,6 @@ from reports import selection as selection_mod
 from reports.filters import (
     MAX_YEAR,
     MIN_MONTH_YEAR,
-    describe,
     parse_filters,
     to_query,
 )
@@ -65,7 +64,7 @@ from reports.page_rules import (
 from reports.page_rules import (
     sort_mark as _sort_mark,  # noqa: F401 (kept importable from views)
 )
-from reports.services import layout_page, popups, saved_views
+from reports.services import exports, layout_page, popups, saved_views
 from reports.services.catalogue_page import sections_for
 from reports.services.filter_bar import filter_bar
 from reports.services.layout_page import CHART_LABELS
@@ -96,6 +95,7 @@ from reports.services.popups import (
     _rule_kind,  # noqa: F401 (kept importable from views)
     check_popup,
 )
+from reports.services.print_page import MAX_PORTRAIT_COLUMNS, build_print  # noqa: F401 (tests import it from views)
 from reports.services.saved_views import (
     DUPLICATE_NAME,  # noqa: F401 (kept importable from views)
     NAME_CONSTRAINT,  # noqa: F401 (kept importable from views)
@@ -118,17 +118,10 @@ from reports.services.saved_views import (
     visibility_and_default as _visibility_and_default,  # noqa: F401 (kept importable from views)
 )
 from reports.services.table_page import parse_offset, table_page
-from reports.summary import summary_of
 from reports.table import (
     Table,
-    allowed_columns,
-    build_table,
-    column_classes,
 )
 from reports.types import Report
-
-MAX_PORTRAIT_COLUMNS = 7  # more columns than this print on A4 landscape
-XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 @login_required
@@ -507,30 +500,22 @@ def report_print(request: HttpRequest, key: str) -> HttpResponse:
         raise Http404
     if not registry.can_open(user, report):
         raise PermissionDenied
-    table = build_table(report, user, parse_filters(request.GET))
-    labels = {c.key: c.label for c in allowed_columns(report, user)}
-    lines = describe(table.filters, report.filters, labels=labels)
+    page = build_print(user, report, parse_filters(request.GET))
     context = {
         "report": report,
-        "table": table,
-        "heads": [(c.label, cls) for c, cls in zip(table.columns, column_classes(table.columns), strict=True)],
-        "lines": lines,
-        "note": report.note(table.filters) if report.note is not None else "",
-        "summary": summary_of(table),  # a chart or pivot address adds its numbers above the row table
-        "min_group": privacy.min_group(),  # the note under the summary says how small a group is hidden
-        "landscape": len(table.columns) > MAX_PORTRAIT_COLUMNS,
-        "company": CompanySettings.get().name,
-        "today": timezone.localdate(),
-        "printed_by": user.get_full_name() or user.get_username(),
+        "table": page.table,
+        "heads": page.heads,
+        "lines": page.lines,
+        "note": page.note,
+        "summary": page.summary,  # a chart or pivot address adds its numbers above the row table
+        "min_group": page.min_group,  # the note under the summary says how small a group is hidden
+        "landscape": page.landscape,
+        "company": page.company,
+        "today": date.fromisoformat(page.today),
+        "printed_by": page.printed_by,
     }
     response = render(request, "reports/print.html", context)
-    record_export(
-        request,
-        "print_page",
-        report.title,
-        filters="; ".join(describe(table.filters, report.filters, for_log=True, labels=labels)),
-        rows=table.count,
-    )
+    record_export(request, "print_page", report.title, filters=page.log_label, rows=page.count)
     return response
 
 
@@ -544,18 +529,10 @@ def report_excel(request: HttpRequest, key: str) -> HttpResponse:
         raise Http404
     if not registry.can_open(user, report) or not user.has_perm(EXPORT_PERM):
         raise PermissionDenied
-    table = build_table(report, user, parse_filters(request.GET))
-    labels = {c.key: c.label for c in allowed_columns(report, user)}
-    note = report.note(table.filters) if report.note is not None else ""
-    lines = describe(table.filters, report.filters, labels=labels)
-    lines += [note] if note else []  # the grey note goes in the sheet too
-    today = timezone.localdate().isoformat()
-    summary = summary_of(table)  # a chart or pivot address adds its numbers as a second sheet
-    body = excel.workbook_bytes(report.title, lines, table, sheet=report.key, summary=summary)
-    response = HttpResponse(body, content_type=XLSX)
-    response["Content-Disposition"] = f'attachment; filename="{report.key}-{today}.xlsx"'
-    log_label = describe(table.filters, report.filters, for_log=True, labels=labels)
-    record_export(request, "export_report", report.title, filters="; ".join(log_label), rows=table.count)
+    exported = exports.excel_file(user, report, parse_filters(request.GET))
+    response = HttpResponse(exported.body, content_type=exported.content_type)
+    response["Content-Disposition"] = f'attachment; filename="{exported.filename}"'
+    record_export(request, exported.log_action, report.title, filters=exported.log_label, rows=exported.rows)
     return response
 
 

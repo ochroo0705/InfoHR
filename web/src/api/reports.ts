@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { api } from "./client";
 import { retryMe } from "./me";
-import { postWithCsrfRetry, unwrapQuery } from "./mutate";
+import { postWithCsrfRetry, unwrapQuery, type Settled } from "./mutate";
 import type { components } from "./schema";
 
 export type ReportCatalogueOut = components["schemas"]["ReportCatalogueOut"];
@@ -30,6 +30,9 @@ export type ReportBarSelectOut = components["schemas"]["ReportBarSelectOut"];
 export type ReportOptionOut = components["schemas"]["ReportOptionOut"];
 export type ReportCardsOut = components["schemas"]["ReportCardsOut"];
 export type ReportLayoutCardOut = components["schemas"]["ReportLayoutCardOut"];
+export type ReportPrintOut = components["schemas"]["ReportPrintOut"];
+export type ReportSelectionIn = components["schemas"]["ReportSelectionIn"];
+export type ReportSelectionCopyOut = components["schemas"]["ReportSelectionCopyOut"];
 
 // Where a saved-view form comes from: the «Хадгалах» pop-up of a report (the address goes with it, the server reads it),
 // or the «Засах» pop-up of a view by its id.
@@ -281,4 +284,121 @@ export function useUpdateView(pk: number) {
       ),
     onSuccess: (result) => refreshAfterViewWrite(queryClient, null, result),
   });
+}
+
+// The print page of the report for the address (`search` is the address query, `sel` included when it carries a print
+// ticket). Each open is read fresh: stale at once, never refetched on focus or reconnect, and not kept after the page
+// closes (gcTime 0), so a print always shows the rows as they are now.
+export async function fetchReportPrint(key: string, search: string): Promise<ReportPrintOut> {
+  const result = await api.GET("/api/v1/reports/{key}/print", {
+    params: { path: { key } },
+    querySerializer: () => addressQuery(search),
+  });
+  return unwrapQuery<ReportPrintOut>(result, "report request failed");
+}
+
+export function useReportPrint(key: string, search: string) {
+  return useQuery({
+    queryKey: ["report-print", key, search],
+    retry: false,
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => fetchReportPrint(key, search),
+  });
+}
+
+// The text of a selection request that never reached the server (the same words as the other screens use).
+const SELECTION_NET_ERROR = "Холбогдож чадсангүй. Дахин оролдоно уу.";
+// The message of a refused selection answer that has no form error to show.
+const SELECTION_FAIL_ERROR = "Татаж чадсангүй. Дахин оролдоно уу.";
+
+// The body the selection routes take: the report's address query, the picked ids as strings and the "all" flag. Only
+// these three fields are sent.
+function selectionBody(body: ReportSelectionIn): ReportSelectionIn {
+  return { query: body.query, ids: body.ids, all: body.all };
+}
+
+// The file name the server gives: the RFC 5987 `filename*` when present, else the plain `filename`, else `fallback`.
+function fileName(disposition: string | null, fallback: string): string {
+  const header = disposition ?? "";
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim());
+    } catch {
+      // A broken escape falls through to the plain name.
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain ? plain[1].trim() : fallback;
+}
+
+// Runs one selection POST through postWithCsrfRetry, so a stale CSRF token is refreshed and the request sent once more.
+// A request that never reaches the server throws the network text. A refused answer keeps its status and form errors,
+// and its message is the first form error, or the fallback text when the body has none.
+async function selectionPost<T>(queryClient: QueryClient, send: () => Promise<Settled<T>>): Promise<T> {
+  try {
+    return await postWithCsrfRetry<T>(queryClient, async () => {
+      try {
+        return await send();
+      } catch {
+        throw new Error(SELECTION_NET_ERROR);
+      }
+    });
+  } catch (error) {
+    const failure = error as { status?: unknown; formErrors?: string[] };
+    if (typeof failure.status !== "number") throw error;
+    throw Object.assign(error as Error, { message: failure.formErrors?.[0] || SELECTION_FAIL_ERROR });
+  }
+}
+
+// The picked people as an Excel or CSV file. The file's name comes from the Content-Disposition of the answer that was
+// sent last (the one that succeeded, after a CSRF retry).
+export async function postSelection(
+  queryClient: QueryClient,
+  key: string,
+  kind: "excel" | "csv",
+  body: ReportSelectionIn,
+): Promise<{ blob: Blob; filename: string }> {
+  const fallback = `${key}-selected.${kind === "excel" ? "xlsx" : "csv"}`;
+  const seen: { response: Response | null } = { response: null };
+  const blob = await selectionPost<Blob>(queryClient, async () => {
+    const result =
+      kind === "excel"
+        ? await api.POST("/api/v1/reports/{key}/selected/excel", {
+            params: { path: { key } },
+            body: selectionBody(body),
+            parseAs: "blob",
+          })
+        : await api.POST("/api/v1/reports/{key}/selected/csv", {
+            params: { path: { key } },
+            body: selectionBody(body),
+            parseAs: "blob",
+          });
+    seen.response = result.response;
+    return result;
+  });
+  return { blob, filename: fileName(seen.response?.headers.get("Content-Disposition") ?? null, fallback) };
+}
+
+// The picked people's names for the clipboard, with the count and the number left out (no name, see the API).
+export async function copySelection(
+  queryClient: QueryClient,
+  key: string,
+  body: ReportSelectionIn,
+): Promise<ReportSelectionCopyOut> {
+  return selectionPost<ReportSelectionCopyOut>(queryClient, () =>
+    api.POST("/api/v1/reports/{key}/selected/copy", { params: { path: { key } }, body: selectionBody(body) }),
+  );
+}
+
+// A print ticket for the picked people: the server checks the selection now and answers the ticket the print page reads
+// (GET .../print?sel=<ticket>).
+export async function printTicket(queryClient: QueryClient, key: string, body: ReportSelectionIn): Promise<string> {
+  const data = await selectionPost<{ ticket: string }>(queryClient, () =>
+    api.POST("/api/v1/reports/{key}/selected/print", { params: { path: { key } }, body: selectionBody(body) }),
+  );
+  return data.ticket;
 }

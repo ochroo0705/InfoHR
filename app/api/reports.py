@@ -8,22 +8,33 @@
   nothing itself. A bare address with a default saved view answers `redirect` and nothing else.
 - GET /api/v1/reports/{key}/rows?offset=: one batch of the same table, with the same query.
 - GET /api/v1/reports/{key}/cards?offset=: one batch of the cards layout (404 "not_found" if it is not cards).
+- GET /api/v1/reports/{key}/print?<address>&sel=<ticket?>: the print page (reports.services.print_page). With `sel`
+  the address is the ticket's and the query string is ignored.
+- GET /api/v1/reports/{key}/excel?<address>: the report's Excel file.
+- POST /api/v1/reports/{key}/selected/excel and /selected/csv: the picked people's files. POST /selected/print answers
+  a print ticket; POST /selected/copy answers the names as text. The body is the address plus the ticked ids or `all`.
 
 The page and rows answers need a signed-in session (401 without one), reports.view_reports and the report's own rights
 (403 "forbidden"), and an unknown key is 404. Every page and rows answer is marked Cache-Control: no-store: the rows
-carry people's data (and salaries, where the viewer may see them).
+carry people's data (and salaries, where the viewer may see them). The print and copy need can_open; the files also
+need accounts.export_lists. The selection routes are 404 for a report with no person.
 """
 
+from decimal import Decimal
 from typing import Any, Literal
 
+from accounts.audit import record_export
 from accounts.models import User
 from django.http import HttpRequest, HttpResponse, QueryDict
 from django.urls import reverse
+from employees.templatetags.hr import mnt
 from ninja import Router, Schema
 from ninja.security import django_auth
 from reports import registry
+from reports.filters import parse_filters
+from reports.selection import Picked, SelectionError, pick_from
+from reports.services import exports, saved_views
 from reports.services import popups as report_popups
-from reports.services import saved_views
 from reports.services.catalogue_page import Row, card_path, search_text, sections_for
 from reports.services.filter_bar import FilterBar, FilterOptions
 from reports.services.layout_page import (
@@ -49,8 +60,9 @@ from reports.services.layout_page import (
     TimelineOut,
     layout_page,
 )
-from reports.services.page_head import SHARED, PageHead, _view_url, default_view_redirect, page_head
+from reports.services.page_head import EXPORT_PERM, SHARED, PageHead, _view_url, default_view_redirect, page_head
 from reports.services.popups import ColourOut, ColumnKind, MarkOut, OpOut, Pick, check_popup
+from reports.services.print_page import PrintPage, build_print
 from reports.services.saved_views import SaveResult
 from reports.services.table_page import CellOut, RowGroup, TablePage, parse_offset, table_page
 from reports.types import Report
@@ -255,6 +267,7 @@ class ReportHeadOut(Schema):
     selection_urls: dict[str, str]  # "" for an action the viewer may not use
     print_url: str
     excel_url: str  # "" without the export right
+    selection_max: int  # the most people one bulk action covers (the selection bar's cap)
 
 
 class ReportBarSelectOut(Schema):
@@ -574,6 +587,7 @@ def _head(head: PageHead) -> ReportHeadOut:
         selection_urls=dict(tools.selection_urls),
         print_url=tools.print_url,
         excel_url=tools.excel_url,
+        selection_max=head.selection_max,
     )
 
 
@@ -906,6 +920,237 @@ def report_cards(request: HttpRequest, response: HttpResponse, key: str, offset:
     )
     assert layout is not None and layout.cards is not None  # the cards layout always has its payload
     return _cards(layout.cards)
+
+
+# --- the print page, the Excel and CSV files, and the picked people's print ticket and copy -------------------------
+# The rules are reports.services (print_page, exports) and reports.selection; these routes read the address or the
+# posted selection and answer them. The print page, the copy and the files are no-store: they carry people's data.
+
+
+class ReportPrintHeadOut(Schema):
+    label: str  # the column's heading
+    css: str  # the column's classes: alignment
+
+
+class ReportPrintGroupOut(Schema):
+    label: str  # "" when the rows are not grouped
+    rows: list[list[ReportCellOut]]
+
+
+class ReportPrintSummaryOut(Schema):
+    title: str
+    head: list[str]  # the header cells
+    lines: list[list[str]]  # one line per category: its label, then the figures as the print shows them ("—" hidden)
+    foot: list[str] | None  # the totals line of a pivot, as text; None for a chart
+    money: bool
+    masked: bool  # a money figure was hidden for a small group
+
+
+class ReportPrintOut(Schema):
+    title: str
+    company: str
+    today: str  # the print date, ISO (YYYY-MM-DD)
+    printed_by: str
+    lines: list[str]  # the filter lines, in the report's order
+    note: str  # the report's grey note for these filters; "" when none
+    landscape: bool  # more columns than fit portrait
+    heads: list[ReportPrintHeadOut]
+    groups: list[ReportPrintGroupOut]  # one group with label "" when not grouped
+    footer: list[ReportCellOut] | None  # the totals row; None when there is none or the print is a subset
+    count: int  # every filtered row, not only the rows printed
+    shows_count: bool  # the «Нийт: N» line is drawn
+    grouped: bool
+    summary: ReportPrintSummaryOut | None  # a chart or pivot address's numbers; None otherwise
+    min_group: int  # the smallest group whose money is shown
+
+
+class ReportSelectionIn(Schema):
+    query: str = ""  # the report's address (the layout keys are dropped by the server)
+    ids: list[str] = []  # the ticked employee ids, as text
+    all: bool = False  # every person the address matches; ids are then ignored
+
+
+class ReportSelectionTicketOut(Schema):
+    ticket: str  # pass it as ?sel= to the print route; it is valid for 10 minutes
+
+
+class ReportSelectionCopyOut(Schema):
+    text: str  # one line per person: the name, then the work email after a tab when it may be seen
+    count: int
+    dropped: int  # posted ids the user may not act on
+
+
+def _figure(value: object, money: bool) -> str:
+    """A summary figure as the print shows it (print.html and layouts/_figure.html): a money figure with the mnt filter
+    (2500000 -> 2,500,000₮), any other figure as Django renders it, and "—" for a hidden or missing one."""
+    if value is None:
+        return "—"
+    if not money:
+        return str(value)
+    return mnt(value if isinstance(value, str) else Decimal(str(value)))
+
+
+def _summary_line(line: list[object], money: bool) -> list[str]:
+    """One summary line as text: the label as it is (the print's first column is text), then each figure."""
+    label, *figures = line
+    return [str(label), *(_figure(value, money) for value in figures)]
+
+
+def _print_out(page: PrintPage) -> ReportPrintOut:
+    summary = page.summary
+    summary_out = None
+    if summary is not None:
+        summary_out = ReportPrintSummaryOut(
+            title=summary.title,
+            head=summary.head,
+            lines=[_summary_line(line, summary.money) for line in summary.lines],
+            foot=_summary_line(summary.foot, summary.money) if summary.foot else None,
+            money=summary.money,
+            masked=summary.masked,
+        )
+    return ReportPrintOut(
+        title=page.title,
+        company=page.company,
+        today=page.today,
+        printed_by=page.printed_by,
+        lines=page.lines,
+        note=page.note,
+        landscape=page.landscape,
+        heads=[ReportPrintHeadOut(label=label, css=css) for label, css in page.heads],
+        groups=[
+            ReportPrintGroupOut(label=group.label, rows=[[_cell(cell) for cell in row] for row in group.rows])
+            for group in page.groups
+        ],
+        footer=None if page.footer is None else [_cell(cell) for cell in page.footer],
+        count=page.count,
+        shows_count=page.shows_count,
+        grouped=page.grouped,
+        summary=summary_out,
+        min_group=page.min_group,
+    )
+
+
+def _export_report(key: str, user: User) -> Report:
+    """The report, for its whole Excel file: 404 when missing, 403 when the user may not open it or export."""
+    report = _report_for(key, user)
+    if not user.has_perm(EXPORT_PERM):
+        raise ApiError(403, [FORBIDDEN], code="forbidden")
+    return report
+
+
+def _picking_report(key: str, user: User, *, export: bool) -> Report:
+    """The report, for a selection: 404 when missing or it has no person, 403 when the user may not open it (or, for a
+    file, may not export)."""
+    report = registry.get(key)
+    if report is None or report.person is None:
+        raise ApiError(404, [NOT_FOUND])
+    if not registry.can_open(user, report) or (export and not user.has_perm(EXPORT_PERM)):
+        raise ApiError(403, [FORBIDDEN], code="forbidden")
+    return report
+
+
+def _picked(user: User, report: Report, query: str, ids: list[str], all_: bool) -> Picked:
+    """The people the selection picks; a refusal (nobody picked, too many, not allowed) is 400 with its message."""
+    try:
+        return pick_from(user, report, query, ids, all_)
+    except SelectionError as error:
+        raise ApiError(400, [error.message]) from None
+
+
+def _file(exported: exports.ExportFile) -> HttpResponse:
+    response = HttpResponse(exported.body, content_type=exported.content_type)
+    response["Content-Disposition"] = f'attachment; filename="{exported.filename}"'
+    response["Cache-Control"] = "no-store"  # the file carries people's data
+    return response
+
+
+@report_router.get("/{key}/print", response=ReportPrintOut)
+def report_print(request: HttpRequest, response: HttpResponse, key: str, sel: str = "") -> ReportPrintOut:
+    """The print page of the report for the address. With `sel` (a print ticket from POST .../selected/print) it is the
+    picked people's print for the ticket's address, and the query string is ignored. Writes one export line:
+    print_page, or print_selected for a ticket."""
+    user = request_user(request)
+    response["Cache-Control"] = "no-store"
+    if sel:
+        report = _picking_report(key, user, export=False)
+        try:
+            query, ids, all_ = exports.ticket_read(user, key, sel)
+        except SelectionError as error:
+            raise ApiError(400, [error.message]) from None
+        picked = _picked(user, report, query, ids, all_)
+        page = build_print(user, report, picked.table.filters, only=picked.ids, table=picked.table)
+        action = "print_selected"
+    else:
+        report = _report_for(key, user)
+        page = build_print(user, report, parse_filters(request.GET))
+        action = "print_page"
+    record_export(request, action, report.title, filters=page.log_label, rows=page.count)
+    return _print_out(page)
+
+
+@report_router.get("/{key}/excel")
+def report_excel(request: HttpRequest, key: str) -> HttpResponse:
+    """The Excel file of the report for the address: the same visible columns, sort and groups as the screen."""
+    user = request_user(request)
+    report = _export_report(key, user)
+    exported = exports.excel_file(user, report, parse_filters(request.GET))
+    record_export(request, exported.log_action, report.title, filters=exported.log_label, rows=exported.rows)
+    return _file(exported)
+
+
+@report_router.post("/{key}/selected/excel")
+def selected_excel(request: HttpRequest, key: str, payload: ReportSelectionIn) -> HttpResponse:
+    """The picked people's rows as an Excel file: the screen's visible columns, no footer."""
+    user = request_user(request)
+    report = _picking_report(key, user, export=True)
+    picked = _picked(user, report, payload.query, payload.ids, payload.all)
+    exported = exports.selected_file(user, report, picked, "xlsx")
+    record_export(request, exported.log_action, report.title, filters=exported.log_label, rows=exported.rows)
+    return _file(exported)
+
+
+@report_router.post("/{key}/selected/csv")
+def selected_csv(request: HttpRequest, key: str, payload: ReportSelectionIn) -> HttpResponse:
+    """The picked people's rows as a CSV file (UTF-8 with BOM)."""
+    user = request_user(request)
+    report = _picking_report(key, user, export=True)
+    picked = _picked(user, report, payload.query, payload.ids, payload.all)
+    exported = exports.selected_file(user, report, picked, "csv")
+    record_export(request, exported.log_action, report.title, filters=exported.log_label, rows=exported.rows)
+    return _file(exported)
+
+
+@report_router.post("/{key}/selected/print", response=ReportSelectionTicketOut)
+def selected_print(
+    request: HttpRequest, response: HttpResponse, key: str, payload: ReportSelectionIn
+) -> dict[str, str]:
+    """A print ticket for the picked people: the selection is checked now (a refusal is 400), and GET .../print?sel=
+    prints it. No line is written here; the print page writes the audit line when it is read."""
+    user = request_user(request)
+    report = _picking_report(key, user, export=False)
+    _picked(user, report, payload.query, payload.ids, payload.all)
+    ticket = exports.ticket_make(user, report.key, payload.query, payload.ids, payload.all)
+    response["Cache-Control"] = "no-store"  # the ticket names the people picked
+    return {"ticket": ticket}
+
+
+@report_router.post("/{key}/selected/copy", response=ReportSelectionCopyOut)
+def selected_copy(
+    request: HttpRequest, response: HttpResponse, key: str, payload: ReportSelectionIn
+) -> ReportSelectionCopyOut:
+    """The picked people's names, one line each in report order, with the work email after a tab when the user may
+    see the report's email column. Audited as copy_selected. Without a name column the copy is refused (400)."""
+    user = request_user(request)
+    report = _picking_report(key, user, export=False)
+    try:
+        exports.copy_columns(user, report)  # the name column is checked before anyone is picked
+    except SelectionError as error:
+        raise ApiError(400, [error.message]) from None
+    picked = _picked(user, report, payload.query, payload.ids, payload.all)
+    result = exports.selected_copy(user, report, picked)
+    record_export(request, "copy_selected", report.title, filters=result.log_label, rows=result.count)
+    response["Cache-Control"] = "no-store"
+    return ReportSelectionCopyOut(text=result.text, count=result.count, dropped=result.dropped)
 
 
 # --- the pop-ups: «Багана сонгох», «Шүүлтүүр», «Хэлбэр» (read only: the model each pop-up draws) ---------------------

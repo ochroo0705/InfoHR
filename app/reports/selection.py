@@ -85,26 +85,39 @@ def _posted_ids(raw: list[str]) -> list[int]:
 def pick(request: HttpRequest, user: User, report: Report) -> Picked:
     """The people the user may act on, from the posted report address (`query`), `all` ("1" for every matching
     person) or the ticked `ids`. Raises SelectionError when nothing is picked or the cap is passed."""
+    return pick_from(
+        user,
+        report,
+        request.POST.get("query", ""),
+        request.POST.getlist("ids"),
+        request.POST.get("all") == "1",
+    )
+
+
+def pick_from(user: User, report: Report, query: str, ids: list[str], all_: bool) -> Picked:
+    """The same selection as `pick`, from plain values: the report address (`query`), `all_` (every matching
+    person, `ids` ignored) or the ticked `ids` as posted text. Raises SelectionError when nothing is picked or the
+    cap is passed."""
     if report.person is None:
         raise SelectionError(NO_PERSON)
-    table = build_table(report, user, _table_filters(request.POST.get("query", "")))
+    table = build_table(report, user, _table_filters(query))
     allowed = list(dict.fromkeys(report.person(row) for row in table.rows))  # report order, no repeats
-    if request.POST.get("all") == "1":
-        ids, dropped = allowed, 0
+    if all_:
+        picked_ids, dropped = allowed, 0
     else:
-        posted = _posted_ids(request.POST.getlist("ids"))
+        posted = _posted_ids(ids)
         if len(posted) > MAX_PEOPLE:  # refused on the raw count, so a huge forged list is never intersected
             raise SelectionError(too_many())
         wanted, allowed_set = set(posted), set(allowed)  # each built once
-        ids = [pk for pk in allowed if pk in wanted]
+        picked_ids = [pk for pk in allowed if pk in wanted]
         dropped = sum(1 for pk in posted if pk not in allowed_set)
-        if not ids and dropped:
+        if not picked_ids and dropped:
             raise SelectionError(not_allowed(dropped))
-    if not ids:
+    if not picked_ids:
         raise SelectionError(NOTHING_PICKED)
-    if len(ids) > MAX_PEOPLE:
+    if len(picked_ids) > MAX_PEOPLE:
         raise SelectionError(too_many())
-    return Picked(table=table, ids=tuple(ids), dropped=dropped)
+    return Picked(table=table, ids=tuple(picked_ids), dropped=dropped)
 
 
 def subset(table: Table, report: Report, ids: Collection[int]) -> Table:

@@ -10794,6 +10794,10 @@
             "title": "Selectable",
             "type": "boolean"
           },
+          "selection_max": {
+            "title": "Selection Max",
+            "type": "integer"
+          },
           "selection_urls": {
             "additionalProperties": {
               "type": "string"
@@ -10822,7 +10826,8 @@
           "selectable",
           "selection_urls",
           "print_url",
-          "excel_url"
+          "excel_url",
+          "selection_max"
         ],
         "title": "ReportHeadOut",
         "type": "object"
@@ -11430,6 +11435,213 @@
         "title": "ReportPivotRowOut",
         "type": "object"
       },
+      "ReportPrintGroupOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/ReportCellOut"
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "rows"
+        ],
+        "title": "ReportPrintGroupOut",
+        "type": "object"
+      },
+      "ReportPrintHeadOut": {
+        "properties": {
+          "css": {
+            "title": "Css",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "css"
+        ],
+        "title": "ReportPrintHeadOut",
+        "type": "object"
+      },
+      "ReportPrintOut": {
+        "properties": {
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "footer": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ReportCellOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer"
+          },
+          "grouped": {
+            "title": "Grouped",
+            "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/ReportPrintGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "heads": {
+            "items": {
+              "$ref": "#/components/schemas/ReportPrintHeadOut"
+            },
+            "title": "Heads",
+            "type": "array"
+          },
+          "landscape": {
+            "title": "Landscape",
+            "type": "boolean"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "min_group": {
+            "title": "Min Group",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "printed_by": {
+            "title": "Printed By",
+            "type": "string"
+          },
+          "shows_count": {
+            "title": "Shows Count",
+            "type": "boolean"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportPrintSummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "today": {
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "company",
+          "today",
+          "printed_by",
+          "lines",
+          "note",
+          "landscape",
+          "heads",
+          "groups",
+          "footer",
+          "count",
+          "shows_count",
+          "grouped",
+          "summary",
+          "min_group"
+        ],
+        "title": "ReportPrintOut",
+        "type": "object"
+      },
+      "ReportPrintSummaryOut": {
+        "properties": {
+          "foot": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foot"
+          },
+          "head": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Head",
+            "type": "array"
+          },
+          "lines": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "masked": {
+            "title": "Masked",
+            "type": "boolean"
+          },
+          "money": {
+            "title": "Money",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "head",
+          "lines",
+          "foot",
+          "money",
+          "masked"
+        ],
+        "title": "ReportPrintSummaryOut",
+        "type": "object"
+      },
       "ReportRowsOut": {
         "properties": {
           "groups": {
@@ -11594,6 +11806,66 @@
           "rows"
         ],
         "title": "ReportSectionOut",
+        "type": "object"
+      },
+      "ReportSelectionCopyOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "dropped": {
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "count",
+          "dropped"
+        ],
+        "title": "ReportSelectionCopyOut",
+        "type": "object"
+      },
+      "ReportSelectionIn": {
+        "properties": {
+          "all": {
+            "default": false,
+            "title": "All",
+            "type": "boolean"
+          },
+          "ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "query": {
+            "default": "",
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "title": "ReportSelectionIn",
+        "type": "object"
+      },
+      "ReportSelectionTicketOut": {
+        "properties": {
+          "ticket": {
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket"
+        ],
+        "title": "ReportSelectionTicketOut",
         "type": "object"
       },
       "ReportTableOut": {
@@ -20342,6 +20614,37 @@
         ]
       }
     },
+    "/api/v1/reports/{key}/excel": {
+      "get": {
+        "description": "The Excel file of the report for the address: the same visible columns, sort and groups as the screen.",
+        "operationId": "api_reports_report_excel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Report Excel",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/{key}/format": {
       "get": {
         "description": "The «Хэлбэр» pop-up's model for the address.",
@@ -20375,6 +20678,54 @@
           }
         ],
         "summary": "Format Pop",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/print": {
+      "get": {
+        "description": "The print page of the report for the address. With `sel` (a print ticket from POST .../selected/print) it is the\npicked people's print for the ticket's address, and the query string is ignored. Writes one export line:\nprint_page, or print_selected for a ticket.",
+        "operationId": "api_reports_report_print",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sel",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Sel",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPrintOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Report Print",
         "tags": [
           "reports"
         ]
@@ -20461,6 +20812,184 @@
           }
         ],
         "summary": "Rules Pop",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/selected/copy": {
+      "post": {
+        "description": "The picked people's names, one line each in report order, with the work email after a tab when the user may\nsee the report's email column. Audited as copy_selected. Without a name column the copy is refused (400).",
+        "operationId": "api_reports_selected_copy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSelectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSelectionCopyOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selected Copy",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/selected/csv": {
+      "post": {
+        "description": "The picked people's rows as a CSV file (UTF-8 with BOM).",
+        "operationId": "api_reports_selected_csv",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSelectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selected Csv",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/selected/excel": {
+      "post": {
+        "description": "The picked people's rows as an Excel file: the screen's visible columns, no footer.",
+        "operationId": "api_reports_selected_excel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSelectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selected Excel",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{key}/selected/print": {
+      "post": {
+        "description": "A print ticket for the picked people: the selection is checked now (a refusal is 400), and GET .../print?sel=\nprints it. No line is written here; the print page writes the audit line when it is read.",
+        "operationId": "api_reports_selected_print",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSelectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSelectionTicketOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Selected Print",
         "tags": [
           "reports"
         ]

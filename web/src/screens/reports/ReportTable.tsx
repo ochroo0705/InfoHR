@@ -1,17 +1,28 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useReportRows, type ReportGroupOut, type ReportTableOut } from "../../api/reports";
 import { useMoreSentinel } from "../../lib/useMoreSentinel";
 import { ScrollHost } from "../../widgets/Scrollbar";
-import { HeaderRow, type CheckColumn } from "./HeaderRow";
+import { HeaderRow, type CheckColumn, type HeaderSelect } from "./HeaderRow";
 import { ReportCell, inlineStyle } from "./ReportCell";
-import { ReportRows } from "./ReportRows";
+import { ReportRows, rowPerson } from "./ReportRows";
+import { SelectionBar } from "./SelectionBar";
+import { headerMark, isOn, isPicked } from "./selectionState";
+import type { ReportSelection } from "./useReportSelection";
 import { useStickyHeader } from "./useStickyHeader";
 
 // The table of a report page (app/reports/templates/reports/_table.html, _rows.html, _batch_rows.html). The API draws the
 // heads, the cells, the groups and the footer; this component only lays them out and loads the next batch.
-// Cells are read-only here: the selection column is a blank placeholder (step 5d draws the checkbox in it) and there is
-// no editing (step 5f). `table` is the page's own first batch; further batches come from the rows route through the
-// «Цааш харуулах» pill.
+// Cells are read-only here, and there is no editing (step 5f). `table` is the page's own first batch; further batches come
+// from the rows route through the «Цааш харуулах» pill. With `selection` (a selectable table of a report with a person),
+// the selection column has its checkboxes and the selection bar sits above the table (step 5d).
+
+// The row selection of the page. `api` is the hook's result; the page passes this only when the report is selectable.
+export interface ReportTableSelection {
+  api: ReportSelection;
+  urls: Record<string, string>;
+  maxPeople: number;
+  reportKey: string;
+}
 
 export interface ReportTableProps {
   reportKey: string;
@@ -19,11 +30,12 @@ export interface ReportTableProps {
   table: ReportTableOut;
   dataUpdatedAt: number; // the page query's dataUpdatedAt: a page refetch seeds a new rows query from the new first batch
   inert?: boolean; // the table is inert while a new address loads: no sticky header copy is drawn meanwhile
+  selection?: ReportTableSelection;
 }
 
 const LOAD_FAILED = "Мэдээлэл ачаалж чадсангүй.";
 
-export function ReportTable({ reportKey, query, table, dataUpdatedAt, inert = false }: ReportTableProps) {
+export function ReportTable({ reportKey, query, table, dataUpdatedAt, inert = false, selection }: ReportTableProps) {
   const rows = useReportRows(reportKey, query, table, dataUpdatedAt);
   const moreRef = useRef<HTMLButtonElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -43,6 +55,28 @@ export function ReportTable({ reportKey, query, table, dataUpdatedAt, inert = fa
     ? loaded
     : [{ label: "", count: 0, rows: loaded.flatMap((group) => group.rows) }];
 
+  // The person ids of the rows on screen, in draw order. They are registered with the selection on every render, as the
+  // hook's contract asks, so the header box, the «all matching» offer and the picks read the rows as drawn.
+  const visibleIds: string[] = shown.flatMap((group) =>
+    group.rows.flatMap((row) => {
+      const id = rowPerson(row);
+      return id === null ? [] : [id];
+    }),
+  );
+  if (selection) selection.api.setVisibleIds(visibleIds);
+  const state = selection?.api.state ?? null;
+  const selecting = state !== null && isOn(state);
+  // body[data-selecting] is what the stylesheet reads to stop text selection in the picked rows (report_select.js sync).
+  useEffect(() => {
+    if (!selecting) return;
+    document.body.dataset.selecting = "1";
+    return () => {
+      delete document.body.dataset.selecting;
+    };
+  }, [selecting]);
+  const headSelect: HeaderSelect | null =
+    selection && state ? { mark: headerMark(state, visibleIds), onPick: selection.api.pickVisible } : null;
+
   const hasMore = rows.hasNextPage;
   const loadingMore = rows.isFetchingNextPage;
   const failed = rows.isError;
@@ -61,10 +95,24 @@ export function ReportTable({ reportKey, query, table, dataUpdatedAt, inert = fa
           {LOAD_FAILED}
         </p>
       ) : null}
+      {selection && state ? (
+        <SelectionBar
+          reportKey={selection.reportKey}
+          query={query}
+          total={table.count}
+          urls={selection.urls}
+          selection={selection.api}
+          pickedCount={state.all ? table.count : state.ids.size}
+          allVisiblePicked={visibleIds.length > 0 && visibleIds.every((id) => isPicked(state, id))}
+          hasMore={hasMore}
+          overCap={table.count > selection.maxPeople}
+          maxPeople={selection.maxPeople}
+        />
+      ) : null}
       <ScrollHost fit className="ptable ptable-fit">
         <table ref={tableRef} data-grid="" tabIndex={0} aria-label="Хүснэгт: сумаар шилжинэ">
           <thead>
-            <HeaderRow heads={table.heads} check={check} />
+            <HeaderRow heads={table.heads} check={check} select={headSelect} />
           </thead>
           <tbody>
             {table.count === 0 ? (
@@ -80,6 +128,7 @@ export function ReportTable({ reportKey, query, table, dataUpdatedAt, inert = fa
                   grouped={grouped}
                   tableSpan={table.table_span}
                   check={check}
+                  selection={selection?.api ?? null}
                 />
                 {hasMore ? (
                   <tr data-more-row>

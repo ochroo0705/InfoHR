@@ -2,11 +2,12 @@
 import { fetchMock, jsonResponse, newClient, resetFetch, resetObservers, urlOf } from "../../api/testSupport";
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import { setCsrf } from "../../api/client";
 import type { ReportCellOut, ReportHeadCellOut, ReportTableOut } from "../../api/reports";
 import { ReportTable, type ReportTableProps } from "./ReportTable";
+import { useReportSelection } from "./useReportSelection";
 
 const HEAD: ReportHeadCellOut = {
   label: "Нэр",
@@ -288,5 +289,181 @@ describe("ReportTable", () => {
     expect(container.querySelectorAll("thead th")).toHaveLength(2);
     expect(container.querySelectorAll("tbody tr td")).toHaveLength(2);
     expect(container.querySelectorAll("tfoot td")).toHaveLength(2);
+  });
+});
+
+// Selection (step 5d): the checkbox column, the header box, the selection bar and the rows on screen, wired through the
+// real hook as the page wires them.
+
+function personCell(value: string, person: number): ReportCellOut {
+  return { value, text: value, money: false, href: `/employees/${person}/`, css: "", style: "", person };
+}
+
+const TWO_PEOPLE: ReportCellOut[][] = [[personCell("Бат", 7)], [personCell("Сарнай", 8)]];
+
+function peopleTable(overrides: Partial<ReportTableOut> = {}): ReportTableOut {
+  return table({
+    selectable: true,
+    count: 2,
+    groups: [{ label: "", count: 2, rows: TWO_PEOPLE }],
+    ...overrides,
+  });
+}
+
+type SelectingProps = Omit<ReportTableProps, "selection"> & { maxPeople?: number };
+
+// The page's wiring: the hook's result goes to the table with the report's selection URLs.
+function SelectingTable({ maxPeople = 500, ...props }: SelectingProps) {
+  const api = useReportSelection(props.reportKey);
+  return (
+    <ReportTable
+      {...props}
+      selection={{ api, urls: { excel: "/api/v1/reports/staff/selected/excel" }, maxPeople, reportKey: props.reportKey }}
+    />
+  );
+}
+
+function renderSelecting(overrides: Partial<SelectingProps> = {}) {
+  const props: SelectingProps = {
+    reportKey: "staff",
+    query: "q=a",
+    table: peopleTable(),
+    dataUpdatedAt: 1,
+    ...overrides,
+  };
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <SelectingTable {...props} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+function rowBox(container: HTMLElement, person: number): HTMLInputElement {
+  return container.querySelector<HTMLInputElement>(`tbody tr[data-person="${person}"] input[data-select-row]`)!;
+}
+
+function headerBox(container: HTMLElement): HTMLInputElement {
+  return container.querySelector<HTMLInputElement>("thead input[data-select-all]")!;
+}
+
+describe("ReportTable selection", () => {
+  it("without the selection prop the selection column stays blank", () => {
+    const { container } = renderTable({ table: peopleTable() });
+    expect(container.querySelectorAll("input")).toHaveLength(0);
+    expect(container.querySelector("tbody tr[data-person]")).toBeNull();
+    expect(container.querySelector("#selection-bar")).toBeNull();
+  });
+
+  it("a row checkbox picks its person, marks the row and leaves the header box indeterminate", () => {
+    const { container } = renderSelecting();
+
+    fireEvent.click(rowBox(container, 7));
+
+    const row = container.querySelector("tbody tr[data-person='7']")!;
+    expect(row.classList.contains("is-picked")).toBe(true);
+    expect(rowBox(container, 7).checked).toBe(true);
+    expect(rowBox(container, 8).checked).toBe(false);
+    expect(headerBox(container).checked).toBe(false);
+    expect(headerBox(container).indeterminate).toBe(true);
+    expect(container.querySelector("#selection-bar [data-count]")!.textContent).toBe("1");
+  });
+
+  it("the header box picks every row on screen, then clears them", () => {
+    const { container } = renderSelecting();
+
+    fireEvent.click(headerBox(container));
+    expect(container.querySelectorAll("tbody tr.is-picked")).toHaveLength(2);
+    expect(headerBox(container).checked).toBe(true);
+    expect(headerBox(container).indeterminate).toBe(false);
+    expect(container.querySelector("#selection-bar [data-count]")!.textContent).toBe("2");
+
+    fireEvent.click(headerBox(container));
+    expect(container.querySelectorAll("tbody tr.is-picked")).toHaveLength(0);
+    expect(headerBox(container).checked).toBe(false);
+    expect(container.querySelector("#selection-bar")).toBeNull();
+  });
+
+  it("the selection bar and the body mark appear only while selection is on", () => {
+    const { container, getByRole } = renderSelecting();
+    expect(container.querySelector("#selection-bar")).toBeNull();
+    expect(document.body.dataset.selecting).toBeUndefined();
+
+    fireEvent.click(rowBox(container, 8));
+    expect(container.querySelector("#selection-bar")).not.toBeNull();
+    expect(document.body.dataset.selecting).toBe("1");
+
+    fireEvent.click(getByRole("button", { name: "Болих" }));
+    expect(container.querySelector("#selection-bar")).toBeNull();
+    expect(container.querySelectorAll("tbody tr.is-picked")).toHaveLength(0);
+    expect(document.body.dataset.selecting).toBeUndefined();
+  });
+
+  it("selection on: a row click toggles the person instead of opening the row", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = renderSelecting();
+    // The mode is on once a person is picked; the next click on another row toggles that person.
+    fireEvent.click(rowBox(container, 7));
+
+    fireEvent.click(container.querySelector("tbody tr[data-person='8'] td:nth-child(2)")!);
+    expect(container.querySelector("tbody tr[data-person='8']")!.classList.contains("is-picked")).toBe(true);
+    expect(container.querySelector("tbody tr[data-person='7']")!.classList.contains("is-picked")).toBe(true);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("selection off: a ctrl-click on a row of the grid table opens nothing (grid guard, as report_select.js)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = renderSelecting();
+
+    fireEvent.click(container.querySelector("tbody tr[data-person='7'] td:nth-child(2)")!, { ctrlKey: true });
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("the next batch keeps the ticks of the people already picked", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { groups: [{ label: "", count: 1, rows: [[personCell("Номин", 9)]] }], next_offset: null }),
+    );
+    const { container, getByRole, getByText } = renderSelecting({
+      table: peopleTable({ count: 3, next_offset: 2 }),
+    });
+
+    fireEvent.click(rowBox(container, 7));
+    fireEvent.click(getByRole("button", { name: "Цааш харуулах" }));
+
+    await waitFor(() => expect(getByText("Номин")).toBeTruthy());
+    expect(container.querySelector("tbody tr[data-person='7']")!.classList.contains("is-picked")).toBe(true);
+    expect(container.querySelector("tbody tr[data-person='9']")!.classList.contains("is-picked")).toBe(false);
+    expect(container.querySelector("#selection-bar [data-count]")!.textContent).toBe("1");
+  });
+
+  it("the all-matching offer shows when every row on screen is picked and more batches follow", () => {
+    const { container, getByRole } = renderSelecting({ table: peopleTable({ count: 3, next_offset: 2 }) });
+
+    fireEvent.click(headerBox(container));
+    expect(getByRole("button", { name: "Бүх 3 мөрийг сонгох" })).toBeTruthy();
+  });
+
+  it("over the cap the note replaces the all-matching offer", () => {
+    const { container, queryByRole } = renderSelecting({
+      table: peopleTable({ count: 3, next_offset: 2 }),
+      maxPeople: 2,
+    });
+
+    fireEvent.click(headerBox(container));
+    expect(queryByRole("button", { name: "Бүх 3 мөрийг сонгох" })).toBeNull();
+    expect(container.querySelector("[data-over-cap]")).not.toBeNull();
+  });
+});
+
+describe("ReportTable selection unmount", () => {
+  it("body[data-selecting] is removed when the table unmounts while selecting", () => {
+    const { container, unmount } = renderSelecting();
+
+    fireEvent.click(rowBox(container, 7));
+    expect(document.body.dataset.selecting).toBe("1");
+
+    unmount();
+    expect(document.body.dataset.selecting).toBeUndefined();
   });
 });

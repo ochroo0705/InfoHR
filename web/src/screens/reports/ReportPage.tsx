@@ -13,13 +13,16 @@ import { ReportTable } from "./ReportTable";
 import { StickyStrip } from "./StickyStrip";
 import { ReportPopUp, ToolRibbon, legacyReportAddress, type OpenPopUp } from "./ToolRibbon";
 import { useReportMemory } from "./useReportMemory";
+import { useReportSelection } from "./useReportSelection";
 
 // Port of app/reports/templates/reports/report.html at /reports/<key>/. The frame: the header, the tool ribbon, the filter
 // bar, the rules line, the note, then the table (the table layout) or the layout bar and the layout body (the other five
 // layouts), and the count. A layout the page does not know, or without its payload, is a link to the Django origin. The
 // settings and saved-view pop-ups are React (5b, in ToolRibbon); the sticky strip is StickyStrip. The page answer (head,
 // bar, table or layout_page) comes from the API. A bare address with a default saved view answers `redirect`, which the
-// page follows once. The body under the header is inert while a new address loads (the 3d-3 register rule).
+// page follows once. The body under the header is inert while a new address loads (the 3d-3 register rule). The row
+// selection («Сонгох», step 5d) is held here: it belongs to the report's address without the batch position, so a new
+// filter, sort or layout ends it and the next batches keep it.
 
 const MAIN_WIDTH = "max-w-none px-4 sm:px-6"; // a list page: full width (UI_RULES §4)
 const PAGE_TITLE_SUFFIX = " · MACS Human Capital";
@@ -49,6 +52,7 @@ export function ReportPage() {
   // address without its batch position.
   const [openPop, setOpenPop] = useState<OpenPopUp>(null);
   const popQuery = clearOffset(search.replace(/^\?/, ""));
+  const selection = useReportSelection(popQuery);
   useMainWidth(MAIN_WIDTH);
 
   const query = useReportPage(key, search);
@@ -124,7 +128,7 @@ export function ReportPage() {
   const editRules = () => setOpenPop("rules");
 
   return (
-    <div>
+    <div id="report-page">
       {query.isError ? (
         <p role="alert" className="mb-3 text-sm text-red-600">
           {LOAD_FAILED}
@@ -132,7 +136,14 @@ export function ReportPage() {
       ) : null}
       <StickyStrip tools={head.tools} />
       <ReportHeader title={head.title} layouts={head.layouts} />
-      <ToolRibbon reportKey={key} head={head} clearUrl={bar?.clear_url ?? ""} onOpen={setOpenPop} />
+      <ToolRibbon
+        reportKey={key}
+        head={head}
+        clearUrl={bar?.clear_url ?? ""}
+        query={popQuery}
+        selection={answer.layout === "table" ? selection : undefined}
+        onOpen={setOpenPop}
+      />
 
       {answer.layout === "table" && table !== null ? (
         <>
@@ -161,6 +172,16 @@ export function ReportPage() {
               table={table}
               dataUpdatedAt={view.dataUpdatedAt}
               inert={settling}
+              selection={
+                head.selectable
+                  ? {
+                      api: selection,
+                      urls: head.selection_urls,
+                      maxPeople: head.selection_max,
+                      reportKey: key,
+                    }
+                  : undefined
+              }
             />
 
             {table.shows_count ? <p className="mt-3 text-sm text-slate-500">Нийт: {table.count}</p> : null}

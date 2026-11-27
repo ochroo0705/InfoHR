@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router";
 import type { components } from "../../api/schema";
 import { legacyOrigin } from "../../lib/AppLink";
 import { ReportPopUp, ToolRibbon } from "./ToolRibbon";
+import { useReportSelection } from "./useReportSelection";
 
 type ReportHeadOut = components["schemas"]["ReportHeadOut"];
 
@@ -89,11 +90,34 @@ function Probe() {
 function renderRibbon(head: ReportHeadOut, onOpen = vi.fn()) {
   render(
     <MemoryRouter initialEntries={["/reports/staff/?q=a"]}>
-      <ToolRibbon reportKey="staff" head={head} clearUrl="/reports/staff/?view=plain" onOpen={onOpen} />
+      <ToolRibbon reportKey="staff" head={head} clearUrl="/reports/staff/?view=plain" query="q=a" onOpen={onOpen} />
       <Probe />
     </MemoryRouter>,
   );
   return onOpen;
+}
+
+// The ribbon with the real selection hook, as the page mounts it: «Сонгох» toggles the mode the hook holds.
+function renderSelecting(head: ReportHeadOut) {
+  render(
+    <MemoryRouter>
+      <SelectingRibbon head={head} />
+    </MemoryRouter>,
+  );
+}
+
+function SelectingRibbon({ head }: { head: ReportHeadOut }) {
+  const selection = useReportSelection("q=a");
+  return (
+    <ToolRibbon
+      reportKey="staff"
+      head={head}
+      clearUrl="/reports/staff/?view=plain"
+      query="q=a"
+      selection={selection}
+      onOpen={vi.fn()}
+    />
+  );
 }
 
 function where(): string {
@@ -173,19 +197,54 @@ describe("ToolRibbon", () => {
     expect(onOpen).toHaveBeenCalledWith("edit");
   });
 
-  it("print_and_excel_stay_legacy_links", () => {
-    renderRibbon(headFixture({ excel_url: "/reports/staff/excel/?q=a", print_url: "/reports/staff/print/?q=a" }));
+  it("print_and_excel_are_react_links_with_the_address_query", () => {
+    renderRibbon(headFixture({ excel_url: "/api/v1/reports/staff/excel?q=a", print_url: "/reports/staff/print/?q=a" }));
 
     const excel = screen.getByText("Excel").closest("a");
-    expect(excel?.getAttribute("href")).toBe(legacyOrigin() + "/reports/staff/excel/?q=a");
+    expect(excel?.getAttribute("href")).toBe("/api/v1/reports/staff/excel?q=a");
+    expect(excel?.getAttribute("title")).toBeNull();
+    expect(excel?.getAttribute("target")).toBeNull();
     expect(screen.queryByText("Excel", { selector: "button" })).toBeNull();
 
     const print = screen.getByText("Хэвлэх").closest("a");
-    expect(print?.getAttribute("href")).toBe(legacyOrigin() + "/reports/staff/print/?q=a");
+    expect(print?.getAttribute("href")).toBe("/reports/staff/print/?q=a");
     expect(print?.getAttribute("target")).toBe("_blank");
     expect(print?.getAttribute("rel")).toBe("noopener");
-    expect(print?.getAttribute("title")).toBe("Хуучин хуудсанд нээгдэнэ, тэндээс товчийг дахин дарна уу");
+    expect(print?.getAttribute("title")).toBeNull();
     expect(screen.queryByText("Хэвлэх", { selector: "button" })).toBeNull();
+  });
+
+  it("print_link_without_a_query_has_no_question_mark", () => {
+    render(
+      <MemoryRouter>
+        <ToolRibbon reportKey="staff" head={headFixture({ print_url: "/reports/staff/print/" })} clearUrl="" onOpen={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Хэвлэх").closest("a")?.getAttribute("href")).toBe("/reports/staff/print/");
+  });
+
+  it("select_toggle_only_when_the_api_says_selectable", () => {
+    renderSelecting(headFixture({ selectable: false, excel_url: "/x" }));
+    expect(screen.queryByText("Сонгох")).toBeNull();
+    expect(document.querySelector("[data-select-toggle]")).toBeNull();
+  });
+
+  it("select_toggle_turns_the_mode_on_and_off", () => {
+    renderSelecting(headFixture({ selectable: true, excel_url: "/api/v1/reports/staff/excel?q=a" }));
+
+    const toggle = screen.getByText("Сонгох", { selector: "button" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(toggle);
+    expect(screen.getByText("Сонгох", { selector: "button" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByText("Сонгох", { selector: "button" }));
+    expect(screen.getByText("Сонгох", { selector: "button" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("select_toggle_shows_without_any_export_link", () => {
+    renderSelecting(headFixture({ selectable: true }));
+    expect(screen.getByText("Сонгох", { selector: "button" })).toBeTruthy();
+    expect(screen.queryByText("Excel")).toBeNull();
+    expect(screen.queryByText("Хэвлэх")).toBeNull();
   });
 
   it("export_link_absent_when_url_empty", () => {

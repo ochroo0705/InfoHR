@@ -20,18 +20,15 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from employees import listing
-from employees.models import CompanySettings
 from macs.models import Employee
 
-from reports import excel, registry
-from reports.csvout import csv_bytes
-from reports.filters import describe
-from reports.selection import Picked, SelectionError, pick, subset
-from reports.table import Table, allowed_columns, column_classes
+from reports import registry
+from reports.selection import Picked, SelectionError, pick
+from reports.services import exports
+from reports.services.exports import LINE_BREAKS, NO_NAME_COLUMN, _one_line  # noqa: F401 (tests import them from here)
+from reports.services.print_page import build_print
 from reports.types import Report
-from reports.views import EXPORT_PERM, MAX_PORTRAIT_COLUMNS, XLSX
-
-NO_NAME_COLUMN = "Нэр харуулах багана алга"  # the copy needs the report's name column, and the user may see it
+from reports.views import EXPORT_PERM
 
 
 def _user(request: HttpRequest) -> User:
@@ -55,14 +52,6 @@ def _refused(error: SelectionError) -> HttpResponse:
     return HttpResponse(error.message, status=400, content_type="text/plain; charset=utf-8")
 
 
-def _lines(user: User, report: Report, table: Table) -> tuple[list[str], str]:
-    """The filter lines the file shows, and the same lines as one audit label."""
-    labels = {c.key: c.label for c in allowed_columns(report, user)}
-    lines = describe(table.filters, report.filters, labels=labels)
-    log_label = describe(table.filters, report.filters, for_log=True, labels=labels)
-    return lines, "; ".join(log_label)
-
-
 @login_required
 @require_POST
 def selected_excel(request: HttpRequest, key: str) -> HttpResponse:
@@ -73,14 +62,10 @@ def selected_excel(request: HttpRequest, key: str) -> HttpResponse:
         picked = pick(request, user, report)
     except SelectionError as error:
         return _refused(error)
-    table = subset(picked.table, report, picked.ids)
-    lines, log_label = _lines(user, report, table)
-    note = report.note(table.filters) if report.note is not None else ""
-    lines += [note] if note else []
-    today = timezone.localdate().isoformat()
-    response = HttpResponse(excel.workbook_bytes(report.title, lines, table, sheet=report.key), content_type=XLSX)
-    response["Content-Disposition"] = f'attachment; filename="{report.key}-selected-{today}.xlsx"'
-    record_export(request, "export_selected", report.title, filters=log_label, rows=table.count)
+    exported = exports.selected_file(user, report, picked, "xlsx")
+    response = HttpResponse(exported.body, content_type=exported.content_type)
+    response["Content-Disposition"] = f'attachment; filename="{exported.filename}"'
+    record_export(request, exported.log_action, report.title, filters=exported.log_label, rows=exported.rows)
     return response
 
 
@@ -94,12 +79,10 @@ def selected_csv(request: HttpRequest, key: str) -> HttpResponse:
         picked = pick(request, user, report)
     except SelectionError as error:
         return _refused(error)
-    table = subset(picked.table, report, picked.ids)
-    lines, log_label = _lines(user, report, table)
-    today = timezone.localdate().isoformat()
-    response = HttpResponse(csv_bytes(lines, table), content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="{report.key}-selected-{today}.csv"'
-    record_export(request, "export_selected", report.title, filters=log_label, rows=table.count)
+    exported = exports.selected_file(user, report, picked, "csv")
+    response = HttpResponse(exported.body, content_type=exported.content_type)
+    response["Content-Disposition"] = f'attachment; filename="{exported.filename}"'
+    record_export(request, exported.log_action, report.title, filters=exported.log_label, rows=exported.rows)
     return response
 
 
@@ -113,31 +96,22 @@ def selected_print(request: HttpRequest, key: str) -> HttpResponse:
         picked = pick(request, user, report)
     except SelectionError as error:
         return _refused(error)
-    table = subset(picked.table, report, picked.ids)
-    lines, log_label = _lines(user, report, table)
+    # the picked table is the report for the posted address, already built: build_print reuses it
+    page = build_print(user, report, picked.table.filters, only=picked.ids, table=picked.table)
     context = {
         "report": report,
-        "table": table,
-        "heads": [(c.label, cls) for c, cls in zip(table.columns, column_classes(table.columns), strict=True)],
-        "lines": lines,
-        "note": report.note(table.filters) if report.note is not None else "",
-        "landscape": len(table.columns) > MAX_PORTRAIT_COLUMNS,
-        "company": CompanySettings.get().name,
-        "today": timezone.localdate(),
-        "printed_by": user.get_full_name() or user.get_username(),
+        "table": page.table,
+        "heads": page.heads,
+        "lines": page.lines,
+        "note": page.note,
+        "landscape": page.landscape,
+        "company": page.company,
+        "today": date.fromisoformat(page.today),
+        "printed_by": page.printed_by,
     }
     response = render(request, "reports/print.html", context)
-    record_export(request, "print_selected", report.title, filters=log_label, rows=table.count)
+    record_export(request, "print_selected", report.title, filters=page.log_label, rows=page.count)
     return response
-
-
-# every character str.splitlines() breaks a line on, plus the tab: each becomes one space, so a person is one line
-LINE_BREAKS = re.compile(r"[\t\n\r\x0b\x0c\x1c\x1d\x1e\x85  ]")
-
-
-def _one_line(value: object) -> str:
-    """A cell's text on one line: blank for None, and every tab or line break becomes a space."""
-    return LINE_BREAKS.sub(" ", "" if value is None else str(value))
 
 
 @login_required
@@ -147,25 +121,14 @@ def selected_copy(request: HttpRequest, key: str) -> HttpResponse:
     see the report's email column. Audited as an export (`copy_selected`), as the file and print actions are."""
     user = _user(request)
     report = _report_for(request, key, export=False)
-    by_key = {c.key: c for c in allowed_columns(report, user)}
-    name = by_key.get("name")
-    if name is None:
-        return HttpResponse(NO_NAME_COLUMN, status=400, content_type="text/plain; charset=utf-8")
-    email = by_key.get("email")
     try:
+        exports.copy_columns(user, report)  # the name column is checked before anyone is picked
         picked = pick(request, user, report)
     except SelectionError as error:
         return _refused(error)
-    table = subset(picked.table, report, picked.ids)
-    lines: list[str] = []
-    for row in table.rows:
-        line = _one_line(name.value(row))
-        if email is not None:
-            line += "\t" + _one_line(email.value(row))
-        lines.append(line)
-    _, log_label = _lines(user, report, table)
-    record_export(request, "copy_selected", report.title, filters=log_label, rows=table.count)
-    return JsonResponse({"text": "\n".join(lines), "count": len(lines), "dropped": picked.dropped})
+    result = exports.selected_copy(user, report, picked)
+    record_export(request, "copy_selected", report.title, filters=result.log_label, rows=result.count)
+    return JsonResponse({"text": result.text, "count": result.count, "dropped": result.dropped})
 
 
 logger = logging.getLogger(__name__)

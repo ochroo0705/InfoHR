@@ -599,3 +599,166 @@ describe("ReportPage", () => {
     });
   });
 });
+
+// A person cell: the first cell of a row carries the person id the selection ticks.
+function personCell(text: string, person: number): ReportCellOut {
+  return { value: text, text, money: false, href: "", css: "", style: "", person };
+}
+
+// The head of a selectable report: the selection urls and cap the API sends, and the export links.
+function selectableHead(overrides: Partial<ReportHeadOut> = {}): Partial<ReportHeadOut> {
+  return {
+    excel_url: "/api/v1/reports/staff/excel?q=a",
+    print_url: "/reports/staff/print/?q=a",
+    selectable: true,
+    selection_max: 500,
+    selection_urls: { excel: "/x/excel", csv: "/x/csv", print: "/x/print", copy: "/x/copy", checklist: "" },
+    ...overrides,
+  };
+}
+
+// A table of two people (ids 7 and 9), with a batch still to come when `next` is given.
+function peopleTable(overrides: Partial<ReportTableOut> = {}): Partial<ReportTableOut> {
+  return {
+    selectable: true,
+    count: 2,
+    groups: [
+      {
+        label: "",
+        count: 2,
+        rows: [[personCell("Бат", 7)], [personCell("Номин", 9)]],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function toggle(): HTMLElement | null {
+  return screen.queryByText("Сонгох", { selector: "button" });
+}
+
+function rowBox(index: number): HTMLInputElement {
+  return document.querySelectorAll<HTMLInputElement>("input[data-select-row]")[index];
+}
+
+function pickedCount(): string {
+  return document.querySelector("#selection-bar [data-count]")?.textContent ?? "";
+}
+
+describe("ReportPage row selection", () => {
+  it("select_toggle_only_when_the_report_is_selectable", async () => {
+    answer(() => jsonResponse(200, tablePage()));
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+    expect(toggle()).toBeNull();
+  });
+
+  it("the_toggle_shows_the_bar_and_checkboxes", async () => {
+    answer(() => jsonResponse(200, tablePage(peopleTable(), selectableHead())));
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+
+    fireEvent.click(toggle()!);
+    expect(toggle()!.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector("#selection-bar")).not.toBeNull();
+    expect(pickedCount()).toBe("0");
+    expect(document.querySelectorAll("input[data-select-row]").length).toBe(2);
+    expect(document.body.dataset.selecting).toBe("1");
+  });
+
+  it("the_second_press_turns_the_mode_off_and_clears_the_picks", async () => {
+    answer(() => jsonResponse(200, tablePage(peopleTable(), selectableHead())));
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+
+    fireEvent.click(toggle()!);
+    fireEvent.click(rowBox(0));
+    expect(pickedCount()).toBe("1");
+
+    fireEvent.click(toggle()!);
+    expect(toggle()!.getAttribute("aria-pressed")).toBe("false");
+    expect(document.querySelector("#selection-bar")).toBeNull();
+    expect(document.querySelectorAll("tbody tr.is-picked").length).toBe(0);
+    expect(document.body.dataset.selecting).toBeUndefined();
+
+    fireEvent.click(toggle()!);
+    expect(pickedCount()).toBe("0");
+  });
+
+  it("a_filter_change_ends_the_mode_and_clears_the_picks", async () => {
+    answer(() => jsonResponse(200, tablePage(peopleTable(), selectableHead())));
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+
+    fireEvent.click(toggle()!);
+    fireEvent.click(rowBox(1));
+    expect(pickedCount()).toBe("1");
+
+    act(() => navigateTo!("/reports/staff/?q=b"));
+    await waitFor(() => expect(toggle()!.getAttribute("aria-pressed")).toBe("false"));
+    expect(document.querySelector("#selection-bar")).toBeNull();
+    expect(document.querySelector("tbody tr[data-person='9']")!.classList.contains("is-picked")).toBe(false);
+  });
+
+  it("loading_the_next_batch_keeps_the_picks", async () => {
+    answer((url) => {
+      if (url.pathname === "/api/v1/reports/staff/rows") {
+        return jsonResponse(200, { groups: [{ label: "", count: 1, rows: [[personCell("Дорж", 11)]] }], next_offset: null });
+      }
+      return jsonResponse(200, tablePage(peopleTable({ count: 3, next_offset: 2 }), selectableHead()));
+    });
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+
+    fireEvent.click(toggle()!);
+    fireEvent.click(rowBox(0));
+    fireEvent.click(screen.getByRole("button", { name: "Цааш харуулах" }));
+
+    await screen.findByText("Дорж");
+    expect(document.querySelector("tbody tr[data-person='7']")!.classList.contains("is-picked")).toBe(true);
+    expect(pickedCount()).toBe("1");
+  });
+
+  it("the_print_link_opens_in_a_new_tab_with_the_address_query", async () => {
+    answer(() => jsonResponse(200, tablePage(peopleTable(), selectableHead())));
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+
+    const print = screen.getByText("Хэвлэх").closest("a");
+    expect(print?.getAttribute("href")).toBe("/reports/staff/print/?q=a");
+    expect(print?.getAttribute("target")).toBe("_blank");
+    expect(print?.getAttribute("rel")).toBe("noopener");
+  });
+
+  it("the_excel_link_points_at_the_api_with_the_same_query", async () => {
+    answer(() => jsonResponse(200, tablePage(peopleTable(), selectableHead())));
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+
+    expect(screen.getByText("Excel").closest("a")?.getAttribute("href")).toBe("/api/v1/reports/staff/excel?q=a");
+  });
+
+  it("no_toggle_on_a_non_table_layout", async () => {
+    answer(() =>
+      jsonResponse(200, {
+        bar: barFixture(),
+        head: headFixture({ selectable: true, selection_max: 500, selection_urls: {} }),
+        layout: "cards",
+        redirect: "",
+        table: null,
+        title: "Ажилчдын жагсаалт",
+      }),
+    );
+    renderPage("/reports/staff/?layout=cards");
+    await screen.findByText("Энэ харагдацыг хуучин хуудсанд нээх");
+    expect(toggle()).toBeNull();
+    expect(document.querySelector("input[data-select-row]")).toBeNull();
+  });
+
+  it("the_report_page_id_is_on_the_page_once", async () => {
+    answer(() => jsonResponse(200, tablePage(peopleTable(), selectableHead())));
+    renderPage("/reports/staff/?q=a");
+    await screen.findByText("Бат");
+    expect(document.querySelectorAll("#report-page").length).toBe(1);
+  });
+});

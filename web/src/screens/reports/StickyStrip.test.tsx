@@ -115,6 +115,7 @@ function headFixture(tools: ReportHeadOut["tools"]): ReportHeadOut {
     saved: null,
     selectable: false,
     selection_urls: {},
+    selection_max: 500,
     staff_actions: false,
     title: "Тест тайлан",
     tools,

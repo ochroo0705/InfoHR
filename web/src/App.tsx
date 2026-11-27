@@ -33,6 +33,7 @@ import { CandidatePage } from "./screens/recruitment/CandidatePage";
 import { PurgePage } from "./screens/recruitment/PurgePage";
 import { CataloguePage } from "./screens/reports/CataloguePage";
 import { ReportPage } from "./screens/reports/ReportPage";
+import { ReportPrintPage } from "./screens/reports/ReportPrintPage";
 import { Landing } from "./routes/Landing";
 import { WelcomeRoute } from "./routes/WelcomeRoute";
 import { ConfirmProvider } from "./widgets/confirm";
@@ -58,6 +59,15 @@ export default function App() {
           element={
             <RequireAuth>
               <OrdersPrintPage />
+            </RequireAuth>
+          }
+        />
+        {/* The report's print page: standalone like the orders print, no AppShell, but signed in. */}
+        <Route
+          path="/reports/:key/print/"
+          element={
+            <RequireAuth>
+              <ReportPrintPage />
             </RequireAuth>
           }
         />

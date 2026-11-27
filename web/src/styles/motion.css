@@ -74,6 +74,10 @@
   tr.is-picked > td { background-color: var(--color-pick-tint); }
   /* input.css: the 3px edge of a picked row sits on its first cell (an inset shadow, so the row does not move). */
   .is-picked > td:first-child { box-shadow: inset 3px 0 0 var(--color-pick-edge); transition: box-shadow var(--dur-hover) var(--ease-out); }
+  /* input.css 308-312: the report selection bar (navy, never red) and the row and header boxes (lime fill, edge outline when checked). */
+  .selection-bar { border-color: var(--color-pick-edge); background-color: var(--color-pick-tint); color: var(--color-pick-edge); }
+  input[data-select-row], input[data-select-all] { accent-color: var(--color-pick-bright); }
+  input[data-select-row]:checked { outline: 2px solid var(--color-pick-edge); outline-offset: 1px; }
   /* Selected and keyboard/hover-highlighted: a 2px edge ring, so the highlight still shows on the picked option. */
   .sel-selected.sel-active { box-shadow: inset 0 0 0 2px var(--color-pick-edge); }
   .sel-selected::before { content: "✓"; position: absolute; left: .625rem; }
