@@ -214,4 +214,30 @@ DIRECTORIES: dict[str, Directory] = {
         {"username": "USER_NAME", "rights": "RGHT", "email": "EMAIL", "branch_id": "BRANCH_IDENT"},
         ("USER_NAME",),
     ),
+    # What each user posts to (Тохиргоо > Хэрэглэгчийн дансны тохиргоо). `*_cust` are CUSTOMER ids; AGR_* are the
+    # payment tab: debit cash, debit bank, credit account, credit customer. No password columns.
+    "user-accounts": _d(
+        "SECURITY",
+        "USER_NAME",
+        {
+            "username": "USER_NAME",
+            "agg_income": "AGGREG_INCACC",
+            "agg_other_income": "AGGREG_OTHERINCACC",
+            "agg_receivable": "AGGREG_ACCRP",
+            "agg_settlement": "AGGREG_ACC",
+            "agg_discount": "AGGREG_DISCACC",
+            "agg_customer_id": "AGGREG_CUST",
+            "body_income": "KUZOV_INCACC",
+            "body_other_income": "KUZOV_OTHERINCACC",
+            "body_receivable": "KUZOV_ACCRP",
+            "body_settlement": "KUZOV_ACC",
+            "body_discount": "KUZOV_DISCACC",
+            "body_customer_id": "KUZOV_CUST",
+            "pay_customer_id": "AGR_CRCUST",
+            "pay_cash": "AGR_DBACC1",
+            "pay_bank": "AGR_DBACC2",
+            "pay_credit": "AGR_CRACC",
+        },
+        ("USER_NAME",),
+    ),
 }
